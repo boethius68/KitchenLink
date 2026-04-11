@@ -7,10 +7,6 @@ import UIKit
 @preconcurrency import Vision
 import VisionKit
 
-private enum DemoQR {
-    static let sampleMenuCode = "kitchenlink://menu/sample"
-}
-
 private enum KitchenTheme {
     static let brand = Color(red: 0.10, green: 0.46, blue: 0.43)
     static let brandDark = Color(red: 0.05, green: 0.28, blue: 0.27)
@@ -161,7 +157,9 @@ private struct KitchenSecondaryButtonStyle: ButtonStyle {
 }
 
 struct ContentView: View {
+    @EnvironmentObject private var store: KitchenLinkStore
     @State private var showOperatorArea = false
+    @State private var showDirectMenu = false
 
     var body: some View {
         NavigationStack {
@@ -199,14 +197,21 @@ struct ContentView: View {
                         }
                     }
 
-                    TestQRCodeCard(code: DemoQR.sampleMenuCode)
+                    TestQRCodeCard(
+                        title: "Test-QR-Code",
+                        subtitle: "Der gemeinsame Demo-Einstieg ohne festen Tisch",
+                        code: store.sharedDemoQRCode
+                    )
 
                     NavigationLink(destination: QRScannerView()) {
                         Label("QR-Code scannen", systemImage: "qrcode.viewfinder")
                     }
                     .buttonStyle(KitchenPrimaryButtonStyle())
 
-                    NavigationLink(destination: SampleMenuView(scanSource: "Direkter Test ohne Scan")) {
+                    Button {
+                        store.setSharedVenueContext()
+                        showDirectMenu = true
+                    } label: {
                         Label("Beispiel-Menü starten", systemImage: "list.bullet.rectangle.portrait")
                     }
                     .buttonStyle(KitchenSecondaryButtonStyle())
@@ -222,6 +227,9 @@ struct ContentView: View {
             }
             .navigationTitle("Start")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showDirectMenu) {
+                SampleMenuView(scanSource: "Direkter Test ohne Scan")
+            }
         }
         .kitchenSurface()
         .sheet(isPresented: $showOperatorArea) {
@@ -231,6 +239,8 @@ struct ContentView: View {
 }
 
 private struct TestQRCodeCard: View {
+    let title: String
+    let subtitle: String?
     let code: String
     private let context = CIContext()
     private let filter = CIFilter.qrCodeGenerator()
@@ -239,10 +249,17 @@ private struct TestQRCodeCard: View {
         KitchenCard {
             VStack(spacing: 10) {
                 HStack {
-                    Label("Test-QR-Code", systemImage: "qrcode")
+                    Label(title, systemImage: "qrcode")
                         .font(.headline)
                         .foregroundStyle(.primary)
                     Spacer()
+                }
+
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
 
                 if let image = generateQRCode(from: code) {
@@ -268,6 +285,7 @@ private struct TestQRCodeCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .textSelection(.enabled)
             }
         }
     }
@@ -297,10 +315,24 @@ private enum CameraPermissionState {
 }
 
 struct QRScannerView: View {
+    @EnvironmentObject private var store: KitchenLinkStore
+    @EnvironmentObject private var relay: OrderRelayService
+
     @State private var permissionState: CameraPermissionState = .checking
     @State private var scannedCode = ""
     @State private var showMenu = false
+    @State private var isResolvingRemotely = false
     @State private var alertMessage: String?
+
+    private var expectedScannerCodes: [String] {
+        let activeTableCodes = store.venueProfile.tables
+            .filter(\.isActive)
+            .sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
+            .prefix(2)
+            .map { store.tableDemoQRCode(for: $0) }
+
+        return [store.sharedDemoQRCode] + activeTableCodes
+    }
 
     var body: some View {
         ScrollView {
@@ -318,22 +350,34 @@ struct QRScannerView: View {
                         scannerContent
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Erwarteter Testcode")
+                            Text("Erwartete lokale Testcodes")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.primary.opacity(0.85))
-                            Text(DemoQR.sampleMenuCode)
-                                .font(.caption)
-                                .multilineTextAlignment(.leading)
-                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(expectedScannerCodes, id: \.self) { code in
+                                    Text(code)
+                                }
+                            }
+                            .font(.caption)
+                            .multilineTextAlignment(.leading)
+                            .foregroundStyle(.secondary)
                         }
 
                         Button {
-                            scannedCode = "Direkter Test im Scanner"
+                            let directCode = store.sharedDemoQRCode
+                            _ = store.resolveDemoQRCode(directCode)
+                            scannedCode = directCode
                             showMenu = true
                         } label: {
                             Label("Beispiel-Menü ohne Scan", systemImage: "sparkles")
                         }
                         .buttonStyle(KitchenSecondaryButtonStyle())
+
+                        if isResolvingRemotely {
+                            ProgressView("QR-Kontext wird aus Supabase geladen...")
+                                .font(.caption)
+                                .tint(KitchenTheme.brand)
+                        }
                     }
                 }
             }
@@ -449,15 +493,49 @@ struct QRScannerView: View {
 
     private func handleScannedCode(_ rawCode: String) {
         let code = rawCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !code.isEmpty, !showMenu else {
+        guard !code.isEmpty, !showMenu, !isResolvingRemotely else {
             return
         }
 
-        if code == DemoQR.sampleMenuCode {
+        if store.resolveDemoQRCode(code) != nil {
             scannedCode = code
             showMenu = true
         } else {
-            alertMessage = "Dieser QR-Code gehört nicht zur Test-Menükarte."
+            isResolvingRemotely = true
+
+            Task {
+                do {
+                    let resolvedContext = try await relay.resolveRemoteQRCode(
+                        code,
+                        fallbackServiceModes: store.venueProfile.supportedServiceModes
+                    )
+
+                    await MainActor.run {
+                        isResolvingRemotely = false
+
+                        guard let resolvedContext else {
+                            alertMessage = "Dieser QR-Code ist weder lokal noch in Supabase gueltig."
+                            return
+                        }
+
+                        let localSlug = store.venueProfile.slug
+                        let remoteSlug = resolvedContext.venue.slug
+                        guard localSlug.caseInsensitiveCompare(remoteSlug) == .orderedSame else {
+                            alertMessage = "QR-Code wurde fuer Venue \(resolvedContext.venue.name) erkannt, aber dieses Geraet hat nur das lokale Menü fuer \(store.venueProfile.name) geladen. Lade die Venue zuerst im Betreiberbereich lokal."
+                            return
+                        }
+
+                        store.setActiveVenueContext(resolvedContext)
+                        scannedCode = code
+                        showMenu = true
+                    }
+                } catch {
+                    await MainActor.run {
+                        isResolvingRemotely = false
+                        alertMessage = "Supabase-QR-Aufloesung fehlgeschlagen: \(error.localizedDescription)"
+                    }
+                }
+            }
         }
     }
 }
@@ -1066,7 +1144,7 @@ private enum AllergenCodeParser {
     }
 }
 
-private enum DemoMenuFactory {
+enum DemoMenuFactory {
     static func buildDefaultSections() -> [MenuSectionData] {
         [
             MenuSectionData(
@@ -1520,16 +1598,25 @@ struct SampleMenuView: View {
         relay.isConnected ? .green : .orange
     }
 
+    private var venueContext: ResolvedVenueContext? {
+        store.activeVenueContext
+    }
+
     var body: some View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Beispiel-Menükarte")
+                    Text(venueContext?.venue.name ?? "Beispiel-Menükarte")
                         .font(.headline)
                         .foregroundStyle(.primary)
                     Text("Geöffnet durch: \(scanSource)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let venueContext {
+                        Label(venueContext.displayContextLine, systemImage: "qrcode")
+                            .font(.caption)
+                            .foregroundStyle(KitchenTheme.accent)
+                    }
                     HStack(spacing: 8) {
                         Circle()
                             .fill(customerConnectionColor)
@@ -1672,6 +1759,7 @@ struct SampleMenuView: View {
             }
         }
         .onAppear {
+            store.ensureDemoVenueContext()
             relay.startBrowsingAsCustomer()
         }
         .kitchenSurface()
@@ -1723,9 +1811,9 @@ private struct SampleCartView: View {
     let itemsByID: [String: MenuItemData]
     @Binding var cartQuantities: [String: Int]
 
+    @EnvironmentObject private var store: KitchenLinkStore
     @EnvironmentObject private var relay: OrderRelayService
-    @State private var showOrderSuccess = false
-    @State private var orderFeedbackMessage = ""
+    @State private var showCheckout = false
 
     private var entries: [SampleCartEntry] {
         cartQuantities
@@ -1760,6 +1848,23 @@ private struct SampleCartView: View {
                         .fill(KitchenTheme.card)
                         .padding(.vertical, 2)
                 )
+            }
+
+            if let venueContext = store.activeVenueContext {
+                Section("Bestellkontext") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(venueContext.venue.name)
+                            .font(.headline)
+                        Label(venueContext.displayContextLine, systemImage: "qrcode")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .listRowBackground(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(KitchenTheme.card)
+                            .padding(.vertical, 2)
+                    )
+                }
             }
 
             if entries.isEmpty {
@@ -1863,11 +1968,12 @@ private struct SampleCartView: View {
                         .fontWeight(.semibold)
                 }
                 Button {
-                    placeOrder()
+                    store.ensureDemoVenueContext()
+                    showCheckout = true
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "paperplane.fill")
-                        Text("Bestellen")
+                        Image(systemName: "checklist.checked")
+                        Text("Weiter zum Checkout")
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -1878,10 +1984,16 @@ private struct SampleCartView: View {
             .padding()
             .background(.ultraThinMaterial)
         }
-        .alert("Bestellung gesendet", isPresented: $showOrderSuccess) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(orderFeedbackMessage)
+        .navigationDestination(isPresented: $showCheckout) {
+            if let venueContext = store.activeVenueContext {
+                CheckoutConfirmationView(
+                    entries: entries,
+                    totalItems: totalItems,
+                    totalPriceCents: totalPriceCents,
+                    cartQuantities: $cartQuantities,
+                    venueContext: venueContext
+                )
+            }
         }
         .kitchenSurface()
     }
@@ -1900,37 +2012,415 @@ private struct SampleCartView: View {
             cartQuantities[itemID] = current - 1
         }
     }
+}
+
+private extension OrderLifecycleStatus {
+    var tintColor: Color {
+        switch self {
+        case .pending:
+            return .orange
+        case .accepted:
+            return .green
+        case .preparing:
+            return .blue
+        case .ready:
+            return .mint
+        case .served:
+            return .teal
+        case .canceled:
+            return .red
+        }
+    }
+}
+
+private struct CheckoutConfirmationView: View {
+    let entries: [SampleCartEntry]
+    let totalItems: Int
+    let totalPriceCents: Int
+    @Binding var cartQuantities: [String: Int]
+    let venueContext: ResolvedVenueContext
+
+    @EnvironmentObject private var store: KitchenLinkStore
+    @EnvironmentObject private var relay: OrderRelayService
+
+    @State private var checkoutState: CheckoutState
+    @State private var validationMessage: String?
+    @State private var isSubmitting = false
+    @State private var showTracking = false
+
+    init(
+        entries: [SampleCartEntry],
+        totalItems: Int,
+        totalPriceCents: Int,
+        cartQuantities: Binding<[String: Int]>,
+        venueContext: ResolvedVenueContext
+    ) {
+        self.entries = entries
+        self.totalItems = totalItems
+        self.totalPriceCents = totalPriceCents
+        self._cartQuantities = cartQuantities
+        self.venueContext = venueContext
+        _checkoutState = State(initialValue: CheckoutState(context: venueContext))
+    }
+
+    private var matchedTable: VenueTable? {
+        let normalizedCode = checkoutState.manualTableCode
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+        guard !normalizedCode.isEmpty else { return nil }
+
+        return venueContext.venue.tables.first(where: {
+            $0.isActive && $0.label.caseInsensitiveCompare(normalizedCode) == .orderedSame
+        })
+    }
+
+    var body: some View {
+        List {
+            Section("Venue") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(venueContext.venue.name)
+                        .font(.headline)
+                    Label(venueContext.displayContextLine, systemImage: "qrcode")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Service & Tisch") {
+                Picker("Service-Modus", selection: $checkoutState.serviceMode) {
+                    ForEach(venueContext.venue.supportedServiceModes) { mode in
+                        Label(mode.title, systemImage: mode.icon).tag(mode)
+                    }
+                }
+                .pickerStyle(.navigationLink)
+
+                if checkoutState.serviceMode == .dineIn {
+                    if let resolvedTable = venueContext.resolvedTable {
+                        Label("Tisch \(resolvedTable.label) wurde durch den QR-Code erkannt.", systemImage: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                    } else {
+                        TextField("Tischcode (z.B. A1)", text: $checkoutState.manualTableCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+
+                        if let matchedTable {
+                            Label("Tisch \(matchedTable.label) ist aktiv.", systemImage: "checkmark.seal.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.green)
+                        } else if !checkoutState.manualTableCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Label("Tischcode noch nicht gueltig.", systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                } else {
+                    Label(checkoutState.serviceMode.subtitle, systemImage: checkoutState.serviceMode.icon)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Notiz") {
+                TextField("Optionaler Hinweis fuer die Kueche oder den Service", text: $checkoutState.customerNote, axis: .vertical)
+                    .lineLimit(2...4)
+            }
+
+            Section("Bestellung") {
+                ForEach(entries) { entry in
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(entry.quantity)x \(entry.item.displayName)")
+                                .font(.headline)
+                            Text(PriceFormatter.string(cents: entry.item.priceCents))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(PriceFormatter.string(cents: entry.lineTotalCents))
+                            .fontWeight(.semibold)
+                    }
+                }
+
+                HStack {
+                    Text("Artikel")
+                    Spacer()
+                    Text("\(totalItems)")
+                }
+
+                HStack {
+                    Text("Gesamt")
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text(PriceFormatter.string(cents: totalPriceCents))
+                        .fontWeight(.semibold)
+                }
+            }
+
+            if let validationMessage {
+                Section {
+                    Label(validationMessage, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .font(.footnote)
+                }
+            }
+        }
+        .navigationTitle("Checkout")
+        .navigationBarTitleDisplayMode(.inline)
+        .scrollContentBackground(.hidden)
+        .listStyle(.insetGrouped)
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 10) {
+                HStack {
+                    Text("Gesamt")
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text(PriceFormatter.string(cents: totalPriceCents))
+                        .fontWeight(.semibold)
+                }
+
+                Button {
+                    placeOrder()
+                } label: {
+                    HStack(spacing: 8) {
+                        if isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "paperplane.fill")
+                        }
+                        Text(isSubmitting ? "Bestellung wird gesendet..." : "Verbindlich bestellen")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(KitchenPrimaryButtonStyle())
+                .disabled(entries.isEmpty || isSubmitting)
+                .opacity(entries.isEmpty || isSubmitting ? 0.55 : 1)
+            }
+            .padding()
+            .background(.ultraThinMaterial)
+        }
+        .navigationDestination(isPresented: $showTracking) {
+            OrderTrackingView()
+        }
+        .onChange(of: checkoutState.serviceMode) { _, newValue in
+            if newValue != .dineIn {
+                checkoutState.selectedTable = nil
+                checkoutState.manualTableCode = ""
+            } else if let resolvedTable = venueContext.resolvedTable {
+                checkoutState.selectedTable = resolvedTable
+                checkoutState.manualTableCode = resolvedTable.label
+            }
+        }
+        .kitchenSurface()
+    }
 
     private func placeOrder() {
         guard !entries.isEmpty else { return }
 
-        let order = LiveOrderMessage(
-            id: UUID().uuidString,
-            createdAt: Date(),
-            sourceDevice: UIDevice.current.name,
-            items: entries.map {
-                LiveOrderLine(
-                    id: UUID().uuidString,
-                    name: $0.item.displayName,
-                    quantity: $0.quantity,
-                    unitPriceCents: $0.item.priceCents,
-                    kind: $0.item.kind
-                )
-            },
-            totalCents: totalPriceCents
-        )
+        switch checkoutState.validated(in: venueContext) {
+        case .failure(let error):
+            validationMessage = error.localizedDescription
+            return
 
-        Task {
-            let sentToOperator = await relay.send(order: order)
-            orderFeedbackMessage = sentToOperator
-                ? "Die Bestellung wurde via Internet an den Betreiber übertragen."
-                : "Bestellung konnte nicht an Supabase gesendet werden."
+        case .success(let confirmedContext):
+            validationMessage = nil
+            isSubmitting = true
 
-            if sentToOperator {
-                cartQuantities.removeAll()
+            let draftOrder = LiveOrderMessage(
+                id: UUID().uuidString,
+                createdAt: Date(),
+                sourceDevice: UIDevice.current.name,
+                venueID: venueContext.venue.id,
+                venueName: venueContext.venue.name,
+                serviceMode: confirmedContext.serviceMode,
+                tableID: confirmedContext.table?.id,
+                tableLabel: confirmedContext.table?.label,
+                customerNote: confirmedContext.customerNote,
+                items: entries.map {
+                    LiveOrderLine(
+                        id: UUID().uuidString,
+                        name: $0.item.displayName,
+                        quantity: $0.quantity,
+                        unitPriceCents: $0.item.priceCents,
+                        kind: $0.item.kind
+                    )
+                },
+                totalCents: totalPriceCents,
+                status: .pending
+            )
+
+            Task {
+                let placedOrder = await relay.send(order: draftOrder)
+
+                await MainActor.run {
+                    isSubmitting = false
+
+                    guard let placedOrder else {
+                        validationMessage = "Bestellung konnte nicht im lokalen Demo-Backend gespeichert werden."
+                        return
+                    }
+
+                    store.recordTrackedOrder(
+                        id: placedOrder.id,
+                        serviceMode: confirmedContext.serviceMode,
+                        tableLabel: confirmedContext.table?.label,
+                        totalCents: totalPriceCents,
+                        itemCount: totalItems,
+                        customerNote: confirmedContext.customerNote,
+                        createdAt: placedOrder.createdAt,
+                        status: placedOrder.status
+                    )
+                    relay.startTrackingCustomerOrder(orderID: placedOrder.id)
+                    cartQuantities.removeAll()
+                    showTracking = true
+                }
             }
-            showOrderSuccess = true
         }
+    }
+}
+
+private struct OrderTrackingView: View {
+    @EnvironmentObject private var store: KitchenLinkStore
+    @EnvironmentObject private var relay: OrderRelayService
+
+    private var trackedOrder: CustomerTrackedOrder? {
+        store.trackedCustomerOrder
+    }
+
+    private var currentStatus: OrderLifecycleStatus {
+        relay.trackedCustomerOrder?.status ?? trackedOrder?.status ?? .pending
+    }
+
+    var body: some View {
+        List {
+            if let trackedOrder {
+                Section("Status") {
+                    HStack(spacing: 12) {
+                        Image(systemName: currentStatus.systemImage)
+                            .font(.title2)
+                            .foregroundStyle(currentStatus.tintColor)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(currentStatus.title)
+                                .font(.headline)
+                            Text("Bestellung \(trackedOrder.id.prefix(6))")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Section("Bestelldetails") {
+                    HStack {
+                        Text("Venue")
+                        Spacer()
+                        Text(trackedOrder.venueName)
+                            .multilineTextAlignment(.trailing)
+                    }
+
+                    HStack {
+                        Text("Service")
+                        Spacer()
+                        Text(trackedOrder.serviceMode.title)
+                    }
+
+                    if let tableLabel = trackedOrder.tableLabel {
+                        HStack {
+                            Text("Tisch")
+                            Spacer()
+                            Text(tableLabel)
+                        }
+                    }
+
+                    HStack {
+                        Text("Artikel")
+                        Spacer()
+                        Text("\(trackedOrder.itemCount)")
+                    }
+
+                    HStack {
+                        Text("Gesamt")
+                        Spacer()
+                        Text(PriceFormatter.string(cents: trackedOrder.totalCents))
+                    }
+
+                    HStack {
+                        Text("Bestellt um")
+                        Spacer()
+                        Text(trackedOrder.createdAt.formatted(date: .omitted, time: .shortened))
+                    }
+
+                    if !trackedOrder.customerNote.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Notiz")
+                                .font(.subheadline.weight(.semibold))
+                            Text(trackedOrder.customerNote)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Section("Timeline") {
+                    ForEach(OrderLifecycleStatus.customerTimeline) { status in
+                        HStack(spacing: 12) {
+                            Image(systemName: symbol(for: status))
+                                .foregroundStyle(color(for: status))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(status.title)
+                                    .fontWeight(status == currentStatus ? .semibold : .regular)
+                                if status == currentStatus {
+                                    Text("Aktueller Stand")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+
+                    if currentStatus == .canceled {
+                        Label("Die Bestellung wurde gestoppt. Bitte beim Service nachfragen.", systemImage: "xmark.octagon.fill")
+                            .foregroundStyle(.red)
+                            .font(.footnote)
+                    }
+                }
+            } else {
+                Section {
+                    Text("Noch keine Bestellung zum Verfolgen vorhanden.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle("Bestellstatus")
+        .navigationBarTitleDisplayMode(.inline)
+        .scrollContentBackground(.hidden)
+        .listStyle(.insetGrouped)
+        .onAppear {
+            if let orderID = trackedOrder?.id {
+                relay.startTrackingCustomerOrder(orderID: orderID)
+            }
+        }
+        .onChange(of: relay.trackedCustomerOrder?.status) { _, newStatus in
+            if let newStatus {
+                store.updateTrackedOrderStatus(newStatus)
+            }
+        }
+        .kitchenSurface()
+    }
+
+    private func symbol(for status: OrderLifecycleStatus) -> String {
+        if currentStatus == .canceled {
+            return status == .pending ? "checkmark.circle.fill" : "circle"
+        }
+        return status.sortIndex <= currentStatus.sortIndex ? "checkmark.circle.fill" : "circle"
+    }
+
+    private func color(for status: OrderLifecycleStatus) -> Color {
+        if currentStatus == .canceled {
+            return status == .pending ? .green : .secondary
+        }
+        return status.sortIndex <= currentStatus.sortIndex ? status.tintColor : .secondary
     }
 }
 
@@ -2014,6 +2504,9 @@ private struct OperatorLoginView: View {
 }
 
 private enum OperatorTab: String, CaseIterable, Identifiable {
+    case setup
+    case tables
+    case qr
     case orders
     case menu
 
@@ -2021,11 +2514,57 @@ private enum OperatorTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .setup:
+            return "Venue"
+        case .tables:
+            return "Tische"
+        case .qr:
+            return "QR"
         case .orders:
             return "Bestellungen"
         case .menu:
             return "Menü"
         }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .setup:
+            return "building.2.crop.circle"
+        case .tables:
+            return "table.furniture"
+        case .qr:
+            return "qrcode"
+        case .orders:
+            return "list.bullet.clipboard"
+        case .menu:
+            return "menucard"
+        }
+    }
+}
+
+private struct OperatorTabButton: View {
+    let tab: OperatorTab
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(tab.title, systemImage: tab.systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isSelected ? .white : .primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? KitchenTheme.brand : KitchenTheme.surfaceRaised)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(isSelected ? KitchenTheme.brandDark.opacity(0.25) : KitchenTheme.stroke, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -2037,17 +2576,26 @@ private struct OperatorDashboardView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Picker("Bereich", selection: $selectedTab) {
-                ForEach(OperatorTab.allCases) { tab in
-                    Text(tab.title).tag(tab)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(OperatorTab.allCases) { tab in
+                        OperatorTabButton(tab: tab, isSelected: selectedTab == tab) {
+                            selectedTab = tab
+                        }
+                    }
                 }
             }
-            .pickerStyle(.segmented)
             .padding(.horizontal)
             .padding(.top, 10)
 
             Group {
                 switch selectedTab {
+                case .setup:
+                    OperatorVenueSetupView()
+                case .tables:
+                    OperatorTableManagerView()
+                case .qr:
+                    OperatorQRGeneratorView()
                 case .orders:
                     OperatorOrdersView()
                 case .menu:
@@ -2067,6 +2615,581 @@ private struct OperatorDashboardView: View {
         }
         .onAppear {
             relay.startHostingAsOwner()
+        }
+    }
+}
+
+private struct OperatorVenueSetupView: View {
+    @EnvironmentObject private var store: KitchenLinkStore
+    @EnvironmentObject private var relay: OrderRelayService
+
+    @State private var venueName = ""
+    @State private var venueSlug = ""
+    @State private var enabledModes: Set<ServiceMode> = []
+    @State private var feedbackMessage: String?
+    @State private var feedbackIsError = false
+    @State private var isSyncingToBackend = false
+    @State private var isLoadingFromBackend = false
+
+    private var activeTableCount: Int {
+        store.venueProfile.tables.filter(\.isActive).count
+    }
+
+    private var hasSupabaseProbeResults: Bool {
+        !relay.supabaseCapabilities.isEmpty
+    }
+
+    private var venueSyncBlockedBySchema: Bool {
+        hasSupabaseProbeResults && !missingCapabilities(for: [.venues, .tables]).isEmpty
+    }
+
+    var body: some View {
+        Form {
+            Section("Venue-Profil") {
+                TextField("Venue-Name", text: $venueName)
+                TextField("QR-Slug", text: $venueSlug)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .textContentType(.URL)
+
+                Text("Der Slug bestimmt die Demo-QR-Codes. Beispiel: `demo`, `bar-berlin`, `roof-top`.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Service-Modi") {
+                ForEach(ServiceMode.allCases) { mode in
+                    Toggle(isOn: binding(for: mode)) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label(mode.title, systemImage: mode.icon)
+                            Text(mode.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+
+            Section("Supabase-Sync (Beta)") {
+                Text("Venue und Tische koennen bereits mit Supabase abgeglichen werden. Der Demo-Flow bleibt dabei erhalten, auch wenn der Sync fehlschlaegt.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("Service-Modi bleiben vorerst lokal, bis das Backend dafuer ein eigenes Feld hat.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button {
+                    Task {
+                        await relay.probeSupabaseCapabilities()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if relay.isInspectingSupabase {
+                            ProgressView()
+                                .tint(KitchenTheme.brand)
+                        } else {
+                            Image(systemName: "server.rack")
+                        }
+                        Text(relay.isInspectingSupabase ? "Pruefe Supabase-Schema..." : "Supabase-Schema pruefen")
+                    }
+                }
+                .buttonStyle(KitchenSecondaryButtonStyle())
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                .disabled(relay.isInspectingSupabase || isSyncingToBackend || isLoadingFromBackend)
+                .opacity(relay.isInspectingSupabase || isSyncingToBackend || isLoadingFromBackend ? 0.6 : 1)
+
+                if !relay.supabaseCapabilities.isEmpty {
+                    ForEach(relay.supabaseCapabilities) { status in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: status.isAvailable ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                .foregroundStyle(status.isAvailable ? .green : .orange)
+                                .padding(.top, 2)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(status.capability.title)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(status.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if status.capability.isCoreProductSchema {
+                                Text("V1")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(KitchenTheme.accent)
+                            }
+                        }
+                    }
+                }
+
+                if venueSyncBlockedBySchema {
+                    Text("Venue-Sync braucht mindestens: \(joinedCapabilityTitles(missingCapabilities(for: [.venues, .tables]))).")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+
+                Button {
+                    pushVenueToSupabase()
+                } label: {
+                    HStack(spacing: 8) {
+                        if isSyncingToBackend {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "arrow.up.circle.fill")
+                        }
+                        Text(isSyncingToBackend ? "Synchronisiere..." : "Venue zu Supabase pushen")
+                    }
+                }
+                .buttonStyle(KitchenPrimaryButtonStyle())
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 6, trailing: 0))
+                .disabled(isSyncingToBackend || isLoadingFromBackend || venueSyncBlockedBySchema)
+                .opacity(isSyncingToBackend || isLoadingFromBackend || venueSyncBlockedBySchema ? 0.6 : 1)
+
+                Button {
+                    pullVenueFromSupabase()
+                } label: {
+                    HStack(spacing: 8) {
+                        if isLoadingFromBackend {
+                            ProgressView()
+                                .tint(KitchenTheme.brand)
+                        } else {
+                            Image(systemName: "arrow.down.circle")
+                        }
+                        Text(isLoadingFromBackend ? "Lade Venue..." : "Venue aus Supabase laden")
+                    }
+                }
+                .buttonStyle(KitchenSecondaryButtonStyle())
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 8, trailing: 0))
+                .disabled(isSyncingToBackend || isLoadingFromBackend || venueSyncBlockedBySchema)
+                .opacity(isSyncingToBackend || isLoadingFromBackend || venueSyncBlockedBySchema ? 0.6 : 1)
+            }
+
+            if let feedbackMessage {
+                Section {
+                    Label(feedbackMessage, systemImage: feedbackIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .foregroundStyle(feedbackIsError ? .red : .green)
+                        .font(.footnote)
+                }
+            }
+
+            Section("Aktueller Demo-Stand") {
+                LabeledContent("Venue") {
+                    Text(store.venueProfile.name)
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("Slug") {
+                    Text(store.venueProfile.slug)
+                }
+                LabeledContent("Service-Modi") {
+                    Text(store.venueProfile.supportedServiceModes.map(\.title).joined(separator: ", "))
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("Aktive Tische") {
+                    Text("\(activeTableCount)")
+                }
+            }
+
+            Section {
+                Button("Venue speichern") {
+                    saveVenue()
+                }
+                .buttonStyle(KitchenPrimaryButtonStyle())
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+
+                Button("Demo-Venue zurücksetzen", role: .destructive) {
+                    store.resetVenueToDemo()
+                    syncDraft()
+                    feedbackMessage = "Demo-Venue wurde auf den Standardzustand zurückgesetzt."
+                    feedbackIsError = false
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .listStyle(.insetGrouped)
+        .onAppear {
+            syncDraft()
+            if relay.supabaseCapabilities.isEmpty {
+                Task {
+                    await relay.probeSupabaseCapabilities()
+                }
+            }
+        }
+    }
+
+    private func binding(for mode: ServiceMode) -> Binding<Bool> {
+        Binding(
+            get: { enabledModes.contains(mode) },
+            set: { isEnabled in
+                if isEnabled {
+                    enabledModes.insert(mode)
+                } else {
+                    enabledModes.remove(mode)
+                }
+            }
+        )
+    }
+
+    private func saveVenue() {
+        switch store.updateVenue(
+            name: venueName,
+            slug: venueSlug,
+            supportedServiceModes: ServiceMode.allCases.filter { enabledModes.contains($0) }
+        ) {
+        case .success:
+            syncDraft()
+            feedbackMessage = "Venue-Profil gespeichert. Neue QR-Codes stehen im QR-Bereich bereit."
+            feedbackIsError = false
+        case .failure(let error):
+            feedbackMessage = error.localizedDescription
+            feedbackIsError = true
+        }
+    }
+
+    private func syncDraft() {
+        venueName = store.venueProfile.name
+        venueSlug = store.venueProfile.slug
+        enabledModes = Set(store.venueProfile.supportedServiceModes)
+    }
+
+    private func pushVenueToSupabase() {
+        let missingSchema = missingCapabilities(for: [.venues, .tables])
+        guard missingSchema.isEmpty else {
+            feedbackMessage = "Supabase-Schema unvollstaendig: \(joinedCapabilityTitles(missingSchema))."
+            feedbackIsError = true
+            return
+        }
+
+        switch store.updateVenue(
+            name: venueName,
+            slug: venueSlug,
+            supportedServiceModes: ServiceMode.allCases.filter { enabledModes.contains($0) }
+        ) {
+        case .failure(let error):
+            feedbackMessage = error.localizedDescription
+            feedbackIsError = true
+            return
+
+        case .success:
+            syncDraft()
+        }
+
+        let syncableVenue = store.prepareVenueProfileForRemoteSync()
+        isSyncingToBackend = true
+
+        Task {
+            do {
+                let syncedVenue = try await relay.syncVenueProfile(syncableVenue)
+                await MainActor.run {
+                    store.replaceVenueProfile(syncedVenue)
+                    syncDraft()
+                    feedbackMessage = "Venue und \(syncedVenue.tables.count) Tische wurden mit Supabase synchronisiert."
+                    feedbackIsError = false
+                    isSyncingToBackend = false
+                }
+            } catch {
+                await MainActor.run {
+                    feedbackMessage = "Supabase-Sync fehlgeschlagen: \(error.localizedDescription)"
+                    feedbackIsError = true
+                    isSyncingToBackend = false
+                }
+            }
+        }
+    }
+
+    private func pullVenueFromSupabase() {
+        let missingSchema = missingCapabilities(for: [.venues, .tables])
+        guard missingSchema.isEmpty else {
+            feedbackMessage = "Supabase-Schema unvollstaendig: \(joinedCapabilityTitles(missingSchema))."
+            feedbackIsError = true
+            return
+        }
+
+        let requestedSlug = normalizedSlug(venueSlug.isEmpty ? store.venueProfile.slug : venueSlug)
+        guard !requestedSlug.isEmpty else {
+            feedbackMessage = "Bitte gib einen gueltigen QR-Slug an."
+            feedbackIsError = true
+            return
+        }
+
+        isLoadingFromBackend = true
+
+        Task {
+            do {
+                let loadedVenue = try await relay.loadVenueProfile(
+                    slug: requestedSlug,
+                    fallbackServiceModes: store.venueProfile.supportedServiceModes
+                )
+                await MainActor.run {
+                    store.replaceVenueProfile(loadedVenue)
+                    syncDraft()
+                    feedbackMessage = "Venue \(loadedVenue.name) wurde aus Supabase geladen."
+                    feedbackIsError = false
+                    isLoadingFromBackend = false
+                }
+            } catch {
+                await MainActor.run {
+                    feedbackMessage = "Supabase-Laden fehlgeschlagen: \(error.localizedDescription)"
+                    feedbackIsError = true
+                    isLoadingFromBackend = false
+                }
+            }
+        }
+    }
+
+    private func normalizedSlug(_ rawValue: String) -> String {
+        rawValue
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "_", with: "-")
+            .replacingOccurrences(of: #"\s+"#, with: "-", options: .regularExpression)
+            .replacingOccurrences(of: #"[^a-z0-9-]"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"-{2,}"#, with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+
+    private func missingCapabilities(for required: [SupabaseCapability]) -> [SupabaseCapability] {
+        required.filter { capability in
+            relay.supabaseCapabilities.first(where: { $0.capability == capability })?.isAvailable == false
+        }
+    }
+
+    private func joinedCapabilityTitles(_ capabilities: [SupabaseCapability]) -> String {
+        capabilities.map(\.title).joined(separator: ", ")
+    }
+}
+
+private struct OperatorTableManagerView: View {
+    @EnvironmentObject private var store: KitchenLinkStore
+
+    @State private var newTableLabel = ""
+    @State private var feedbackMessage: String?
+    @State private var feedbackIsError = false
+
+    private var tables: [VenueTable] {
+        store.venueProfile.tables.sorted { lhs, rhs in
+            lhs.label.localizedStandardCompare(rhs.label) == .orderedAscending
+        }
+    }
+
+    var body: some View {
+        Form {
+            Section("Neuen Tisch anlegen") {
+                TextField("Tisch-Label", text: $newTableLabel)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+
+                Button("Tisch hinzufügen") {
+                    addTable()
+                }
+                .buttonStyle(KitchenPrimaryButtonStyle())
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+
+                Text("Labels werden für den Demo-Checkout als Tischcode verwendet, z.B. `A1`, `B4`, `BAR1`.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let feedbackMessage {
+                Section {
+                    Label(feedbackMessage, systemImage: feedbackIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .foregroundStyle(feedbackIsError ? .red : .green)
+                        .font(.footnote)
+                }
+            }
+
+            Section("Tische") {
+                if tables.isEmpty {
+                    Text("Noch keine Tische angelegt.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(tables) { table in
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(alignment: .center) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(table.label)
+                                        .font(.headline)
+                                    Text(table.isActive ? "Im Checkout verfuegbar" : "Deaktiviert fuer neue Vor-Ort-Bestellungen")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Toggle("Aktiv", isOn: isActiveBinding(for: table))
+                                    .labelsHidden()
+                            }
+
+                            HStack(spacing: 8) {
+                                Text(store.tableDemoQRCode(for: table))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                Spacer()
+                                Button("Entfernen", role: .destructive) {
+                                    store.removeTable(id: table.id)
+                                }
+                                .font(.caption.weight(.semibold))
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .listStyle(.insetGrouped)
+    }
+
+    private func isActiveBinding(for table: VenueTable) -> Binding<Bool> {
+        Binding(
+            get: {
+                store.venueProfile.tables.first(where: { $0.id == table.id })?.isActive ?? false
+            },
+            set: { isActive in
+                store.setTableActive(id: table.id, isActive: isActive)
+            }
+        )
+    }
+
+    private func addTable() {
+        switch store.addTable(label: newTableLabel) {
+        case .success(let table):
+            newTableLabel = ""
+            feedbackMessage = "Tisch \(table.label) wurde angelegt."
+            feedbackIsError = false
+        case .failure(let error):
+            feedbackMessage = error.localizedDescription
+            feedbackIsError = true
+        }
+    }
+}
+
+private struct OperatorQRGeneratorView: View {
+    @EnvironmentObject private var store: KitchenLinkStore
+    @EnvironmentObject private var relay: OrderRelayService
+
+    @State private var feedbackMessage: String?
+    @State private var feedbackIsError = false
+    @State private var isSyncingToBackend = false
+
+    private var qrContexts: [ResolvedVenueContext] {
+        store.demoQRCodeContexts
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                KitchenCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Demo-QR-Generator")
+                            .font(.title3.weight(.bold))
+                        Text("Alle Codes bleiben lokal testbar. Shared-QR startet ohne Tischkontext, Tisch-QR legt den Tisch direkt vor.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Label("\(store.venueProfile.tables.filter(\.isActive).count) aktive Tische · \(store.venueProfile.supportedServiceModes.count) Service-Modi", systemImage: "wrench.and.screwdriver.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(KitchenTheme.accent)
+
+                        Text("Supabase nutzt dieselben Tokenformate. Falls `qr_tokens` dort noch fehlt, bleibt der Beta-Fallback ueber Venue und Tische aktiv.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Button {
+                            syncQRTokensToSupabase()
+                        } label: {
+                            HStack(spacing: 8) {
+                                if isSyncingToBackend {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                }
+                                Text(isSyncingToBackend ? "Synchronisiere QR-Tokens..." : "QR-Tokens zu Supabase pushen")
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(KitchenPrimaryButtonStyle())
+                        .disabled(isSyncingToBackend)
+                        .opacity(isSyncingToBackend ? 0.6 : 1)
+
+                        if let feedbackMessage {
+                            Label(
+                                feedbackMessage,
+                                systemImage: feedbackIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+                            )
+                            .font(.footnote)
+                            .foregroundStyle(feedbackIsError ? .red : .green)
+                        }
+                    }
+                }
+
+                ForEach(qrContexts) { context in
+                    TestQRCodeCard(
+                        title: title(for: context),
+                        subtitle: subtitle(for: context),
+                        code: context.token
+                    )
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 14)
+            .padding(.bottom, 24)
+        }
+        .kitchenSurface()
+    }
+
+    private func title(for context: ResolvedVenueContext) -> String {
+        switch context.mode {
+        case .venueShared:
+            return "Venue-QR"
+        case .table:
+            return "Tisch \(context.resolvedTable?.label ?? "Unbekannt")"
+        }
+    }
+
+    private func subtitle(for context: ResolvedVenueContext) -> String {
+        switch context.mode {
+        case .venueShared:
+            return "Shared-Einstieg ohne festen Tisch"
+        case .table:
+            if context.resolvedTable?.isActive == true {
+                return "Vorbelegter Tisch fuer schnelle Demo-Tests"
+            }
+            return "Tisch ist inaktiv. Gut fuer Checkout- und Fehler-Tests."
+        }
+    }
+
+    private func syncQRTokensToSupabase() {
+        let syncableVenue = store.prepareVenueProfileForRemoteSync()
+        isSyncingToBackend = true
+
+        Task {
+            do {
+                let syncedVenue = try await relay.syncVenueProfile(syncableVenue)
+                await MainActor.run {
+                    store.replaceVenueProfile(syncedVenue)
+                }
+
+                do {
+                    let syncedTokenCount = try await relay.syncQRTokens(for: syncedVenue)
+                    await MainActor.run {
+                        feedbackMessage = "\(syncedTokenCount) QR-Tokens wurden nach Supabase geschrieben."
+                        feedbackIsError = false
+                        isSyncingToBackend = false
+                    }
+                } catch let error as SupabaseQRTokenSyncError {
+                    await MainActor.run {
+                        feedbackMessage = "Venue und Tische sind in Supabase aktuell. \(error.localizedDescription) Der Scan nutzt bis dahin weiter den Beta-Fallback."
+                        feedbackIsError = true
+                        isSyncingToBackend = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    feedbackMessage = "Supabase-QR-Sync fehlgeschlagen: \(error.localizedDescription)"
+                    feedbackIsError = true
+                    isSyncingToBackend = false
+                }
+            }
         }
     }
 }
@@ -2096,44 +3219,28 @@ private struct OperatorOrdersView: View {
                     .buttonStyle(KitchenSecondaryButtonStyle())
                 }
 
-                Text("Test: Auf einem zweiten Gerät als Kunde bestellen. Die Bestellung sollte hier sofort auftauchen.")
+                Text("Test: Bestellungen werden jetzt lokal auf diesem Gerät simuliert. Für Mehrgeräte-Tests braucht ihr später wieder ein echtes Backend.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Eingehende Bestellungen") {
-                if relay.receivedOrders.isEmpty {
+            if relay.receivedOrders.isEmpty {
+                Section("Eingehende Bestellungen") {
                     Text("Noch keine Test-Bestellungen eingegangen.")
                         .foregroundStyle(.secondary)
-                } else {
-                    ForEach(relay.receivedOrders) { order in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Bestellung \(order.id.prefix(6))")
-                                    .font(.headline)
-                                Spacer()
-                                Text(PriceFormatter.string(cents: order.totalCents))
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                            }
-                            Text("Von: \(order.sourceDevice)")
-                                .font(.caption)
+                }
+            } else {
+                ForEach(OrderLifecycleStatus.boardSections) { status in
+                    Section(status.title) {
+                        let orders = orders(for: status)
+                        if orders.isEmpty {
+                            Text("Keine Bestellungen in diesem Status.")
                                 .foregroundStyle(.secondary)
-                            Text(order.createdAt.formatted(date: .omitted, time: .shortened))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-
-                            ForEach(order.items) { line in
-                                HStack {
-                                    Text("\(line.quantity)x \(line.name)")
-                                        .font(.subheadline)
-                                    Spacer()
-                                    Text(PriceFormatter.string(cents: line.lineTotalCents))
-                                        .font(.subheadline)
-                                }
+                        } else {
+                            ForEach(orders) { order in
+                                OperatorOrderCardView(order: order)
                             }
                         }
-                        .padding(.vertical, 4)
                     }
                 }
             }
@@ -2149,10 +3256,119 @@ private struct OperatorOrdersView: View {
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
     }
+
+    private func orders(for status: OrderLifecycleStatus) -> [LiveOrderMessage] {
+        relay.receivedOrders.filter { $0.status == status }
+    }
+}
+
+private struct OperatorOrderCardView: View {
+    let order: LiveOrderMessage
+
+    @EnvironmentObject private var relay: OrderRelayService
+    @State private var isUpdating = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Bestellung \(order.id.prefix(6))")
+                        .font(.headline)
+                    Label(order.status.title, systemImage: order.status.systemImage)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(order.status.tintColor)
+                }
+                Spacer()
+                Text(PriceFormatter.string(cents: order.totalCents))
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+
+            Text(order.operatorContextLine)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            if !order.customerNote.isEmpty {
+                Label(order.customerNote, systemImage: "note.text")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let sourceDeviceLine, sourceDeviceLine != order.operatorContextLine {
+                Text(sourceDeviceLine)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(order.createdAt.formatted(date: .omitted, time: .shortened))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            ForEach(order.items) { line in
+                HStack {
+                    Text("\(line.quantity)x \(line.name)")
+                        .font(.subheadline)
+                    Spacer()
+                    Text(PriceFormatter.string(cents: line.lineTotalCents))
+                        .font(.subheadline)
+                }
+            }
+
+            if let nextStatus = order.status.primaryNextStatus,
+               let actionTitle = order.status.primaryActionTitle {
+                Button {
+                    updateStatus(to: nextStatus)
+                } label: {
+                    HStack(spacing: 8) {
+                        if isUpdating {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: nextStatus.systemImage)
+                        }
+                        Text(actionTitle)
+                    }
+                }
+                .buttonStyle(KitchenPrimaryButtonStyle())
+                .disabled(isUpdating)
+                .opacity(isUpdating ? 0.6 : 1)
+            }
+
+            if order.status.canCancel {
+                Button {
+                    updateStatus(to: .canceled)
+                } label: {
+                    Label("Stornieren", systemImage: "xmark.octagon.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(KitchenSecondaryButtonStyle())
+                .disabled(isUpdating)
+                .opacity(isUpdating ? 0.6 : 1)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func updateStatus(to newStatus: OrderLifecycleStatus) {
+        guard !isUpdating else { return }
+        isUpdating = true
+
+        Task {
+            _ = await relay.updateStatus(for: order, to: newStatus)
+            await MainActor.run {
+                isUpdating = false
+            }
+        }
+    }
+
+    private var sourceDeviceLine: String? {
+        order.sourceDeviceLine
+    }
 }
 
 private struct OperatorMenuEditorView: View {
     @EnvironmentObject private var store: KitchenLinkStore
+    @EnvironmentObject private var relay: OrderRelayService
 
     @State private var itemName = ""
     @State private var itemDescription = ""
@@ -2162,6 +3378,10 @@ private struct OperatorMenuEditorView: View {
     @State private var formErrorMessage: String?
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var showDocumentScanner = false
+    @State private var isMenuSyncingToBackend = false
+    @State private var isMenuLoadingFromBackend = false
+    @State private var menuSyncFeedback: String?
+    @State private var menuSyncIsError = false
     @State private var importInProgress = false
     @State private var importStatusMessage: String?
     @State private var llmImportEnabled = MenuImportService.isLLMEnabled()
@@ -2297,6 +3517,53 @@ private struct OperatorMenuEditorView: View {
                         }
                     }
                     .padding(.vertical, 4)
+                }
+            }
+
+            Section("Supabase-Menü-Sync (Beta)") {
+                Text("Das aktuelle Menü kann mit Supabase abgeglichen werden. Beim Laden wird das lokale Menü vollständig ersetzt.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Button {
+                        syncMenuToSupabase()
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isMenuSyncingToBackend {
+                                ProgressView().tint(KitchenTheme.brand)
+                            } else {
+                                Image(systemName: "arrow.up.to.line")
+                            }
+                            Text(isMenuSyncingToBackend ? "Synct..." : "Sync zu Supabase")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(KitchenSecondaryButtonStyle())
+                    .disabled(isMenuSyncingToBackend || isMenuLoadingFromBackend)
+
+                    Button {
+                        loadMenuFromSupabase()
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isMenuLoadingFromBackend {
+                                ProgressView().tint(KitchenTheme.brand)
+                            } else {
+                                Image(systemName: "arrow.down.to.line")
+                            }
+                            Text(isMenuLoadingFromBackend ? "Lädt..." : "Aus Supabase laden")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(KitchenSecondaryButtonStyle())
+                    .disabled(isMenuSyncingToBackend || isMenuLoadingFromBackend)
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+
+                if let menuSyncFeedback {
+                    Text(menuSyncFeedback)
+                        .font(.caption)
+                        .foregroundStyle(menuSyncIsError ? .red : .secondary)
                 }
             }
 
@@ -2471,6 +3738,74 @@ private struct OperatorMenuEditorView: View {
             importStatusMessage = "Bild-Upload fehlgeschlagen: \(error.localizedDescription)"
             importInProgress = false
             selectedPhotoItems = []
+        }
+    }
+
+    private func syncMenuToSupabase() {
+        let venueID = store.venueProfile.id
+        guard !venueID.isEmpty else {
+            menuSyncFeedback = "Kein Venue-Profil verfügbar. Bitte zuerst Venue synchronisieren."
+            menuSyncIsError = true
+            return
+        }
+
+        isMenuSyncingToBackend = true
+        menuSyncFeedback = nil
+
+        Task {
+            do {
+                let itemCount = try await relay.syncMenuToSupabase(
+                    sections: store.menuSections,
+                    venueID: venueID
+                )
+                await MainActor.run {
+                    menuSyncFeedback = "\(itemCount) Artikel wurden nach Supabase synchronisiert."
+                    menuSyncIsError = false
+                    isMenuSyncingToBackend = false
+                }
+            } catch {
+                await MainActor.run {
+                    menuSyncFeedback = "Menü-Sync fehlgeschlagen: \(error.localizedDescription)"
+                    menuSyncIsError = true
+                    isMenuSyncingToBackend = false
+                }
+            }
+        }
+    }
+
+    private func loadMenuFromSupabase() {
+        let venueID = store.venueProfile.id
+        guard !venueID.isEmpty else {
+            menuSyncFeedback = "Kein Venue-Profil verfügbar. Bitte zuerst Venue synchronisieren."
+            menuSyncIsError = true
+            return
+        }
+
+        isMenuLoadingFromBackend = true
+        menuSyncFeedback = nil
+
+        Task {
+            do {
+                let sections = try await relay.loadRemoteMenu(venueID: venueID)
+                await MainActor.run {
+                    if sections.isEmpty {
+                        menuSyncFeedback = "Kein aktives Menü in Supabase gefunden. Sync zuerst ausführen."
+                        menuSyncIsError = true
+                    } else {
+                        store.replaceMenu(with: sections)
+                        syncSelectedSection()
+                        menuSyncFeedback = "\(sections.count) Kategorien aus Supabase geladen."
+                        menuSyncIsError = false
+                    }
+                    isMenuLoadingFromBackend = false
+                }
+            } catch {
+                await MainActor.run {
+                    menuSyncFeedback = "Menü-Laden fehlgeschlagen: \(error.localizedDescription)"
+                    menuSyncIsError = true
+                    isMenuLoadingFromBackend = false
+                }
+            }
         }
     }
 }
@@ -5053,369 +6388,5 @@ private extension UIImage {
             return self
         }
         return UIImage(cgImage: cgImage, scale: scale, orientation: .up)
-    }
-}
-
-@MainActor
-final class KitchenLinkStore: ObservableObject {
-    @Published var menuSections: [MenuSectionData]
-    @Published var isOperatorLoggedIn = false
-
-    private let ownerEmail = "owner@kitchenlink.test"
-    private let ownerPassword = "123456"
-    private let menuStorageKey = "kitchenlink.menu.v1"
-
-    init() {
-        if let loaded = Self.loadMenuFromDefaults(storageKey: menuStorageKey) {
-            menuSections = loaded
-        } else {
-            menuSections = DemoMenuFactory.buildDefaultSections()
-        }
-    }
-
-    func loginOperator(email: String, password: String) -> Bool {
-        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let normalizedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
-        let success = normalizedEmail == ownerEmail && normalizedPassword == ownerPassword
-        isOperatorLoggedIn = success
-        return success
-    }
-
-    func logoutOperator() {
-        isOperatorLoggedIn = false
-    }
-
-    func addMenuItem(sectionID: String, name: String, description: String, priceCents: Int, kind: MenuItemKind) {
-        guard let index = menuSections.firstIndex(where: { $0.id == sectionID }) else {
-            return
-        }
-
-        let item = MenuItemData(
-            id: "custom-\(UUID().uuidString)",
-            name: name,
-            description: description,
-            priceCents: priceCents,
-            kind: kind
-        )
-        menuSections[index].items.append(item)
-        saveMenuToDefaults()
-    }
-
-    func replaceMenu(with sections: [MenuSectionData]) {
-        guard !sections.isEmpty else { return }
-        menuSections = sections
-        saveMenuToDefaults()
-    }
-
-    func appendMenu(with sections: [MenuSectionData]) {
-        guard !sections.isEmpty else { return }
-        menuSections.append(contentsOf: sections)
-        saveMenuToDefaults()
-    }
-
-    func resetMenuToDemo() {
-        menuSections = DemoMenuFactory.buildDefaultSections()
-        saveMenuToDefaults()
-    }
-
-    private func saveMenuToDefaults() {
-        do {
-            let data = try JSONEncoder().encode(menuSections)
-            UserDefaults.standard.set(data, forKey: menuStorageKey)
-        } catch {
-            print("Menu save failed: \(error.localizedDescription)")
-        }
-    }
-
-    private static func loadMenuFromDefaults(storageKey: String) -> [MenuSectionData]? {
-        guard let data = UserDefaults.standard.data(forKey: storageKey) else {
-            return nil
-        }
-
-        do {
-            return try JSONDecoder().decode([MenuSectionData].self, from: data)
-        } catch {
-            return nil
-        }
-    }
-}
-
-struct LiveOrderLine: Identifiable, Codable {
-    let id: String
-    let name: String
-    let quantity: Int
-    let unitPriceCents: Int
-    let kind: MenuItemKind
-
-    var lineTotalCents: Int {
-        quantity * unitPriceCents
-    }
-}
-
-struct LiveOrderMessage: Identifiable, Codable {
-    let id: String
-    let createdAt: Date
-    let sourceDevice: String
-    let items: [LiveOrderLine]
-    let totalCents: Int
-}
-
-@MainActor
-final class OrderRelayService: ObservableObject {
-    enum Mode {
-        case idle
-        case owner
-        case customer
-    }
-
-    @Published private(set) var mode: Mode = .idle
-    @Published private(set) var connectionText = "Nicht verbunden"
-    @Published private(set) var isConnected = false
-    @Published var receivedOrders: [LiveOrderMessage] = []
-
-    private let supabaseBaseURL = URL(string: "https://kiqboyshhsogvdvnleup.supabase.co/rest/v1")!
-    private let supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpcWJveXNoaHNvZ3Zkdm5sZXVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MjM1MDcsImV4cCI6MjA4NzE5OTUwN30.50-vumCzVs3BNhLrwgqZY6v0ZvAcqBU4P8Crrg0gBdc"
-    private var pollingTask: Task<Void, Never>?
-    private let session = URLSession.shared
-
-    func startHostingAsOwner() {
-        guard mode != .owner else {
-            return
-        }
-        mode = .owner
-        isConnected = true
-        connectionText = "Supabase aktiv - empfange Bestellungen"
-        startPollingOrders()
-    }
-
-    func startBrowsingAsCustomer() {
-        guard mode != .customer else {
-            return
-        }
-        mode = .customer
-        isConnected = true
-        connectionText = "Mit Supabase verbunden"
-    }
-
-    func send(order: LiveOrderMessage) async -> Bool {
-        do {
-            let createdOrder = try await createRemoteOrder(order)
-            try await createRemoteOrderItems(orderID: createdOrder.id, lines: order.items)
-            if mode == .owner {
-                try await loadOrdersFromBackend()
-            }
-            connectionText = "Mit Supabase verbunden"
-            isConnected = true
-            return true
-        } catch {
-            connectionText = "Supabase Fehler: \(error.localizedDescription)"
-            isConnected = false
-            return false
-        }
-    }
-
-    func clearReceivedOrders() {
-        receivedOrders.removeAll()
-    }
-
-    func stopNetworking(keepMode: Bool = false) {
-        pollingTask?.cancel()
-        pollingTask = nil
-
-        if !keepMode {
-            mode = .idle
-            isConnected = false
-            connectionText = "Nicht verbunden"
-        }
-    }
-
-    private func startPollingOrders() {
-        pollingTask?.cancel()
-        pollingTask = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled && self.mode == .owner {
-                do {
-                    try await self.loadOrdersFromBackend()
-                    self.connectionText = "Supabase aktiv - empfange Bestellungen"
-                    self.isConnected = true
-                } catch {
-                    self.connectionText = "Supabase Fehler: \(error.localizedDescription)"
-                    self.isConnected = false
-                }
-                try? await Task.sleep(for: .seconds(3))
-            }
-        }
-    }
-
-    private func loadOrdersFromBackend() async throws {
-        var components = URLComponents(url: supabaseBaseURL.appendingPathComponent("orders"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [
-            URLQueryItem(name: "select", value: "id,created_at,source_device,total_cents,status,order_items(id,name,quantity,unit_price_cents,kind)"),
-            URLQueryItem(name: "order", value: "created_at.desc"),
-            URLQueryItem(name: "limit", value: "50")
-        ]
-
-        var request = URLRequest(url: components.url!)
-        request.httpMethod = "GET"
-        applySupabaseHeaders(to: &request)
-
-        let (data, response) = try await session.data(for: request)
-        try validateResponse(response)
-
-        let rows = try JSONDecoder().decode([SupabaseOrderRow].self, from: data)
-        receivedOrders = rows.map(\.asLiveOrder)
-    }
-
-    private func createRemoteOrder(_ order: LiveOrderMessage) async throws -> SupabaseInsertedOrder {
-        var request = URLRequest(url: supabaseBaseURL.appendingPathComponent("orders"))
-        request.httpMethod = "POST"
-        applySupabaseHeaders(to: &request)
-        request.setValue("return=representation", forHTTPHeaderField: "Prefer")
-
-        let payload = [
-            SupabaseCreateOrderRequest(
-                sourceDevice: order.sourceDevice,
-                totalCents: order.totalCents,
-                status: "pending"
-            )
-        ]
-        request.httpBody = try JSONEncoder().encode(payload)
-
-        let (data, response) = try await session.data(for: request)
-        try validateResponse(response)
-
-        guard let created = try JSONDecoder().decode([SupabaseInsertedOrder].self, from: data).first else {
-            throw URLError(.badServerResponse)
-        }
-        return created
-    }
-
-    private func createRemoteOrderItems(orderID: String, lines: [LiveOrderLine]) async throws {
-        var request = URLRequest(url: supabaseBaseURL.appendingPathComponent("order_items"))
-        request.httpMethod = "POST"
-        applySupabaseHeaders(to: &request)
-
-        let payload = lines.map {
-            SupabaseCreateOrderItemRequest(
-                orderID: orderID,
-                name: $0.name,
-                quantity: $0.quantity,
-                unitPriceCents: $0.unitPriceCents,
-                kind: $0.kind.rawValue
-            )
-        }
-        request.httpBody = try JSONEncoder().encode(payload)
-
-        let (_, response) = try await session.data(for: request)
-        try validateResponse(response)
-    }
-
-    private func applySupabaseHeaders(to request: inout URLRequest) {
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(supabaseAnonKey)", forHTTPHeaderField: "Authorization")
-    }
-
-    private func validateResponse(_ response: URLResponse) throws {
-        guard let http = response as? HTTPURLResponse, (200 ... 299).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
-    }
-}
-
-private struct SupabaseCreateOrderRequest: Encodable {
-    let sourceDevice: String
-    let totalCents: Int
-    let status: String
-
-    enum CodingKeys: String, CodingKey {
-        case sourceDevice = "source_device"
-        case totalCents = "total_cents"
-        case status
-    }
-}
-
-private struct SupabaseInsertedOrder: Decodable {
-    let id: String
-}
-
-private struct SupabaseCreateOrderItemRequest: Encodable {
-    let orderID: String
-    let name: String
-    let quantity: Int
-    let unitPriceCents: Int
-    let kind: String
-
-    enum CodingKeys: String, CodingKey {
-        case orderID = "order_id"
-        case name
-        case quantity
-        case unitPriceCents = "unit_price_cents"
-        case kind
-    }
-}
-
-private struct SupabaseOrderRow: Decodable {
-    let id: String
-    let createdAtRaw: String
-    let sourceDevice: String
-    let totalCents: Int
-    let orderItems: [SupabaseOrderItemRow]
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case createdAtRaw = "created_at"
-        case sourceDevice = "source_device"
-        case totalCents = "total_cents"
-        case orderItems = "order_items"
-    }
-
-    var asLiveOrder: LiveOrderMessage {
-        LiveOrderMessage(
-            id: id,
-            createdAt: Self.parseDate(createdAtRaw) ?? .now,
-            sourceDevice: sourceDevice,
-            items: orderItems.map(\.asLiveLine),
-            totalCents: totalCents
-        )
-    }
-
-    private static func parseDate(_ raw: String) -> Date? {
-        let formatterWithFractional = ISO8601DateFormatter()
-        formatterWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-        if let date = formatterWithFractional.date(from: raw) {
-            return date
-        }
-
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: raw)
-    }
-}
-
-private struct SupabaseOrderItemRow: Decodable {
-    let id: String
-    let name: String
-    let quantity: Int
-    let unitPriceCents: Int
-    let kindRaw: String
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case quantity
-        case unitPriceCents = "unit_price_cents"
-        case kindRaw = "kind"
-    }
-
-    var asLiveLine: LiveOrderLine {
-        LiveOrderLine(
-            id: id,
-            name: name,
-            quantity: quantity,
-            unitPriceCents: unitPriceCents,
-            kind: MenuItemKind(rawValue: kindRaw) ?? .food
-        )
     }
 }
