@@ -49,6 +49,12 @@
   for the correction, typography proof and four realistic reference screens.
   Keep at most one additional prompt in reserve for a concrete severe defect;
   Codex owns design-system completion and implementation afterwards.
+- Round 04 archives and verifies Turn 6, the last regular Claude Design pass. It
+  resolves the blocking status, contrast, density and typography issues. No
+  reserve prompt is required; Codex owns the work from this point.
+- The platform-neutral working specification is
+  `docs/design/DESIGN_SYSTEM.md`. It preserves the selected 4a direction while
+  keeping exact palette, typography and logo approval explicitly open.
 
 ## Code
 
@@ -70,7 +76,6 @@
 
 ## Next Decision
 
-Use the combined final Claude prompt in Round 03 without reopening the brand
-direction. It must correct semantics and contrast, prove Bricolage plus Source
-Sans 3 on four realistic screens and leave enough evidence for Codex to continue
-without further Claude exploration.
+Translate `docs/design/DESIGN_SYSTEM.md` into a side-by-side SwiftUI sandbox theme
+and matching web tokens. Start with Scan, guest menu, Today and kitchen references;
+do not replace the functional prototype or remove demo and offline paths.

@@ -1,7 +1,13 @@
 # KitchenLink Design Direction
 
 **Stand:** 14. Juli 2026
-**Status:** Nicht freigegebener Ausgangsentwurf
+**Status:** Historischer, nicht freigegebener Ausgangsentwurf
+
+> **Abgeloest am 15. Juli 2026:** Die aktuelle technische Arbeitsgrundlage steht
+> in `docs/design/DESIGN_SYSTEM.md`. Der letzte Claude-Design-Stand und seine
+> unabhaengige Pruefung liegen unter
+> `docs/design/claude-design/round-04/REVIEW.md`. Dieses Dokument bleibt als
+> Entstehungsgeschichte und Negativreferenz erhalten.
 
 > **Review vom 14. Juli 2026:** Die Richtung ist sauber, aber noch nicht eigenständig
 > und freundlich genug. Weder Logo noch visuelles System sind freigegeben. Die
