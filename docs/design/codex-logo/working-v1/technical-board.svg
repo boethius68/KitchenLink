@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1120" role="img" aria-labelledby="title desc">
+  <title id="title">KitchenLink logo technical working board</title>
+  <desc id="desc">Color, monochrome, reverse, app icon and small-size tests.</desc>
+  <rect width="1600" height="1120" fill="#F7F5F1"/>
+  <style>
+    .label { font: 600 18px 'Avenir Next', sans-serif; fill: #645C56; letter-spacing: 1.5px; }
+    .meta { font: 500 16px 'Avenir Next', sans-serif; fill: #746C66; }
+    .rule { stroke: #D8D1CA; stroke-width: 1; }
+  </style>
+
+  <text x="80" y="70" class="label">KITCHENLINK / TECHNISCHER ARBEITSSTAND 01</text>
+  <text x="80" y="105" class="meta">Form und Farbverhaeltnis aus dem favorisierten Original, noch keine finale Freigabe.</text>
+
+  <image href="kitchenlink-lockup.svg" x="120" y="165" width="1360" height="268"/>
+  <line x1="80" y1="485" x2="1520" y2="485" class="rule"/>
+
+  <text x="80" y="535" class="label">ZEICHEN</text>
+  <image href="kitchenlink-symbol.svg" x="105" y="590" width="340" height="240"/>
+  <image href="kitchenlink-symbol-mono.svg" x="565" y="590" width="340" height="240"/>
+  <rect x="1025" y="565" width="400" height="290" rx="28" fill="#201813"/>
+  <image href="kitchenlink-symbol-reverse.svg" x="1055" y="590" width="340" height="240"/>
+  <text x="210" y="880" class="meta">Farbe</text>
+  <text x="670" y="880" class="meta">Monochrom</text>
+  <text x="1167" y="880" class="meta" fill="#FBF3EB">Negativ</text>
+
+  <line x1="80" y1="925" x2="1520" y2="925" class="rule"/>
+  <text x="80" y="975" class="label">APP UND KLEINGROESSE</text>
+  <image href="kitchenlink-app-icon.svg" x="100" y="1010" width="80" height="80"/>
+  <image href="kitchenlink-app-icon.svg" x="215" y="1022" width="56" height="56"/>
+  <image href="kitchenlink-symbol.svg" x="355" y="1023" width="79" height="56"/>
+  <image href="kitchenlink-symbol.svg" x="500" y="1027" width="68" height="48"/>
+  <image href="kitchenlink-symbol.svg" x="635" y="1031" width="57" height="40"/>
+  <text x="735" y="1055" class="meta">Arbeitsfarben: Ink #201813  /  Akzent #D7522B  /  Warm Light #FBF3EB</text>
+</svg>
