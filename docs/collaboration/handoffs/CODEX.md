@@ -2,7 +2,7 @@
 
 **Updated:** 15 July 2026
 **Branch:** `main`
-**Status:** Claude Design complete; Codex owns design-system implementation
+**Status:** First V2 implementation slice ready for review
 
 ## Completed
 
@@ -35,6 +35,17 @@
   and are now owned by Codex.
 - Added `docs/design/DESIGN_SYSTEM.md` as the platform-neutral source for tokens,
   status semantics, typography, geometry, motion and implementation boundaries.
+- Added an isolated V2 SwiftUI layer with adaptive `Ruhe` tokens, separate
+  operation/urgency semantics, accessible status glyphs, typography fallbacks,
+  surfaces and 44-point controls.
+- Added a switchable V2 business home and scan/import presentation while keeping
+  the previous root and complete local product sandbox reachable.
+- Reused the existing document camera, PhotosPicker, OCR, review and local menu
+  replacement logic rather than cloning functional paths.
+- Bundled the preferred outlined Working-v1 lockup and symbol as local adaptive
+  assets recolored to grape/lemon.
+- Added a model-neutral work queue with exclusive write scopes for later Codex,
+  GLM, DeepSeek or Claude Code workers.
 
 ## Files To Read
 
@@ -66,15 +77,20 @@
 - Ran the complete Xcode test suite on iPhone 17 Pro simulator. Domain,
   repository, launch, UI-flow and launch-performance tests passed. Xcode emitted
   local LLDB version warnings, but `xcodebuild` completed with exit code 0.
+- Rebuilt the V2 app and ran 17 unit tests plus focused V2/Legacy UI tests on the
+  iPhone 17 Pro simulator.
+- Visually inspected the V2 home in light mode, dark mode and the maximum
+  accessibility Dynamic Type category. Corrected the wordmark asset rendering,
+  dark surface hierarchy and accessibility-size header layout found during QA.
 
 ## Risks And Open Work
 
-- Turn 6 is a visual reference, not pixel-ready implementation. Enforce 44-point
-  touch targets and responsive layout rather than copying mockup dimensions.
-- Keep scanner framing neutral at rest; use lemon there only during successful
-  recognition, not as another permanent accent.
 - Guest branding still needs a venue-owned logo, image and accent slot with grape
   as a safe fallback.
+- A local end-to-end regression test from guest order through kitchen status with
+  cloud unavailable is still missing.
+- The scan screen reuses the production import behavior, but camera and
+  PhotosPicker error branches are not yet dependency-injected for unit tests.
 - Do not treat the working logo geometry, current typefaces, exact hex values or
   status palette as final approval.
 - Do not spend the Claude reserve prompt. Codex continues the design system and
@@ -82,7 +98,6 @@
 
 ## Recommended Next Step
 
-Implement the new semantic tokens alongside the existing
-`KitchenDesignSystem.swift`, behind a sandbox or preview switch. Preserve all
-functional demo and offline paths, then migrate Scan first and verify it on an
-iPhone simulator before moving to Today and kitchen.
+Collect focused user feedback on the V2 home and scan entry. Then implement the
+offline end-to-end smoke test while Today/kitchen reference views are built in a
+separate write scope. Decide the guest-web stack before starting KL-WEB-001.

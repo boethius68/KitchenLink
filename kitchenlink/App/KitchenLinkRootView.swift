@@ -3,8 +3,32 @@ import SwiftUI
 struct KitchenLinkRootView: View {
     @EnvironmentObject private var store: KitchenLinkStore
     @State private var showLegacySandbox = false
+    @State private var designVariant: KitchenLinkDesignVariant
+
+    init() {
+        _designVariant = State(
+            initialValue: KitchenLinkDesignPreviewConfiguration.initialVariant()
+        )
+    }
 
     var body: some View {
+        Group {
+            if designVariant == .v2 {
+                KitchenLinkV2BusinessHomeView(
+                    menuSectionCount: store.menuSections.count,
+                    onOpenSandbox: { showLegacySandbox = true },
+                    onUseLegacyDesign: { designVariant = .legacy }
+                )
+            } else {
+                legacyHome
+            }
+        }
+        .fullScreenCover(isPresented: $showLegacySandbox) {
+            LegacySandboxSheet()
+        }
+    }
+
+    private var legacyHome: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
@@ -23,9 +47,6 @@ struct KitchenLinkRootView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .kitchenSurface()
-        .fullScreenCover(isPresented: $showLegacySandbox) {
-            LegacySandboxSheet()
-        }
     }
 
     private var header: some View {
@@ -79,7 +100,7 @@ struct KitchenLinkRootView: View {
     private var importActions: some View {
         VStack(spacing: 12) {
             NavigationLink {
-                MenuImportEntryView(autoStartScanner: true)
+                MenuImportEntryView(autoStartScanner: true, usesV2Design: false)
             } label: {
                 Label("Speisekarte scannen", systemImage: "doc.viewfinder")
             }
@@ -87,7 +108,7 @@ struct KitchenLinkRootView: View {
             .accessibilityIdentifier("business.scanMenu")
 
             NavigationLink {
-                MenuImportEntryView(autoStartScanner: false)
+                MenuImportEntryView(autoStartScanner: false, usesV2Design: false)
             } label: {
                 Label("Fotos aus Mediathek wählen", systemImage: "photo.on.rectangle.angled")
             }
@@ -135,6 +156,18 @@ struct KitchenLinkRootView: View {
                     .font(.subheadline.weight(.bold))
                     .accessibilityIdentifier("business.openLegacySandbox")
                 }
+
+                Divider()
+
+                Button {
+                    designVariant = .v2
+                } label: {
+                    Label("Neue Designvorschau öffnen", systemImage: "sparkles.rectangle.stack")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(KitchenTheme.brandDark)
+                .accessibilityIdentifier("business.useV2Design")
             }
         }
     }

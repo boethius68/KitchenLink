@@ -2,7 +2,7 @@
 
 **Updated:** 15 July 2026
 **Integration branch:** `main`
-**Phase:** Product definition and visual design exploration
+**Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
 
 ## Product
@@ -59,6 +59,18 @@
 ## Code
 
 - A functioning SwiftUI sandbox prototype exists.
+- The 4a `Ruhe` tokens, type roles, status semantics, surfaces and controls now
+  exist alongside the legacy theme in `KitchenLinkDesignSystemV2.swift`.
+- The internal build starts in a switchable V2 business home and scan/import
+  flow. `--kitchenlink-design-legacy` opens the previous presentation directly;
+  both variants retain a visible route to the other one.
+- The selected Working-v1 symbol and outlined wordmark are bundled as local
+  light/dark vector assets recolored to grape and lemon. No runtime font or
+  network dependency was added.
+- Document camera, photo selection, OCR, review, local menu replacement and the
+  complete legacy product sandbox continue to use the existing implementation.
+- The active parallel queue and disjoint agent scopes are recorded in
+  `docs/collaboration/WORK_QUEUE.md`.
 - The shared collaboration and design state must be present on `origin/main`
   before Claude Code and Codex start parallel worktrees from it.
 - No production deployment, live payment activation or final fiscal integration
@@ -76,6 +88,6 @@
 
 ## Next Decision
 
-Translate `docs/design/DESIGN_SYSTEM.md` into a side-by-side SwiftUI sandbox theme
-and matching web tokens. Start with Scan, guest menu, Today and kitchen references;
-do not replace the functional prototype or remove demo and offline paths.
+Review the implemented V2 business home and scan entry on device. After any
+focused corrections, continue in parallel with the offline regression smoke test,
+the Today/kitchen reference views and a separate guest-web stack decision.

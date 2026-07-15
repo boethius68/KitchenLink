@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 240" role="img" aria-labelledby="title desc">
+  <title id="title">KitchenLink symbol, Zitrus working version</title>
+  <desc id="desc">Two open sides pass a serving surface between them.</desc>
+  <path fill="#2C2438" d="M24 4h25c38 0 59 22 59 60v26c0 10-6 16-16 18-9 2-14 9-14 18v14c0 9 6 15 16 17 9 2 14 9 14 19v22c0 25-20 38-59 38H24c-13 0-20-7-20-20V24C4 11 11 4 24 4Z"/>
+  <path fill="none" stroke="#2C2438" stroke-linecap="round" stroke-width="44" d="M170 50a90 90 0 1 1 0 140"/>
+  <path fill="#B6CC1B" d="M86 112c0-4 3-6 8-6h116c5 0 8 2 8 6 0 3-2 5-5 7l-15 13c-3 3-6 4-11 4h-71c-5 0-8-1-11-4l-15-13c-3-2-4-4-4-7Z"/>
+</svg>

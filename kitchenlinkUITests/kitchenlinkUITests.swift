@@ -25,17 +25,32 @@ final class kitchenlinkUITests: XCTestCase {
     @MainActor
     func testBusinessAppLaunchesIntoScanFirstFlow() throws {
         let app = XCUIApplication()
+        app.launchArguments = ["--kitchenlink-design-v2"]
         app.launch()
 
         XCTAssertTrue(app.staticTexts["business.welcomeTitle"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["business.scanMenu"].exists)
         XCTAssertTrue(app.buttons["business.openLegacySandbox"].exists)
+        XCTAssertTrue(app.buttons["business.useLegacyDesign"].exists)
 
         app.buttons["business.choosePhotos"].tap()
 
         XCTAssertTrue(app.scrollViews["menuImport.entry"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Dokumentkamera öffnen"].exists)
-        XCTAssertTrue(app.buttons["Menüfotos auswählen"].exists)
+        XCTAssertTrue(app.buttons["menuImport.openScanner"].exists)
+        XCTAssertTrue(app.buttons["menuImport.choosePhotos"].exists)
+    }
+
+    @MainActor
+    func testLegacyDesignCanReturnToV2Preview() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--kitchenlink-design-legacy"]
+        app.launch()
+
+        XCTAssertTrue(app.buttons["business.useV2Design"].waitForExistence(timeout: 5))
+        app.buttons["business.useV2Design"].tap()
+
+        XCTAssertTrue(app.buttons["business.useLegacyDesign"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["business.openLegacySandbox"].exists)
     }
 
     @MainActor
