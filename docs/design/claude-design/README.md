@@ -12,6 +12,11 @@ docs/design/claude-design/
     export/              Locally viewable HTML export
     thumbnail.webp
     REVIEW.md            Codex/user review and next prompt
+  round-02/
+    source-export.zip
+    export/
+    thumbnail.webp
+    REVIEW.md
 ```
 
 ## Import A New Export

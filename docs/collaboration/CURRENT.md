@@ -19,9 +19,9 @@
 
 - The first internal logo and app direction was not approved.
 - Claude Design Round 01 contains `Tageslicht`, `Takt` and `Blende`.
-- Claude Design Turn 3 explored six additional logo principles and four color
-  worlds. None of its logos was selected, and the turn is not yet exported into
-  the repository.
+- Claude Design Round 02 archives Turn 3 with six additional logo principles and
+  four color worlds plus Turn 4 with two Zitrus role distributions. None of the
+  Claude logos was selected.
 - The rounded Codex wordmark from refinements 14 and 15 is the strongest basis so
   far. After additional comparisons, the complete gastronomy refinement 15 is
   now the preferred working baseline. It is not a final logo approval.
@@ -35,8 +35,12 @@
 - The emotional color brief is the reward after a hard day through taste and
   connection: fresh and sparkling like a warm breeze.
 - From Claude Design Turn 3b, `Zitrus` (lemon and grape) is the preferred color
-  territory. It is a direction for contextual testing, not an approved palette.
+  territory. In Turn 4, 4a `Ruhe` was selected as the sole basis for refinement:
+  grape carries the brand foundation and lemon marks the logo handoff and primary
+  action. Exact values and supporting colors are not yet approved.
 - Round 01 and its review are under `docs/design/claude-design/round-01/`.
+- Round 02, the selected 4a direction and the constrained Turn 5 prompt are under
+  `docs/design/claude-design/round-02/`.
 
 ## Code
 
@@ -58,6 +62,7 @@
 
 ## Next Decision
 
-Test the unchanged vector working logo with the `Zitrus` color territory across
-guest, operator and dark kitchen contexts. Preserve the restrained logo color
-hierarchy and keep exact palette values open until that comparison is reviewed.
+Harden only the selected 4a `Ruhe` palette. Remove lemon from informational labels
+and all status semantics, define accessible interaction states on light and dark
+surfaces, and keep typography plus exact final values open until that focused
+comparison is reviewed.

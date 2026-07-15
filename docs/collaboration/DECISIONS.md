@@ -50,3 +50,8 @@ append-only; superseded decisions are marked rather than deleted.
 - **Preferred color territory:** Of the four Claude Design Turn 3b color worlds,
   `Zitrus` (lemon and grape) is the user's preferred direction. It must be tested
   with the selected logo before exact colors or usage rules are approved.
+- **Zitrus role distribution:** Of the two Turn 4 applications, the user selected
+  4a `Ruhe` as the sole basis for further palette refinement. Grape carries the
+  brand foundation; lemon is reserved for the logo handoff and primary actions.
+  This selects the role model, not the final hex values, typefaces or status
+  palette.
