@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200">
+  <rect width="1920" height="1200" fill="#EAE7DF"/>
+  <g font-family="Avenir Next, Avenir, sans-serif">
+    <text x="90" y="78" font-size="22" font-weight="600" letter-spacing="3" fill="#2F765C">KITCHENLINK PRODUCT SYSTEM</text>
+    <text x="90" y="132" font-size="42" font-weight="600" fill="#17332E">Eine Sprache, drei Kontexte</text>
+    <text x="90" y="170" font-size="20" font-weight="400" fill="#52605D">Keine Produktwerbung im Produkt. Zustand, Aufgabe und nächste Handlung stehen vorn.</text>
+
+    <text x="128" y="230" font-size="18" font-weight="600" letter-spacing="2" fill="#52605D">SCAN</text>
+    <text x="748" y="230" font-size="18" font-weight="600" letter-spacing="2" fill="#52605D">BETREIBER · HEUTE</text>
+    <text x="1368" y="230" font-size="18" font-weight="600" letter-spacing="2" fill="#52605D">GAST · TISCH 12</text>
+
+    <!-- Scan phone -->
+    <g transform="translate(90 258)">
+      <rect width="500" height="872" rx="58" fill="#FCFBF7" stroke="#D1CEC5" stroke-width="2"/>
+      <rect x="192" y="18" width="116" height="32" rx="16" fill="#17332E"/>
+      <text x="34" y="48" font-size="16" font-weight="600" fill="#27302E">09:41</text>
+      <g transform="translate(36 82)">
+        <rect width="44" height="44" rx="12" fill="#17332E"/>
+        <g transform="translate(8 11) scale(.13)" fill="none" stroke="#FCFBF7" stroke-width="28" stroke-linecap="round">
+          <path d="M24 82 C24 44 48 20 86 20 H146 C184 20 208 44 208 82 C208 120 184 144 146 144 H124"/>
+          <path d="M190 82 C190 120 166 144 128 144 H68 C30 144 6 120 6 82 C6 44 30 20 68 20 H90" transform="translate(48 48)"/>
+        </g>
+        <text x="58" y="31" font-size="21" font-weight="600" fill="#17332E">KitchenLink</text>
+        <text x="380" y="30" font-size="16" font-weight="500" fill="#52605D">Später</text>
+      </g>
+      <text x="36" y="188" font-size="38" font-weight="600" fill="#17332E">Speisekarte</text>
+      <text x="36" y="226" font-size="19" font-weight="400" fill="#52605D">Alle Seiten in einem Durchgang.</text>
+
+      <rect x="36" y="264" width="428" height="376" rx="26" fill="#F3F0E8"/>
+      <rect x="110" y="304" width="280" height="296" rx="18" fill="#FCFBF7" stroke="#B8C7C1" stroke-width="3" stroke-dasharray="12 10"/>
+      <path d="M145 350 H260" stroke="#D0D7D3" stroke-width="10" stroke-linecap="round"/>
+      <path d="M145 385 H340" stroke="#D0D7D3" stroke-width="7" stroke-linecap="round"/>
+      <path d="M145 420 H300" stroke="#D0D7D3" stroke-width="7" stroke-linecap="round"/>
+      <path d="M145 470 H235" stroke="#D0D7D3" stroke-width="10" stroke-linecap="round"/>
+      <path d="M145 505 H340" stroke="#D0D7D3" stroke-width="7" stroke-linecap="round"/>
+      <path d="M145 540 H285" stroke="#D0D7D3" stroke-width="7" stroke-linecap="round"/>
+      <path d="M78 292 H120 M78 292 V334 M422 292 H380 M422 292 V334 M78 612 H120 M78 612 V570 M422 612 H380 M422 612 V570" fill="none" stroke="#2F765C" stroke-width="5" stroke-linecap="round"/>
+
+      <rect x="36" y="678" width="428" height="64" rx="16" fill="#2F765C"/>
+      <text x="250" y="719" text-anchor="middle" font-size="20" font-weight="600" fill="#FCFBF7">Scannen</text>
+      <rect x="36" y="758" width="428" height="64" rx="16" fill="none" stroke="#C7C4BB" stroke-width="2"/>
+      <text x="250" y="799" text-anchor="middle" font-size="20" font-weight="500" fill="#27302E">Fotos auswählen</text>
+    </g>
+
+    <!-- Owner phone -->
+    <g transform="translate(710 258)">
+      <rect width="500" height="872" rx="58" fill="#FCFBF7" stroke="#D1CEC5" stroke-width="2"/>
+      <rect x="192" y="18" width="116" height="32" rx="16" fill="#17332E"/>
+      <text x="34" y="48" font-size="16" font-weight="600" fill="#27302E">09:41</text>
+      <g transform="translate(34 82)">
+        <text x="0" y="20" font-size="16" font-weight="500" fill="#52605D">Lokal 47</text>
+        <text x="0" y="64" font-size="38" font-weight="600" fill="#17332E">Heute</text>
+        <circle cx="412" cy="28" r="24" fill="#DCE9C9"/>
+        <text x="412" y="35" text-anchor="middle" font-size="17" font-weight="600" fill="#17332E">PH</text>
+      </g>
+
+      <g transform="translate(34 176)">
+        <rect width="432" height="82" rx="18" fill="#17332E"/>
+        <circle cx="34" cy="41" r="8" fill="#8FC99D"/>
+        <text x="54" y="34" font-size="17" font-weight="600" fill="#FCFBF7">Frühschicht läuft</text>
+        <text x="54" y="57" font-size="14" font-weight="400" fill="#C9D6D1">8 Mitarbeitende · Hub online</text>
+        <text x="392" y="47" text-anchor="end" font-size="16" font-weight="600" fill="#FCFBF7">Öffnen</text>
+      </g>
+
+      <text x="34" y="306" font-size="19" font-weight="600" fill="#27302E">Jetzt</text>
+      <g transform="translate(34 330)">
+        <path d="M0 0 H432" stroke="#D8D5CC"/>
+        <circle cx="15" cy="38" r="7" fill="#D96F45"/>
+        <text x="34" y="35" font-size="18" font-weight="600" fill="#27302E">3 neue Bestellungen</text>
+        <text x="34" y="59" font-size="14" fill="#52605D">Älteste seit 2 Min.</text>
+        <text x="424" y="44" text-anchor="end" font-size="24" fill="#2F765C">›</text>
+        <path d="M0 82 H432" stroke="#D8D5CC"/>
+        <circle cx="15" cy="120" r="7" fill="#2F765C"/>
+        <text x="34" y="117" font-size="18" font-weight="600" fill="#27302E">Tisch 8 möchte zahlen</text>
+        <text x="34" y="141" font-size="14" fill="#52605D">48,60 € · Teilzahlung möglich</text>
+        <text x="424" y="126" text-anchor="end" font-size="24" fill="#2F765C">›</text>
+        <path d="M0 164 H432" stroke="#D8D5CC"/>
+      </g>
+
+      <text x="34" y="548" font-size="19" font-weight="600" fill="#27302E">Betrieb</text>
+      <g transform="translate(34 574)">
+        <rect width="206" height="116" rx="18" fill="#F3F0E8"/>
+        <text x="18" y="34" font-size="15" fill="#52605D">Umsatz</text>
+        <text x="18" y="72" font-size="28" font-weight="600" fill="#17332E">1.842 €</text>
+        <text x="18" y="98" font-size="14" fill="#2F765C">im Tagesplan</text>
+        <rect x="226" width="206" height="116" rx="18" fill="#F3F0E8"/>
+        <text x="244" y="34" font-size="15" fill="#52605D">Belegung</text>
+        <text x="244" y="72" font-size="28" font-weight="600" fill="#17332E">18 / 24</text>
+        <text x="244" y="98" font-size="14" fill="#52605D">nächste Reservierung 10:30</text>
+      </g>
+
+      <g transform="translate(0 786)">
+        <rect x="1" width="498" height="60" fill="#FCFBF7"/>
+        <path d="M0 0 H500" stroke="#D8D5CC"/>
+        <text x="50" y="49" text-anchor="middle" font-size="13" font-weight="600" fill="#2F765C">Heute</text>
+        <circle cx="50" cy="24" r="7" fill="#2F765C"/>
+        <text x="150" y="49" text-anchor="middle" font-size="13" fill="#52605D">Bestellungen</text>
+        <rect x="143" y="17" width="14" height="14" rx="3" fill="none" stroke="#52605D" stroke-width="2"/>
+        <text x="250" y="49" text-anchor="middle" font-size="13" fill="#52605D">Betrieb</text>
+        <path d="M243 29 L250 18 L257 29" fill="none" stroke="#52605D" stroke-width="2"/>
+        <text x="350" y="49" text-anchor="middle" font-size="13" fill="#52605D">Team</text>
+        <circle cx="350" cy="23" r="7" fill="none" stroke="#52605D" stroke-width="2"/>
+        <text x="450" y="49" text-anchor="middle" font-size="13" fill="#52605D">Mehr</text>
+        <circle cx="442" cy="23" r="2" fill="#52605D"/><circle cx="450" cy="23" r="2" fill="#52605D"/><circle cx="458" cy="23" r="2" fill="#52605D"/>
+      </g>
+    </g>
+
+    <!-- Guest phone -->
+    <g transform="translate(1330 258)">
+      <rect width="500" height="872" rx="58" fill="#FCFBF7" stroke="#D1CEC5" stroke-width="2"/>
+      <rect x="192" y="18" width="116" height="32" rx="16" fill="#17332E"/>
+      <text x="34" y="48" font-size="16" font-weight="600" fill="#27302E">09:41</text>
+      <g transform="translate(34 82)">
+        <circle cx="24" cy="24" r="24" fill="#D96F45"/>
+        <text x="24" y="31" text-anchor="middle" font-size="18" font-weight="600" fill="#FCFBF7">K</text>
+        <text x="62" y="22" font-size="20" font-weight="600" fill="#17332E">Kleine Freiheit</text>
+        <text x="62" y="44" font-size="14" fill="#52605D">Küche · Bar · Garten</text>
+        <rect x="350" y="5" width="82" height="38" rx="12" fill="#DCE9C9"/>
+        <text x="391" y="30" text-anchor="middle" font-size="14" font-weight="600" fill="#17332E">Tisch 12</text>
+      </g>
+
+      <text x="34" y="188" font-size="34" font-weight="600" fill="#17332E">Speisekarte</text>
+      <g transform="translate(34 216)">
+        <text x="0" y="24" font-size="16" font-weight="600" fill="#2F765C">Beliebt</text>
+        <text x="82" y="24" font-size="16" fill="#52605D">Kleinigkeiten</text>
+        <text x="214" y="24" font-size="16" fill="#52605D">Hauptgerichte</text>
+        <text x="347" y="24" font-size="16" fill="#52605D">Getränke</text>
+        <rect x="0" y="38" width="52" height="3" rx="1.5" fill="#2F765C"/>
+      </g>
+
+      <g transform="translate(34 286)">
+        <rect x="0" y="0" width="104" height="104" rx="18" fill="#E6D9C9"/>
+        <circle cx="52" cy="52" r="34" fill="#D96F45" opacity=".65"/>
+        <text x="126" y="28" font-size="19" font-weight="600" fill="#27302E">Ofentomate</text>
+        <text x="126" y="54" font-size="14" fill="#52605D">Burrata · Basilikum</text>
+        <text x="126" y="88" font-size="17" font-weight="600" fill="#27302E">11,50 €</text>
+        <circle cx="402" cy="77" r="22" fill="#17332E"/>
+        <text x="402" y="85" text-anchor="middle" font-size="26" fill="#FCFBF7">+</text>
+        <path d="M0 126 H432" stroke="#D8D5CC"/>
+
+        <rect x="0" y="150" width="104" height="104" rx="18" fill="#DCE9C9"/>
+        <path d="M22 76 C40 30 68 30 84 76" fill="none" stroke="#2F765C" stroke-width="12" stroke-linecap="round"/>
+        <text x="126" y="178" font-size="19" font-weight="600" fill="#27302E">Gartenpasta</text>
+        <text x="126" y="204" font-size="14" fill="#52605D">Erbse · Zitrone · Pecorino</text>
+        <text x="126" y="238" font-size="17" font-weight="600" fill="#27302E">16,90 €</text>
+        <circle cx="402" cy="227" r="22" fill="#17332E"/>
+        <text x="402" y="235" text-anchor="middle" font-size="26" fill="#FCFBF7">+</text>
+        <path d="M0 276 H432" stroke="#D8D5CC"/>
+
+        <rect x="0" y="300" width="104" height="104" rx="18" fill="#D8E3E1"/>
+        <rect x="31" y="24" width="42" height="58" rx="12" fill="#7EA6A0"/>
+        <text x="126" y="328" font-size="19" font-weight="600" fill="#27302E">Hauslimonade</text>
+        <text x="126" y="354" font-size="14" fill="#52605D">Gurke · Limette · Soda</text>
+        <text x="126" y="388" font-size="17" font-weight="600" fill="#27302E">5,20 €</text>
+        <circle cx="402" cy="377" r="22" fill="#17332E"/>
+        <text x="402" y="385" text-anchor="middle" font-size="26" fill="#FCFBF7">+</text>
+      </g>
+
+      <g transform="translate(24 742)">
+        <rect width="452" height="76" rx="20" fill="#17332E"/>
+        <circle cx="34" cy="38" r="17" fill="#DCE9C9"/>
+        <text x="34" y="44" text-anchor="middle" font-size="14" font-weight="600" fill="#17332E">2</text>
+        <text x="65" y="34" font-size="16" font-weight="600" fill="#FCFBF7">Warenkorb</text>
+        <text x="65" y="55" font-size="13" fill="#C9D6D1">Gemeinsam an Tisch 12</text>
+        <text x="420" y="46" text-anchor="end" font-size="18" font-weight="600" fill="#FCFBF7">28,40 €</text>
+      </g>
+      <text x="250" y="850" text-anchor="middle" font-size="11" font-weight="500" letter-spacing="1.5" fill="#7A8582">POWERED BY KITCHENLINK</text>
+    </g>
+  </g>
+</svg>

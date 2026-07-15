@@ -1,4 +1,6 @@
-# Kitchenlink Screen-by-Screen Tickets (Non-Technical)
+# Kitchenlink Screen-by-Screen Tickets (Legacy)
+
+> Historische Tickets. Neue Arbeit wird aus `docs/PRODUCT_BLUEPRINT.md` und den neuen Meilensteinen abgeleitet.
 
 This is a build checklist for your first app version.  
 Each ticket is a screen or a small feature slice you can review visually.

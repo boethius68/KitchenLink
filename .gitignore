@@ -1,5 +1,11 @@
 .DS_Store
 
+# Claude Code creates isolated parallel sessions here.
+.claude/worktrees/
+
+# New Claude Design downloads are transient until imported as a numbered round.
+docs/design/claude-design/inbox/*.zip
+
 *.xcuserstate
 xcuserdata/
 *.xcworkspace/xcuserdata/

@@ -1,4 +1,6 @@
-# KitchenLink Product Plan
+# KitchenLink Product Plan (Legacy)
+
+> Historischer Plan. Die aktuelle, gemeinsam beschlossene Produktdefinition steht in `docs/PRODUCT_BLUEPRINT.md`.
 
 Last updated: 2026-03-17
 

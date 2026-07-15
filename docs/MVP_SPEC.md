@@ -1,4 +1,6 @@
-# Kitchenlink MVP Spec
+# Kitchenlink MVP Spec (Legacy)
+
+> Historische Spezifikation. Die aktuelle, gemeinsam beschlossene Produktdefinition steht in `docs/PRODUCT_BLUEPRINT.md`.
 
 ## 1. Goal
 Kitchenlink enables restaurant/bar guests to scan a QR code, browse a venue menu, and place orders that are routed to staff with correct table/session context.

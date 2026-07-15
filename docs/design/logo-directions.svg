@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980">
+  <rect width="1600" height="980" fill="#F3F0E8"/>
+
+  <g font-family="Avenir Next, Avenir, sans-serif" fill="#17332E">
+    <text x="80" y="82" font-size="24" font-weight="600" letter-spacing="3">KITCHENLINK</text>
+    <text x="80" y="142" font-size="48" font-weight="600">Logo directions</text>
+    <text x="80" y="184" font-size="21" font-weight="400" fill="#52605D">Einfach. Frisch. Selbstverständlich.</text>
+
+    <rect x="80" y="238" width="680" height="500" rx="34" fill="#FCFBF7"/>
+    <rect x="108" y="266" width="164" height="42" rx="21" fill="#DCE9C9"/>
+    <text x="132" y="294" font-size="17" font-weight="600">EMPFOHLEN</text>
+
+    <g transform="translate(142 354)" fill="none" stroke="#2F765C" stroke-width="26" stroke-linecap="round">
+      <path d="M24 82 C24 44 48 20 86 20 H146 C184 20 208 44 208 82 C208 120 184 144 146 144 H124"/>
+      <path d="M190 82 C190 120 166 144 128 144 H68 C30 144 6 120 6 82 C6 44 30 20 68 20 H90" transform="translate(48 48)"/>
+    </g>
+
+    <text x="142" y="604" font-size="24" font-weight="600" letter-spacing="1">LINK APERTURE</text>
+    <text x="142" y="649" font-size="20" font-weight="400" fill="#52605D">Zwei offene Systeme bilden einen</text>
+    <text x="142" y="679" font-size="20" font-weight="400" fill="#52605D">gemeinsamen Durchgang.</text>
+
+    <g transform="translate(410 372)">
+      <text x="0" y="88" font-size="56" font-weight="600" letter-spacing="-2">Kitchen</text>
+      <text x="204" y="88" font-size="56" font-weight="500" letter-spacing="-2" fill="#2F765C">Link</text>
+      <text x="2" y="126" font-size="16" font-weight="500" letter-spacing="3" fill="#52605D">BUSINESS</text>
+    </g>
+
+    <g transform="translate(468 552)">
+      <rect width="92" height="92" rx="22" fill="#17332E"/>
+      <g transform="translate(17 21) scale(.27)" fill="none" stroke="#FCFBF7" stroke-width="26" stroke-linecap="round">
+        <path d="M24 82 C24 44 48 20 86 20 H146 C184 20 208 44 208 82 C208 120 184 144 146 144 H124"/>
+        <path d="M190 82 C190 120 166 144 128 144 H68 C30 144 6 120 6 82 C6 44 30 20 68 20 H90" transform="translate(48 48)"/>
+      </g>
+      <rect x="116" y="10" width="64" height="64" rx="16" fill="#2F765C"/>
+      <g transform="translate(128 22) scale(.19)" fill="none" stroke="#FCFBF7" stroke-width="26" stroke-linecap="round">
+        <path d="M24 82 C24 44 48 20 86 20 H146 C184 20 208 44 208 82 C208 120 184 144 146 144 H124"/>
+        <path d="M190 82 C190 120 166 144 128 144 H68 C30 144 6 120 6 82 C6 44 30 20 68 20 H90" transform="translate(48 48)"/>
+      </g>
+      <rect x="202" y="18" width="46" height="46" rx="12" fill="#DCE9C9"/>
+      <g transform="translate(211 28) scale(.13)" fill="none" stroke="#17332E" stroke-width="28" stroke-linecap="round">
+        <path d="M24 82 C24 44 48 20 86 20 H146 C184 20 208 44 208 82 C208 120 184 144 146 144 H124"/>
+        <path d="M190 82 C190 120 166 144 128 144 H68 C30 144 6 120 6 82 C6 44 30 20 68 20 H90" transform="translate(48 48)"/>
+      </g>
+    </g>
+
+    <rect x="800" y="238" width="340" height="500" rx="34" fill="#FCFBF7"/>
+    <text x="846" y="298" font-size="18" font-weight="600" letter-spacing="2">PASS</text>
+    <g transform="translate(866 354)" fill="none" stroke="#17332E" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M0 20 H166 C194 20 214 40 214 68"/>
+      <path d="M214 142 H48 C20 142 0 122 0 94"/>
+      <path d="M64 66 H150" stroke="#2F765C"/>
+      <circle cx="166" cy="66" r="11" fill="#D96F45" stroke="none"/>
+    </g>
+    <text x="846" y="574" font-size="26" font-weight="600">KitchenLink</text>
+    <text x="846" y="626" font-size="18" font-weight="400" fill="#52605D">Übergabe und Fluss.</text>
+    <text x="846" y="655" font-size="18" font-weight="400" fill="#52605D">Stärker gastronomisch.</text>
+
+    <rect x="1180" y="238" width="340" height="500" rx="34" fill="#FCFBF7"/>
+    <text x="1226" y="298" font-size="18" font-weight="600" letter-spacing="2">KL MONOGRAM</text>
+    <g transform="translate(1252 344)" fill="none" stroke="#17332E" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 16 V164"/>
+      <path d="M26 92 L116 18"/>
+      <path d="M30 92 L120 164 H190"/>
+      <path d="M150 18 V132" stroke="#2F765C"/>
+    </g>
+    <text x="1226" y="574" font-size="26" font-weight="600">KitchenLink</text>
+    <text x="1226" y="626" font-size="18" font-weight="400" fill="#52605D">Eigenständig und kompakt.</text>
+    <text x="1226" y="655" font-size="18" font-weight="400" fill="#52605D">Weniger unmittelbar.</text>
+
+    <text x="80" y="810" font-size="18" font-weight="600" letter-spacing="2">SYSTEM PALETTE</text>
+    <g transform="translate(80 844)">
+      <rect width="220" height="72" rx="18" fill="#17332E"/>
+      <text x="20" y="44" font-size="17" font-weight="500" fill="#FCFBF7">Ink  #17332E</text>
+      <rect x="238" width="220" height="72" rx="18" fill="#2F765C"/>
+      <text x="258" y="44" font-size="17" font-weight="500" fill="#FCFBF7">Leaf  #2F765C</text>
+      <rect x="476" width="220" height="72" rx="18" fill="#DCE9C9"/>
+      <text x="496" y="44" font-size="17" font-weight="500">Celery  #DCE9C9</text>
+      <rect x="714" width="220" height="72" rx="18" fill="#FCFBF7" stroke="#D8D5CC"/>
+      <text x="734" y="44" font-size="17" font-weight="500">Paper  #FCFBF7</text>
+      <rect x="952" width="220" height="72" rx="18" fill="#D96F45"/>
+      <text x="972" y="44" font-size="17" font-weight="500" fill="#FCFBF7">Clay  #D96F45</text>
+      <rect x="1190" width="250" height="72" rx="18" fill="#27302E"/>
+      <text x="1210" y="44" font-size="17" font-weight="500" fill="#FCFBF7">Graphite  #27302E</text>
+    </g>
+  </g>
+</svg>

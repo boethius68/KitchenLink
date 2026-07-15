@@ -23,12 +23,19 @@ final class kitchenlinkUITests: XCTestCase {
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testBusinessAppLaunchesIntoScanFirstFlow() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        XCTAssertTrue(app.staticTexts["business.welcomeTitle"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["business.scanMenu"].exists)
+        XCTAssertTrue(app.buttons["business.openLegacySandbox"].exists)
+
+        app.buttons["business.choosePhotos"].tap()
+
+        XCTAssertTrue(app.scrollViews["menuImport.entry"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Dokumentkamera öffnen"].exists)
+        XCTAssertTrue(app.buttons["Menüfotos auswählen"].exists)
     }
 
     @MainActor

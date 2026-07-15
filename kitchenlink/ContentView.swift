@@ -7,155 +7,6 @@ import UIKit
 @preconcurrency import Vision
 import VisionKit
 
-private enum KitchenTheme {
-    static let brand = Color(red: 0.10, green: 0.46, blue: 0.43)
-    static let brandDark = Color(red: 0.05, green: 0.28, blue: 0.27)
-    static let accent = Color(red: 0.87, green: 0.48, blue: 0.29)
-    static let warmBackground = Color(
-        uiColor: UIColor { trait in
-            if trait.userInterfaceStyle == .dark {
-                return UIColor(red: 0.07, green: 0.13, blue: 0.15, alpha: 1)
-            }
-            return UIColor(red: 0.96, green: 0.93, blue: 0.88, alpha: 1)
-        }
-    )
-    static let card = Color(
-        uiColor: UIColor { trait in
-            if trait.userInterfaceStyle == .dark {
-                return UIColor(red: 0.11, green: 0.19, blue: 0.21, alpha: 0.9)
-            }
-            return UIColor(red: 0.99, green: 0.98, blue: 0.96, alpha: 0.88)
-        }
-    )
-    static let surfaceRaised = Color(
-        uiColor: UIColor { trait in
-            if trait.userInterfaceStyle == .dark {
-                return UIColor(red: 0.16, green: 0.24, blue: 0.27, alpha: 0.95)
-            }
-            return UIColor(red: 1.0, green: 0.99, blue: 0.97, alpha: 0.96)
-        }
-    )
-    static let stroke = Color(
-        uiColor: UIColor { trait in
-            if trait.userInterfaceStyle == .dark {
-                return UIColor(red: 0.75, green: 0.88, blue: 0.84, alpha: 0.22)
-            }
-            return UIColor(red: 0.18, green: 0.33, blue: 0.31, alpha: 0.18)
-        }
-    )
-}
-
-private struct KitchenBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    KitchenTheme.warmBackground,
-                    KitchenTheme.surfaceRaised.opacity(colorScheme == .dark ? 0.62 : 0.82),
-                    KitchenTheme.warmBackground
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(KitchenTheme.brand.opacity(colorScheme == .dark ? 0.24 : 0.14))
-                .frame(width: 340, height: 340)
-                .blur(radius: 20)
-                .offset(x: -130, y: -290)
-
-            Circle()
-                .fill(KitchenTheme.accent.opacity(colorScheme == .dark ? 0.18 : 0.12))
-                .frame(width: 300, height: 300)
-                .blur(radius: 22)
-                .offset(x: 160, y: 280)
-        }
-        .ignoresSafeArea()
-    }
-}
-
-private struct KitchenSurfaceModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        ZStack {
-            KitchenBackground()
-            content
-        }
-        .tint(KitchenTheme.brand)
-        .fontDesign(.rounded)
-    }
-}
-
-private extension View {
-    func kitchenSurface() -> some View {
-        modifier(KitchenSurfaceModifier())
-    }
-}
-
-private struct KitchenCard<Content: View>: View {
-    let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(KitchenTheme.card)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(KitchenTheme.stroke, lineWidth: 1)
-            )
-            .shadow(color: KitchenTheme.brandDark.opacity(0.08), radius: 12, y: 6)
-    }
-}
-
-private struct KitchenPrimaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(
-                LinearGradient(
-                    colors: [KitchenTheme.brand, KitchenTheme.brandDark],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
-    }
-}
-
-private struct KitchenSecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(KitchenTheme.surfaceRaised.opacity(configuration.isPressed ? 0.82 : 0.94))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(KitchenTheme.stroke, lineWidth: 1)
-            )
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
-    }
-}
-
 struct ContentView: View {
     @EnvironmentObject private var store: KitchenLinkStore
     @State private var showOperatorArea = false
@@ -3810,7 +3661,7 @@ private struct OperatorMenuEditorView: View {
     }
 }
 
-private struct MenuImportWhooshView: View {
+struct MenuImportWhooshView: View {
     @State private var sweep = false
     @State private var pulse = false
     @State private var rotate = false
@@ -3898,7 +3749,7 @@ private struct MenuImportWhooshView: View {
     }
 }
 
-private struct MenuDocumentScannerView: UIViewControllerRepresentable {
+struct MenuDocumentScannerView: UIViewControllerRepresentable {
     let onComplete: ([UIImage]) -> Void
     let onCancel: () -> Void
 
@@ -3945,11 +3796,39 @@ private struct MenuDocumentScannerView: UIViewControllerRepresentable {
     }
 }
 
-private struct MenuImportReviewView: View {
+struct MenuImportReviewView: View {
     let sections: [MenuSectionData]
-    let onReplace: () -> Void
-    let onAppend: () -> Void
+    private let primaryButtonTitle: String
+    private let primaryButtonIcon: String
+    private let onPrimary: () -> Void
+    private let secondaryButtonTitle: String?
+    private let secondaryButtonIcon: String?
+    private let onSecondary: (() -> Void)?
     private let sectionConfidenceWarningThreshold = 0.72
+
+    init(
+        sections: [MenuSectionData],
+        onReplace: @escaping () -> Void,
+        onAppend: @escaping () -> Void
+    ) {
+        self.sections = sections
+        primaryButtonTitle = "Bestehendes Menü ersetzen"
+        primaryButtonIcon = "arrow.triangle.2.circlepath"
+        onPrimary = onReplace
+        secondaryButtonTitle = "Import als neue Kategorien hinzufügen"
+        secondaryButtonIcon = "plus.circle"
+        onSecondary = onAppend
+    }
+
+    init(sections: [MenuSectionData], onUse: @escaping () -> Void) {
+        self.sections = sections
+        primaryButtonTitle = "Als Sandbox-Menü verwenden"
+        primaryButtonIcon = "checkmark.circle.fill"
+        onPrimary = onUse
+        secondaryButtonTitle = nil
+        secondaryButtonIcon = nil
+        onSecondary = nil
+    }
 
     private var totalItemCount: Int {
         sections.reduce(0) { $0 + $1.items.count }
@@ -4026,18 +3905,22 @@ private struct MenuImportReviewView: View {
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 10) {
                     Button {
-                        onReplace()
+                        onPrimary()
                     } label: {
-                        Label("Bestehendes Menü ersetzen", systemImage: "arrow.triangle.2.circlepath")
+                        Label(primaryButtonTitle, systemImage: primaryButtonIcon)
                     }
                     .buttonStyle(KitchenPrimaryButtonStyle())
 
-                    Button {
-                        onAppend()
-                    } label: {
-                        Label("Import als neue Kategorien hinzufügen", systemImage: "plus.circle")
+                    if let secondaryButtonTitle,
+                       let secondaryButtonIcon,
+                       let onSecondary {
+                        Button {
+                            onSecondary()
+                        } label: {
+                            Label(secondaryButtonTitle, systemImage: secondaryButtonIcon)
+                        }
+                        .buttonStyle(KitchenSecondaryButtonStyle())
                     }
-                    .buttonStyle(KitchenSecondaryButtonStyle())
                 }
                 .padding()
                 .background(.ultraThinMaterial)
@@ -4047,7 +3930,7 @@ private struct MenuImportReviewView: View {
     }
 }
 
-private enum MenuImportService {
+enum MenuImportService {
     enum ImportError: LocalizedError {
         case imageConversionFailed
         case noMenuItemsDetected
@@ -4160,7 +4043,7 @@ private enum MenuImportService {
         let detectedLegend = detectAllergenLegend(from: allLines)
         let sections: [MenuSectionData]
 
-        if isLLMEnabled() {
+        if isLLMEnabled(), hasConfiguredLLMAPIKey() {
             let llmOutcome = await parseSectionsWithLLM(
                 from: allLines,
                 sourceImages: images,
@@ -4181,7 +4064,9 @@ private enum MenuImportService {
             lastImportDiagnosticsStorage = llmOutcome.message
         } else {
             sections = parseLinesToSections(allLines, allergenLegend: detectedLegend)
-            lastImportDiagnosticsStorage = "KI-Reflexion deaktiviert. Nur OCR-Regeln genutzt."
+            lastImportDiagnosticsStorage = isLLMEnabled()
+                ? "Kein KI-Zugang konfiguriert. Lokale OCR-Regeln genutzt."
+                : "KI-Reflexion deaktiviert. Nur OCR-Regeln genutzt."
         }
 
         let itemCount = sections.reduce(0) { $0 + $1.items.count }

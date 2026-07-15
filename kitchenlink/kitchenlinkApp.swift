@@ -13,7 +13,7 @@ struct kitchenlinkApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            KitchenLinkRootView()
                 .environmentObject(store)
                 .environmentObject(relay)
         }

@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#E7E3DA;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-family:'Hanken Grotesk',system-ui,sans-serif}
+a{color:#211D17;text-decoration:none}
+a:hover{color:#C15529}
+.dv-turn{padding:44px 46px 40px;scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:11px;margin:0 0 6px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#211D17;color:#F4F1E9;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 'Hanken Grotesk',system-ui,sans-serif;color:#211D17}
+.dv-intro{max-width:760px;font:400 14px/1.55 'Hanken Grotesk',system-ui,sans-serif;color:#5C5446;margin:0 0 26px}
+.dv-intro b{color:#211D17;font-weight:600}
+.dv-opts{display:flex;flex-wrap:nowrap;gap:30px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:11px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(33,29,23,.10);color:#211D17;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:9px;font:400 11.5px/1.3 'Hanken Grotesk',system-ui,sans-serif;color:rgba(33,29,23,.5)}
+.dv-opt:target .dv-oid{background:#C15529;color:#fff}
+.dv-next{margin:30px 0 0;font:13px/1.6 'Hanken Grotesk',system-ui,sans-serif;color:rgba(33,29,23,.55)}
+.dv-next a{border-bottom:1px solid rgba(33,29,23,.2)}
+.spec-cell{padding:14px 16px}
+@keyframes klscan{0%{top:5%}50%{top:90%}100%{top:5%}}
+@keyframes klslide{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes klrule{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes klaperture{from{clip-path:inset(46% 46% 46% 46% round 26px)}to{clip-path:inset(0 0 0 0 round 12px)}}
+@keyframes klblink{0%,72%{opacity:1}76%,100%{opacity:.28}}
+</style>
+</helmet>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Drei visuelle Territorien</span></div>
+<p class="dv-intro">Keine drei Farbvarianten eines Systems, sondern drei eigenständige Grammatiken. Jedes zeigt dieselben drei Screens — <b>Scan</b>, <b>Heute</b> (Betreiber), <b>Gastkarte</b> — mit identischem Inhalt (Gasthaus Löwen), plus einen dunklen Hektik-Ausschnitt für Bar und Küche. Die eine Regel je Territorium: <a class="dv-oid" href="#1a">1a</a> baut Struktur nur aus <b>Haarlinien statt Karten</b>. <a class="dv-oid" href="#1b">1b</a> gibt jeder Betriebszeile eine <b>farbcodierte Status-Spine</b> — der Zustand ist immer das Lauteste. <a class="dv-oid" href="#1c">1c</a> trägt die ganze Marke in <b>einer Bogenform</b>, laut am Einstieg, ruhig in der Liste.</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Tageslicht — die ruhige Karte</div>
+<div style="width:980px;background:#F4F1E9;border:1px solid rgba(33,29,23,.1);border-radius:14px;overflow:hidden">
+
+  <div style="padding:30px 34px 26px;display:flex;justify-content:space-between;align-items:flex-start;gap:30px;border-bottom:1px solid rgba(33,29,23,.12)">
+    <div style="max-width:600px">
+      <div style="font:600 10px/1 'Hanken Grotesk',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#C15529;margin-bottom:12px">Territorium — Arbeitsname „Tageslicht"</div>
+      <h2 style="font:500 34px/1.1 'Newsreader',Georgia,serif;color:#211D17;margin:0 0 12px;letter-spacing:-.015em">Ruhe und Klarheit, gesetzt wie eine gute Karte.</h2>
+      <p style="font:400 14.5px/1.5 'Hanken Grotesk',sans-serif;color:#5C5446;margin:0 0 14px">KitchenLink liest sich wie eine sorgfältig gesetzte Speisekarte, nicht wie ein Dashboard. Wärme entsteht aus Serifentypografie, Weißraum und Papier — nicht aus Effekten. Das Produkt ist da, wenn eine Entscheidung ansteht, und tritt sonst zurück.</p>
+      <div style="font:500 13px/1.5 'Hanken Grotesk',sans-serif;color:#211D17;padding-left:14px;border-left:2px solid #C15529"><b style="font-weight:700">Unverwechselbare Regel:</b> Keine Karten. Struktur entsteht ausschließlich aus Haarlinien und einem strengen Grundlinienraster — Inhalt sitzt direkt auf dem Papier.</div>
+    </div>
+    <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:46px;height:22px;background:#211D17;border-radius:4px;position:relative"><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:8px;background:#F4F1E9;border-radius:2px"></div></div>
+        <div style="font:500 23px/1 'Newsreader',Georgia,serif;color:#211D17;letter-spacing:-.01em">Kitchen<span style="border-bottom:2px solid #C15529;padding-bottom:1px">Link</span></div>
+      </div>
+      <div style="font:400 11px/1 'Hanken Grotesk',sans-serif;color:#8A8172">Zeichen: der Pass — ein Durchgang im Balken</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid rgba(33,29,23,.12)">
+    <div class="spec-cell" style="border-right:1px solid rgba(33,29,23,.12);border-bottom:1px solid rgba(33,29,23,.12)">
+      <div style="font:600 9px/1 'Hanken Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A0977F;margin-bottom:10px">Schrift</div>
+      <div style="display:flex;align-items:baseline;gap:12px"><span style="font:500 40px/.9 'Newsreader',Georgia,serif;color:#211D17">Aa</span><span style="font:600 22px/.9 'Hanken Grotesk',sans-serif;color:#211D17;font-variant-numeric:tabular-nums">Aa 0123</span></div>
+      <div style="font:400 11.5px/1.4 'Hanken Grotesk',sans-serif;color:#6F6656;margin-top:8px">Newsreader (Display-Serif) + Hanken Grotesk mit Tabellenziffern.</div>
+    </div>
+    <div class="spec-cell" style="border-right:1px solid rgba(33,29,23,.12);border-bottom:1px solid rgba(33,29,23,.12)">
+      <div style="font:600 9px/1 'Hanken Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A0977F;margin-bottom:10px">Farbe &amp; Material</div>
+      <div style="display:flex;gap:7px;margin-bottom:9px">
+        <div style="width:30px;height:30px;border-radius:5px;background:#F4F1E9;box-shadow:inset 0 0 0 1px rgba(33,29,23,.14)"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#211D17"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#C15529"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#191512"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#A23B22"></div>
+      </div>
+      <div style="font:400 11.5px/1.4 'Hanken Grotesk',sans-serif;color:#6F6656">Warmes Papier + Tinte, ein Glut-Akzent. Dunkel = Espresso.</div>
+    </div>
+    <div class="spec-cell" style="border-bottom:1px solid rgba(33,29,23,.12)">
+      <div style="font:600 9px/1 'Hanken Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A0977F;margin-bottom:10px">Form</div>
+      <div style="padding:4px 0 8px">
+        <div style="font:400 12px/1.5 'Hanken Grotesk',sans-serif;color:#211D17">Tisch 7 · Zahlung offen</div>
+        <div style="height:1px;background:rgba(33,29,23,.16);margin:5px 0"></div>
+        <div style="font:400 12px/1.5 'Hanken Grotesk',sans-serif;color:#211D17">Küche · 3 über Zeit</div>
+      </div>
+      <div style="font:400 11.5px/1.4 'Hanken Grotesk',sans-serif;color:#6F6656">Haarlinien + Grundlinienraster, keine Kästen.</div>
+    </div>
+    <div class="spec-cell" style="border-right:1px solid rgba(33,29,23,.12)">
+      <div style="font:600 9px/1 'Hanken Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A0977F;margin-bottom:10px">Icons</div>
+      <div style="display:flex;gap:14px;align-items:center;padding:3px 0 8px">
+        <div style="position:relative;width:18px;height:18px"><div style="position:absolute;top:8px;left:0;width:18px;height:2px;background:#211D17"></div><div style="position:absolute;left:8px;top:0;width:2px;height:18px;background:#211D17"></div></div>
+        <div style="width:16px;height:9px;border-left:2px solid #211D17;border-bottom:2px solid #211D17;transform:rotate(-45deg);margin-bottom:4px"></div>
+        <div style="width:9px;height:9px;border-top:2px solid #211D17;border-right:2px solid #211D17;transform:rotate(45deg)"></div>
+      </div>
+      <div style="font:400 11.5px/1.4 'Hanken Grotesk',sans-serif;color:#6F6656">Dünne Linienicons, Text wenn nötig.</div>
+    </div>
+    <div class="spec-cell" style="border-right:1px solid rgba(33,29,23,.12)">
+      <div style="font:600 9px/1 'Hanken Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A0977F;margin-bottom:10px">Bewegung</div>
+      <div style="padding:6px 0 10px"><div style="height:2px;width:70%;background:#C15529;transform-origin:left;animation:klrule 1.8s ease-in-out infinite alternate"></div></div>
+      <div style="font:400 11.5px/1.4 'Hanken Grotesk',sans-serif;color:#6F6656">Zeilen „linieren ein", Erledigtes wird durchgestrichen.</div>
+    </div>
+    <div class="spec-cell">
+      <div style="font:600 9px/1 'Hanken Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A0977F;margin-bottom:10px">Zeichen</div>
+      <div style="display:flex;align-items:center;gap:9px;padding:2px 0 8px">
+        <div style="width:38px;height:19px;background:#211D17;border-radius:4px;position:relative"><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:15px;height:7px;background:#F4F1E9;border-radius:2px"></div></div>
+        <div style="font:500 18px/1 'Newsreader',Georgia,serif;color:#211D17">Kitchen<span style="border-bottom:2px solid #C15529">Link</span></div>
+      </div>
+      <div style="font:400 11.5px/1.4 'Hanken Grotesk',sans-serif;color:#6F6656">Mono, ab 20 pt lesbar, Öffnung wichtiger als das Element.</div>
+    </div>
+  </div>
+
+  <div style="padding:26px 34px 30px">
+    <div style="display:flex;gap:16px">
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:300px;flex:none;background:#0f1012;border-radius:40px;padding:7px;box-shadow:0 16px 34px rgba(0,0,0,.20)">
+          <div data-screen-label="1a · Scan" style="position:relative;width:286px;height:604px;border-radius:33px;overflow:hidden;background:#F4F1E9;display:flex;flex-direction:column">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:84px;height:22px;background:#0f1012;border-radius:12px;z-index:30"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 22px 6px;font:600 12px/1 'Hanken Grotesk',sans-serif;color:#211D17;flex:none"><span>20:14</span><span style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:700">5G</span><span style="display:inline-block;width:22px;height:11px;border:1.5px solid #211D17;border-radius:3px;position:relative"><span style="position:absolute;top:2px;bottom:2px;left:2px;right:7px;background:#211D17;border-radius:1px"></span></span></span></div>
+            <div style="flex:1;display:flex;flex-direction:column;padding:12px 20px 16px;min-height:0">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font:600 9px/1 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#C15529;border:1px solid #E4C6AE;padding:3px 7px;border-radius:4px">Sandbox</span><span style="font:500 11px/1 'Hanken Grotesk',sans-serif;color:#8A8172">KitchenLink</span></div>
+              <h1 style="font:500 26px/1.06 'Newsreader',Georgia,serif;color:#211D17;margin:0 0 6px;letter-spacing:-.01em">Speisekarte scannen</h1>
+              <p style="font:400 12.5px/1.4 'Hanken Grotesk',sans-serif;color:#6F6656;margin:0 0 13px">Karte fotografieren. Ergebnis vor der Anmeldung prüfen.</p>
+              <div style="position:relative;flex:1;min-height:0;border-radius:9px;overflow:hidden;background:#FBF9F3;box-shadow:inset 0 0 0 1px rgba(33,29,23,.14)">
+                <div style="position:absolute;inset:0;padding:18px 16px;display:flex;flex-direction:column;gap:8px">
+                  <div style="font:500 12px 'Newsreader',serif;color:#BEB5A2">Vorspeisen</div>
+                  <div style="height:6px;width:78%;background:#E7E0D2;border-radius:2px"></div>
+                  <div style="height:6px;width:52%;background:#EDE7DB;border-radius:2px"></div>
+                  <div style="height:6px;width:64%;background:#E7E0D2;border-radius:2px"></div>
+                  <div style="font:500 12px 'Newsreader',serif;color:#BEB5A2;margin-top:5px">Hauptgerichte</div>
+                  <div style="height:6px;width:70%;background:#E7E0D2;border-radius:2px"></div>
+                  <div style="height:6px;width:44%;background:#EDE7DB;border-radius:2px"></div>
+                  <div style="height:6px;width:58%;background:#E7E0D2;border-radius:2px"></div>
+                </div>
+                <div style="position:absolute;left:14px;top:70px;width:78%;height:15px;border:1.5px solid #C15529;border-radius:3px;background:rgba(193,85,41,.06)"></div>
+                <div style="position:absolute;left:14px;top:150px;width:72%;height:15px;border:1.5px solid #C15529;border-radius:3px;background:rgba(193,85,41,.06)"></div>
+                <div style="position:absolute;left:8px;top:8px;width:15px;height:15px;border-left:2px solid #C15529;border-top:2px solid #C15529"></div>
+                <div style="position:absolute;right:8px;top:8px;width:15px;height:15px;border-right:2px solid #C15529;border-top:2px solid #C15529"></div>
+                <div style="position:absolute;left:8px;bottom:8px;width:15px;height:15px;border-left:2px solid #C15529;border-bottom:2px solid #C15529"></div>
+                <div style="position:absolute;right:8px;bottom:8px;width:15px;height:15px;border-right:2px solid #C15529;border-bottom:2px solid #C15529"></div>
+                <div style="position:absolute;left:0;right:0;top:6%;height:2px;background:linear-gradient(90deg,transparent,#C15529,transparent);opacity:.85;animation:klscan 2.8s ease-in-out infinite"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;margin:12px 0"><div style="width:30px;height:40px;border-radius:4px;background:#FBF9F3;box-shadow:inset 0 0 0 1px rgba(33,29,23,.14)"></div><span style="font:500 12px 'Hanken Grotesk',sans-serif;color:#211D17">1 Seite erfasst</span><span style="font:500 12px 'Hanken Grotesk',sans-serif;color:#8A8172;margin-left:auto">+ Seite</span></div>
+              <button style="border:none;width:100%;background:#C15529;color:#FBF3EC;font:600 14px 'Hanken Grotesk',sans-serif;padding:14px;border-radius:11px">12 Gerichte erkennen</button>
+            </div>
+          </div>
+        </div>
+        <div style="font:600 10px/1 'Hanken Grotesk',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8A8172">Scan · Einstieg</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:300px;flex:none;background:#0f1012;border-radius:40px;padding:7px;box-shadow:0 16px 34px rgba(0,0,0,.20)">
+          <div data-screen-label="1a · Heute" style="position:relative;width:286px;height:604px;border-radius:33px;overflow:hidden;background:#F4F1E9;display:flex;flex-direction:column">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:84px;height:22px;background:#0f1012;border-radius:12px;z-index:30"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 22px 6px;font:600 12px/1 'Hanken Grotesk',sans-serif;color:#211D17;flex:none"><span>20:14</span><span style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:700">5G</span><span style="display:inline-block;width:22px;height:11px;border:1.5px solid #211D17;border-radius:3px;position:relative"><span style="position:absolute;top:2px;bottom:2px;left:2px;right:7px;background:#211D17;border-radius:1px"></span></span></span></div>
+            <div style="display:flex;align-items:center;gap:7px;padding:5px 20px;background:#F0E7D9"><span style="width:5px;height:5px;border-radius:50%;background:#C15529"></span><span style="font:600 9.5px/1 'Hanken Grotesk',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#9A5A2E">Sandbox · keine echten Zahlungen</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;padding:15px 20px 0;min-height:0">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><h1 style="font:500 30px/1 'Newsreader',Georgia,serif;color:#211D17;margin:0;letter-spacing:-.01em">Heute</h1><span style="font:500 12px 'Hanken Grotesk',sans-serif;color:#8A8172">Mo · 14. Juli</span></div>
+              <div style="display:flex;align-items:center;gap:6px;margin:7px 0 15px"><span style="width:6px;height:6px;border-radius:50%;background:#3B7A4E"></span><span style="font:400 12px 'Hanken Grotesk',sans-serif;color:#6F6656">Gasthaus Löwen · Schicht offen seit 11:30</span></div>
+              <div style="display:flex;border-top:1px solid rgba(33,29,23,.14);border-bottom:1px solid rgba(33,29,23,.14);padding:12px 0;margin-bottom:16px">
+                <div style="flex:1"><div style="font:500 22px/1 'Newsreader',serif;color:#211D17;font-variant-numeric:tabular-nums">€ 1.248</div><div style="font:400 10px/1 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:5px;letter-spacing:.03em">Umsatz</div></div>
+                <div style="flex:1;border-left:1px solid rgba(33,29,23,.12);padding-left:12px"><div style="font:500 22px/1 'Newsreader',serif;color:#211D17;font-variant-numeric:tabular-nums">24</div><div style="font:400 10px/1 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:5px;letter-spacing:.03em">Gäste</div></div>
+                <div style="flex:1;border-left:1px solid rgba(33,29,23,.12);padding-left:12px"><div style="font:500 22px/1 'Newsreader',serif;color:#211D17;font-variant-numeric:tabular-nums">6/12</div><div style="font:400 10px/1 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:5px;letter-spacing:.03em">Tische</div></div>
+              </div>
+              <div style="font:600 9.5px/1 'Hanken Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A0977F;margin-bottom:4px">Jetzt erledigen</div>
+              <div style="display:flex;align-items:center;padding:13px 0;border-bottom:1px solid rgba(33,29,23,.12)"><div style="flex:1"><div style="font:500 13.5px 'Hanken Grotesk',sans-serif;color:#211D17">Tisch 7 · Zahlung offen</div><div style="font:400 11px 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:2px">seit 14 Min</div></div><div style="font:500 14px 'Newsreader',serif;color:#C15529;font-variant-numeric:tabular-nums">€ 68,40</div></div>
+              <div style="display:flex;align-items:center;padding:13px 0;border-bottom:1px solid rgba(33,29,23,.12)"><div style="flex:1"><div style="font:500 13.5px 'Hanken Grotesk',sans-serif;color:#211D17">Küche · 3 Tickets über Zeit</div><div style="font:400 11px 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:2px">ältestes +6 Min</div></div><div style="font:500 13px 'Hanken Grotesk',sans-serif;color:#A23B22">+6 min</div></div>
+              <div style="display:flex;align-items:center;padding:13px 0;border-bottom:1px solid rgba(33,29,23,.12)"><div style="flex:1"><div style="font:500 13.5px 'Hanken Grotesk',sans-serif;color:#211D17">Schicht 18:00 · 1 Service fehlt</div><div style="font:400 11px 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:2px">Abendbesetzung</div></div><div style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:#211D17">planen ›</div></div>
+              <div style="display:flex;align-items:center;padding:13px 0"><div style="flex:1"><div style="font:500 13.5px 'Hanken Grotesk',sans-serif;color:#211D17">Wareneingang · Getränke</div><div style="font:400 11px 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:2px">Lieferung 15:00</div></div><div style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:#8A8172">fällig</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:9px 20px 15px;border-top:1px solid rgba(33,29,23,.14);flex:none">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:15px;background:#211D17;border-radius:3px"></div><span style="font:600 9px 'Hanken Grotesk',sans-serif;color:#211D17">Heute</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:15px;display:flex;flex-direction:column;justify-content:space-between;padding:1px 0"><span style="height:2px;background:#9A9080"></span><span style="height:2px;background:#9A9080"></span><span style="height:2px;background:#9A9080"></span></div><span style="font:500 9px 'Hanken Grotesk',sans-serif;color:#9A9080">Bestellungen</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:14px;height:14px;border:2px solid #9A9080;border-radius:50%"></div><span style="font:500 9px 'Hanken Grotesk',sans-serif;color:#9A9080">Betrieb</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:14px;display:flex;gap:2px;align-items:flex-end"><span style="width:5px;height:9px;background:#9A9080;border-radius:1px"></span><span style="width:5px;height:13px;background:#9A9080;border-radius:1px"></span></div><span style="font:500 9px 'Hanken Grotesk',sans-serif;color:#9A9080">Team</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:14px;display:flex;align-items:center;justify-content:center;gap:2px"><span style="width:3px;height:3px;border-radius:50%;background:#9A9080"></span><span style="width:3px;height:3px;border-radius:50%;background:#9A9080"></span><span style="width:3px;height:3px;border-radius:50%;background:#9A9080"></span></div><span style="font:500 9px 'Hanken Grotesk',sans-serif;color:#9A9080">Mehr</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="font:600 10px/1 'Hanken Grotesk',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8A8172">Heute · Betreiber</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:300px;flex:none;background:#0f1012;border-radius:40px;padding:7px;box-shadow:0 16px 34px rgba(0,0,0,.20)">
+          <div data-screen-label="1a · Gastkarte" style="position:relative;width:286px;height:604px;border-radius:33px;overflow:hidden;background:#F4F1E9;display:flex;flex-direction:column">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:84px;height:22px;background:#0f1012;border-radius:12px;z-index:30"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 22px 6px;font:600 12px/1 'Hanken Grotesk',sans-serif;color:#211D17;flex:none"><span>20:14</span><span style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:700">5G</span><span style="display:inline-block;width:22px;height:11px;border:1.5px solid #211D17;border-radius:3px;position:relative"><span style="position:absolute;top:2px;bottom:2px;left:2px;right:7px;background:#211D17;border-radius:1px"></span></span></span></div>
+            <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+              <div style="padding:16px 20px 12px;text-align:center;border-bottom:1px solid rgba(33,29,23,.14)">
+                <div style="font:600 22px/1 'Newsreader',Georgia,serif;color:#211D17;letter-spacing:.01em">Gasthaus Löwen</div>
+                <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><span style="width:24px;height:1px;background:rgba(33,29,23,.3)"></span><span style="font:400 11px 'Hanken Grotesk',sans-serif;color:#8A8172;letter-spacing:.04em">Tisch 12 · Speisekarte</span><span style="width:24px;height:1px;background:rgba(33,29,23,.3)"></span></div>
+              </div>
+              <div style="display:flex;gap:18px;padding:12px 20px 10px;border-bottom:1px solid rgba(33,29,23,.14)"><span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#211D17;border-bottom:2px solid #C15529;padding-bottom:6px">Hauptgerichte</span><span style="font:400 12.5px 'Hanken Grotesk',sans-serif;color:#8A8172">Vorspeisen</span><span style="font:400 12.5px 'Hanken Grotesk',sans-serif;color:#8A8172">Getränke</span></div>
+              <div style="flex:1;overflow:hidden;padding:0 20px">
+                <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(33,29,23,.1)"><div style="flex:1"><div style="font:500 14px 'Hanken Grotesk',sans-serif;color:#211D17">Wiener Schnitzel vom Kalb</div><div style="font:400 11.5px/1.35 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:3px">Bratkartoffeln, Preiselbeeren · a, c, g</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span style="font:500 13.5px 'Newsreader',serif;color:#211D17;font-variant-numeric:tabular-nums">€ 22,80</span><div style="width:26px;height:26px;border:1.5px solid #C15529;border-radius:7px;position:relative"><div style="position:absolute;top:12px;left:6px;width:12px;height:1.5px;background:#C15529"></div><div style="position:absolute;left:12px;top:6px;width:1.5px;height:12px;background:#C15529"></div></div></div></div>
+                <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(33,29,23,.1)"><div style="flex:1"><div style="font:500 14px 'Hanken Grotesk',sans-serif;color:#211D17">Käsespätzle</div><div style="font:400 11.5px/1.35 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:3px">Bergkäse, Röstzwiebeln · vegetarisch</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span style="font:500 13.5px 'Newsreader',serif;color:#211D17;font-variant-numeric:tabular-nums">€ 14,50</span><div style="width:26px;height:26px;border:1.5px solid #C15529;border-radius:7px;position:relative"><div style="position:absolute;top:12px;left:6px;width:12px;height:1.5px;background:#C15529"></div><div style="position:absolute;left:12px;top:6px;width:1.5px;height:12px;background:#C15529"></div></div></div></div>
+                <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(33,29,23,.1)"><div style="flex:1"><div style="font:500 14px 'Hanken Grotesk',sans-serif;color:#211D17">Rinderkraftbrühe mit Flädle</div><div style="font:400 11.5px/1.35 'Hanken Grotesk',sans-serif;color:#8A8172;margin-top:3px">Klare Brühe, hausgemachte Flädle</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span style="font:500 13.5px 'Newsreader',serif;color:#211D17;font-variant-numeric:tabular-nums">€ 6,50</span><div style="width:26px;height:26px;border:1.5px solid #C15529;border-radius:7px;position:relative"><div style="position:absolute;top:12px;left:6px;width:12px;height:1.5px;background:#C15529"></div><div style="position:absolute;left:12px;top:6px;width:1.5px;height:12px;background:#C15529"></div></div></div></div>
+              </div>
+              <div style="padding:12px 16px 8px;flex:none"><button style="border:none;width:100%;background:#C15529;color:#FBF3EC;font:600 13.5px 'Hanken Grotesk',sans-serif;padding:14px 16px;border-radius:11px;display:flex;justify-content:space-between;align-items:center"><span>3 Artikel · bestellen</span><span style="font-variant-numeric:tabular-nums">€ 41,50</span></button><div style="text-align:center;font:400 9.5px 'Hanken Grotesk',sans-serif;color:#A79D8B;margin-top:9px;letter-spacing:.03em">läuft mit KitchenLink</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="font:600 10px/1 'Hanken Grotesk',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8A8172">Gastkarte · Gast</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:26px;padding-top:22px;border-top:1px solid rgba(33,29,23,.12)">
+      <div style="font:600 9.5px/1 'Hanken Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A0977F;margin-bottom:12px">Hektik · dunkle Bar / Küche · neue Bestellung</div>
+      <div style="width:360px;background:#191512;border-radius:14px;padding:18px 20px;box-shadow:0 12px 30px rgba(0,0,0,.3);animation:klslide .5s ease-out both">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px"><span style="font:500 18px 'Newsreader',Georgia,serif;color:#F4EFE4">Neue Bestellung</span><span style="font:500 15px 'Hanken Grotesk',sans-serif;color:#E8A06A;font-variant-numeric:tabular-nums">0:12</span></div>
+        <div style="font:400 12px 'Hanken Grotesk',sans-serif;color:#A69A87;margin-bottom:12px">Tisch 4 · Kellner Mara</div>
+        <div style="height:2px;width:100%;background:#C15529;transform-origin:left;animation:klrule .6s ease-out both;margin-bottom:12px"></div>
+        <div style="font:400 13px/1.7 'Hanken Grotesk',sans-serif;color:#E7E0D2;margin-bottom:16px">2× Wiener Schnitzel<br>1× Käsespätzle</div>
+        <div style="display:flex;gap:10px"><button style="border:none;flex:1;background:#C15529;color:#FBF3EC;font:600 13px 'Hanken Grotesk',sans-serif;padding:12px;border-radius:9px">Annehmen</button><button style="flex:none;background:transparent;color:#A69A87;border:1px solid rgba(230,224,210,.22);font:500 13px 'Hanken Grotesk',sans-serif;padding:12px 18px;border-radius:9px">Ablehnen</button></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Takt — das Betriebsinstrument</div>
+<div style="width:980px;background:#EAE8E3;border:1px solid rgba(27,29,31,.12);border-radius:14px;overflow:hidden">
+
+  <div style="padding:30px 34px 26px;display:flex;justify-content:space-between;align-items:flex-start;gap:30px;border-bottom:1px solid rgba(27,29,31,.14)">
+    <div style="max-width:600px">
+      <div style="font:700 10px/1 'Space Grotesk',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#2C63B8;margin-bottom:12px">Territorium — Arbeitsname „Takt"</div>
+      <h2 style="font:600 33px/1.08 'Space Grotesk',sans-serif;color:#1B1D1F;margin:0 0 12px;letter-spacing:-.02em">Im Gedränge zählt der Takt.</h2>
+      <p style="font:400 14.5px/1.5 'IBM Plex Sans',sans-serif;color:#5D6164;margin:0 0 14px">Ein präzises Instrument statt eines Dashboards — wie eine Anzeige im Verkehr oder ein Mischpult. Der aktuelle Zustand ist immer das Lauteste; alles andere tritt zurück. Gebaut, damit es in der hellen Küche und der dunklen Bar gleich schnell lesbar ist.</p>
+      <div style="font:500 13px/1.5 'IBM Plex Sans',sans-serif;color:#1B1D1F;padding-left:14px;border-left:2px solid #2C63B8"><b style="font-weight:700">Unverwechselbare Regel:</b> Jede Betriebszeile trägt links eine farbcodierte Status-Spine. Der Zustand ist als Verb + Monospace-Daten codiert — nie als Pille.</div>
+    </div>
+    <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:12px">
+      <div style="display:flex;align-items:center;gap:11px">
+        <div style="display:flex;align-items:flex-end;gap:3px;height:24px"><span style="width:5px;height:11px;background:#1B1D1F"></span><span style="width:5px;height:24px;background:#1B1D1F"></span><span style="width:5px;height:17px;background:#1B1D1F"></span></div>
+        <div style="font:600 21px/1 'Space Grotesk',sans-serif;color:#1B1D1F;letter-spacing:-.02em">KitchenLink</div>
+      </div>
+      <div style="font:400 11px/1 'IBM Plex Sans',sans-serif;color:#8A8F92">Zeichen: der Takt — drei Balken, Rhythmus</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid rgba(27,29,31,.14)">
+    <div class="spec-cell" style="border-right:1px solid rgba(27,29,31,.13);border-bottom:1px solid rgba(27,29,31,.13)">
+      <div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#9AA0A3;margin-bottom:10px">Schrift</div>
+      <div style="display:flex;align-items:baseline;gap:12px"><span style="font:600 38px/.9 'Space Grotesk',sans-serif;color:#1B1D1F;letter-spacing:-.03em">Aa</span><span style="font:500 22px/.9 'IBM Plex Mono',monospace;color:#1B1D1F">0123</span></div>
+      <div style="font:400 11.5px/1.4 'IBM Plex Sans',sans-serif;color:#6C7073;margin-top:8px">Space Grotesk (Display) · IBM Plex Sans · Plex Mono für alle Zahlen.</div>
+    </div>
+    <div class="spec-cell" style="border-right:1px solid rgba(27,29,31,.13);border-bottom:1px solid rgba(27,29,31,.13)">
+      <div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#9AA0A3;margin-bottom:10px">Farbe &amp; Material</div>
+      <div style="display:flex;gap:7px;margin-bottom:9px">
+        <div style="width:30px;height:30px;border-radius:5px;background:#EFEEE9;box-shadow:inset 0 0 0 1px rgba(27,29,31,.14)"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#1B1D1F"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#CE3B2B"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#2C63B8"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#C8880F"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#15171A"></div>
+      </div>
+      <div style="font:400 11.5px/1.4 'IBM Plex Sans',sans-serif;color:#6C7073">Neutral + Emaille-Signale, kein Neon. Hell &amp; dunkel gleich stark.</div>
+    </div>
+    <div class="spec-cell" style="border-bottom:1px solid rgba(27,29,31,.13)">
+      <div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#9AA0A3;margin-bottom:10px">Form</div>
+      <div style="display:flex;align-items:stretch;gap:8px;padding:2px 0 8px"><div style="width:4px;background:#CE3B2B;border-radius:2px"></div><div><div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.13em;color:#CE3B2B">ZAHLUNG OFFEN</div><div style="font:500 12px 'IBM Plex Sans',sans-serif;color:#1B1D1F;margin-top:4px">Tisch 7 · <span style="font-family:'IBM Plex Mono',monospace">€ 68,40</span></div></div></div>
+      <div style="font:400 11.5px/1.4 'IBM Plex Sans',sans-serif;color:#6C7073">Status-Spine + Verb + Mono-Wert.</div>
+    </div>
+    <div class="spec-cell" style="border-right:1px solid rgba(27,29,31,.13)">
+      <div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#9AA0A3;margin-bottom:10px">Icons</div>
+      <div style="display:flex;gap:12px;align-items:center;padding:3px 0 8px">
+        <div style="width:15px;height:15px;background:#2C63B8;border-radius:3px"></div>
+        <div style="width:15px;height:15px;background:#CE3B2B;border-radius:50%"></div>
+        <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:15px solid #C8880F;position:relative"><span style="position:absolute;left:-1.5px;top:6px;width:3px;height:5px;background:#fff;border-radius:1px"></span></div>
+      </div>
+      <div style="font:400 11.5px/1.4 'IBM Plex Sans',sans-serif;color:#6C7073">Kräftige Piktogramme, Zustand = Farbe + Form.</div>
+    </div>
+    <div class="spec-cell" style="border-right:1px solid rgba(27,29,31,.13)">
+      <div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#9AA0A3;margin-bottom:10px">Bewegung</div>
+      <div style="padding:5px 0 10px;display:flex;align-items:center;gap:5px"><div style="width:22px;height:3px;background:#2C63B8"></div><div style="width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:8px solid #2C63B8"></div><span style="font:500 10px 'IBM Plex Mono',monospace;color:#8A8F92">von rechts</span></div>
+      <div style="font:400 11.5px/1.4 'IBM Plex Sans',sans-serif;color:#6C7073">Bestellung fährt ein, Ticket springt bei Zeit auf Rot. Haptik beim Annehmen.</div>
+    </div>
+    <div class="spec-cell">
+      <div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#9AA0A3;margin-bottom:10px">Zeichen</div>
+      <div style="display:flex;align-items:center;gap:9px;padding:2px 0 8px">
+        <div style="display:flex;align-items:flex-end;gap:2.5px;height:19px"><span style="width:4px;height:9px;background:#1B1D1F"></span><span style="width:4px;height:19px;background:#1B1D1F"></span><span style="width:4px;height:14px;background:#1B1D1F"></span></div>
+        <div style="font:600 17px/1 'Space Grotesk',sans-serif;color:#1B1D1F;letter-spacing:-.02em">KitchenLink</div>
+      </div>
+      <div style="font:400 11.5px/1.4 'IBM Plex Sans',sans-serif;color:#6C7073">Mono-tauglich, ab 20 pt lesbar, Rhythmus statt Kettenglied.</div>
+    </div>
+  </div>
+
+  <div style="padding:26px 34px 30px">
+    <div style="display:flex;gap:16px">
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:300px;flex:none;background:#0f1012;border-radius:40px;padding:7px;box-shadow:0 16px 34px rgba(0,0,0,.20)">
+          <div data-screen-label="1b · Scan" style="position:relative;width:286px;height:604px;border-radius:33px;overflow:hidden;background:#F1F0EC;display:flex;flex-direction:column">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:84px;height:22px;background:#0f1012;border-radius:12px;z-index:30"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 22px 6px;font:600 12px/1 'IBM Plex Sans',sans-serif;color:#1B1D1F;flex:none"><span>20:14</span><span style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:700">5G</span><span style="display:inline-block;width:22px;height:11px;border:1.5px solid #1B1D1F;border-radius:3px;position:relative"><span style="position:absolute;top:2px;bottom:2px;left:2px;right:7px;background:#1B1D1F;border-radius:1px"></span></span></span></div>
+            <div style="flex:1;display:flex;flex-direction:column;padding:12px 20px 16px;min-height:0">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#fff;background:#1B1D1F;padding:4px 8px;border-radius:4px">Sandbox</span><span style="font:600 11px/1 'Space Grotesk',sans-serif;color:#8A8F92;letter-spacing:-.01em">KitchenLink</span></div>
+              <h1 style="font:600 25px/1.06 'Space Grotesk',sans-serif;color:#1B1D1F;margin:0 0 6px;letter-spacing:-.02em">Speisekarte scannen</h1>
+              <p style="font:400 12.5px/1.4 'IBM Plex Sans',sans-serif;color:#6C7073;margin:0 0 13px">Karte fotografieren. Ergebnis vor der Anmeldung prüfen.</p>
+              <div style="position:relative;flex:1;min-height:0;overflow:hidden;background:#FBFBF9;box-shadow:inset 0 0 0 1px rgba(27,29,31,.16)">
+                <div style="position:absolute;inset:0;padding:18px 16px;display:flex;flex-direction:column;gap:8px">
+                  <div style="font:500 12px 'IBM Plex Sans',sans-serif;color:#B4BABE">Vorspeisen</div>
+                  <div style="height:6px;width:78%;background:#DFE2E0;border-radius:1px"></div>
+                  <div style="height:6px;width:52%;background:#E9EBE9;border-radius:1px"></div>
+                  <div style="height:6px;width:64%;background:#DFE2E0;border-radius:1px"></div>
+                  <div style="font:500 12px 'IBM Plex Sans',sans-serif;color:#B4BABE;margin-top:5px">Hauptgerichte</div>
+                  <div style="height:6px;width:70%;background:#DFE2E0;border-radius:1px"></div>
+                  <div style="height:6px;width:44%;background:#E9EBE9;border-radius:1px"></div>
+                  <div style="height:6px;width:58%;background:#DFE2E0;border-radius:1px"></div>
+                </div>
+                <div style="position:absolute;left:14px;top:70px;width:78%;height:15px;box-shadow:inset 0 0 0 2px #2C63B8;background:rgba(44,99,184,.08)"></div>
+                <div style="position:absolute;left:14px;top:150px;width:72%;height:15px;box-shadow:inset 0 0 0 2px #2C63B8;background:rgba(44,99,184,.08)"></div>
+                <div style="position:absolute;left:9px;top:9px;width:16px;height:16px;border-left:3px solid #2C63B8;border-top:3px solid #2C63B8"></div>
+                <div style="position:absolute;right:9px;top:9px;width:16px;height:16px;border-right:3px solid #2C63B8;border-top:3px solid #2C63B8"></div>
+                <div style="position:absolute;left:9px;bottom:9px;width:16px;height:16px;border-left:3px solid #2C63B8;border-bottom:3px solid #2C63B8"></div>
+                <div style="position:absolute;right:9px;bottom:9px;width:16px;height:16px;border-right:3px solid #2C63B8;border-bottom:3px solid #2C63B8"></div>
+                <div style="position:absolute;left:0;right:0;top:6%;height:2px;background:#2C63B8;opacity:.85;animation:klscan 2.8s ease-in-out infinite"></div>
+                <div style="position:absolute;left:12px;bottom:12px;font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#fff;background:#2C63B8;padding:5px 8px;border-radius:3px">12 GERICHTE · 3 KATEGORIEN</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;margin:12px 0"><div style="width:30px;height:40px;background:#FBFBF9;box-shadow:inset 0 0 0 1px rgba(27,29,31,.16);display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px"><span style="font:600 7px 'IBM Plex Mono',monospace;color:#8A8F92">01</span></div><span style="font:500 12px 'IBM Plex Sans',sans-serif;color:#1B1D1F">1 Seite erfasst</span><span style="font:600 11px 'IBM Plex Mono',monospace;color:#2C63B8;margin-left:auto">+ SEITE</span></div>
+              <button style="border:none;width:100%;background:#2C63B8;color:#fff;font:600 14px 'Space Grotesk',sans-serif;padding:14px;border-radius:8px;display:flex;justify-content:center;gap:8px;align-items:center">Erkennen<span style="font:500 13px 'IBM Plex Mono',monospace;opacity:.75">12</span></button>
+            </div>
+          </div>
+        </div>
+        <div style="font:600 10px/1 'Space Grotesk',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8A8F92">Scan · Einstieg</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:300px;flex:none;background:#0f1012;border-radius:40px;padding:7px;box-shadow:0 16px 34px rgba(0,0,0,.20)">
+          <div data-screen-label="1b · Heute" style="position:relative;width:286px;height:604px;border-radius:33px;overflow:hidden;background:#F1F0EC;display:flex;flex-direction:column">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:84px;height:22px;background:#0f1012;border-radius:12px;z-index:30"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 22px 6px;font:600 12px/1 'IBM Plex Sans',sans-serif;color:#1B1D1F;flex:none"><span>20:14</span><span style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:700">5G</span><span style="display:inline-block;width:22px;height:11px;border:1.5px solid #1B1D1F;border-radius:3px;position:relative"><span style="position:absolute;top:2px;bottom:2px;left:2px;right:7px;background:#1B1D1F;border-radius:1px"></span></span></span></div>
+            <div style="display:flex;align-items:center;gap:7px;padding:5px 20px;background:#1B1D1F"><span style="width:5px;height:5px;background:#C8880F"></span><span style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#C9A24A">Sandbox · keine echten Zahlungen</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;padding:15px 20px 0;min-height:0">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><h1 style="font:600 29px/1 'Space Grotesk',sans-serif;color:#1B1D1F;margin:0;letter-spacing:-.02em">Heute</h1><span style="font:500 12px 'IBM Plex Mono',monospace;color:#8A8F92">Mo 14.07.</span></div>
+              <div style="display:inline-flex;align-self:flex-start;align-items:center;gap:6px;margin:9px 0 15px;padding:4px 9px;background:rgba(46,125,83,.12)"><span style="width:5px;height:5px;background:#2E7D53"></span><span style="font:600 9.5px/1 'Space Grotesk',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#2E7D53">Schicht offen · 11:30</span></div>
+              <div style="display:flex;background:#E4E2DD;margin-bottom:16px">
+                <div style="flex:1;padding:11px 12px"><div style="font:500 21px/1 'IBM Plex Mono',monospace;color:#1B1D1F">1.248</div><div style="font:500 9px/1 'Space Grotesk',sans-serif;color:#8A8F92;margin-top:5px;letter-spacing:.06em;text-transform:uppercase">Umsatz €</div></div>
+                <div style="flex:1;padding:11px 12px;box-shadow:inset 1px 0 0 rgba(27,29,31,.12)"><div style="font:500 21px/1 'IBM Plex Mono',monospace;color:#1B1D1F">24</div><div style="font:500 9px/1 'Space Grotesk',sans-serif;color:#8A8F92;margin-top:5px;letter-spacing:.06em;text-transform:uppercase">Gäste</div></div>
+                <div style="flex:1;padding:11px 12px;box-shadow:inset 1px 0 0 rgba(27,29,31,.12)"><div style="font:500 21px/1 'IBM Plex Mono',monospace;color:#1B1D1F">6/12</div><div style="font:500 9px/1 'Space Grotesk',sans-serif;color:#8A8F92;margin-top:5px;letter-spacing:.06em;text-transform:uppercase">Tische</div></div>
+              </div>
+              <div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#9AA0A3;margin-bottom:8px">Jetzt erledigen</div>
+              <div style="display:flex;align-items:stretch;gap:11px;padding:11px 0;border-bottom:1px solid rgba(27,29,31,.12)"><div style="width:4px;background:#CE3B2B;flex:none"></div><div style="flex:1"><div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.12em;color:#CE3B2B">ZAHLUNG OFFEN</div><div style="font:500 13px 'IBM Plex Sans',sans-serif;color:#1B1D1F;margin-top:4px">Tisch 7 · seit 14 Min</div></div><div style="font:500 14px 'IBM Plex Mono',monospace;color:#1B1D1F;align-self:center">€ 68,40</div></div>
+              <div style="display:flex;align-items:stretch;gap:11px;padding:11px 0;border-bottom:1px solid rgba(27,29,31,.12)"><div style="width:4px;background:#C8880F;flex:none"></div><div style="flex:1"><div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.12em;color:#B5790D">ÜBER ZEIT</div><div style="font:500 13px 'IBM Plex Sans',sans-serif;color:#1B1D1F;margin-top:4px">Küche · 3 Tickets</div></div><div style="font:500 14px 'IBM Plex Mono',monospace;color:#B5790D;align-self:center">+6:00</div></div>
+              <div style="display:flex;align-items:stretch;gap:11px;padding:11px 0;border-bottom:1px solid rgba(27,29,31,.12)"><div style="width:4px;background:#2C63B8;flex:none"></div><div style="flex:1"><div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.12em;color:#2C63B8">UNTERBESETZT</div><div style="font:500 13px 'IBM Plex Sans',sans-serif;color:#1B1D1F;margin-top:4px">Schicht 18:00 · 1 fehlt</div></div><div style="font:600 11px 'IBM Plex Mono',monospace;color:#2C63B8;align-self:center">PLANEN</div></div>
+              <div style="display:flex;align-items:stretch;gap:11px;padding:11px 0"><div style="width:4px;background:#9AA0A3;flex:none"></div><div style="flex:1"><div style="font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.12em;color:#8A8F92">WARENEINGANG</div><div style="font:500 13px 'IBM Plex Sans',sans-serif;color:#1B1D1F;margin-top:4px">Getränke</div></div><div style="font:500 13px 'IBM Plex Mono',monospace;color:#8A8F92;align-self:center">15:00</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:9px 20px 15px;background:#E4E2DD;flex:none">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:15px;background:#2C63B8;border-radius:3px"></div><span style="font:600 9px 'Space Grotesk',sans-serif;color:#1B1D1F">Heute</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:15px;display:flex;flex-direction:column;justify-content:space-between;padding:1px 0"><span style="height:3px;background:#9AA0A3"></span><span style="height:3px;background:#9AA0A3"></span><span style="height:3px;background:#9AA0A3"></span></div><span style="font:500 9px 'Space Grotesk',sans-serif;color:#9AA0A3">Bestellungen</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:14px;height:14px;background:#9AA0A3;border-radius:50%"></div><span style="font:500 9px 'Space Grotesk',sans-serif;color:#9AA0A3">Betrieb</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:14px;display:flex;gap:2px;align-items:flex-end"><span style="width:5px;height:9px;background:#9AA0A3"></span><span style="width:5px;height:13px;background:#9AA0A3"></span></div><span style="font:500 9px 'Space Grotesk',sans-serif;color:#9AA0A3">Team</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:14px;height:14px;display:grid;grid-template-columns:1fr 1fr;gap:2px"><span style="background:#9AA0A3"></span><span style="background:#9AA0A3"></span><span style="background:#9AA0A3"></span><span style="background:#9AA0A3"></span></div><span style="font:500 9px 'Space Grotesk',sans-serif;color:#9AA0A3">Mehr</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="font:600 10px/1 'Space Grotesk',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8A8F92">Heute · Betreiber</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:300px;flex:none;background:#0f1012;border-radius:40px;padding:7px;box-shadow:0 16px 34px rgba(0,0,0,.20)">
+          <div data-screen-label="1b · Gastkarte" style="position:relative;width:286px;height:604px;border-radius:33px;overflow:hidden;background:#F1F0EC;display:flex;flex-direction:column">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:84px;height:22px;background:#0f1012;border-radius:12px;z-index:30"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 22px 6px;font:600 12px/1 'IBM Plex Sans',sans-serif;color:#1B1D1F;flex:none"><span>20:14</span><span style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:700">5G</span><span style="display:inline-block;width:22px;height:11px;border:1.5px solid #1B1D1F;border-radius:3px;position:relative"><span style="position:absolute;top:2px;bottom:2px;left:2px;right:7px;background:#1B1D1F;border-radius:1px"></span></span></span></div>
+            <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+              <div style="padding:16px 20px 13px;border-bottom:1px solid rgba(27,29,31,.14);display:flex;justify-content:space-between;align-items:center">
+                <div><div style="font:600 21px/1 'Newsreader',Georgia,serif;color:#1B1D1F">Gasthaus Löwen</div><div style="font:400 11px 'IBM Plex Sans',sans-serif;color:#8A8F92;margin-top:5px">Speisekarte</div></div>
+                <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#1B1D1F;box-shadow:inset 0 0 0 1.5px #1B1D1F;padding:5px 8px">TISCH 12</div>
+              </div>
+              <div style="display:flex;padding:11px 20px;gap:0;border-bottom:1px solid rgba(27,29,31,.14)"><span style="font:600 11px 'Space Grotesk',sans-serif;color:#fff;background:#1B1D1F;padding:6px 12px">Hauptgerichte</span><span style="font:500 11px 'Space Grotesk',sans-serif;color:#6C7073;padding:6px 12px">Vorspeisen</span><span style="font:500 11px 'Space Grotesk',sans-serif;color:#6C7073;padding:6px 12px">Getränke</span></div>
+              <div style="flex:1;overflow:hidden;padding:0 20px">
+                <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(27,29,31,.1)"><div style="flex:1"><div style="font:500 14px 'IBM Plex Sans',sans-serif;color:#1B1D1F">Wiener Schnitzel vom Kalb</div><div style="font:400 11.5px/1.35 'IBM Plex Sans',sans-serif;color:#8A8F92;margin-top:3px">Bratkartoffeln, Preiselbeeren <span style="font-family:'IBM Plex Mono',monospace">a c g</span></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span style="font:500 13px 'IBM Plex Mono',monospace;color:#1B1D1F">22,80</span><div style="width:26px;height:26px;box-shadow:inset 0 0 0 1.5px #2C63B8;position:relative"><div style="position:absolute;top:12px;left:6px;width:12px;height:2px;background:#2C63B8"></div><div style="position:absolute;left:12px;top:6px;width:2px;height:12px;background:#2C63B8"></div></div></div></div>
+                <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(27,29,31,.1)"><div style="flex:1"><div style="font:500 14px 'IBM Plex Sans',sans-serif;color:#1B1D1F">Käsespätzle</div><div style="font:400 11.5px/1.35 'IBM Plex Sans',sans-serif;color:#8A8F92;margin-top:3px">Bergkäse, Röstzwiebeln · vegetarisch</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span style="font:500 13px 'IBM Plex Mono',monospace;color:#1B1D1F">14,50</span><div style="width:26px;height:26px;box-shadow:inset 0 0 0 1.5px #2C63B8;position:relative"><div style="position:absolute;top:12px;left:6px;width:12px;height:2px;background:#2C63B8"></div><div style="position:absolute;left:12px;top:6px;width:2px;height:12px;background:#2C63B8"></div></div></div></div>
+                <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(27,29,31,.1)"><div style="flex:1"><div style="font:500 14px 'IBM Plex Sans',sans-serif;color:#1B1D1F">Rinderkraftbrühe mit Flädle</div><div style="font:400 11.5px/1.35 'IBM Plex Sans',sans-serif;color:#8A8F92;margin-top:3px">Klare Brühe, hausgemachte Flädle</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span style="font:500 13px 'IBM Plex Mono',monospace;color:#1B1D1F">6,50</span><div style="width:26px;height:26px;box-shadow:inset 0 0 0 1.5px #2C63B8;position:relative"><div style="position:absolute;top:12px;left:6px;width:12px;height:2px;background:#2C63B8"></div><div style="position:absolute;left:12px;top:6px;width:2px;height:12px;background:#2C63B8"></div></div></div></div>
+              </div>
+              <div style="padding:12px 16px 8px;flex:none"><button style="border:none;width:100%;background:#2C63B8;color:#fff;font:600 13.5px 'Space Grotesk',sans-serif;padding:14px 16px;border-radius:8px;display:flex;justify-content:space-between;align-items:center"><span>3 Artikel · bestellen</span><span style="font-family:'IBM Plex Mono',monospace;font-weight:500">€ 41,50</span></button><div style="text-align:center;font:500 9px 'IBM Plex Mono',monospace;color:#A6ABAE;margin-top:9px;letter-spacing:.05em">läuft mit KitchenLink</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="font:600 10px/1 'Space Grotesk',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8A8F92">Gastkarte · Gast</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:26px;padding-top:22px;border-top:1px solid rgba(27,29,31,.13)">
+      <div style="font:700 9.5px/1 'Space Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#9AA0A3;margin-bottom:12px">Hektik · dunkle Bar / Küche · neue Bestellung</div>
+      <div style="width:360px;background:#15171A;border-radius:10px;overflow:hidden;display:flex;box-shadow:0 12px 30px rgba(0,0,0,.35);animation:klslide .5s ease-out both">
+        <div style="width:5px;background:#CE3B2B;flex:none"></div>
+        <div style="flex:1;padding:16px 18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="font:700 12px/1 'Space Grotesk',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#F0563F">Neue Bestellung</span><span style="font:500 15px 'IBM Plex Mono',monospace;color:#E0A73C">0:12</span></div>
+          <div style="display:inline-flex;align-items:center;font:600 9px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#E9EAEC;box-shadow:inset 0 0 0 1.5px rgba(233,234,236,.3);padding:4px 8px;margin-bottom:12px">TISCH 4 · MARA</div>
+          <div style="font:400 13px/1.7 'IBM Plex Mono',monospace;color:#D7DADD;margin-bottom:16px">2× Wiener Schnitzel<br>1× Käsespätzle</div>
+          <div style="display:flex;gap:10px"><button style="border:none;flex:1;background:#2C63B8;color:#fff;font:600 13px 'Space Grotesk',sans-serif;padding:12px;border-radius:6px">Annehmen</button><button style="flex:none;background:transparent;color:#949A9E;box-shadow:inset 0 0 0 1px rgba(233,234,236,.22);font:500 13px 'Space Grotesk',sans-serif;padding:12px 18px;border-radius:6px">Ablehnen</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Blende — eine Form trägt die Marke</div>
+<div style="width:980px;background:#F6EFE6;border:1px solid rgba(36,27,22,.1);border-radius:14px;overflow:hidden">
+
+  <div style="padding:30px 34px 26px;display:flex;justify-content:space-between;align-items:flex-start;gap:30px;border-bottom:1px solid rgba(36,27,22,.12)">
+    <div style="max-width:600px">
+      <div style="font:700 10px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#C24421;margin-bottom:12px">Territorium — Arbeitsname „Blende"</div>
+      <h2 style="font:700 34px/1.06 'Bricolage Grotesque',sans-serif;color:#241B16;margin:0 0 12px;letter-spacing:-.02em">Die Öffnung, durch die man sich begegnet.</h2>
+      <p style="font:400 14.5px/1.5 'Figtree',sans-serif;color:#6E6053;margin:0 0 14px">KitchenLink ist die Durchreiche zwischen Gast und Betrieb — freundlich, menschlich, selbstbewusst, ohne niedlich zu werden. Eine einzige Bogenform trägt die gesamte Marke: laut am Einstieg und beim Gast, ruhig in der dichten Betriebsliste.</p>
+      <div style="font:500 13px/1.5 'Figtree',sans-serif;color:#241B16;padding-left:14px;border-left:2px solid #C24421"><b style="font-weight:700">Unverwechselbare Regel:</b> Eine Bogenform (die Durchreiche) ist das ganze Vokabular — sie rahmt, maskiert Bilder und bildet das Zeichen. Groß und selten, nie Deko an jeder Ecke.</div>
+    </div>
+    <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:12px">
+      <div style="display:flex;align-items:center;gap:11px">
+        <div style="width:28px;height:30px;border:5px solid #C24421;border-bottom:none;border-radius:15px 15px 0 0"></div>
+        <div style="font:700 22px/1 'Bricolage Grotesque',sans-serif;color:#241B16;letter-spacing:-.02em">KitchenLink</div>
+      </div>
+      <div style="font:400 11px/1 'Figtree',sans-serif;color:#9A8A7B">Zeichen: die Durchreiche — eine offene Öffnung</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid rgba(36,27,22,.12)">
+    <div class="spec-cell" style="border-right:1px solid rgba(36,27,22,.12);border-bottom:1px solid rgba(36,27,22,.12)">
+      <div style="font:700 9px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A99A8B;margin-bottom:10px">Schrift</div>
+      <div style="display:flex;align-items:baseline;gap:12px"><span style="font:800 40px/.9 'Bricolage Grotesque',sans-serif;color:#241B16;letter-spacing:-.03em">Aa</span><span style="font:600 22px/.9 'Figtree',sans-serif;color:#241B16">Aa 0123</span></div>
+      <div style="font:400 11.5px/1.4 'Figtree',sans-serif;color:#6E6053;margin-top:8px">Bricolage Grotesque (charaktervolles Display) + Figtree, ruhig.</div>
+    </div>
+    <div class="spec-cell" style="border-right:1px solid rgba(36,27,22,.12);border-bottom:1px solid rgba(36,27,22,.12)">
+      <div style="font:700 9px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A99A8B;margin-bottom:10px">Farbe &amp; Material</div>
+      <div style="display:flex;gap:7px;margin-bottom:9px">
+        <div style="width:30px;height:30px;border-radius:5px;background:#F6EFE6;box-shadow:inset 0 0 0 1px rgba(36,27,22,.14)"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#241B16"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#DD5A3B"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#B8431F"></div>
+        <div style="width:30px;height:30px;border-radius:5px;background:#1D1613"></div>
+      </div>
+      <div style="font:400 11.5px/1.4 'Figtree',sans-serif;color:#6E6053">Ein mutiger Hauston auf Creme, große Flächen, kein Verlauf. Dunkel = warmes Anthrazit.</div>
+    </div>
+    <div class="spec-cell" style="border-bottom:1px solid rgba(36,27,22,.12)">
+      <div style="font:700 9px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A99A8B;margin-bottom:10px">Form</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;padding:2px 0 8px"><div style="width:34px;height:26px;background:#DD5A3B;border-radius:17px 17px 0 0"></div><div style="width:34px;height:26px;border:2px solid #241B16;border-bottom:none;border-radius:17px 17px 0 0"></div></div>
+      <div style="font:400 11.5px/1.4 'Figtree',sans-serif;color:#6E6053">Eine Bogenform rahmt, maskiert, zeichnet.</div>
+    </div>
+    <div class="spec-cell" style="border-right:1px solid rgba(36,27,22,.12)">
+      <div style="font:700 9px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A99A8B;margin-bottom:10px">Icons</div>
+      <div style="display:flex;gap:12px;align-items:center;padding:3px 0 8px">
+        <div style="width:22px;height:22px;background:#F1E6D8;border-radius:11px 11px 3px 3px;display:flex;align-items:center;justify-content:center"><div style="position:relative;width:10px;height:10px"><div style="position:absolute;top:4px;left:0;width:10px;height:2px;background:#C24421"></div><div style="position:absolute;left:4px;top:0;width:2px;height:10px;background:#C24421"></div></div></div>
+        <div style="width:22px;height:22px;background:#F1E6D8;border-radius:11px 11px 3px 3px;display:flex;align-items:center;justify-content:center"><div style="width:9px;height:5px;border-left:2px solid #C24421;border-bottom:2px solid #C24421;transform:rotate(-45deg);margin-bottom:2px"></div></div>
+        <div style="width:22px;height:22px;background:#F1E6D8;border-radius:11px 11px 3px 3px;display:flex;align-items:center;justify-content:center"><div style="width:8px;height:8px;border-top:2px solid #C24421;border-right:2px solid #C24421;transform:rotate(45deg)"></div></div>
+      </div>
+      <div style="font:400 11.5px/1.4 'Figtree',sans-serif;color:#6E6053">Icons in kleinen Öffnungen, keine Illustration.</div>
+    </div>
+    <div class="spec-cell" style="border-right:1px solid rgba(36,27,22,.12)">
+      <div style="font:700 9px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A99A8B;margin-bottom:10px">Bewegung</div>
+      <div style="padding:5px 0 10px;display:flex;align-items:flex-end;gap:4px"><div style="width:14px;height:20px;background:#DD5A3B;border-radius:9px 9px 0 0"></div><div style="width:20px;height:20px;background:#E7B9A6;border-radius:11px 11px 0 0"></div><div style="width:28px;height:20px;background:#F0D3C5;border-radius:14px 14px 0 0"></div></div>
+      <div style="font:400 11.5px/1.4 'Figtree',sans-serif;color:#6E6053">Der Bogen öffnet sich, um Inhalt oder eine Bestellung aufzunehmen.</div>
+    </div>
+    <div class="spec-cell">
+      <div style="font:700 9px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A99A8B;margin-bottom:10px">Zeichen</div>
+      <div style="display:flex;align-items:center;gap:9px;padding:2px 0 8px">
+        <div style="width:24px;height:26px;border:4px solid #C24421;border-bottom:none;border-radius:13px 13px 0 0"></div>
+        <div style="font:700 18px/1 'Bricolage Grotesque',sans-serif;color:#241B16;letter-spacing:-.02em">KitchenLink</div>
+      </div>
+      <div style="font:400 11.5px/1.4 'Figtree',sans-serif;color:#6E6053">Mono, ab 20 pt lesbar; die Öffnung ist wichtiger als das Element.</div>
+    </div>
+  </div>
+
+  <div style="padding:26px 34px 30px">
+    <div style="display:flex;gap:16px">
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:300px;flex:none;background:#0f1012;border-radius:40px;padding:7px;box-shadow:0 16px 34px rgba(0,0,0,.20)">
+          <div data-screen-label="1c · Scan" style="position:relative;width:286px;height:604px;border-radius:33px;overflow:hidden;background:#F6EFE6;display:flex;flex-direction:column">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:84px;height:22px;background:#0f1012;border-radius:12px;z-index:30"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 22px 6px;font:600 12px/1 'Figtree',sans-serif;color:#241B16;flex:none"><span>20:14</span><span style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:700">5G</span><span style="display:inline-block;width:22px;height:11px;border:1.5px solid #241B16;border-radius:3px;position:relative"><span style="position:absolute;top:2px;bottom:2px;left:2px;right:7px;background:#241B16;border-radius:1px"></span></span></span></div>
+            <div style="flex:1;display:flex;flex-direction:column;padding:12px 20px 16px;min-height:0">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px"><span style="font:700 9px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#fff;background:#C24421;padding:4px 8px;border-radius:7px">Sandbox</span><span style="font:600 11px/1 'Bricolage Grotesque',sans-serif;color:#9A8A7B;letter-spacing:-.01em">KitchenLink</span></div>
+              <h1 style="font:700 26px/1.04 'Bricolage Grotesque',sans-serif;color:#241B16;margin:0 0 6px;letter-spacing:-.02em">Speisekarte scannen</h1>
+              <p style="font:400 12.5px/1.4 'Figtree',sans-serif;color:#6E6053;margin:0 0 13px">Karte fotografieren. Ergebnis vor der Anmeldung prüfen.</p>
+              <div style="position:relative;flex:1;min-height:0;border-radius:120px 120px 12px 12px;overflow:hidden;background:#FCF8F1;box-shadow:inset 0 0 0 1px rgba(36,27,22,.12);animation:klaperture .7s ease-out both">
+                <div style="position:absolute;inset:0;padding:34px 20px 18px;display:flex;flex-direction:column;gap:8px">
+                  <div style="font:600 12px 'Figtree',sans-serif;color:#C6B8A7;text-align:center">Vorspeisen</div>
+                  <div style="height:6px;width:70%;background:#EAD9C8;border-radius:3px;margin:0 auto"></div>
+                  <div style="height:6px;width:52%;background:#F0E4D5;border-radius:3px;margin:0 auto"></div>
+                  <div style="height:6px;width:62%;background:#EAD9C8;border-radius:3px"></div>
+                  <div style="height:6px;width:44%;background:#F0E4D5;border-radius:3px"></div>
+                  <div style="height:6px;width:58%;background:#EAD9C8;border-radius:3px"></div>
+                </div>
+                <div style="position:absolute;left:26px;top:120px;width:64%;height:15px;border:1.5px solid #DD5A3B;border-radius:4px;background:rgba(221,90,59,.07)"></div>
+                <div style="position:absolute;left:26px;top:150px;width:56%;height:15px;border:1.5px solid #DD5A3B;border-radius:4px;background:rgba(221,90,59,.07)"></div>
+                <div style="position:absolute;left:0;right:0;top:20%;height:2px;background:linear-gradient(90deg,transparent,#DD5A3B,transparent);opacity:.85;animation:klscan 2.8s ease-in-out infinite"></div>
+                <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:12px;font:600 9.5px/1 'Figtree',sans-serif;color:#fff;background:#DD5A3B;padding:5px 10px;border-radius:8px">Kategorien &amp; Preise</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;margin:12px 0"><div style="width:30px;height:40px;border-radius:10px 10px 3px 3px;background:#FCF8F1;box-shadow:inset 0 0 0 1px rgba(36,27,22,.12)"></div><span style="font:500 12px 'Figtree',sans-serif;color:#241B16">1 Seite erfasst</span><span style="font:600 12px 'Figtree',sans-serif;color:#C24421;margin-left:auto">+ Seite</span></div>
+              <button style="border:none;width:100%;background:#DD5A3B;color:#fff;font:700 14px 'Bricolage Grotesque',sans-serif;padding:14px;border-radius:13px">12 Gerichte erkennen</button>
+            </div>
+          </div>
+        </div>
+        <div style="font:600 10px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9A8A7B">Scan · Einstieg</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:300px;flex:none;background:#0f1012;border-radius:40px;padding:7px;box-shadow:0 16px 34px rgba(0,0,0,.20)">
+          <div data-screen-label="1c · Heute" style="position:relative;width:286px;height:604px;border-radius:33px;overflow:hidden;background:#F6EFE6;display:flex;flex-direction:column">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:84px;height:22px;background:#0f1012;border-radius:12px;z-index:30"></div>
+            <div style="background:#DD5A3B;padding:0;flex:none">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 22px 6px;font:600 12px/1 'Figtree',sans-serif;color:#fff"><span>20:14</span><span style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:700">5G</span><span style="display:inline-block;width:22px;height:11px;border:1.5px solid #fff;border-radius:3px;position:relative"><span style="position:absolute;top:2px;bottom:2px;left:2px;right:7px;background:#fff;border-radius:1px"></span></span></span></div>
+              <div style="display:flex;justify-content:space-between;align-items:flex-end;padding:8px 22px 20px">
+                <div><h1 style="font:700 34px/1 'Bricolage Grotesque',sans-serif;color:#fff;margin:0;letter-spacing:-.02em">Heute</h1><div style="font:500 12px 'Figtree',sans-serif;color:rgba(255,255,255,.82);margin-top:7px">Gasthaus Löwen · Mo 14. Juli</div></div>
+                <div style="width:64px;height:58px;background:#F6EFE6;border-radius:32px 32px 6px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding-top:6px"><span style="width:6px;height:6px;border-radius:50%;background:#2E7D53"></span><span style="font:600 8px/1.1 'Figtree',sans-serif;color:#7A6A5C;text-align:center">Schicht<br>offen</span></div>
+              </div>
+            </div>
+            <div style="padding:5px 22px;display:flex;align-items:center;gap:6px;background:#F1E3D2"><span style="width:5px;height:5px;border-radius:50%;background:#C24421"></span><span style="font:600 9px/1 'Figtree',sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#9A5A34">Sandbox · keine echten Zahlungen</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;padding:15px 22px 0;min-height:0">
+              <div style="display:flex;padding:0 0 15px;margin-bottom:6px;border-bottom:1px solid rgba(36,27,22,.12)">
+                <div style="flex:1"><div style="font:700 22px/1 'Bricolage Grotesque',sans-serif;color:#241B16">€ 1.248</div><div style="font:400 10px/1 'Figtree',sans-serif;color:#9A8A7B;margin-top:5px">Umsatz</div></div>
+                <div style="flex:1"><div style="font:700 22px/1 'Bricolage Grotesque',sans-serif;color:#241B16">24</div><div style="font:400 10px/1 'Figtree',sans-serif;color:#9A8A7B;margin-top:5px">Gäste</div></div>
+                <div style="flex:1"><div style="font:700 22px/1 'Bricolage Grotesque',sans-serif;color:#241B16">6/12</div><div style="font:400 10px/1 'Figtree',sans-serif;color:#9A8A7B;margin-top:5px">Tische</div></div>
+              </div>
+              <div style="font:700 9.5px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#A99A8B;margin-bottom:2px">Jetzt erledigen</div>
+              <div style="display:flex;align-items:center;gap:11px;padding:13px 0;border-bottom:1px solid rgba(36,27,22,.1)"><span style="width:8px;height:8px;border-radius:50%;background:#C24421;flex:none"></span><div style="flex:1"><div style="font:500 13.5px 'Figtree',sans-serif;color:#241B16">Tisch 7 · Zahlung offen</div><div style="font:400 11px 'Figtree',sans-serif;color:#9A8A7B;margin-top:2px">seit 14 Min</div></div><div style="font:700 14px 'Bricolage Grotesque',sans-serif;color:#241B16">€ 68,40</div></div>
+              <div style="display:flex;align-items:center;gap:11px;padding:13px 0;border-bottom:1px solid rgba(36,27,22,.1)"><span style="width:8px;height:8px;border-radius:50%;background:#C24421;flex:none"></span><div style="flex:1"><div style="font:500 13.5px 'Figtree',sans-serif;color:#241B16">Küche · 3 Tickets über Zeit</div><div style="font:400 11px 'Figtree',sans-serif;color:#9A8A7B;margin-top:2px">ältestes +6 Min</div></div><div style="font:500 12.5px 'Figtree',sans-serif;color:#C24421">+6 min</div></div>
+              <div style="display:flex;align-items:center;gap:11px;padding:13px 0;border-bottom:1px solid rgba(36,27,22,.1)"><span style="width:8px;height:8px;border-radius:50%;background:#C9B9A8;flex:none"></span><div style="flex:1"><div style="font:500 13.5px 'Figtree',sans-serif;color:#241B16">Schicht 18:00 · 1 Service fehlt</div><div style="font:400 11px 'Figtree',sans-serif;color:#9A8A7B;margin-top:2px">Abendbesetzung</div></div><div style="font:500 12.5px 'Figtree',sans-serif;color:#241B16">planen ›</div></div>
+              <div style="display:flex;align-items:center;gap:11px;padding:13px 0"><span style="width:8px;height:8px;border-radius:50%;background:#C9B9A8;flex:none"></span><div style="flex:1"><div style="font:500 13.5px 'Figtree',sans-serif;color:#241B16">Wareneingang · Getränke</div><div style="font:400 11px 'Figtree',sans-serif;color:#9A8A7B;margin-top:2px">Lieferung 15:00</div></div><div style="font:500 12.5px 'Figtree',sans-serif;color:#9A8A7B">fällig</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:9px 22px 15px;border-top:1px solid rgba(36,27,22,.1);flex:none">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:15px;background:#C24421;border-radius:8px 8px 2px 2px"></div><span style="font:600 9px 'Figtree',sans-serif;color:#241B16">Heute</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:15px;display:flex;flex-direction:column;justify-content:space-between;padding:1px 0"><span style="height:2.5px;background:#BCAD9C;border-radius:1px"></span><span style="height:2.5px;background:#BCAD9C;border-radius:1px"></span><span style="height:2.5px;background:#BCAD9C;border-radius:1px"></span></div><span style="font:500 9px 'Figtree',sans-serif;color:#BCAD9C">Bestellungen</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:14px;height:14px;border:2px solid #BCAD9C;border-radius:8px 8px 2px 2px"></div><span style="font:500 9px 'Figtree',sans-serif;color:#BCAD9C">Betrieb</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:14px;display:flex;gap:2px;align-items:flex-end"><span style="width:5px;height:9px;background:#BCAD9C;border-radius:2px 2px 0 0"></span><span style="width:5px;height:13px;background:#BCAD9C;border-radius:2px 2px 0 0"></span></div><span style="font:500 9px 'Figtree',sans-serif;color:#BCAD9C">Team</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:15px;height:14px;display:flex;align-items:center;justify-content:center;gap:2px"><span style="width:3px;height:3px;border-radius:50%;background:#BCAD9C"></span><span style="width:3px;height:3px;border-radius:50%;background:#BCAD9C"></span><span style="width:3px;height:3px;border-radius:50%;background:#BCAD9C"></span></div><span style="font:500 9px 'Figtree',sans-serif;color:#BCAD9C">Mehr</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="font:600 10px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9A8A7B">Heute · Betreiber</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:300px;flex:none;background:#0f1012;border-radius:40px;padding:7px;box-shadow:0 16px 34px rgba(0,0,0,.20)">
+          <div data-screen-label="1c · Gastkarte" style="position:relative;width:286px;height:604px;border-radius:33px;overflow:hidden;background:#F6EFE6;display:flex;flex-direction:column">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:84px;height:22px;background:#0f1012;border-radius:12px;z-index:30"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 22px 6px;font:600 12px/1 'Figtree',sans-serif;color:#241B16;flex:none;z-index:5"><span>20:14</span><span style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:700">5G</span><span style="display:inline-block;width:22px;height:11px;border:1.5px solid #241B16;border-radius:3px;position:relative"><span style="position:absolute;top:2px;bottom:2px;left:2px;right:7px;background:#241B16;border-radius:1px"></span></span></span></div>
+            <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+              <div style="padding:6px 20px 0;flex:none">
+                <div style="position:relative;height:154px;border-radius:120px 120px 14px 14px;overflow:hidden;background-color:#C99A6E;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.10) 0 11px,rgba(0,0,0,.05) 11px 22px)">
+                  <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(29,22,19,.66),rgba(29,22,19,0) 55%)"></div>
+                  <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);font:600 8.5px 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(255,255,255,.7)">FOTO · GERICHT</div>
+                  <div style="position:absolute;left:20px;bottom:14px;right:20px"><div style="font:700 24px/1 'Bricolage Grotesque',sans-serif;color:#fff;letter-spacing:-.01em">Gasthaus Löwen</div><div style="font:500 11px 'Figtree',sans-serif;color:rgba(255,255,255,.85);margin-top:6px">Tisch 12 · geöffnet bis 23:00</div></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;padding:14px 20px 11px"><span style="font:600 11px 'Bricolage Grotesque',sans-serif;color:#fff;background:#241B16;padding:6px 12px;border-radius:10px">Hauptgerichte</span><span style="font:500 11px 'Figtree',sans-serif;color:#7A6A5C;padding:6px 4px">Vorspeisen</span><span style="font:500 11px 'Figtree',sans-serif;color:#7A6A5C;padding:6px 4px">Getränke</span></div>
+              <div style="flex:1;overflow:hidden;padding:0 20px">
+                <div style="display:flex;gap:12px;padding:13px 0;border-bottom:1px solid rgba(36,27,22,.1)"><div style="flex:1"><div style="font:600 14px 'Figtree',sans-serif;color:#241B16">Wiener Schnitzel vom Kalb</div><div style="font:400 11.5px/1.35 'Figtree',sans-serif;color:#9A8A7B;margin-top:3px">Bratkartoffeln, Preiselbeeren · a, c, g</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span style="font:700 13.5px 'Bricolage Grotesque',sans-serif;color:#241B16">€ 22,80</span><div style="width:27px;height:27px;background:#DD5A3B;border-radius:9px 9px 4px 4px;position:relative"><div style="position:absolute;top:12.5px;left:7px;width:13px;height:2px;background:#fff"></div><div style="position:absolute;left:12.5px;top:7px;width:2px;height:13px;background:#fff"></div></div></div></div>
+                <div style="display:flex;gap:12px;padding:13px 0;border-bottom:1px solid rgba(36,27,22,.1)"><div style="flex:1"><div style="font:600 14px 'Figtree',sans-serif;color:#241B16">Käsespätzle</div><div style="font:400 11.5px/1.35 'Figtree',sans-serif;color:#9A8A7B;margin-top:3px">Bergkäse, Röstzwiebeln · vegetarisch</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span style="font:700 13.5px 'Bricolage Grotesque',sans-serif;color:#241B16">€ 14,50</span><div style="width:27px;height:27px;background:#DD5A3B;border-radius:9px 9px 4px 4px;position:relative"><div style="position:absolute;top:12.5px;left:7px;width:13px;height:2px;background:#fff"></div><div style="position:absolute;left:12.5px;top:7px;width:2px;height:13px;background:#fff"></div></div></div></div>
+                <div style="display:flex;gap:12px;padding:13px 0"><div style="flex:1"><div style="font:600 14px 'Figtree',sans-serif;color:#241B16">Rinderkraftbrühe mit Flädle</div><div style="font:400 11.5px/1.35 'Figtree',sans-serif;color:#9A8A7B;margin-top:3px">Klare Brühe, hausgemachte Flädle</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span style="font:700 13.5px 'Bricolage Grotesque',sans-serif;color:#241B16">€ 6,50</span><div style="width:27px;height:27px;background:#DD5A3B;border-radius:9px 9px 4px 4px;position:relative"><div style="position:absolute;top:12.5px;left:7px;width:13px;height:2px;background:#fff"></div><div style="position:absolute;left:12.5px;top:7px;width:2px;height:13px;background:#fff"></div></div></div></div>
+              </div>
+              <div style="padding:11px 16px 8px;flex:none"><button style="border:none;width:100%;background:#DD5A3B;color:#fff;font:700 13.5px 'Bricolage Grotesque',sans-serif;padding:15px 16px;border-radius:15px;display:flex;justify-content:space-between;align-items:center"><span>3 Artikel · bestellen</span><span>€ 41,50</span></button><div style="text-align:center;font:400 9.5px 'Figtree',sans-serif;color:#B4A594;margin-top:9px">läuft mit KitchenLink</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="font:600 10px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9A8A7B">Gastkarte · Gast</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:26px;padding-top:22px;border-top:1px solid rgba(36,27,22,.12)">
+      <div style="font:700 9.5px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#A99A8B;margin-bottom:12px">Hektik · dunkle Bar / Küche · neue Bestellung</div>
+      <div style="width:360px;background:#1D1613;border-radius:14px;padding:18px 20px;box-shadow:0 12px 30px rgba(0,0,0,.35);display:flex;gap:16px;align-items:flex-start;animation:klslide .5s ease-out both">
+        <div style="width:44px;height:50px;border:4px solid #DD5A3B;border-bottom:none;border-radius:22px 22px 0 0;flex:none;margin-top:3px;animation:klaperture .6s ease-out both"></div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px"><span style="font:700 17px 'Bricolage Grotesque',sans-serif;color:#F3E9DE;letter-spacing:-.01em">Neue Bestellung</span><span style="font:600 15px 'Figtree',sans-serif;color:#EE8A5E">0:12</span></div>
+          <div style="font:400 12px 'Figtree',sans-serif;color:#A6968A;margin-bottom:13px">Tisch 4 · Kellner Mara</div>
+          <div style="font:400 13px/1.7 'Figtree',sans-serif;color:#E4D8CB;margin-bottom:16px">2× Wiener Schnitzel<br>1× Käsespätzle</div>
+          <div style="display:flex;gap:10px"><button style="border:none;flex:1;background:#DD5A3B;color:#fff;font:700 13px 'Bricolage Grotesque',sans-serif;padding:12px;border-radius:11px">Annehmen</button><button style="flex:none;background:transparent;color:#A6968A;border:1px solid rgba(228,216,203,.22);font:500 13px 'Figtree',sans-serif;padding:12px 18px;border-radius:11px">Ablehnen</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!--INSERT-->
+</div>
+<p class="dv-next">Nächste Schritte: „<a class="dv-oid" href="#1a">1a</a> weiterverfolgen und Service-/Küchen-Screen ergänzen" · „<a class="dv-oid" href="#1b">1b</a> und <a class="dv-oid" href="#1c">1c</a> als iPad-Layout zeigen" · „Logo-Varianten je Territorium ausarbeiten" · „neue Richtungen"</p>
+</section>
+</x-dc>
+</body>
+</html>
