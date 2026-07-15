@@ -17,6 +17,11 @@ docs/design/claude-design/
     export/
     thumbnail.webp
     REVIEW.md
+  round-03/
+    source-export.zip
+    export/
+    thumbnail.webp
+    REVIEW.md
 ```
 
 ## Import A New Export

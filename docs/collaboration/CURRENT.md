@@ -41,6 +41,14 @@
 - Round 01 and its review are under `docs/design/claude-design/round-01/`.
 - Round 02, the selected 4a direction and the constrained Turn 5 prompt are under
   `docs/design/claude-design/round-02/`.
+- Round 03 archives and reviews Turn 5. The refined light/dark tokens and primary
+  action states are promising, but the palette is not final: payment versus error
+  semantics, light-surface status-symbol contrast and control-border contrast
+  require one constrained correction.
+- Claude Design quota is nearly exhausted. Use one combined final design prompt
+  for the correction, typography proof and four realistic reference screens.
+  Keep at most one additional prompt in reserve for a concrete severe defect;
+  Codex owns design-system completion and implementation afterwards.
 
 ## Code
 
@@ -62,7 +70,7 @@
 
 ## Next Decision
 
-Harden only the selected 4a `Ruhe` palette. Remove lemon from informational labels
-and all status semantics, define accessible interaction states on light and dark
-surfaces, and keep typography plus exact final values open until that focused
-comparison is reviewed.
+Use the combined final Claude prompt in Round 03 without reopening the brand
+direction. It must correct semantics and contrast, prove Bricolage plus Source
+Sans 3 on four realistic screens and leave enough evidence for Codex to continue
+without further Claude exploration.
