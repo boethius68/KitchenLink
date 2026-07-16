@@ -15,6 +15,8 @@ private let transitionCases: [(from: OrderLifecycleStatus, to: OrderLifecycleSta
     (.pending, .ready, false),
     (.pending, .served, false),
     (.pending, .pending, false),
+    (.accepted, .pending, false),
+    (.preparing, .pending, false),
     (.accepted, .ready, false),
     (.accepted, .served, false),
     (.accepted, .accepted, false),
@@ -206,10 +208,21 @@ func persistenceAcrossRelayRecreation() async throws {
     }
     #expect(try context.ownerRepo.loadOrder(orderID: orderID)?.status == .pending)
 
-    guard let accepted = try context.ownerRepo.updateOrderStatus(orderID: orderID, to: .preparing) else {
-        Issue.record("Could not update status to preparing")
+    let pendingOrder = try context.ownerRepo.loadOrder(orderID: orderID)
+    guard let pendingOrder else {
+        Issue.record("Could not load pending order")
         return
     }
+    let accepted = await context.ownerRelay.updateStatus(for: pendingOrder, to: .accepted)
+    #expect(accepted, "Pending → accepted must succeed via relay")
+
+    let acceptedOrder = try context.ownerRepo.loadOrder(orderID: orderID)
+    guard let acceptedOrder else {
+        Issue.record("Could not load accepted order")
+        return
+    }
+    let prepared = await context.ownerRelay.updateStatus(for: acceptedOrder, to: .preparing)
+    #expect(prepared, "Accepted → preparing must succeed via relay")
 
     let newOwnerDefaults = try connectToSuite(suiteName: context.suiteName)
     let newOwnerRepo = LocalDemoRepository(defaults: newOwnerDefaults)
@@ -230,8 +243,9 @@ func persistenceAcrossRelayRecreation() async throws {
 }
 
 @Test @MainActor
-func relayTeardownLeavesNoTraces() async throws {
+func relayTeardownClearsObservableState() async throws {
     let context = try OfflineTestContext()
+    defer { context.cleanup() }
     let order = context.makeTestOrder()
     context.guestRelay.startBrowsingAsCustomer()
     context.ownerRelay.startHostingAsOwner()
@@ -255,7 +269,7 @@ func relayTeardownLeavesNoTraces() async throws {
     context.guestDefaults.removePersistentDomain(forName: context.suiteName)
 
     let loadedOrders = try context.ownerRepo.loadOrders()
-    #expect(loadedOrders.isEmpty, "Order storage must be empty after cleanup")
-    #expect(context.ownerRelay.receivedOrders.isEmpty, "Owner receivedOrders must be empty after cleanup")
-    #expect(context.guestRelay.trackedCustomerOrder == nil, "Guest trackedCustomerOrder must be nil after cleanup")
+    #expect(loadedOrders.isEmpty, "Persisted orders must be cleared after cleanup")
+    #expect(context.ownerRelay.receivedOrders.isEmpty, "Owner in-memory order list must be cleared after cleanup")
+    #expect(context.guestRelay.trackedCustomerOrder == nil, "Guest tracker must be nil after cleanup")
 }

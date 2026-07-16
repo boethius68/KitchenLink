@@ -16,9 +16,9 @@ vorhandene `OrderRelayService`- und `LocalDemoRepository`-Domäne auf
 | `fullLifecycleChainViaOwner` | Owner durchläuft die vollständige Valide-Kette `pending → accepted → preparing → ready → served` |
 | `guestTracksFullChain` | Gast-Tracker beobachtet alle Statuswechsel in der Owner-Kette per Polling |
 | `invalidTransitionsDontChangeState` | 10 verbotene Übergänge werden abgelehnt; der gespeicherte Status bleibt unverändert |
-| `tableDrivenTransitionCoverage` | 34 parametrisierte Fälle decken alle erlaubten und verbotenen `canTransition`-Regeln ab |
-| `persistenceAcrossRelayRecreation` | Bestelldaten (Items, Betrag, Tisch, Notiz, Status) überleben Relay-/Repo-Neuerzeugung |
-| `relayTeardownLeavesNoTraces` | Stoppen aller Tasks + Löschen der Suite hinterlässt keine Daten oder Tasks |
+| `tableDrivenTransitionCoverage` | 36 parametrisierte Fälle decken alle 6×6-Kombinationen explizit ab |
+| `persistenceAcrossRelayRecreation` | Bestelldaten (Items, Betrag, Tisch, Notiz, Status) überleben Relay-/Repo-Neuerzeugung; Status wird über die reguläre Relay-Kette gesetzt |
+| `relayTeardownClearsObservableState` | `stopNetworking` wird aufgerufen, Cache und persistierte Daten werden gelöscht |
 
 ## Architektur der Testinfrastruktur
 
@@ -32,10 +32,10 @@ vorhandene `OrderRelayService`- und `LocalDemoRepository`-Domäne auf
 ## Was getestet ist
 
 - Vollständiger Bestelleingang und Statusdurchlauf im lokalen Relay/Repository
-- Gültigkeitsprüfung aller 34 möglichen Statusübergänge
+- Gültigkeitsprüfung aller 36 möglichen Statusübergänge
 - Gast-Tracker beobachtet Owner-Statuswechsel (polling-basiert, maximal 8s)
 - Persistenz: Relay/Repo-Neuerzeugung erhält sämtliche Bestellfelder
-- Task-Lebenszyklus: Stop-Networking bricht Polling-/Tracking-Tasks ab
+- Stop-Networking wird aufgerufen; beobachtbarer Zustand (Cache + Persistenz) wird gelöscht
 
 ## Was dieser Test nicht beweist (braucht den echten Venue Hub)
 

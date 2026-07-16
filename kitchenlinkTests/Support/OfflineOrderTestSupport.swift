@@ -27,7 +27,11 @@ func eventually(_ condition: @MainActor () -> Bool, timeout: Duration = .seconds
     let deadline = ContinuousClock.now + timeout
     while ContinuousClock.now < deadline {
         if condition() { return true }
-        try? await Task.sleep(for: interval)
+        do {
+            try await Task.sleep(for: interval)
+        } catch {
+            return condition()
+        }
     }
     return condition()
 }

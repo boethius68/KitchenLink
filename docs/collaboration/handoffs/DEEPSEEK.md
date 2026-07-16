@@ -4,7 +4,7 @@
 **Agent:** DeepSeek (deepseek-v4-flash-free)
 **Mission:** docs/collaboration/PARALLEL_MISSIONS_2026-07-16.md → KL-QA-002
 **Branch:** `deepseek/offline-e2e-smoke`
-**Status:** Abgeschlossen; 7 Tests, alle grün (47 Tests Gesamtsuite grün)
+**Status:** Abgeschlossen; 7 Tests, alle grün (Gesamtsuite grün)
 
 ## Erledigt
 
@@ -12,19 +12,20 @@
 
 | Datei | Inhalt |
 |-------|--------|
-| `kitchenlinkTests/KitchenLinkOfflineOrderFlowTests.swift` | 7 Tests: Gast->Owner-Flow, vollständige Statuskette, Gast-Tracking, ungültige Übergänge, tabellengetriebene 34-Fall-Abdeckung, Persistenz, Task-Cleanup |
-| `kitchenlinkTests/Support/OfflineOrderTestSupport.swift` | `OfflineTestContext`, `eventually`-Helfer, `isolatedDefaults()`, `connectToSuite()` |
+| `kitchenlinkTests/KitchenLinkOfflineOrderFlowTests.swift` | 7 Tests: Gast->Owner-Flow, vollständige Statuskette, Gast-Tracking, ungültige Übergänge, tabellengetriebene 36-Fall-Abdeckung, Persistenz via Relay-Kette, Cleanup beobachtbarer Zustände |
+| `kitchenlinkTests/Support/OfflineOrderTestSupport.swift` | `OfflineTestContext`, `eventually`-Helfer (task-cancellation-sicher), `isolatedDefaults()`, `connectToSuite()` |
 | `docs/test-plans/OFFLINE_ORDER_FLOW.md` | Abgrenzung: was getestet ist vs. was der echte SQLite-Venue-Hub beweisen muss |
 | `docs/collaboration/handoffs/DEEPSEEK.md` | Dieses Update |
 
-### Bugfixes (während der Mission behoben)
+### Korrekturen aus dem Integration Review
 
 | Problem | Fix |
 |---------|-----|
-| `tableDrivenTransitionCoverage` schlug fehl, weil `createOrder` immer `.pending` erzwingt | Setup nutzt `updateOrderStatus` um den gewünschten `fromStatus` herzustellen |
-| `relayTeardownLeavesNoTraces` prüfte `receivedOrders.isEmpty` nach `stopNetworking` – Relay-Cache war nicht geleert | `clearReceivedOrders()` wird vor Suite-Löschung aufgerufen |
-| `persistenceAcrossRelayRecreation` nutzte `isolatedDefaults` (löscht Suite) statt `connectToSuite` (erhält Daten) | Ersetzt durch `connectToSuite(suiteName:)` |
-| `OfflineTestContext.cleanup()` rief nur `repo.clearOrders()` – Relay-Cache blieb | `clearReceivedOrders()` in `cleanup()` ergänzt |
+| `transitionCases` enthielt 34/36 Paare; `accepted→pending` und `preparing→pending` fehlten | Ergänzt; alle Erwartungen explizit |
+| `persistenceAcrossRelayRecreation` setzte Status direkt via Repository statt Relay-Kette | Ersetzt durch `updateStatus`-Aufrufe pending→accepted→preparing über `ownerRelay` |
+| `relayTeardownLeavesNoTraces` beanspruchte Task-Freiheit, die nicht beweisbar ist | Umbenannt zu `relayTeardownClearsObservableState`; `defer { cleanup() }` ergänzt |
+| `eventually` ignorierte Task-Cancellation (`try?` auf `Task.sleep`) | Ersetzt durch `do/try/catch` – Cancellation beendet die Polling-Schleife |
+| Handoff behauptete `-parallel-testing-enabled NO` sei nötig | Entfernt; parallele Ausführung läuft stabil |
 
 ### Verifikation
 
@@ -32,30 +33,27 @@
 # Fokussiert (KitchenLinkOfflineOrderFlowTests)
 xcodebuild test -project kitchenlink.xcodeproj -scheme kitchenlink \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -parallel-testing-enabled NO \
   -only-testing:kitchenlinkTests/KitchenLinkOfflineOrderFlowTests
 
-# Ergebnis: ✔ Test run with 7 tests passed
+# Ergebnis: 7 Tests passed
 ```
 
 ```bash
-# Gesamte Unit-Suite (46 Tests + 1 XCTest-Benchmark geskippt)
+# Gesamte Unit-Suite
 xcodebuild test -project kitchenlink.xcodeproj -scheme kitchenlink \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -parallel-testing-enabled NO \
-  -only-testing:kitchenlinkTests
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 
-# Ergebnis: ✔ Test run with 46 tests in 9 suites passed after 10.145 seconds.
+# Ergebnis: TEST SUCCEEDED (alle Tests grün)
 ```
 
 ### Testdetails
 
-- **34 parametrisierte Übergänge** (`tableDrivenTransitionCoverage`): alle erlaubten (forward + cancel) und verbotenen (skip, backward, self, terminal) Regeln aus `OrderLifecycleStatus.canTransition(to:)`
+- **36 parametrisierte Übergänge** (`tableDrivenTransitionCoverage`): alle 6×6-Kombinationen explizit als Expectation, nicht von `canTransition` abgeleitet
 - **kein Produktionscode** wurde verändert
-- **kein `sleep`** in Tests; `eventually`-Helfer mit 200ms-Intervall und 8s-Timeout
+- **kein `sleep`** in Tests; `eventually`-Helfer mit 200ms-Intervall, 8s-Timeout und Cancellation-Support
 - **UUID-eindeutige UserDefaults-Suite** pro Testlauf → vollständige Isolation
-- **Stop-Networking + `clearReceivedOrders` + Suite-Löschung** = keine Tasks/Daten für Folge-Tests
-- `cleanup()` in `OfflineTestContext` leert jetzt auch Relay-In-Memory-Caches
+- **`cleanup()` in `OfflineTestContext`** stoppt Networking, leert Relay-Caches und löscht Suite-Persistenz
+- `persistenceAcrossRelayRecreation` durchläuft die reguläre Relay-Statuskette pending→accepted→preparing
 
 ## Verbleibende Risiken
 
@@ -65,7 +63,7 @@ xcodebuild test -project kitchenlink.xcodeproj -scheme kitchenlink \
 | 3s Polling-Latenz | `OrderRelayService` pollt nur alle 3s; `eventually`-Timeout auf 8s kompensiert das, macht Tests aber nicht instant |
 | Kein echter Venue Hub | Zwei Relay-Instanzen teilen sich In-Memory/UserDefaults; echter Gästegerät-Transport fehlt |
 | Supabase-Teil ungetestet | `OrderRelayService` enthält Supabase-CRUD-Code (private Keys!), der nicht Teil dieser Smoke ist |
-| Parallele Testausführung | `tableDrivenTransitionCoverage` und `relayTeardownLeavesNoTraces` benötigen sequenzielle Ausführung (`-parallel-testing-enabled NO`) |
+| Kein Task-Nachweis | `relayTeardownClearsObservableState` prüft nur, dass `stopNetworking` aufgerufen und der beobachtbare Zustand gelöscht ist; interne Task-Existenz wird nicht behauptet |
 
 ## Schreibbereich & Kollisionsfreiheit
 
