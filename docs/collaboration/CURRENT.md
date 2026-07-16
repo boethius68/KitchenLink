@@ -45,10 +45,10 @@
   action states are promising, but the palette is not final: payment versus error
   semantics, light-surface status-symbol contrast and control-border contrast
   require one constrained correction.
-- Claude Design quota is nearly exhausted. Use one combined final design prompt
-  for the correction, typography proof and four realistic reference screens.
-  Keep at most one additional prompt in reserve for a concrete severe defect;
-  Codex owns design-system completion and implementation afterwards.
+- Claude-Kontingent ist wieder verfuegbar. Weitere offene Exploration ist dennoch
+  nicht der naechste Schritt: Claude Code prueft zuerst den integrierten Stand
+  unabhaengig und setzt danach die vorhandene Round-04-Richtung kontrolliert in
+  echten Referenzbereichen um.
 - Round 04 archives and verifies Turn 6, the last regular Claude Design pass. It
   resolves the blocking status, contrast, density and typography issues. No
   reserve prompt is required; Codex owns the work from this point.
@@ -103,6 +103,8 @@
 
 - Shared instructions are available through `AGENTS.md` and `CLAUDE.md`.
 - Claude Code `2.1.150` is installed locally.
+- The two-phase Claude audit and design implementation mission is recorded in
+  `docs/collaboration/CLAUDE_MISSION.md`; Claude works in an isolated worktree.
 - The official Claude Design MCP endpoint is registered in the Claude user
   configuration. Interactive authentication with `/design-login` is still
   required.

@@ -20,6 +20,18 @@ Bestehende Demo-, Offline- und Simulationspfade duerfen nicht entfernt werden.
 
 ## Aktiver Schnitt
 
+### KL-CLAUDE-001 - Unabhaengiges Integrationsaudit
+
+**Status:** Bereit fuer Claude Code
+**Abhaengigkeit:** Checkpoint des integrierten Scanner-/Draft-Stands
+**Schreibbereich:** `docs/collaboration/reviews/` und
+`docs/collaboration/handoffs/CLAUDE.md`
+
+Claude prueft den gesamten Stand seit `03c146a` unabhaengig auf Code-, Daten-,
+Test-, Accessibility- und Designsystemprobleme. Produktcode bleibt waehrend des
+Audits unveraendert. Der vollstaendige Auftrag und das anschliessende Review-Gate
+stehen in `docs/collaboration/CLAUDE_MISSION.md`.
+
 ### KL-DS-001 - Semantische SwiftUI-Bausteine
 
 **Status:** Erledigt
@@ -185,7 +197,7 @@ automatische Freigabe und keine Produktionspersistenz.
 
 ### KL-OPS-001 - Heute und Kueche
 
-**Status:** Wartet
+**Status:** Fuer Claude nach KL-CLAUDE-001 vorgesehen
 **Abhaengigkeit:** KL-DS-001, KL-IOS-001
 **Voraussichtlicher Schreibbereich:** neue Views unter `kitchenlink/Features/Today/`
 und `kitchenlink/Features/Kitchen/`
@@ -207,8 +219,8 @@ Sandbox-Daten.
 
 ## Integrationsreihenfolge
 
-1. KL-DS-001 integrieren und kompilieren.
-2. KL-IOS-001 funktional und visuell abnehmen.
-3. KL-QA-001 ausfuehren und Luecken schliessen.
-4. KL-OPS-001 und die Web-Stack-Entscheidung parallel starten.
+1. KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.
+2. P0-/P1-Findings vor neuer Oberflaechenarbeit entscheiden oder beheben.
+3. KL-OPS-001 im Claude-Worktree als Round-04-Referenz umsetzen.
+4. KL-MENU-004 und die Web-Stack-Entscheidung in getrennten Scopes fortsetzen.
 5. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
