@@ -136,6 +136,7 @@ struct KitchenLinkV2KitchenView: View {
             }
         }
         .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
         .sensoryFeedback(.success, trigger: completedBumpCount)
         .tint(KitchenLinkV2Palette.Content.primary)
         .navigationTitle("Küche")
@@ -231,8 +232,8 @@ struct KitchenLinkV2KitchenView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(ticket.itemLines, id: \.self) { line in
-                    Text(line)
+                ForEach(Array(ticket.itemLines.enumerated()), id: \.offset) { item in
+                    Text(item.element)
                         .font(KitchenLinkV2Typography.primaryLine)
                         .foregroundStyle(KitchenLinkV2Palette.Content.primary)
                         .fixedSize(horizontal: false, vertical: true)
