@@ -1,15 +1,25 @@
 # ADR-001: KitchenLink Gast-Web-Stack und Hosting
 
 **Status:** Proposed
-**Datum:** 2026-07-16
+**Datum:** 2026-07-16 (Revision 2 nach Review)
 **Agent:** GLM-5.2 via ZCode
 **Ticket:** KL-WEB-001A
 **Entscheidungssteller:** Nutzer (produktsprachliche Freigabe offen)
 
-Diese Architecture Decision Record (ADR) vergleicht drei konkrete Lösungsstapel
-für das KitchenLink Gast-Web und empfiehlt einen. Sie erfindet keine
-Produktentscheidungen und enthält keine Implementierung. Quellenverweise `[Sxx]`
-verweisen auf [`SOURCES.md`](./SOURCES.md).
+Diese Architecture Decision Record (ADR) vergleicht Lösungsstapel für das
+KitchenLink Gast-Web. Sie erfindet keine Produktentscheidungen und enthält keine
+Implementierung. Tragende technische Aussagen sind durch Primärquellen belegt;
+Quellenverweise `[Sxx]` verweisen auf [`SOURCES.md`](./SOURCES.md).
+
+> **Änderung zur Revision 1:** Die Hostingentscheidung zwischen Vercel und
+> Cloudflare wird bewusst **offen gehalten** und über eine PoC-Matrix (§8)
+> entschieden. `@cloudflare/next-on-pages` ist vollständig entfernt; Cloudflare
+> wird aktuell über **Workers + `@opennextjs/cloudflare`** beschrieben. Direkte
+> Tabellen-INSERTs aus dem Gastbrowser sind durch eine autoritative
+> Bestellgrenze (Edge Function oder PostgreSQL-RPC) ersetzt. Die anonyme Rolle
+> wird zwischen `anon` (unauthenticated) und Supabase Anonymous Sign-in
+> (`authenticated` + `is_anonymous`) unterschieden. Responsive Beta und
+> PWA-/Offline-Shell sind getrennt. Unbelegte kommerzielle Aussagen sind entfernt.
 
 ---
 
@@ -40,167 +50,76 @@ Das Gast-Web ist die zweite Plattform nach der iOS-/iPadOS-Business-App
 ### 1.2 Technische Problemstellung
 
 Der Betreiber hat keinen Server. Die Gast-Web-Auslieferung muss daher über ein
-verwaltetes Hosting (PaaS/Edge) erfolgen. Gleichzeitig müssen folgende
-Spannungen aufgelöst werden:
+verwaltetes Hosting erfolgen. Gleichzeitig müssen folgende Spannungen aufgelöst
+werden:
 
 | Spannung | Beschreibung |
 |----------|--------------|
 | **QR-Performance vs. Interaktivität** | QR-Erstladung muss schnell sein (Gast wartet am Tisch), aber Warenkorb/Checkout brauchen Interaktivität |
-| **Statisch vs. dynamisch** | Menü ist weitgehend statisch (gut für SEO/Cache), Bestellung ist dynamisch (gut für App-Framework) |
-| **EU-DSGVO vs. Hosting-Anbieter** | Erstmarkt Deutschland; personenbezogene Daten (anonyme Bestellung, ggf. Kundenkonto) brauchen EU-Region |
-| **Offline-Shell vs. Offline-Bestellung** | UI kann offline gecacht werden; eine Bestellung darf aber erst als „angekommen" gelten, wenn ein autoritativer Knoten sie bestätigt hat (Blueprint §16.2) |
-| **TypeScript-Verträge** | Blueprint §18.2 fordert gemeinsame API-Verträge und generierte Typen, keine duplizierten freien Modelle |
+| **Statisch vs. dynamisch** | Menü ist weitgehend statisch (gut für SEO/Cache), Bestellung ist dynamisch und erfordert serverseitige Autorität |
+| **Hosting-Optionen offen** | Vercel und Cloudflare Workers sind beide valide; die Entscheidung erfordert einen PoC (§8), keinen Vorab-Vorschlag |
+| **Responsive-Beta vs. PWA/Offline** | die erste Beta ist eine responsive Website; PWA-/Offline-Fähigkeit ist eine spätere, getrennte Stufe (§7) |
+| **Autoritative Bestellgrenze** | der Browser darf Bestellungen nicht direkt in Tabellen schreiben; eine serverseitige Grenze prüft Preis, Verfügbarkeit, Öffnungszeit, Kapazität und Idempotenz (§6) |
+| **Anonyme Identität** | die bloße `anon`-Rolle (unauthenticated) unterscheidet sich technisch von Supabase Anonymous Sign-in (`authenticated` + `is_anonymous`); die Wahl ist produktsprachlich offen (§6.3) |
 
 ---
 
-## 2. Berücksichtigte Lösungen
+## 2. Framework-Empfehlung: Next.js (App Router)
 
-Drei Lösungsstapel werden verglichen. Alle setzen Supabase als Backend voraus
-und verwenden TypeScript. Sie unterscheiden sich in Framework, Rendering-Strategie
-und Hosting.
+### 2.1 Gewähltes Framework
 
-### Option A: Next.js (App Router) + Vercel
+**Empfehlung: Next.js mit App Router und React.**
 
-- **Framework:** Next.js mit React, App Router, Server Components
-- **Rendering:** Hybride (SSR/SSG/ISR) — Menüseiten statisch generierbar,
-  Checkout dynamisch
-- **PWA:** via Serwist (next-pwa-Nachfolger) [S01][S02][S03]
-- **Hosting:** Vercel (Next.js-Mutterfirma); Preview-Deployments pro Branch
-- **Supabase:** `@supabase/ssr`, reifes Tutorial-Ökosystem [S10]
-- **Stärken:** beste Next.js-DX auf Vercel, Preview-Deployments out-of-the-box,
-  SSR für SEO, Server Actions für privilegierte Vorgänge
-- **Schwächen:** Vercel EU/GDPR weniger ideal [S18]; Free-Tier 100 GB/Monat
-  Bandbreite [S19]; kostenintensiv bei Skalierung [S17]
+Begründung, bezogen auf die drei diskutierten Frameworks:
 
-### Option B: Astro + Cloudflare Pages
+| Aspekt | Next.js | Astro | SvelteKit |
+|--------|---------|-------|-----------|
+| Interaktiver Warenkorb + Checkout | ✅ nativ (Client Components) | ⚠️ erfordert React/Vue/Svelte-Inseln | ✅ nativ |
+| Hybrides Rendering (SSG + SSR) | ✅ eingebaut | ✅ statisch + Inseln | ✅ mit Adapter |
+| Supabase-DX | ✅ `@supabase/ssr`, reifes Ökosystem | ⚠️ mehr Eigenleistung | ⚠️ Auth komplexer als Next.js [S10] |
+| Anbindung lokaler Venue-Hub | ✅ Route Handler / API-Routen | ⚠️ statisch-zentriert | ✅ möglich |
 
-- **Framework:** Astro (Insel-Architektur, partielle Hydration)
-- **Rendering:** Statisch mit selektiver Hydration — Menü als statisches HTML,
-  interaktive Inseln (Warenkorb) hydratisiert
-- **PWA:** Astro unterstützt Service Worker; statische Auslieferung ideal für
-  App-Shell-Caching
-- **Hosting:** Cloudflare Pages (unbegrenzte Bandbreite, EU-freundlich)
-- **Stärken:** extrem schnelle Erstladung, minimales JS, beste SEO,
-  Cloudflare EU/GDPR günstiger und ~92 % günstiger [S16][S17][S18]
-- **Schwächen:** komplexerer Warenkorb/Checkout benötigt React/Vue/Svelte-Inseln;
-  Supabase-Auth-Integration weniger dokumentiert als Next.js; Astro ist
-  inhaltlich-seiten-zentriert, nicht app-zentriert [S05][S06]
+Astro ist für inhaltslastige, statische Seiten stark, aber ein interaktiver
+Warenkorb würde seinen Hauptvorteil (minimales JS) aufheben. SvelteKit ist
+valide, hat aber eine weniger reife Supabase-Auth-DX als Next.js [S10]. Next.js
+bietet die beste Balance und bleibt Hosting-neutral.
 
-### Option C: Next.js (App Router) + Cloudflare Pages (Open Next / @cloudflare/next-on-pages)
+### 2.2 Hosting bleibt offen (Vercel vs. Cloudflare Workers)
 
-- **Framework:** Next.js mit React, App Router (wie Option A)
-- **Hosting:** Cloudflare Pages statt Vercel via `@cloudflare/next-on-pages`
-- **Stärken:** vereint Next.js-DX mit Cloudflare-Kosten/GDPR-Vorteilen;
-  hybrides Rendering; Supabase-Integration reif
-- **Schwächen:** `next-on-pages` ist eine Adapter-Schicht mit Kompatibilitätslücken
-  bei bestimmten Next.js-Features (Edge-Runtime-Einschränkungen); Preview-
-  Deployments vorhanden aber weniger nahtlos als nativ Vercel; zusätzliche
-  Komplexitätsschicht
+Das Framework Next.js läuft auf **beiden** Hosting-Optionen ohne Codeänderung.
+Die Hostingentscheidung wird daher **nicht vorab** getroffen, sondern über die
+PoC-Matrix in §8 abgesichert. Beide Optionen sind gleichrangige Kandidaten:
 
----
+| Hosting | Next.js-Support | Hinweis |
+|---------|-----------------|---------|
+| **Vercel** | nativ (Mutterfirma) | nahtloseste DX; Preview-Deployments out-of-the-box |
+| **Cloudflare Workers** | via `@opennextjs/cloudflare` | Worker-Runtime, Node.js-Kompatibilität; siehe §2.3 |
 
-## 3. Vergleich anhand der Bewertungskriterien
+### 2.3 Cloudflare: aktuell Workers + `@opennextjs/cloudflare`
 
-Legende: ✅ stark / ⚠️ akzeptabel / ❌ schwach
+Cloudflare wird in dieser ADR als **Cloudflare Workers** beschrieben, nicht als
+Pages. Der aktuelle Adapter, um Next.js auf Cloudflare Workers zu betreiben, ist
+**`@opennextjs/cloudflare`** (OpenNext for Cloudflare) [S34][S35].
 
-| Kriterium | A: Next.js+Vercel | B: Astro+Cloudflare | C: Next.js+Cloudflare |
-|-----------|:---:|:---:|:---:|
-| **Mobile QR-Erstladung** | ⚠️ (größeres JS-Bundle) | ✅ (minimales JS, Inseln) | ⚠️ (wie A) |
-| **Anonyme Bestellung (Supabase/RLS)** | ✅ (`@supabase/ssr`, reif) | ⚠️ (mehr Eigenleistung) | ✅ (wie A) |
-| **PWA / Offline-Shell** | ⚠️ (Serwist, Aufwand) | ✅ (statisch, natürlich geeignet) | ⚠️ (wie A) |
-| **SEO** | ✅ (SSR/SSG) | ✅ (statisch, minimal JS) | ✅ (wie A) |
-| **TypeScript-Verträge (generiert)** | ✅ (reif) | ✅ (framework-unabhängig) | ✅ (wie A) |
-| **Tests** | ✅ (Vitest/Jest/Playwright) | ✅ (Vitest/Playwright) | ✅ (wie A) |
-| **Kosten (Free-Tier)** | ⚠️ (100 GB, Skalierung) | ✅ (unbegrenzte Bandbreite) | ✅ (Cloudflare) |
-| **EU-Datenschutz** | ⚠️ (Vercel EU weniger ideal) [S18] | ✅ (Cloudflare EU-freundlich) [S18] | ✅ (wie B) |
-| **Preview-Deployments** | ✅ (nativ Vercel) | ✅ (Cloudflare Pages) | ✅ (Cloudflare Pages) |
-| **Anschluss lokaler Venue-Hub** | ✅ (dynamische Endpunkte) | ⚠️ (statisch-zentriert) | ✅ (wie A) |
-| **DX / Reife** | ✅ (größtes Ökosystem) | ⚠️ (schmaler, inhaltslastig) | ⚠️ (Adapter-Schicht) |
+Verifizierte Fakten (Primärquellen, Abruf 2026-07-16):
 
-### Wichtige qualitative Notizen
+- `@opennextjs/cloudflare` ist der aktuelle, von Cloudflare empfohlene Adapter,
+  um Next.js auf **Cloudflare Workers** bereitzustellen [S34][S36].
+- Er nutzt die Next.js-Node.js-Runtime in Cloudflares **workerd**-Laufzeit über
+  die Workers-Node.js-Kompatibilitätsschicht [S35].
+- Er hat den älteren `@cloudflare/next-on-pages`-Adapter abgelöst, der nur die
+  „Edge"-Runtime unterstützte; `@opennextjs/cloudflare` unterstützt die volle
+  Node.js-Runtime [S34].
+- Cloudflare selbst routet Next.js-on-Cloudflare-Traffic auf diesen Adapter
+  (`npm create cloudflare@latest --framework=next --platform=workers`) [S36].
 
-- **Supabase-Region unabhängig vom Hosting:** Unabhängig von der Wahl des
-  Frontend-Hostings bleibt Supabase in der **EU-Region Frankfurt** (`eu-central-1`)
-  [S25][S27][S28] und bietet einen **DPA** an [S26]. Das Frontend-Hosting
-  betrifft nur die Auslieferung statischer Assets, nicht die personenbezogenen
-  Bestelldaten, die in Supabase liegen.
-- **TypeScript-Verträge sind framework-unabhängig:** `supabase gen types`
-  erzeugt Typen aus dem DB-Schema [S22][S23], automatisierbar via GitHub
-  Actions [S24]. Das funktioniert bei allen drei Optionen gleich.
-- **Background Sync ist keine Bestellgarantie:** Die PWA-Background-Sync-API
-  [S29][S31] erlaubt automatisches Retry von Writes, ist aber nicht verlässlich
-  für kritische ACKs. Siehe §7 zur Trennung von Offline-Shell und bestätigter
-  Bestellung.
+> **Hinweis:** `@cloudflare/next-on-pages` ist in dieser ADR vollständig
+> entfernt. Alle früheren Bezugnahmen auf Pages/`next-on-pages` wurden durch
+> Workers/`@opennextjs/cloudflare` ersetzt.
 
 ---
 
-## 4. Empfehlung
-
-### Empfohlene Lösung: Option C — Next.js (App Router) + Cloudflare Pages
-
-**Empfehlung:** Next.js mit App Router, gehostet auf Cloudflare Pages via
-`@cloudflare/next-on-pages`, mit Supabase als Backend (EU-Region Frankfurt).
-
-#### Begründung
-
-1. **Beste Balance aus Interaktivität und Kosten/GDPR.** Next.js liefert die
-   für Warenkorb, Checkout und späteren Venue-Hub-Anschluss benötigte
-   App-artige Dynamik [S05][S12], während Cloudflare Pages die EU/GDPR- und
-   Kostenvorteile bringt, die Vercel fehlen [S16][S17][S18][S19].
-
-2. **Supabase-Integration ist am reifsten bei Next.js.** Die `@supabase/ssr`-
-   Pakete und Tutorials sind für Next.js besser dokumentiert als für SvelteKit
-   oder Astro [S10]. Das senkt das Implementierungsrisiko für anonyme
-   Bestellung und RLS.
-
-3. **Preview-Deployments bleiben erhalten.** Cloudflare Pages bietet
-   Preview-Deployments pro Branch/PR wie Vercel — ein harter Anspruch aus
-   dem Auftrag.
-
-4. **QR-Erstladung ist akzeptabel lösbar.** Zwar hat Next.js ein größeres
-   JS-Bundle als Astro, aber Menüseiten können statisch generiert (SSG) und
-   via Service Worker als App-Shell gecacht werden [S01][S03][S04]. Die
-   Zweitladung ist dann instant. Für die erste QR-Ladung reicht eine
-   schlanke Menü-Route ohne client-seitige schwerere Komponenten.
-
-5. **Hybrides Rendering deckt beide Welten ab.** Statisches Menü (SEO,
-   Cache-günstig) und dynamischer Checkout (Echtzeit, Supabase-Realtime)
-   in einem Framework [S12].
-
-6. **Venue-Hub-Anbindung ist natürlich.** Später kann der gleiche
-   Next.js-Stack den lokalen Venue-Hub als alternative Datenquelle
-   ansprechen (siehe §7), was mit einem rein statischen Astro schwerer wäre.
-
-#### Akzeptiertes Risiko
-
-`@cloudflare/next-on-pages` ist eine Adapter-Schicht mit gelegentlichen
-Kompatibilitätslücken bei Edge-Runtime-Features. Dies wird durch frühzeitige
-Verifikation der Kernrouten (Menü, Checkout) im Prototyp gemindert. Sollte
-der Adapter blockieren, ist **Option A (Vercel) dieFallback-Alternative**
-mit minimaler Codeänderung (nur Hosting-Konfiguration, nicht das Framework).
-
-### Alternativoption: Option A — Next.js + Vercel
-
-Wenn Cloudflare-Pages-Kompatibilität sich als Blockade erweist oder die
-nahtlosesten Preview-Deployments und die niedrigste Betreiber-Komplexität
-Priorität haben, ist Vercel dieFallback-Alternative. Der Code bleibt
-identisch (dasselbe Next.js-Framework); nur das Hosting wechselt. Die
-höheren Kosten und die schwächere EU/GDPR-Position von Vercel [S18] sind
-dann bewusst zu akzeptieren.
-
-### Warum nicht Astro (Option B)?
-
-Astro ist für inhaltliche, statisch-lastige Seiten ideal [S05][S06][S07],
-aber das Gast-Web benötigt einen interaktiven Warenkorb, Checkout,
-Echtzeit-Status und später die Venue-Hub-Anbindung. Das würde in Astro
-bedeuten, React/Vue/Svelte-Inseln einzubetten — dann hat man die Komplexität
-von Astro plus einem App-Framework, ohne Astros Hauptvorteil (minimal JS)
-voll zu nutzen. Die Performance-Einbuße von Next.js ist durch SSG +
-Service-Worker-Caching ausgleichbar.
-
----
-
-## 5. Architekturdiagramm
+## 3. Architekturdiagramm
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -208,56 +127,64 @@ Service-Worker-Caching ausgleichbar.
 │  Safari / Chrome (iPhone, Android, Desktop)                      │
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐    │
-│  │  PWA App Shell (Service Worker gecacht)                  │    │
+│  │  Responsive Gast-Web-Beta  (Stage 1, kein Service Worker)│    │
 │  │  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │    │
 │  │  │  Menü-Ansicht│  │ Warenkorb    │  │ Checkout /     │  │    │
 │  │  │  (statisch,  │  │ (client-seitig│  │ Bestellung     │  │    │
-│  │  │   SSG)       │  │  interaktiv) │  │ (→ Supabase)   │  │    │
+│  │  │   SSG)       │  │  interaktiv) │  │ → Edge Func    │  │    │
 │  │  └─────────────┘  └──────────────┘  └────────────────┘  │    │
 │  └──────────────────────────────────────────────────────────┘    │
+│  [Stage 2 später: optionale PWA-Shell via Service Worker, §7]    │
 └───────────────┬──────────────────────────────┬───────────────────┘
-                │ HTTPS                        │ HTTPS (Supabase JS)
-                │ (statische Assets +          │
-                │  Next.js SSR/SSG)            │
-   ┌────────────▼──────────────┐    ┌──────────▼─────────────────┐
-   │   Cloudflare Pages         │    │     Supabase               │
-   │   (Frontend-Hosting)       │    │     (EU-Region Frankfurt)  │
-   │                            │    │                            │
-   │   • Next.js App Router     │    │   • PostgreSQL + RLS       │
-   │   • @cloudflare/           │    │   • Auth (anonym/gast)     │
-   │     next-on-pages          │    │   • REST/Realtime          │
-   │   • Preview-Deployments    │    │   • Row Level Security     │
-   │   • CDN / Edge             │    │     (anon-Rollen-Policy)   │
-   │   • unbegrenzte Bandbreite │    │   • generierte TS-Typen    │
-   └────────────────────────────┘    └────────────────────────────┘
+                │ HTTPS                        │ HTTPS
+                │ (statische Assets +          │ (aufruf Edge Function /
+                │  Next.js SSR/SSG)            │  PostgreSQL-RPC)
+                │                              │
+   ┌────────────▼──────────────────┐  ┌────────▼───────────────────┐
+   │  Vercel ODER Cloudflare Workers│  │     Supabase               │
+   │  (Hosting offen, §8)           │  │     (EU-Region Frankfurt)  │
+   │                                │  │                            │
+   │  • Next.js App Router          │  │  • PostgreSQL + RLS        │
+   │  • ggf. @opennextjs/cloudflare │  │  • Auth (anon / anonymous  │
+   │    (falls Cloudflare)          │  │    sign-in, §6.3)          │
+   │  • Preview-Deployments         │  │  • Edge Functions (Deno):  │
+   │  • CDN                         │  │    autoritative Bestell-   │
+   │                                │  │    grenze [S37][S38]       │
+   │                                │  │  • generierte TS-Typen     │
+   └────────────────────────────────┘  └────────────────────────────┘
                                             ▲
-                │ später (Blueprint §16)    │
+                │ später (Blueprint §16)    │ Outbox/Inbox-Sync
                 │                           │ lokaler Venue-Hub
-   ┌────────────▼──────────────┐            │ (iPhone/iPad, offline)
-   │   Restaurant-WLAN         │────────────┘
-   │   ┌──────────────────┐    │   • NWListener HTTP-Server
-   │   │  Venue Hub       │    │   • lokales SQLite-Event-Log
-   │   │  (iPad/iPhone)   │────┼──▶ Outbox/Inbox-Sync
-   │   └──────────────────┘    │   • Bestell-ACK erst nach
-   └───────────────────────────┘     dauerhaftem Commit
+   ┌────────────▼──────────────────┐        │ (iPhone/iPad, offline)
+   │   Restaurant-WLAN             │────────┘
+   │   ┌──────────────────┐        │  • Bestell-ACK erst nach
+   │   │  Venue Hub        │        │    dauerhaftem Commit
+   │   │  (iPad/iPhone)    │────────┼─▶ (Blueprint §16.2)
+   │   └──────────────────┘        │
+   └────────────────────────────────┘
 ```
 
-### Datenfluss — normale Online-Bestellung
+### Datenfluss — normale Online-Bestellung (autoritativ)
 
 ```
-1. Gast scannt QR → Browser öffnet https://<venue>.kitchenlink.app/menu/<slug>
-2. Cloudflare Pages liefert statisch generierte Menüseite (SSG, CDN-gecacht)
-3. Gast fügt Artikel hinzu (client-seitig, Supabase-Menü via RLS lesbar)
-4. Gast sendet Bestellung → Supabase (RLS: anon-Rolle darf INSERT mit Policy)
-5. Supabase persistiert → Realtime notify → Business-App sieht Bestellung
-6. Gast-Web zeigt Bestätigung (Status "eingegangen")
+1. Gast scannt QR → Browser öffnet die Venue-Menüroute
+2. Hosting (Vercel/CF Workers) liefert statisch generierte Menüseite (SSG, CDN)
+3. Gast fügt Artikel hinzu (client-seitig; Menü via RLS lesbar)
+4. Gast sendet Bestellung → Supabase Edge Function ODER PostgreSQL-RPC
+   (NICHT direkt in eine Tabelle — siehe §6 autoritative Bestellgrenze)
+5. Edge Function/RPC prüft serverseitig:
+     Preis (aus DB, nicht aus Client), Verfügbarkeit, Öffnungszeit,
+     Kapazität, Idempotenz-Key
+6. Bei Erfolg: transaktionale Persistierung + Idempotenz-Eintrag → ACK
+7. Realtime-Notify → Business-App sieht Bestellung
+8. Gast-Web zeigt „Eingegangen" erst nach ACK (§7)
 ```
 
 ---
 
-## 6. Deploymentfluss
+## 4. Deploymentfluss
 
-### 6.1 CI/CD-Pipeline (GitHub-basiert)
+### 4.1 CI/CD-Pipeline (GitHub-basiert, hosting-neutral)
 
 ```
 Feature-Branch (push)
@@ -268,9 +195,10 @@ GitHub Actions auslösen
         ├──▶ npm ci && npm run lint && npm run typecheck
         ├──▶ npm run test (Vitest)
         ├──▶ npm run build (next build)
-        ├──▶ Cloudflare Pages: Preview-Deployment pro Branch
-        │     → eindeutige URL (z.B. <hash>.kitchenlink-pages.dev)
-        └──▶ supabase gen types (optional, bei Schema-Änderung)
+        ├──▶ Hosting: Preview-Deployment pro Branch
+        │     (Vercel ODER CF Workers, je nach §8-Ergebnis)
+        │     → eindeutige Preview-URL
+        └──▶ supabase gen types (bei Schema-Änderung) [S22][S24]
         │
         ▼
 Pull Request mit Preview-URL im Kommentar
@@ -279,12 +207,10 @@ Pull Request mit Preview-URL im Kommentar
 Review (Peer-Workflow) → Merge nach main
         │
         ▼
-Cloudflare Pages: Production-Deployment
-        → https://<venue>.kitchenlink.app (Custom Domain)
-        → https://kitchenlink-guest.pages.dev (Fallback)
+Production-Deployment (Vercel ODER CF Workers)
 ```
 
-### 6.2 Umgebungen
+### 4.2 Umgebungen
 
 | Umgebung | Zweck | Supabase-Projekt | Sichtbarkeit |
 |----------|-------|------------------|--------------|
@@ -297,66 +223,123 @@ Cloudflare Pages: Production-Deployment
 
 ---
 
-## 7. Offline-App-Shell vs. bestätigte Offline-Bestellung (kritische Trennung)
+## 5. Offline-App-Shell vs. bestätigte Bestellung — phasentrennung
+
+### 5.1 Stage 1: Responsive Gast-Web-Beta (kein Service Worker)
+
+Die erste Ausbaustufe ist eine **responsive Website ohne PWA/Offline-Fähigkeit**.
+Sie funktioniert in jedem modernen Browser (Safari, Chrome, Desktop), erfordert
+aber Netzverbindung für Bestellung und Menü. Es gibt keinen Service Worker, kein
+App-Shell-Caching. Dies entspricht dem minimalen Produktbedarf „Gast bestellt im
+Browser" (DECISIONS.md, Blueprint §3.1) ohne zusätzliche PWA-Komplexität.
+
+### 5.2 Stage 2: PWA-/Offline-Shell (später, getrennt)
+
+Erst in einer späteren, **eigenen** Stufe wird das Gast-Web um eine PWA-Shell
+ergänzt (Service Worker, Manifest, App-Shell-Caching). Dies dient der
+Zweitlade-Performance und der Menü-Ansicht bei schlechtem Netz. Diese Stufe ist
+produktsprachlich und technisch von der Beta getrennt und braucht eine eigene
+Entscheidung (siehe D5).
+
+### 5.3 Die kritische Trennung: Offline-Shell ≠ bestätigte Bestellung
 
 Diese Trennung ist produktsprachlich zwingend (Blueprint §16.2: „Die App darf
 nie eine Bestellung als angekommen bestätigen, bevor mindestens ein
 autoritativer Venue-Knoten sie dauerhaft gespeichert hat").
 
-### 7.1 Was offline gehen darf: die App-Shell
+| Aspekt | App-Shell (Stage 2, PWA) | Bestellannahme |
+|--------|--------------------------|----------------|
+| **Was** | UI-Hülle (HTML/CSS/JS/Menü-Template) cachen | tatsächliche, dauerhafte Persistierung |
+| **Darf offline?** | ja (zweite Ladung instant, Menü bei schlechtem Netz) | **nein** ohne autoritativen Knoten |
+| **Bestätigung** | zeigt nur lokal gepufferten Zustand | „Eingegangen" erst nach ACK des autoritativen Knoten |
 
-Die **PWA-App-Shell** (HTML, CSS, JS, Menü-Template, Icons) kann via Service
-Worker gecacht werden [S29][S32]. Das erlaubt:
-
-- schnelle Zweitladung (Instant-Load aus Cache)
-- Menü-Ansicht auch bei schlechtem Netz
-- Warenkorb-Zusammenstellung offline
-
-**Aber:** Das ist nur die UI-Hülle. Keine Bestellung gilt als „angekommen",
-nur weil die UI sie lokal anzeigt.
-
-### 7.2 Was offline nicht gehen darf: die Bestellannahme
-
-Eine **tatsächliche Bestellung** erfordert die dauerhafte Speicherung durch
-einen autoritativen Knoten. Drei Fälle:
+Drei Betriebsfälle für eine Bestellung:
 
 | Fall | Mechanismus | Status für Gast |
 |------|-------------|-----------------|
-| **Online (Normalfall)** | Bestellung → Supabase (RLS) → ACK | „Eingegangen" (bestätigt) |
-| **Internet aus, Venue-Hub im WLAN vorhanden** | Bestellung → lokaler Venue-Hub (HTTP) → dauerhafter SQLite-Commit → ACK | „Eingegangen" (bestätigt durch Hub) |
-| **Internet aus, kein Venue-Hub erreichbar** | Bestellung kann **nicht** bestätigt werden | „Offline — Bestellung noch nicht übermittelt" — **kein falsches ACK** |
+| **Online** | Bestellung → Edge Function/RPC (§6) → dauerhafter Commit → ACK | „Eingegangen" (bestätigt) |
+| **Internet aus, Venue-Hub im WLAN** | Bestellung → lokaler Venue-Hub (HTTP) → dauerhafter SQLite-Commit → ACK | „Eingegangen" (bestätigt durch Hub) |
+| **Internet aus, kein Venue-Hub** | Bestellung kann **nicht** bestätigt werden | „Offline — noch nicht übermittelt" — **kein falsches ACK** |
 
-### 7.3 Background Sync als Ergänzung, nicht als Garantie
-
-Die PWA-Background-Sync-API [S29][S31] kann Writes automatisch retrien, sobald
-Konnektivität zurückkehrt. Das ist nützlich, um eine Bestellung in einer
-Foreground-Queue zu puffern [S30]. **Aber:** der Gast darf erst dann
-„Eingegangen" sehen, wenn das ACK vom autoritativen Knoten (Supabase oder
-Venue-Hub) tatsächlich eintrifft. Bis dahin zeigt das Gast-Web einen
-eindeutigen Offline-/Pending-Status (Design-System §6: „wartet"-Dringlichkeit).
-
-### 7.4 Implikation für die ADR
-
-Das Gast-Web muss so gebaut sein, daß der Bestell-Status ausschließlich aus
-der Server-/Hub-Antwort abgeleitet wird, **niemals** aus dem lokalen
-Absenden. Die Service-Worker-Logik cached die Shell, aber die Bestell-Logik
-ist ein autoritativ bestätigter Vorgang.
+**Background Sync** (falls in Stage 2 genutzt) ist ausschließlich eine
+Retry-Hilfe für die Übermittlung [S29][S31]; sie liefert kein ACK. Der Gast darf
+„Eingegangen" erst sehen, wenn das ACK vom autoritativen Knoten tatsächlich
+eintrifft. Bis dahin gilt ein eindeutiger Pending-/Wartet-Status
+(Design-System §6).
 
 ---
 
-## 8. Vorgeschlagene Ordnerstruktur
+## 6. Autoritative Bestellgrenze und anonyme Identität
+
+### 6.1 Keine direkten Tabellen-INSERTs aus dem Browser
+
+**Änderung zur Revision 1:** Der Gastbrowser schreibt Bestellungen **nicht mehr
+direkt** in Supabase-Tabellen über eine RLS-Policy. Stattdessen verläuft jede
+Bestellung durch eine **autoritative serverseitige Grenze**, die vor
+Persistierung prüft (Blueprint §6.3 „Preis, Verfügbarkeit, Öffnungszeit und
+Bestellkapazität werden vor Annahme … lokal-authoritativ geprüft"):
+
+| Prüfung | Beschreibung |
+|---------|--------------|
+| **Preis** | serverseitig aus der DB, niemals aus dem Client-Request |
+| **Verfügbarkeit** | Artikel aktiv und nicht ausverkauft |
+| **Öffnungszeit** | Bestellung innerhalb der Bestell-Öffnungszeiten |
+| **Kapazität** | Bestellkapazität der Venue/Station nicht überschritten |
+| **Idempotenz** | Idempotenz-Key prüfen, Doppelabgabe verhindern |
+
+### 6.2 Zwei Implementierungs-Optionen (in der ADR offen)
+
+| Option | Mechanismus | Quelle |
+|--------|-------------|--------|
+| **A: Supabase Edge Function** | Deno-Funktion; nutzt `ctx.supabaseAdmin` für privilegierte Operationen, die RLS umgeht; prüft + persistiert + bestätigt idempotent | [S37][S38] |
+| **B: PostgreSQL-RPC (transaktional)** | `pg`-Funktion (`SECURITY DEFINER`) mit `FOR UPDATE`-Sperren, atomarer Preis-/Kapazitätsprüfung und Idempotenz-Tabelle in einer Transaktion | [S20] |
+
+Beide Optionen halten das Service-Role-Geheimnis serverseitig und exponieren
+dem Browser nur einen kontrollierten Endpunkt. Die Wahl zwischen Edge Function
+und RPC ist eine spätere Implementierungsentscheidung und nicht Teil dieser ADR.
+
+### 6.3 Anonyme Identität: `anon`-Rolle vs. Anonymous Sign-in
+
+Supabase unterscheidet zwei Konzepte, die nicht verwechselt werden dürfen
+(Primärquelle [S40], „Anonymous user vs the anon key"):
+
+| Konzept | Rolle | JWT/User | Eignung |
+|---------|-------|----------|---------|
+| **`anon`-Rolle (unauthenticated)** | Postgres `anon`-Rolle | kein User, nur Projekt-API-Key | öffentlicher Lesezugriff (z.B. Menü); schreibend nur über sehr offene Policies — **nicht** für autoritative Bestellungen empfohlen |
+| **Supabase Anonymous Sign-in** | Postgres **`authenticated`**-Rolle | echte `auth.users`-Zeile mit `is_anonymous = true`, gültiges JWT mit `is_anonymous`-Claim | anonyme Bestellung mit identifizierbarer (aber temporärer) Session; RLS-Policy kann `is_anonymous` prüfen; später konvertierbar in permanenten Account |
+
+**Verifizierte Fakten (Supabase-Doku, Abruf 2026-07-16):**
+
+- Anonymous Sign-in erzeugt einen echten Benutzer in `auth.users`, verhält sich
+  „like a permanent user", außer daß die Session nach Sign-out/Device-Wechsel
+  verloren ist [S40].
+- Ein anonym eingeloggt User erhält die **`authenticated`**-Rolle für RLS,
+  genau wie ein permanenter User [S40].
+- Das JWT enthält den **`is_anonymous`**-Claim, den RLS-Policies via
+  `auth.jwt() ->> 'is_anonymous'` prüfen können [S40].
+- Dies ist verschieden vom `anon`-API-Key, der **keinen** User anlegt und die
+  `anon`-Rolle verwendet [S40].
+
+**Empfehlung für die autoritative Bestellung:** Anonymous Sign-in
+(`authenticated` + `is_anonymous`) kombiniert mit der Edge Function/RPC-Grenze
+aus §6.2. So bleibt die Bestellung einer identifizierbaren (wenn auch
+anonymen) Session zugeordnet, ohne daß der Browser direkten Schreibzugriff
+braucht. Die endgültige produktsprachliche Wahl bleibt dem Nutzer vorbehalten
+(Entscheidung D2).
+
+---
+
+## 7. Vorgeschlagene Ordnerstruktur
 
 ```
 guest-web/                          (neues Top-Level-Verzeichnis, getrennt vom iOS-Projekt)
 ├── package.json
-├── next.config.js                  (App Router, next-on-pages-Konfiguration)
-├── wrangler.toml                   (Cloudflare-Pages-Konfiguration)
+├── next.config.js                  (App Router; hosting-neutral)
 ├── tsconfig.json
 ├── supabase/
 │   └── generated-types.ts          (via `supabase gen types`, CI-aktualisiert) [S22][S24]
 ├── public/
-│   ├── manifest.webmanifest        (PWA-Manifest)
-│   └── icons/                      (App-Icons, maskable)
+│   └── icons/                      (App-Icons; manifest erst in Stage 2)
 ├── src/
 │   ├── app/                        (Next.js App Router)
 │   │   ├── layout.tsx              (Root, lädt Design-Tokens)
@@ -364,8 +347,8 @@ guest-web/                          (neues Top-Level-Verzeichnis, getrennt vom i
 │   │   │   ├── menu/
 │   │   │   │   └── page.tsx        (statisch generierte Menüseite)
 │   │   │   └── checkout/
-│   │   │       └── page.tsx        (dynamischer Checkout)
-│   │   └── api/                    (Route Handler, später Venue-Hub-Proxy)
+│   │   │       └── page.tsx        (dynamischer Checkout → Edge Function/RPC)
+│   │   └── api/                    (Route Handler; später Venue-Hub-Proxy)
 │   ├── components/
 │   │   ├── MenuCard.tsx
 │   │   ├── Cart.tsx
@@ -373,58 +356,90 @@ guest-web/                          (neues Top-Level-Verzeichnis, getrennt vom i
 │   ├── lib/
 │   │   ├── supabase-client.ts      (createClient<Database> mit generierten Typen)
 │   │   ├── design-tokens.ts        (semantische Namen aus DESIGN_SYSTEM.md)
-│   │   └── order-ack.ts            (ACK-Logik: Status nur aus Server-Antwort)
-│   ├── styles/
-│   │   └── tokens.css              (CSS-Variablen, Traube/Zitrone semantisch)
-│   └── sw/                         (Service-Worker: App-Shell-Caching)
-│       └── register.ts
+│   │   ├── order-ack.ts            (ACK-Logik: Status nur aus Server-Antwort)
+│   │   └── order-submit.ts         (ruft Edge Function/RPC auf, nie direkten INSERT)
+│   └── styles/
+│       └── tokens.css              (CSS-Variablen, Traube/Zitrone semantisch)
+│   # sw/ (Service Worker) ERST in Stage 2 (PWA), nicht in der Beta
 ├── __tests__/                      (Vitest)
 │   ├── order-ack.test.ts
+│   ├── order-submit.test.ts
 │   └── cart.test.ts
 └── e2e/                            (Playwright)
     └── guest-order.spec.ts
 ```
 
-### Begründung der Trennung
+### Begründung
 
 - **`guest-web/` als eigenes Verzeichnis**, getrennt vom `kitchenlink/`-iOS-Projekt
-  und von der späteren `admin-web/`-Browser-Verwaltung (Blueprint §3.3).
-- **`supabase/generated-types.ts`** als einzige Quelle der typisierten Verträge,
-  CI-generiert [S24], niemals manuell gepflegt.
-- **`design-tokens.ts`** spiegelt die semantischen Namen aus
-  `DESIGN_SYSTEM.md` §3–5, sodaß SwiftUI und Web dieselben Token-Namen teilen
-  (Design-System §11).
-- **`order-ack.ts`** kapselt die kritische ACK-Logik aus §7 — testbar und
-  isoliert von der UI.
+  und der späteren `admin-web/`-Browser-Verwaltung (Blueprint §3.3).
+- **Keine hosting-spezifische Konfiguration** (`wrangler.toml`/`vercel.json`)
+  in Stage 1; sie wird erst nach der PoC-Entscheidung (§8) hinzugefügt.
+- **`order-submit.ts`** kapselt den Aufruf der autoritativen Grenze (§6); der
+  Browser hat keinen direkten Tabellen-Schreibpfad.
+- **`sw/` bewusst nicht vorhanden** in Stage 1; die Beta bleibt eine responsive
+  Website ohne Service Worker (§5.1).
+
+---
+
+## 8. PoC-Matrix: Vercel vs. Cloudflare Workers
+
+Da die Hostingentscheidung offen gehalten wird, schlägt diese ADR eine kleine
+Proof-of-Concept-Matrix vor, die beide Anbieter anhand derselben Kriterien
+mit realen Messungen vergleicht. Erst das PoC-Ergebnis führt zur
+Hosting-Entscheidung.
+
+| PoC-Kriterium | Was gemessen wird | Vercel | Cloudflare Workers |
+|---------------|-------------------|--------|-------------------|
+| **Next.js-Kompatibilität** | Menü-Route (SSG) + einfache Supabase-Lesung baut und läuft | nativ | via `@opennextjs/cloudflare` [S34] |
+| **Edge Function / API-Route** | autoritative Bestellgrenze aus §6 funktioniert | Route Handler / Server Action | Workers-Funktion via OpenNext |
+| **Preview-Deployment pro Branch** | automatische Preview-URL pro PR | out-of-the-box | Cloudflare-Preview (Workers) |
+| **QR-Erstladung (mobil)** | LCP / TTFB einer frischen Menüseite (Safari, 4G-Drosselung) | messen | messen |
+| **EU-Region** | Frontend-Edge in EU; Supabase bleibt in Frankfurt (`eu-central-1`) [S25] | EU-Region verfügbar | EU-Rechenzentren vorhanden |
+| **Kosten-Modell** | Free-Tier-Grenzen (Builds, Requests, Bandbreite) anhand der aktuellen Preisseiten beider Anbieter | laut aktueller Vercel-Preisseite prüfen | laut aktueller Cloudflare-Preisseite prüfen |
+| **DSGVO-Aufwände** | AVV/DPA-Verfügbarkeit, Auftragsverarbeiter-Status, DatenverarbeitungsOrte | laut Vercel-Dokumentation prüfen | laut Cloudflare-Dokumentation prüfen |
+
+> **Quellen-Disziplin:** konkrete Zahlen (Kosten, Bandbreitenlimits,
+> DSGVO-Status) werden **nicht** aus kommerziellen Vergleichsseiten Dritter
+> übernommen, sondern im PoC direkt gegen die offiziellen Preis- und
+> Rechtsseiten von Vercel und Cloudflare verifiziert. Diese ADR enthält keine
+> unbelegten Pauschalaussagen (wie „X % günstiger" oder „EU-freundlicher")
+> zugunsten eines Anbieters.
+
+### PoC-Auswertung
+
+Das PoC-Ergebnis geht als Empfehlung in eine Folgedokumentation ein und wird dem
+Nutzer als Entscheidung D4 vorgelegt. Bis dahin bleibt die Architektur
+hosting-neutral.
 
 ---
 
 ## 9. Bootstrap-Schritte (Implementierung folgt nach Freigabe)
 
-Diese Schritte sind **nicht Teil dieser ADR** (keine Implementierung), sondern
-ein Vorschlag für die Umsetzung, sobald der Nutzer den Stapel freigibt.
+Diese Schritte sind **keine Implementierung**, sondern ein Vorschlag für die
+Umsetzung nach Nutzerfreigabe.
 
-1. **Projektgerüst:** `npx create-next-app guest-web` (App Router, TypeScript,
-   Tailwind optional). Separates Verzeichnis, eigene `package.json`.
-2. **Cloudflare-Pages-Setup:** `@cloudflare/next-on-pages` installieren,
-   `wrangler.toml` anlegen, GitHub-Integration verbinden, Preview-Deployments
-   aktivieren.
+1. **Projektgerüst:** `create-next-app` (App Router, TypeScript). Eigenes
+   Verzeichnis, eigene `package.json`. Hosting-neutral (keine Vercel/CF-Bindung).
+2. **PoCHosting (§8) parallel:** identische App auf Vercel und Cloudflare
+   Workers (`@opennextjs/cloudflare`) deployen und messen.
 3. **Supabase-Anbindung:** `@supabase/ssr` installieren,
    `createClient<Database>` mit generierten Typen [S22], EU-Frankfurt-Projekt.
 4. **Design-Tokens:** `design-tokens.ts` und `tokens.css` aus
-   `DESIGN_SYSTEM.md` ableiten; Traube/Zitrone semantisch, Zitronenregel
-   technisch sichern (nur eine Primäraktion).
-5. **Menü-Route:** statisch generierte `[venueSlug]/menu`-Seite, RLS-lesbar
-   für `anon`.
-6. **Warenkorb + Checkout:** client-seitig interaktiv, Bestellung via Supabase
-   mit RLS-Policy für anonyme INSERT.
-7. **PWA-Shell:** Service Worker registrieren, App-Shell cachen [S01][S03],
-   `manifest.webmanifest`.
-8. **ACK-Logik:** `order-ack.ts` — Status ausschließlich aus Server-Antwort;
+   `DESIGN_SYSTEM.md`; Traube/Zitrone semantisch, Zitronenregel (nur eine
+   Primäraktion).
+5. **Menü-Route:** statisch generierte `[venueSlug]/menu`-Seite, RLS-lesbar.
+6. **Autoritative Bestellgrenze (§6):** Edge Function oder PostgreSQL-RPC mit
+   Preis-, Verfügbarkeits-, Öffnungszeit-, Kapazitäts- und Idempotenzprüfung;
+   `order-submit.ts` im Frontend ruft nur diese Grenze auf.
+7. **ACK-Logik:** `order-ack.ts` — Status ausschließlich aus Server-Antwort;
    Offline-Pending-Status.
-9. **Tests:** Vitest (Unit: ACK, Warenkorb) + Playwright (E2E: QR → Bestellung).
-10. **Sandbox-Banner:** sichtbares Sandbox-Label auf jeder Gast-Seite
-    (Blueprint §20).
+8. **Tests:** Vitest (Unit: ACK, Bestell-Submit, Warenkorb) + Playwright
+   (E2E: QR → Bestellung).
+9. **Sandbox-Banner:** sichtbares Sandbox-Label auf jeder Gast-Seite
+   (Blueprint §20).
+10. **Stage 2 (später, eigene Entscheidung):** PWA-Shell, Service Worker,
+    Manifest — getrennt von der Beta.
 
 ---
 
@@ -432,61 +447,65 @@ ein Vorschlag für die Umsetzung, sobald der Nutzer den Stapel freigibt.
 
 ### Positive Konsequenzen
 
-- **Klarer Stack** für das gesamte Gast-Web; keine offene Technologiefrage mehr.
-- **EU-DSGVO-konform** durch Cloudflare-Pages-Hosting und Supabase-Region
-  Frankfurt [S18][S25][S26].
-- **Kosteneffizient** durch Cloudflare (unbegrenzte Bandbreite, kein Egress) [S16][S17][S19].
+- **Hosting-neutral:** Next.js läuft auf Vercel und Cloudflare Workers; die
+  Entscheidung wird datengetrieben (§8) statt vorab getroffen.
+- **Autoritative Bestellgrenze** schließt Preismanipulation und unkontrollierte
+  Direkt-INSERTs aus dem Browser aus (Blueprint §6.3).
+- **Klare Anonymitäts-Unterscheidung** zwischen `anon` und Anonymous Sign-in
+  vermeidet RLS-Fehlkonfigurationen.
+- **Phasentrennung:** die responsive Beta bleibt schlank; PWA-/Offline-Komplexität
+  kommt erst später.
 - **Typsicherheit End-to-End** durch generierte Supabase-Typen [S22][S23][S24].
-- **Preview-Deployments** fürPeer-Review-Workflow.
-- **PWA-Fähigkeit** für schnelle Zweitladung und spätere Offline-Shell.
-- **Venue-Hub-Anschluss** später natürlich möglich (gleicher TypeScript-Stack).
-- **Design-System-Kompatibilität**: gleiche semantische Token-Namen wie SwiftUI.
+- **EU-Region** für Supabase (Frankfurt, `eu-central-1`) [S25]; Frontend-Hosting
+  EU-Fähigkeit wird im PoC gemessen.
 
 ### Negative Konsequenzen / Akzeptierte Nachteile
 
-- **`@cloudflare/next-on-pages`-Adapter-Risiko:** gelegentliche
-  Kompatibilitätslücken bei Edge-Runtime-Features. Migration zu Vercel
-  (Option A) bleibt alsNotausgang mit gleichem Code.
-- **Größeres JS-Bundle als Astro:** durch Service-Worker-Caching und SSG
-  abmilderbar, aber die erste QR-Ladung ist nicht so minimal wie bei einem
-  rein statischen Ansatz.
-- **Zwei Build-Pipelines:** iOS (Xcode) und Web (npm/Next.js) getrennt —
-  erhöht Build-/CI-Komplexität im Repository.
-- **TypeScript-Vertragssynchronisation** erfordert Disziplin: Schema-Änderung
-  → `supabase gen types` → beide Clients aktualisieren.
+- **Adapter-Risiko bei Cloudflare:** `@opennextjs/cloudflare` ist eine
+  Übersetzungsschicht; die Node.js-Kompatibilität in workerd kann Lücken
+  aufweisen [S35]. Das PoC (§8) muß dies früh verifizieren. Vercel bleibt der
+  Zero-Adapter-Fallback mit identischem Code.
+- **Mehr serverseitiger Aufwand:** die autoritative Grenze (Edge Function/RPC)
+  ist aufwändiger als direkte RLS-INSERTs, aber produktsprachlich erforderlich.
+- **Zwei Build-Pipelines:** iOS (Xcode) und Web (npm/Next.js) erhöhen die
+  Repository-Komplexität.
+- **Hosting-Offenheit bindet Kapazität:** bis zur PoC-Entscheidung müssen beide
+  Pfade kurzfristig nachverfolgt werden.
 
 ---
 
 ## 11. Offene Produktentscheidungen (dem Nutzer vorzulegen)
 
-Diese ADR kann folgende Entscheidungen nicht selbst treffen und behält sie
-dem Nutzer vor (Blueprint §16, DECISIONS.md-Governance):
+Diese ADR kann folgende Entscheidungen nicht selbst treffen und behält sie dem
+Nutzer vor (DECISIONS.md-Governance):
 
 | # | Entscheidung | Warum offen | Einfluss |
 |---|--------------|-------------|----------|
-| D1 | **Domain-Strategie** — pro Venue Subdomain (`<venue>.kitchenlink.app`) oder Pfad (`kitchenlink.app/<venue>`)? | Produkt/Branding | DNS, SSL, QR-Generierung |
-| D2 | **Anonyme Bestellung ohne jegliche Identität** — reicht ein client-seitiger Session-Token, oder verlangt das Produkt eine minimale Identifikation? | Datenschutz/Produkt | RLS-Policy-Design, GoBD-Relevanz |
-| D3 | **Custom-Domain pro Restaurant** — darf ein Restaurant eine eigene Domain auf das Gast-Web zeigen? | Produkt/Vertrieb | Cloudflare-Konfiguration, SSL-Zertifikate |
-| D4 | **Vercel vs. Cloudflare finale Wahl** — wenn der Adapter Risiken zeigt, ist Vercel (teurer, EU schwächer) akzeptiert? | Kosten/GDPR | Hosting-Provider |
-| D5 | **Offline-Shell-Tiefe** — wie viel vom Gast-Web darf offline gecacht werden (nur Shell, oder auch Menüdaten)? | Datenschutz/Performance | Service-Worker-Strategie, Offline-Bestellung-Pfad |
-
-Diese Punkte werden im Pull Request und im Handoff sichtbar gemacht.
+| D1 | **Domain-Strategie** — Subdomain (`<venue>.kitchenlink.app`) oder Pfad (`kitchenlink.app/<venue>`)? | Produkt/Branding | DNS, SSL, QR-Generierung |
+| D2 | **Anonyme Identität** — `anon`-Rolle (unauthenticated) oder Supabase Anonymous Sign-in (`authenticated` + `is_anonymous`)? Empfohlen wird letzteres (§6.3). | Datenschutz/Produkt | RLS-Policy-Design, GoBD |
+| D3 | **Custom-Domain pro Restaurant** — darf ein Restaurant eine eigene Domain zeigen? | Produkt/Vertrieb | Hosting-Konfiguration, SSL |
+| D4 | **Hosting-Wahl nach PoC** — Vercel oder Cloudflare Workers (§8)? | Kosten/DX/DSGVO | Hosting-Provider |
+| D5 | **PWA-/Offline-Shell (Stage 2)** — wird sie gebaut, und wie tief (nur Shell oder auch Menüdaten)? | Datenschutz/Performance | Service-Worker-Strategie |
+| D6 | **Bestellgrenze: Edge Function oder RPC** — welche Implementierungsvariante aus §6.2? | Architektur | Supabase-Funktion vs. SQL |
 
 ---
 
 ## 12. Compliance- und Sicherheitsnotizen
 
 - **RLS muß auf allen Tabellen** des exponierten `public`-Schemas aktiv sein
-  [S20]. Die `anon`-Rolle darf nur über explizite Policies schreiben.
-- **Service-Role-Key** nur server-seitig (Route Handlers), niemals im Browser.
-- **Supabase EU-Region Frankfurt** (`eu-central-1`) für alle
-  produktiven Projekte [S25][S28].
+  [S20]. Die `anon`-Rolle darf nur über explizite, restriktive Policies lesen.
+- **Kein direkter Schreibzugriff** aus dem Browser auf Bestelltabellen; alle
+  Bestellungen laufen durch die autoritative Grenze (§6).
+- **Service-Role / `ctx.supabaseAdmin`** nur server-seitig in der Edge
+  Function/RPC, niemals im Browser [S38].
+- **Supabase EU-Region Frankfurt** (`eu-central-1`) für produktive Projekte
+  [S25].
 - **DPA** mit Supabase abschließen, bevor produktive Personendaten fließen [S26].
+- **Hosting-DPA:** mit dem gewählten Hosting-Anbieter (nach §8) ebenfalls.
 - **Sandbox-Banner** auf jeder Gast-Seite, solange nicht produktiv freigegeben
   (Blueprint §20).
-- **Keine echten Zahlungen** im Gast-Web bis zur Payment-Freigabe (DECISIONS.md).
-- **Keine externen Font-/Farbdienste zur Laufzeit** (DESIGN_SYSTEM.md §11):
-  Bricolage Grotesque und Source Sans 3 als gebündelte lokale Assets.
+- **Keine echten Zahlungen** bis zur Payment-Freigabe (DECISIONS.md).
+- **Keine externen Font-/Farbdienste zur Laufzeit** (DESIGN_SYSTEM.md §11).
 
 ---
 
@@ -500,3 +519,5 @@ Diese Punkte werden im Pull Request und im Handoff sichtbar gemacht.
   sind die verbindliche Brücke zwischen SwiftUI und Web.
 - **Produkt-Blueprint §18.2**: „gemeinsame API-Verträge und generierte Typen"
   wird durch `supabase gen types` erfüllt.
+- **Produkt-Blueprint §6.3**: die autoritative Bestellgrenze (§6) setzt die
+  Annahmeprüfung produktsprachlich um.

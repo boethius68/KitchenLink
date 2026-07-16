@@ -1,112 +1,128 @@
-# Handoff — GLM (KL-WEB-001A Gast-Web-Stack-ADR)
+# Handoff — GLM (KL-WEB-001A Gast-Web-Stack-ADR, Revision 2)
 
 **Datum:** 2026-07-16
 **Agent:** GLM-5.2 via ZCode
 **Ticket:** KL-WEB-001A — Gast-Web-Stack und Hosting-ADR
 **Branch:** `glm/guest-web-architecture`
 **Worktree:** `/Users/test/Developments/kitchenlink-glm-web`
-**Status:** ADR-001 als „Proposed" geliefert; kein Produktcode geändert
+**Status:** ADR-001 Revision 2 nach Review („CHANGES REQUIRED") überarbeitet;
+ADR-Status bleibt „Proposed"; kein Produktcode geändert.
 
 ## Was in dieser Session erledigt wurde
 
-1. Verbindliche Kontextdokumente gelesen: `AGENTS.md`, `CURRENT.md`,
-   `DECISIONS.md`, `PRODUCT_BLUEPRINT.md` (insb. §3.1, §18.2, §18.3),
-   `DESIGN_SYSTEM.md` (insb. §9 Gast-Web, §11 Implementierungsgrenze),
-   `WORK_QUEUE.md` (KL-WEB-001 wartet auf Stack-Entscheidung) und alle
-   aktuellen Handoffs.
-2. Primärquellen-Recherche zu neun Themenbereichen mit **33 Quellen**:
-   Next.js/React/PWA, Astro, SvelteKit, Hosting (Vercel vs. Cloudflare Pages),
-   Supabase (RLS, anonyme Bestellung, TypeScript-Typen, EU-Region),
-   PWA Offline (App Shell vs. Background Sync).
-3. Drei Deliverables erstellt:
-   - `docs/architecture/guest-web/ADR-001_GUEST_WEB_STACK.md` — Architecture
-     Decision Record (Status: Proposed)
-   - `docs/architecture/guest-web/SOURCES.md` — Quellenregister
-   - dieses Handoff
+Überarbeitung von ADR-001 und SOURCES.md entsprechend den 8 Review-Punkten zu
+Commit `b72327b`. Alle Punkte umgesetzt:
 
-## Wichtigste Empfehlung
+1. **`@cloudflare/next-on-pages` vollständig entfernt.** Kein Vorkommen mehr in
+   ADR oder SOURCES.
+2. **Cloudflare aktuell als Workers + `@opennextjs/cloudflare` beschrieben.**
+   Neue Primärquellen S34–S36 (OpenNext-Doku, GitHub-README,
+   Cloudflare-Workers-Next.js-Guide). Verifiziert: OpenNext löst next-on-pages
+   ab, zielt auf Workers (workerd), nutzt Node.js-Kompatibilitätsschicht.
+3. **Hostingentscheidung offen gehalten.** §2.2 und neue §8 (PoC-Matrix)
+   vergleichen Vercel und Cloudflare Workers datengetrieben; keine Vorab-
+   Empfehlung zugunsten eines Anbieters.
+4. **Unbelegte Aussagen entfernt.** „~92 % günstiger", pauschale
+   „EU/GDPR-freundlicher"-Behauptungen und alle kommerziellen Vergleichsquellen
+   (Bejamas, MakerKit, SpeedVitals, DanubeData, MG Software, DigitalApplied;
+   ehemals S14–S19) gestrichen. Tragende Kosten-/GDPR-Aussagen werden im PoC
+   direkt gegen offizielle Preis-/Rechtsseiten beider Anbieter gemessen.
+5. **Direkte Tabellen-INSERTs ersetzt.** Neue §6 „Autoritative Bestellgrenze":
+   Bestellungen verlaufen durch eine Supabase Edge Function oder transaktionale
+   PostgreSQL-RPC mit Preis-, Verfügbarkeits-, Öffnungszeit-, Kapazitäts- und
+   Idempotenzprüfung. Browser hat keinen direkten Schreibpfad mehr.
+6. **`anon` vs. Anonymous Sign-in unterschieden.** §6.3 mit Primärquelle S40:
+   `anon`-Rolle (unauthenticated, kein User) vs. Anonymous Sign-in
+   (`authenticated`-Rolle, `auth.users`-Zeile, `is_anonymous=true`,
+   JWT-Claim). Empfohlen wird Anonymous Sign-in für die Bestellung; Endwahl ist
+   Entscheidung D2.
+7. **Responsive Beta und PWA/Offline-Shell getrennt.** Neue §5 mit Stage 1
+   (responsive Website, kein Service Worker) und Stage 2 (spätere PWA-Shell,
+   eigene Entscheidung D5).
+8. **PoC-Matrix Vercel vs. Cloudflare Workers.** Neue §8 mit 7 Meßkriterien
+   (Next.js-Kompatibilität, Edge Function/Route, Preview, QR-LCP, EU-Region,
+   Kosten, DSGVO), ausdrücklich ohne vorab Pauschalurteil.
 
-**Empfohlener Stack: Next.js (App Router) + Cloudflare Pages**
-via `@cloudflare/next-on-pages`, mit Supabase als Backend (EU-Region Frankfurt).
+## Primärquellen-Verifikation (Subagent, 2026-07-16)
 
-- **Warum Next.js:** reifste Supabase-Integration (`@supabase/ssr`), hybride
-  Rendering (statisches Menü + dynamischer Checkout), natürlicher Anschluss an
-  den lokalen Venue-Hub später.
-- **Warum Cloudflare Pages statt Vercel:** ~92 % günstiger, unbegrenzte
-  Bandbreite, EU/GDPR-freundlicher, trotzdem Preview-Deployments pro Branch.
-- **Alternativoption A:** Next.js + Vercel (Fallback bei Adapter-Problemen,
-  gleicher Code, nur Hosting wechselt).
-- **Verworfen:** Astro (Option B) — inhaltlich-seiten-zentriert; interaktiver
-  Warenkorb/Checkout würde React-Inseln benötigen und damit Astros Hauptvorteil
-  (minimal JS) aufheben.
+Da WebSearch/WebReader das Wochenlimit erreichten, wurden die vier zentralen
+Primärquellen über einen Subagent live abgerufen und verifiziert (alle HTTP 200,
+mit direkten Zitaten belegt):
 
-## Kritische Trennung: Offline-App-Shell vs. bestätigte Bestellung
+- **OpenNext** [S34]: `@opennextjs/cloudflare` deployt Next.js auf Workers;
+  löst `@cloudflare/next-on-pages` ab (Edge-only) durch volle Node.js-Runtime.
+- **Edge Functions** [S37][S38]: Supabase Edge Runtime (Deno); `ctx.supabaseAdmin`
+  umgeht RLS serverseitig; „design for short-lived, idempotent operations".
+- **Anonymous Sign-in** [S40]: „Anonymous user vs the anon key" — echten User
+  mit `is_anonymous=true` und `authenticated`-Rolle, unterschieden vom
+  `anon`-API-Key ohne User.
+- **Cloudflare Workers** [S36]: Next.js via OpenNext (`--platform=workers`).
 
-Die ADR stellt explizit klar (§7): die PWA-App-Shell (HTML/CSS/JS/Menü-Template)
-darf offline gecacht werden (Service Worker), aber **keine Bestellung gilt als
-„angekommen"**, bevor ein autoritativer Knoten sie bestätigt hat
-(Blueprint §16.2). Die Background-Sync-API ist eine Ergänzung für Retry, keine
-Bestellgarantie. Das Gast-Web muß den Bestell-Status ausschließlich aus der
-Server-/Hub-Antwort ableiten.
+## Geänderte Dateien (diese Session)
 
-## Offene Produktentscheidungen (dem Nutzer vorzulegen)
-
-| # | Entscheidung | Einfluss |
-|---|--------------|----------|
-| D1 | Domain-Strategie (Subdomain vs. Pfad pro Venue) | DNS, SSL, QR |
-| D2 | Anonyme Bestellung: reicht client-seitiger Session-Token? | RLS-Policy, GoBD |
-| D3 | Custom-Domain pro Restaurant erlaubt? | Cloudflare-Setup |
-| D4 | Vercel vs. Cloudflare finale Wahl (falls Adapter risikobelastet) | Kosten/GDPR |
-| D5 | Offline-Shell-Tiefe (nur Shell oder auch Menüdaten) | Service-Worker-Strategie |
+- `docs/architecture/guest-web/ADR-001_GUEST_WEB_STACK.md` (vollständig
+  überarbeitet: Revision 2)
+- `docs/architecture/guest-web/SOURCES.md` (kommerzielle Quellen entfernt;
+   OpenNext/Edge-Function/Anonymous-Quellen S34–S40 ergänzt)
+- `docs/collaboration/handoffs/GLM.md` (dieses Update)
 
 ## Verification / Überprüfung
 
-- Alle 33 Quellen am 2026-07-16 abgerufen und kategorisiert.
-- ADR gegen die verbindlichen Quellen abgeglichen:
-  - Blueprint §3.1 (Gast-Web-Anforderungen) — abgedeckt.
-  - Blueprint §18.2 (TypeScript-Verträge, generierte Typen) — via
-    `supabase gen types` erfüllt [S22][S24].
-  - Blueprint §18.3 (Supabase gesetzt, getrennte Projekte) — reflektiert.
-  - Blueprint §16.2 (Bestell-ACK nur nach autoritativem Commit) — in §7
-    explizit getrennt.
-  - DESIGN_SYSTEM.md §9 (Gast-Web venue-geführt) und §11 (gleiche Token-Namen,
-    keine externen Fonts) — in Ordnerstruktur und §12 berücksichtigt.
-- Status der ADR bleibt ausdrücklich „Proposed"; keine Aufnahme in DECISIONS.md.
-- Workfloworktree von der Venue-Hub-Arbeit getrennt (eigener Branch
-  `glm/guest-web-architecture`, eigene Dateien).
-
-## Schreibbereich & Kollisionsfreiheit
-
-- Ausschließlich neue Dateien unter `docs/architecture/guest-web/` und dieses
-  Handoff erstellt.
-- **Kein Produktcode** verändert; keine `CURRENT.md`-, `DECISIONS.md`- oder
-  `WORK_QUEUE.md`-Änderungen.
-- Das GLM-Handoff wurde vom vorherigen Menu-Taxonomy-Inhalt auf den Web-ADR-
-  Scope überschrieben (vorheriger Inhalt ist im Branch
-  `glm/offline-venue-hub` / Venue-Hub-Discovery bzw. in der Menu-Discovery
-  vollständig erhalten).
-- Keine fremde uncommittierte Arbeit berührt.
+- Alle 8 Review-Punkte punktgenau umgesetzt und im ADR-Änderungshinweis oben
+  dokumentiert.
+- Tragende Aussagen nur mit Primärquellen belegt: OpenNext [S34][S35][S36],
+  Edge Functions [S37][S38], Anonymous Sign-in [S40], Supabase-Region [S25],
+  RLS [S20], TypeScript-Typen [S22][S23][S24].
+- Keine kommerziellen Vergleichsquellen mehr für Kosten-/GDPR-Aussagen;
+  diese werden ausschließlich im PoC (§8) gegen offizielle Anbieterseiten
+  gemessen.
+- ADR gegen Blueprint §6.3 (Annahmeprüfung), §16.2 (Bestell-ACK nur nach
+  autoritativem Commit) und DESIGN_SYSTEM §11 (Token-Namen) abgeglichen.
+- Worktree clean vor Commit; nur die drei oben genannten Dateien geändert.
+- ADR-Status bleibt ausdrücklich „Proposed".
 
 ## Verbleibendes Risiko
 
-- Die ADR ist ein Entwurf („Proposed"), keine Freigabe. Der Nutzer muß den
-  Stack produktsprachlich bestätigen, bevor Implementierung beginnt.
-- **`@cloudflare/next-on-pages`-Adapter-Risiko:** gelegentliche
-  Kompatibilitätslücken bei Edge-Runtime-Features. Frühzeitige Verifikation
-  der Kernrouten (Menü, Checkout) im Prototyp nötig. Vercel bleibt Notausgang.
-- **QR-Erstladung** bei Next.js ist nicht so minimal wie bei Astro; durch SSG
-  und Service-Worker-Caching abmilderbar, aber meßbar zu verifizieren.
-- **Background Sync ist nicht verläßlich für Bestell-ACKs** — dies ist in der
-  ADR klar getrennt, muß aber in der Implementierung strikt durchgehalten
-  werden (`order-ack.ts` kapselt die Logik).
-- **Zwei Build-Pipelines** (iOS Xcode + Web npm) erhöhen Repository-Komplexität.
-- **TypeScript-Vertragssynchronisation** erfordert Disziplin bei Schema-
-  Änderungen (`supabase gen types` in CI).
+- **Hosting-Offenheit bindet Kapazität:** bis zur PoC-Entscheidung (§8) müssen
+  Vercel und Cloudflare Workers nachverfolgt werden. Das PoC ist nicht Teil
+  dieser ADR und muß separat nach Freigabe durchgeführt werden.
+- **`@opennextjs/cloudflare`-Adapter-Risiko:** Node.js-Kompatibilität in workerd
+  kann Lücken aufweisen [S35]. Das PoC muß die Kernrouten früh verifizieren;
+  Vercel bleibt Zero-Adapter-Fallback mit identischem Next.js-Code.
+- **Autoritative Bestellgrenze ist aufwändiger** als direkte RLS-INSERTs, aber
+  produktsprachlich erforderlich (Blueprint §6.3). Wahl zwischen Edge Function
+  und RPC bleibt Entscheidung D6.
+- **Background Sync ist keine Bestellgarantie** (ADR §5.3) — dies ist klar
+  getrennt, muß aber in der Implementierung strikt durchgehalten werden.
+- **Stage-2-PWA ist produktsprachlich offen** (D5); die Beta bleibt bewußt
+  eine responsive Website ohne Service Worker.
+- **WebSearch-/WebReader-Limit** war erschöpft; die Primärquellen wurden per
+  Subagent verifiziert. Sollten bei der finalen PoC-Durchführung aktuelle
+  Preis-/Versionsstände nötig sein, sind diese direkt gegen die Anbieterseiten
+  zu prüfen.
+
+## Offene Produktentscheidungen (dem Nutzer vorgelegt, ADR §11)
+
+| # | Entscheidung |
+|---|--------------|
+| D1 | Domain-Strategie (Subdomain vs. Pfad) |
+| D2 | Anonyme Identität: `anon` vs. Anonymous Sign-in (empfohlen: letzteres) |
+| D3 | Custom-Domain pro Restaurant |
+| D4 | Hosting-Wahl nach PoC (Vercel vs. Cloudflare Workers) |
+| D5 | PWA-/Offline-Shell Stage 2 (ob und wie tief) |
+| D6 | Bestellgrenze: Edge Function vs. PostgreSQL-RPC |
+
+## Schreibbereich & Kollisionsfreiheit
+
+- Ausschließlich die drei oben genannten Dateien in eigenem Scope geändert.
+- Kein Produktcode; keine `CURRENT.md`-, `DECISIONS.md`- oder
+  `WORK_QUEUE.md`-Änderungen.
+- Keine fremde uncommittierte Arbeit berührt; Worktree war zu Beginn clean.
 
 ## Empfohlener nächster Schritt
 
-Nach Nutzerfreigabe des Stacks (D4 und idealerweise D1–D3) kann die
-Implementierung bei Bootstrap-Schritt 1 (Projektgerüst) beginnen. Parallel
-sollte ein früher Proof-of-Concept die Cloudflare-Pages-Next.js-Kompatibilität
-(Menü-Route + einfache Supabase-Abfrage) verifizieren, um das Adapter-Risiko
-früh zu entschärfen.
+Nach Nutzerfreigabe kann das Hosting-PoC (§8) als eigener kleiner Schritt
+laufen: identische Next.js-App auf Vercel und Cloudflare Workers deployen und
+messen. Das Ergebnis führt zu Entscheidung D4. Parallel kann
+Bestellgrenze-Prototyp (§6) für D6 beginnen. Die responsive Beta (Stage 1)
+bleibt von der PWA-/Offline-Komplexität entkoppelt.
