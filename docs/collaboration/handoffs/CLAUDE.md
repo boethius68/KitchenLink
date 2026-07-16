@@ -1,9 +1,49 @@
 # Claude Code Handoff
 
 **Updated:** 16 July 2026
-**Branch:** `claude/design-audit`
-**Status:** Phase A (KL-CLAUDE-001) und Phase B (KL-OPS-001) abgeschlossen und
-gemergt (PR #1, 16. Juli 2026). `main` ist aktualisiert.
+**Branch:** `claude/menu-import-review`
+**Status:** KL-MENU-004 in Arbeit — Kernimplementierung steht, ein
+E2E-Harness-Befund ist noch offen (siehe unten). KL-CLAUDE-001 und
+KL-OPS-001 sind gemergt (PR #1).
+
+## KL-MENU-004 Zwischenstand
+
+**Umgesetzt (Branch `claude/menu-import-review`):**
+
+- Audit-P2 geloest: `MenuImportEvidence.isLocated` (Schema `0.2.0`)
+  unterscheidet echte Fundstellen von synthetischen Ankern; der Adapter setzt
+  den Zustand an allen Fallback-Pfaden explizit (Preis ohne eigene OCR-Zeile,
+  Beschreibung ohne eigene Zeile, synthetische Gruppentitel, abgeleitete
+  Abschnitte, degenerierte Anker).
+- `MenuImportDraftReviewModel` + `MenuImportDraftConverter`: In-Memory-Review
+  mit Preis setzen/entfernen (Human-Evidenz, explizit unlokalisiert),
+  Umbenennen, Verschieben zwischen Abschnitten (Order-Renormalisierung),
+  Annehmen/Verwerfen/Wiederherstellen; Konvertierung in `[MenuSectionData]`
+  erst, wenn alle offenen Kandidaten geklaert sind (verworfen zaehlt als
+  geklaert, unbepreist blockiert). Varianten, Allergencodes und
+  Dokument-Legende werden zurueckgemappt.
+- `MenuImportDraftReviewView` + Detail-Sheet: Originalseitenausschnitt
+  (Vision-Y-Flip via `MenuImportEvidenceCropper`), Rohtext, Preiszustand,
+  Pruefgrund, Korrekturfelder, Abschnitts-Picker; explizite
+  "Keine eigene Fundstelle"-Darstellung statt falscher Crops. Einstieg ueber
+  "Evidenz prüfen (Entwurf)" im V2-Ergebnis; Legacy-Review bleibt unveraendert.
+- Unit-Tests: Cropper-Geometrie, isLocated-Adapterpfade, Konverter
+  (Verworfen/Unbepreist/Varianten/Legende), Review-Gating, Preisparser —
+  alle gruen. Ein UI-Zustandsbug (Preisfeld leckte zwischen Eintraegen)
+  wurde durch den E2E-Harness gefunden und behoben (`loadedEntryID`-Bindung).
+
+**Offen:**
+
+- Der gefuehrte E2E-Harness-Lauf (`kitchenlinkDraftReviewCaptureTests`,
+  nur mit `TEST_RUNNER_KITCHENLINK_CAPTURE_DRAFT_REVIEW=1`) endet noch mit
+  "Expected at least one unpriced open candidate": Er loest ~40 offene
+  Eintraege, erreicht die zwei unbepreisten Alexxanders-Kandidaten aber nicht
+  innerhalb des Zeitfensters. Diagnose laeuft; Verdacht ist eine hohe Zahl
+  preislich unbelegter (`needsReview`) Eintraege vor den unbepreisten
+  Kandidaten plus Iterations-/Zeitbudget des Harness — kein bestaetigter
+  App-Bug. Naechster Schritt: Zustand der Liste am Laufende auswerten und
+  ggf. eine Sammelaktion "Alle mit Fundstelle uebernehmen" abwaegen.
+- Handoff-/Queue-Abschluss und visuelle Doku folgen nach der Klaerung.
 
 ## Scope
 
