@@ -1,8 +1,8 @@
 # Codex Handoff
 
 **Updated:** 16 July 2026
-**Branch:** `main`
-**Status:** Scanner-to-draft adapter complete; peer workflow corrected
+**Branch:** `codex/menu-import-review`
+**Status:** KL-MENU-004 implemented and ready for peer review
 
 ## Completed
 
@@ -62,6 +62,17 @@
 - Replaced the accidental Codex-gatekeeper workflow with a user-approved peer
   model: Claude Code and Codex have identical technical authority, `main` is
   neutral and the user remains the product and design authority.
+- Added a draft-native import review that keeps unpriced and uncertain OCR
+  candidates visible with their source page crop, raw text, confidence, price
+  state and concrete review reason.
+- Added explicit entry and section correction, acceptance, rejection, restore
+  and deterministic reordering without changing the original OCR evidence.
+- Added a conservative draft-to-legacy conversion gate. It blocks missing or
+  unsupported prices and unresolved structures, excludes rejected candidates
+  and only replaces the local menu after the operator explicitly applies it to
+  the sandbox.
+- Retained reduced-resolution source pages in memory for review while leaving
+  camera, photo, fixture and legacy fallback paths available.
 
 ## Files To Read
 
@@ -105,6 +116,16 @@
   fixtures and both Lichtburg price losses remain explicitly unpriced.
 - Validated every generated fixture draft with `MenuImportDraftValidator` and
   checked the working tree with `git diff --check`.
+- Ran the complete 14-page scanner benchmark after KL-MENU-004. The evaluation
+  passed: Scheune retained 100% section/name/price recall; Lichtburg retained
+  100% draft name recall and 87.5% draft price recall with the two missing OCR
+  prices still explicit; Alexxanders retained 100% name/price recall.
+- Ran the full iPhone 17 Pro unit-test target: all 37 Swift Testing cases passed,
+  the opt-in benchmark XCTest skipped as designed, and the benchmark itself
+  passed separately.
+- Added focused tests for unpriced conversion blocking, human correction,
+  evidence preservation, reject/restore behavior, deterministic ordering,
+  delta-price conversion and German price parsing.
 
 ## Risks And Open Work
 
@@ -117,8 +138,10 @@
 - The draft intentionally over-captures uncertain title blocks: seven unpriced
   Lichtburg candidates and two Alexxanders candidates need human structural
   classification. They must not be auto-published.
-- The existing sandbox review still renders `[MenuSectionData]`; draft evidence,
-  missing-price entries and original page crops are not visible there yet.
+- The new review UI compiled and reached the draft screen in an exploratory
+  simulator run, but a stable end-to-end XCUITest could not be retained because
+  the local iOS 26.5 XCTest runner repeatedly hung. Its model and conversion
+  behavior are covered; final visual interaction QA remains a peer-review item.
 - Do not treat the working logo geometry, current typefaces, exact hex values or
   status palette as final approval.
 - Claude Code may independently audit and continue the Round-04 implementation
@@ -126,7 +149,7 @@
 
 ## Recommended Next Step
 
-Implement KL-MENU-004 as a draft-native review slice with original evidence,
-optional price and explicit accept/edit/reject actions, followed by an explicit
-conversion into the existing sandbox menu. Keep the offline smoke test and
-Today/kitchen reference views in separate write scopes.
+Review and integrate `codex/menu-import-review` without combining it with the
+Claude, GLM or DeepSeek branches. Manually exercise one fixture through crop,
+correction, reorder, rejection and explicit sandbox application before merge.
+Keep production persistence and automatic publication out of this slice.

@@ -16,12 +16,31 @@ struct MenuImportEntryView: View {
     @State private var importStatusMessage: String?
     @State private var importedSections: [MenuSectionData] = []
     @State private var importedDraft: MenuImportDraft?
+    @State private var importedSourceImages: [UIImage] = []
     @State private var showImportPreview = false
     @State private var menuWasApplied = false
     @State private var showLegacySandbox = false
 
     private var importedItemCount: Int {
-        importedSections.reduce(0) { $0 + $1.items.count }
+        if let importedDraft {
+            return MenuImportReviewSession(draft: importedDraft).sections.reduce(0) { count, section in
+                count + section.entries.filter { $0.reviewState != .rejected }.count
+            }
+        }
+        return importedSections.reduce(0) { $0 + $1.items.count }
+    }
+
+    private var importedSectionCount: Int {
+        if let importedDraft {
+            return MenuImportReviewSession(draft: importedDraft).sections.filter { section in
+                section.reviewState != .rejected && section.entries.contains { $0.reviewState != .rejected }
+            }.count
+        }
+        return importedSections.count
+    }
+
+    private var hasImportResult: Bool {
+        importedDraft != nil || !importedSections.isEmpty
     }
 
     init(autoStartScanner: Bool, usesV2Design: Bool = true) {
@@ -44,11 +63,25 @@ struct MenuImportEntryView: View {
                 .ignoresSafeArea()
             }
             .sheet(isPresented: $showImportPreview) {
-                MenuImportReviewView(sections: importedSections) {
-                    store.replaceMenu(with: importedSections)
-                    menuWasApplied = true
-                    importStatusMessage = "Das erkannte Menü ist jetzt in der lokalen Sandbox aktiv."
-                    showImportPreview = false
+                if let importedDraft {
+                    MenuImportDraftReviewView(
+                        draft: importedDraft,
+                        sourceImages: importedSourceImages
+                    ) { application in
+                        importedSections = application.sections
+                        self.importedDraft = application.reviewedDraft
+                        store.replaceMenu(with: application.sections)
+                        menuWasApplied = true
+                        importStatusMessage = "Das geprüfte Menü ist jetzt in der lokalen Sandbox aktiv."
+                        showImportPreview = false
+                    }
+                } else {
+                    MenuImportReviewView(sections: importedSections) {
+                        store.replaceMenu(with: importedSections)
+                        menuWasApplied = true
+                        importStatusMessage = "Das erkannte Menü ist jetzt in der lokalen Sandbox aktiv."
+                        showImportPreview = false
+                    }
                 }
             }
             .fullScreenCover(isPresented: $showLegacySandbox) {
@@ -86,7 +119,7 @@ struct MenuImportEntryView: View {
                     statusCard
                 }
 
-                if !importedSections.isEmpty {
+                if hasImportResult {
                     resultCard
                 }
             }
@@ -113,7 +146,7 @@ struct MenuImportEntryView: View {
                         v2StatusCard
                     }
 
-                    if !importedSections.isEmpty {
+                    if hasImportResult {
                         v2ResultCard
                     }
                 }
@@ -150,7 +183,7 @@ struct MenuImportEntryView: View {
     @ViewBuilder
     private var v2SourceActions: some View {
         VStack(spacing: KitchenLinkV2Spacing.medium) {
-            if importedSections.isEmpty {
+            if !hasImportResult {
                 Button {
                     presentScanner()
                 } label: {
@@ -222,7 +255,7 @@ struct MenuImportEntryView: View {
                     )
                 )
 
-                Text("\(importedSections.count) Kategorien · \(importedItemCount) Artikel")
+                Text("\(importedSectionCount) Kategorien · \(importedItemCount) Artikel")
                     .font(KitchenLinkV2Typography.section)
                     .kitchenLinkV2TabularNumbers()
 
@@ -326,7 +359,7 @@ struct MenuImportEntryView: View {
         KitchenCard {
             VStack(alignment: .leading, spacing: 12) {
                 Label(
-                    "\(importedSections.count) Kategorien, \(importedItemCount) Artikel",
+                    "\(importedSectionCount) Kategorien, \(importedItemCount) Artikel",
                     systemImage: menuWasApplied ? "checkmark.seal.fill" : "sparkles"
                 )
                 .font(.headline)
@@ -376,6 +409,7 @@ struct MenuImportEntryView: View {
         menuWasApplied = false
         importedSections = []
         importedDraft = nil
+        importedSourceImages = []
         let semanticMode = MenuImportService.isLLMEnabled() && MenuImportService.hasConfiguredLLMAPIKey()
         importStatusMessage = semanticMode
             ? "Texterkennung und KI-Analyse starten..."
@@ -397,6 +431,7 @@ struct MenuImportEntryView: View {
                 }
                 importedSections = result.sections
                 importedDraft = result.draft
+                importedSourceImages = Self.reviewSourceImages(from: images)
                 importStatusMessage = "Import abgeschlossen. \(MenuImportService.lastImportDiagnostics())"
                 showImportPreview = true
             } catch MenuImportService.ImportError.noMenuItemsDetected {
@@ -451,6 +486,30 @@ struct MenuImportEntryView: View {
             selectedPhotoItems = []
             importInProgress = false
             importStatusMessage = "Menüfotos konnten nicht geladen werden: \(error.localizedDescription)"
+        }
+    }
+
+    private static func reviewSourceImages(from images: [UIImage]) -> [UIImage] {
+        let maximumPixelDimension: CGFloat = 2_400
+        return images.map { image in
+            let visualPixelSize = CGSize(
+                width: image.size.width * image.scale,
+                height: image.size.height * image.scale
+            )
+            let largestDimension = max(visualPixelSize.width, visualPixelSize.height)
+            guard largestDimension > maximumPixelDimension else { return image }
+
+            let scale = maximumPixelDimension / largestDimension
+            let targetSize = CGSize(
+                width: visualPixelSize.width * scale,
+                height: visualPixelSize.height * scale
+            )
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            format.opaque = true
+            return UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
+                image.draw(in: CGRect(origin: .zero, size: targetSize))
+            }
         }
     }
 }
