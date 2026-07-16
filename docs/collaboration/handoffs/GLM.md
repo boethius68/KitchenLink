@@ -1,72 +1,102 @@
-# Handoff — GLM (KL-MENU-001 Rechercheauftrag)
+# Handoff — GLM (Offline Venue Hub Architektur)
 
 **Datum:** 2026-07-16
 **Agent:** GLM-5.2 via ZCode
-**Ticket:** `docs/discovery/MENU_TAXONOMY_RESEARCH_TICKET.md` (KL-MENU-001)
-**Status:** Erstlauf + Red-Team-Patches + F03b-Teil erledigt; Ontologie/Schema v0.2.0.
+**Ticket:** Discovery-Auftrag lokaler Venue-Hub (Blueprint §16)
+**Branch:** `glm/offline-venue-hub`
+**Status:** Quellenbasierte Zielarchitektur geliefert; kein Produktcode geändert
 
 ## Was in dieser Session erledigt wurde
 
-1. **GLM-Erstlauf** mit 8 Artefakten unter `docs/discovery/taxonomy-research/`.
-2. **DeepSeek-Red-Team** (`audit_report.md`, 16 Findings) eingespielt/geprüft.
-3. **Patches P-01…P-06** umgesetzt → Ontologie/Schema auf **v0.2.0** gehoben
-   (evidenceLevel-Header, preModifier offen, if/then-Constraints für priceKind,
-   BundleComponent.optionGroup required, grundpreis-Feld).
-4. **Validierung** v0.2.0: Schema + if/then gegen 3 Beispiele + 7 Negativtests.
-5. **F03b** Teilerweiterung: Poké/Bubble-Tea (F-13 Option-Dependencies),
-   Lieferservice-Pricing, Delivery-Additiv-Deklaration.
-6. **F03c** weitere Erweiterung: IT-Primär (Osteria Pratellino: coperto/franchigia/
-   5-Gang-Folge), ES-Primár (La Ventana: Allergen-Icons pro Artikel),
-   Kantine/Catering, QR-Formatbeobachtung.
-7. **F05 Sättigungstest** auf 8 tiefen Karten (Ticket fordert 20): **nicht
-   gesättigt**, jede Karte brachte neue Muster. 3 Prioritäten für F03d benannt.
-8. **F03d priorisierte Lücken geschlossen**: Brechts Steakhaus Berlin liefert
-   gewichtsbasierte Preise (per-100g, Zweigrößen, Gewicht-im-Namen), gemischte
-   32er-Legende (Zusatzstoffe+Allergene+Hilfsstoffe), Person-scoped Bundles,
-   Modifier-Sub-Choice. BMEL/LMIV legitimiert Option-Level-Deklarationen juristisch.
-9. **F03e Bild-PDF/Foto-Systematik**: 9 Kandidaten via curl+`pdftotext` auf
-   Textebene geprüft. Ergebnis: **alle öffentlichen PDFs haben Textebenen**;
-   echte Scan-/Foto-PDFs über öffentliche Suche nicht verlässlich beschaffbar.
-   Lücke ist dokumentiert, nur über interne Testfotos schließbar (Ticket Zeile 138).
-10. **F03f Stichprobe erweitert** auf 59 Quellen / 55 Pattern. Finale QC bestanden.
+1. Verbindliche Kontextdokumente gelesen: `AGENTS.md`,
+   `docs/collaboration/DECISIONS.md`, `docs/PRODUCT_BLUEPRINT.md` (besonders
+   §16), `docs/collaboration/PEER_WORKFLOW.md`, `CURRENT.md`, `WORK_QUEUE.md`
+   und alle vier Handoffs.
+2. Bestehende Quellcode-Basis analysiert:
+   `OrderRelayService.swift`, `OrderingDomain.swift`, `KitchenLinkRepository.swift`.
+   Befund: aktuell UserDefaults-basiert, kein SQLite, kein Event-Log, kein echter
+   Mehrgeräte-Transport — nur lokales Speichern + Supabase-Polling.
+3. Primärquellen-Recherche zu zehn Themenbereichen mit **55 Quellen**
+   (Apple-Doku, WWDC, Original-Papers, sqlite.org, Supabase, objc.io, etc.).
+4. Drei Deliverables erstellt:
+   - `docs/discovery/offline-venue-hub/GLM_SOURCES.md` — Quellenregister
+   - `docs/discovery/offline-venue-hub/GLM_ARCHITECTURE.md` — Zielarchitektur
+   - dieses Handoff
+5. Eigener Branch `glm/offline-venue-hub`, Commit und Push, Draft PR.
 
-## Tatsächlich erreichte Stichprobe (nach F03f)
+## Wichtigste architektonische Empfehlungen
 
-- 59 Quellen gesamt; **7 reale Karten tief** analysiert (DE/IT/ES/US); 12 mit
-  Strukturbeobachtungen. Länder: DE/FR/DK/FI/US/ES/IT/CH/ID/INT.
-- 55 Pattern-Evidenzen, 35 Golden Cases, Ontologie/Schema **v0.2.0**.
+- **Transport:** Network.framework (`NWListener`/`NWBrowser`) statt Multipeer
+  Connectivity. MPC ist verworfen: 8-Peer-Limit [S14], Background-Abbruch [S15],
+  Produktionstunzuverlässigkeit [S16][S20].
+- **Persistenz:** SQLite mit WAL + append-only Event-Log + GRDB.swift
+  `DatabasePool` [S28][S33]. Migration hinter bestehendem
+  `KitchenLinkRepository`-Protokoll, Demo-Pfad bleibt erhalten.
+- **Konfliktmodell:** Event Sourcing statt CRDT für kritische Fachobjekte
+  (fachspezifische deterministische Regeln, Historie, keine stillen Merges gemäß
+  Blueprint §16.3) [S48][S50][S53].
+- **Leader-Wechsel:** vereinfachtes Lease-Modell (Raft-inspiriert [S36]) +
+  SWIM-Gossip-Fehlerekennung [S39][S40]. Voll-Raft bewusst verworfen (Overkill
+  für 2–5 vertrauenswürdige Geräte).
+- **Sync:** eigene Outbox/Inbox-Logik mit Idempotenzkeys [S31]; Supabase
+  implementiert Offline-Sync nicht nativ [S43]. Externe Sync-Engines
+  (PowerSync/RxDB) für nach der Sandbox zurückgestellt.
+- **Acknowledgement:** Bestellung gilt erst als angekommen, nachdem der Event
+  dauerhaft in SQLite committet ist (Blueprint §16.2 erfüllt).
 
-## Finale QC (bestanden)
+## Verifizierte Fakten vs. Annahmen klar getrennt
 
-- Schema valid als Draft 2020-12 (inkl. allOf/if-then).
-- 3 Beispiele validieren; 7 Negativtests korrekt (delta+amountCents etc.).
-- CSV-Konsistenz: keine orphan-Referenzen, keine Duplikate.
-- YAML v0.2.0, evidenceLevel=low, 10 Achsen.
+- **Verifizierte Fakten** (14, aus Primärquellen) in Architektur §1.1.
+- **Annahmen** (7, plausibel aber nicht freigegeben) in Architektur §1.2.
+- **Offene Risiken** (8, mit P0–P2-Priorität) in Architektur §1.3.
 
-## Verbleibendes Risiko / Offenpunkte
+## Offene Produktentscheidungen (dem Nutzer vorzulegen)
 
-- **Bild-PDF/Foto/QR-Tiefenanalyse = 0** – einzige echte strukturale Restlücke;
-  alle tiefen Karten hatten Textebenen. OCR-spezifische Muster (Spalten,
-  Legendenposition, Trennzeichen) daher unbeobachtet.
-- Tiefen-Stichprobe 9/100–150 → Ontologie bleibt Hypothese (F-01 standing).
-- Sättigungstest (8/20) nicht voll aussagekräftig → nicht gesättigt.
-- Inter-Annotator-Reliabilität noch nicht gemessen.
-- Option-Level-Allergene am Choice juristisch legitimiert, aber ohne Kartenbeobachtung.
-- Schema v0.2 kann nested OptionGroups / OptionGroup.dependencies / quantity-tiered
-  bundle-pricing noch nicht formalisieren → künftiges v0.3-Thema (Evidenz liegt vor
-  via PE-031/032/034/051).
-- Benchmark nur über interne Testkarten (Ticket Zeile 138); 0 reusable-Quellen
-  ist kein Produktblocker, sondern nur für einen *veröffentlichten* Benchmark relevant.
+Diese **fünf** Entscheidungen kann diese Architektur nicht selbst treffen und
+werden im Draft PR sichtbar gemacht:
+
+1. **🔴 P0 HTTPS-Lösung für lokale Gastoberfläche** — Self-signed? HTTP? Apple-CA?
+   Blockiert Stufe 3 des Prototypplans.
+2. **🔴 P0 WLAN-Anforderung** — wie wird Client-Isolation (`AP Isolation`)
+   vermieden? Blockiert Stufe 3.
+3. **🟠 P1 Hub-Gerät-Hardware** — iPad fest oder iPhone des Betreibers?
+4. **🟠 P1 Background-Keepalive** — ist Audio-Background-Modus akzeptabel
+   (Apple-Review-Risiko)?
+5. **🟡 P2 Sync-Engine nach Sandbox** — eigene Logik vs. PowerSync/RxDB.
 
 ## Schreibbereich & Kollisionsfreiheit
 
-- Nur Dateien unter `docs/discovery/taxonomy-research/` + diese Handoff-Datei.
-- Kein Produkt-Code; bestehende uncommittierte Änderungen unangetastet.
-- Keine `DECISIONS.md`/`CURRENT.md`-Einträge (nur Discovery).
+- Ausschließlich neue Dateien unter `docs/discovery/offline-venue-hub/` und
+  dieses Handoff erstellt.
+- **Kein Produktcode** verändert.
+- Keine Einträge in `DECISIONS.md` oder `CURRENT.md` (nur Discovery).
+- Bestehende uncommittierte Arbeit anderer Agenten nicht berührt.
+
+## Verbleibendes Risiko
+
+- Die Architektur ist eine quellenbasierte Empfehlung, keine Freigabe.
+- P0-Risiken (WLAN-Isolation, HTTPS) sind **technische Blocker** für jeden
+  lokalen Bestellpfad und müssen vor Implementierung von Stufe 3 geklärt werden.
+- Mehrgeräte- und Wiederanlauftests erfordern zwingend echte Hardware
+  (Simulatoren können Bonjour/WLAN nicht realistisch abbilden).
+- Die Annahme „ein Hub pro Venue" muss produktsprachlich bestätigt werden.
+- Prototypplan ist nicht bindend; Stufen können nach Nutzerfeedback umgeordnet
+  werden.
+
+## Verification / Überprüfung
+
+- Alle 55 Quellen am 2026-07-16 abgerufen und kategorisiert.
+- Architekturdokument gegen Blueprint §16 (Offline- und Venue-Hub-Architektur)
+  abgeglichen: alle geforderten Prinzipien (SQLite, append-only, globale IDs,
+  Idempotenz, Outbox/Inbox, deterministische Konfliktregeln, keine stillen LWW,
+  Sichtbarkeit) sind abgedeckt.
+- Worktree clean vor Commit; `git status` zeigt nur die neuen Discovery-Dateien
+  und das Handoff.
+- Keine Build-/Testauswirkungen, da nur Markdown-Dokumente.
 
 ## Empfohlener nächster Schritt
 
-**F03e**: einzige echte strukturale Restlücke ist **Bild-PDF/Foto/OCR**. Dazu
-müssen echte gescannte/fotografierte Karten ohne Textebene beschafft werden – das
-geht am ehesten über intern bereitgestellte Testfotos (Ticket Zeile 138) oder
-über gezielte Suche nach Bild-PDFs. Parallel weiter Stichprobe in Richtung ≥100.
+Nach Nutzerfreigabe der P0-Entscheidungen (HTTPS-Lösung + WLAN-Anforderung) kann
+die Implementierung bei Stufe 1 (lokales Event-Log) beginnen, ohne die
+Demo-Pfade zu entfernen. Stufe 0 (manuelles PoC für Bonjour + HTTP auf echten
+Geräten) kann parallel laufen, um die P0-Risiken früh zu verifizieren.
