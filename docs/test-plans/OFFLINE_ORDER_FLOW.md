@@ -27,8 +27,9 @@ vorhandene `OrderRelayService`- und `LocalDemoRepository`-Domäne auf
   `UserDefaults`-Suite → gemeinsame Datenbasis ohne Seiteneffekte
 - Zwei `OrderRelayService`-Instanzen (Gast = `.customer`, Owner = `.owner`)
 - `eventually`-Helfer mit 8s-Timeout und 200ms-Polling-Intervall via cancellablem `Task.sleep` (keine blinde feste Wartezeit)
-- Jeder Test erzeugt eine UUID-eindeutige Suite; `defer` bzw. explizites
-  `cleanup()` räumt Tasks und Daten vollständig weg
+- Jeder Test erzeugt eine UUID-eindeutige Suite; `cleanup()` ruft
+  `stopNetworking` auf und löscht beobachtbare Caches sowie Persistenz
+  (interne Task-Beendigung wird nicht behauptet)
 
 ## Was getestet ist
 

@@ -258,7 +258,7 @@ func eventuallyCancellationSkipsConditionAfterSleepThrow() async {
                 state.continuation = nil
             }
             return state.count >= 2
-        }, timeout: .seconds(10), interval: .milliseconds(50))
+        }, timeout: .seconds(60), interval: .seconds(30))
     }
 
     await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in

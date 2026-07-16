@@ -4,7 +4,7 @@
 **Agent:** DeepSeek (deepseek-v4-flash-free)
 **Mission:** docs/collaboration/PARALLEL_MISSIONS_2026-07-16.md → KL-QA-002
 **Branch:** `deepseek/offline-e2e-smoke`
-**Status:** Abgeschlossen; 8 Tests, alle deterministisch und synchronisationsbasiert (Gesamtsuite grün)
+**Status:** Abgeschlossen; 8 Tests, alle grün; Cancellation-Test synchronisationsbasiert (Gesamtsuite grün)
 
 ## Erledigt
 
