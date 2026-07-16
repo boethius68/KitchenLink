@@ -53,9 +53,12 @@ struct KitchenLinkV2KitchenTicket: Identifiable, Equatable {
         case .ready:
             status = KitchenLinkV2Status(operation: .order, urgency: .fresh, verb: "bereit")
         case .served:
-            // Served tickets stay visible as a neutral open-payment task:
-            // clear the table, no alarm.
-            status = KitchenLinkV2Status(operation: .payment, urgency: .neutral, verb: "Zahlung offen")
+            // Round 04 keeps the neutral open-payment task visible at the pass.
+            status = KitchenLinkV2Status(
+                operation: .payment,
+                urgency: .neutral,
+                verb: "Zahlung offen"
+            )
             trailingText = KitchenLinkV2AmountText.euro(cents: order.totalCents)
         case .canceled:
             return nil
@@ -135,6 +138,7 @@ struct KitchenLinkV2KitchenView: View {
             }
         }
         .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
         .tint(KitchenLinkV2Palette.Content.primary)
         .navigationTitle("Küche")
         .navigationBarTitleDisplayMode(.inline)
@@ -229,8 +233,8 @@ struct KitchenLinkV2KitchenView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(ticket.itemLines, id: \.self) { line in
-                    Text(line)
+                ForEach(Array(ticket.itemLines.enumerated()), id: \.offset) { item in
+                    Text(item.element)
                         .font(KitchenLinkV2Typography.primaryLine)
                         .foregroundStyle(KitchenLinkV2Palette.Content.primary)
                         .fixedSize(horizontal: false, vertical: true)

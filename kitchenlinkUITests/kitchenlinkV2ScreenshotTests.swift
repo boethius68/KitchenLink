@@ -34,7 +34,14 @@ final class kitchenlinkV2ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["6 offen"].waitForExistence(timeout: 15))
         attachScreenshot(of: app, named: "today-\(appearance)")
 
-        app.navigationBars.buttons.firstMatch.tap()
+        // Relaunch without a global appearance override. The kitchen surface
+        // must request its own dark system chrome even when the device is light.
+        app.terminate()
+        app.launchArguments = [
+            "--kitchenlink-design-v2",
+            "--kitchenlink-demo-service"
+        ]
+        app.launch()
 
         let kitchenLink = app.buttons["business.openKitchen"]
         XCTAssertTrue(kitchenLink.waitForExistence(timeout: 5))

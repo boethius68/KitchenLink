@@ -1,8 +1,8 @@
 # Codex Handoff
 
 **Updated:** 16 July 2026
-**Branch:** `main`
-**Status:** Scanner-to-draft adapter complete; peer workflow corrected
+**Branch:** `codex/agent-round-integration`
+**Status:** Three-agent round reviewed; Claude reference views await user approval
 
 ## Completed
 
@@ -62,6 +62,14 @@
 - Replaced the accidental Codex-gatekeeper workflow with a user-approved peer
   model: Claude Code and Codex have identical technical authority, `main` is
   neutral and the user remains the product and design authority.
+- Replayed Claude's audit and Round-04 implementation onto a neutral integration
+  branch without changing `main` or either agent's branch.
+- Reviewed Claude, GLM and DeepSeek outputs against the product blueprint and
+  current primary platform documentation; recorded the combined result in
+  `docs/collaboration/reviews/AGENT_ROUND_REVIEW_2026-07-16.md`.
+- Corrected duplicate SwiftUI identities for repeated kitchen item labels and
+  made the kitchen surface own its dark system chrome. The intentional neutral
+  payment-open ticket remains unchanged pending user visual approval.
 
 ## Files To Read
 
@@ -105,6 +113,12 @@
   fixtures and both Lichtburg price losses remain explicitly unpriced.
 - Validated every generated fixture draft with `MenuImportDraftValidator` and
   checked the working tree with `git diff --check`.
+- Independently ran Claude's complete Xcode suite and screenshot harness on the
+  iPhone 17 Pro simulator; all tests passed before the two narrow integration
+  corrections.
+- Re-ran and visually inspected the focused Today/Kitchen screenshot harness
+  after the corrections; Kitchen now retains legible light system chrome when
+  reached from a light app context.
 
 ## Risks And Open Work
 
@@ -123,10 +137,18 @@
   status palette as final approval.
 - Claude Code may independently audit and continue the Round-04 implementation
   under the shared peer workflow; Codex approval is not required.
+- Claude's Today and Kitchen reference views are not approved merely because the
+  implementation passes tests. The user must visually approve them before a
+  merge to `main`, including whether the deliberate payment-open card belongs at
+  the kitchen pass.
+- GLM's guest-web ADR needs one transactional write boundary and a separate
+  mandatory local guest path before acceptance.
+- DeepSeek's event-log and local-network documents contain blocking correctness
+  errors and must not be treated as implementation contracts.
 
 ## Recommended Next Step
 
-Implement KL-MENU-004 as a draft-native review slice with original evidence,
-optional price and explicit accept/edit/reject actions, followed by an explicit
-conversion into the existing sandbox menu. Keep the offline smoke test and
-Today/kitchen reference views in separate write scopes.
+Collect the user's visual decision on Claude's Today and Kitchen surfaces. After
+that merge gate, implement KL-MENU-004 as a draft-native review slice while the
+guest transaction boundary and offline contract are corrected in separate write
+scopes.
