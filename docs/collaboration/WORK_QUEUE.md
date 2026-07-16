@@ -25,7 +25,7 @@ Bestehende Demo-, Offline- und Simulationspfade duerfen nicht entfernt werden.
 
 ### KL-CLAUDE-001 - Unabhaengiges Integrationsaudit
 
-**Status:** Bereit fuer Claude Code
+**Status:** Erledigt; PR #1 nach `main` gemergt
 **Abhaengigkeit:** Checkpoint des integrierten Scanner-/Draft-Stands
 **Schreibbereich:** `docs/collaboration/reviews/` und
 `docs/collaboration/handoffs/CLAUDE.md`
@@ -185,7 +185,7 @@ gezielte Adaptertests und Erweiterung des Scanner-Benchmarks
 
 ### KL-MENU-004 - Evidenzbasierte Import-Pruefung
 
-**Status:** Wartet
+**Status:** Aktiv bei Claude Fable 5
 **Abhaengigkeit:** KL-MENU-003
 **Voraussichtlicher Schreibbereich:** `kitchenlink/Features/MenuImport/` und
 gezielte UI-/Adaptertests
@@ -200,7 +200,7 @@ automatische Freigabe und keine Produktionspersistenz.
 
 ### KL-OPS-001 - Heute und Kueche
 
-**Status:** Fuer Claude nach KL-CLAUDE-001 vorgesehen
+**Status:** Erledigt; PR #1 nach `main` gemergt
 **Abhaengigkeit:** KL-DS-001, KL-IOS-001
 **Voraussichtlicher Schreibbereich:** neue Views unter `kitchenlink/Features/Today/`
 und `kitchenlink/Features/Kitchen/`
@@ -211,7 +211,7 @@ Statusmodell. Kein Umbau der Bestell-Domain in diesem Ticket.
 
 ### KL-WEB-001 - Gast-Web-Grundlage
 
-**Status:** Wartet auf Stack-Entscheidung
+**Status:** Stack-Entscheidung aktiv bei Claude Fable 5
 **Abhaengigkeit:** semantische Token-Namen aus KL-DS-001
 
 Zuerst den Web-Stack und den Deployment-Pfad als kleine Architecture Decision
@@ -220,10 +220,63 @@ Branding, traubenbasierter Mengensteuerung und genau einer fixierten
 Zitronenaktion umsetzen. Noch keine Live-Zahlung und keine Entfernung der
 Sandbox-Daten.
 
+## Parallele Runde 2
+
+Die vollstaendigen Missionen und kopierfertigen Prompts stehen in
+`docs/collaboration/PARALLEL_MISSIONS_2026-07-16.md`.
+
+### KL-OFFLINE-003 - Autoritatives Event-Log und Outbox
+
+**Status:** Vergeben an GLM 5.2
+**Branch:** `glm/offline-event-log-v2`
+**Schreibbereich:** `prototypes/KitchenLinkEventLog/`,
+`docs/architecture/offline/EVENT_LOG_V2.md`, `handoffs/GLM.md`
+
+Ausfuehrbarer Swift-/SQLite-Referenzprototyp mit transaktionaler Idempotenz,
+Payload-Version, Aggregate-Revision, lease-basierter Outbox, ACK-Vertrag,
+Fehler-Injektion und mindestens 20 Tests. Keine Integration in die App.
+
+### KL-QA-002 - Lokaler Bestell-E2E-Smoke
+
+**Status:** Vergeben an DeepSeek
+**Branch:** `deepseek/offline-e2e-smoke`
+**Schreibbereich:** neue Offline-Test-/Supportdateien, Testplan,
+`handoffs/DEEPSEEK.md`
+
+Zwei Relay-/Repository-Instanzen pruefen Gastauftrag, Owner-Empfang, komplette
+Statuskette, Gast-Tracking, ungueltige Uebergaenge und Neustartpersistenz ohne
+Cloud. Der Test darf nicht als echter Venue-Hub-Nachweis ausgegeben werden.
+
+### KL-WORKFORCE-001 - Schichtplan-Domaene
+
+**Status:** Vergeben an Kimi
+**Branch:** `kimi/workforce-domain`
+**Schreibbereich:** neue Dateien unter `Features/Workforce/`, fokussierte Tests,
+Domain-Dokument und `handoffs/KIMI.md`
+
+Isolierte Domaenengrundlage fuer Mitarbeiter, Verfuegbarkeit, Planung,
+Veroeffentlichung, Reaktionen, Tauschanfragen, Sollbesetzung, Zeiterfassung,
+Pausen und Korrekturaudit mit mindestens 25 Tests. Keine UI oder Persistenz.
+
+### KL-INVENTORY-001 - Warenwirtschafts-Domaene
+
+**Status:** Vergeben an MiniMax
+**Branch:** `minimax/inventory-domain`
+**Schreibbereich:** neue Dateien unter `Features/Inventory/`, fokussierte Tests,
+Domain-Dokument und `handoffs/MINIMAX.md`
+
+Dimensionssichere Mengen, Rezepte, append-only Bestandsledger, Idempotenz,
+Reservierung, Transfers, Gegenbuchungen, Projektion und Bestellvorschlaege mit
+mindestens 25 Tests. Keine UI oder Persistenz.
+
 ## Integrationsreihenfolge
 
 1. KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.
 2. P0-/P1-Findings vor neuer Oberflaechenarbeit entscheiden oder beheben.
 3. KL-OPS-001 im Claude-Worktree als Round-04-Referenz umsetzen.
-4. KL-MENU-004 und die Web-Stack-Entscheidung in getrennten Scopes fortsetzen.
-5. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
+4. KL-MENU-004 und die Web-Stack-Entscheidung in getrennten Claude-Scopes
+   fortsetzen.
+5. KL-OFFLINE-003, KL-QA-002, KL-WORKFORCE-001 und KL-INVENTORY-001 in den
+   dokumentierten disjunkten Worktrees bearbeiten.
+6. Jedes Ergebnis einzeln reviewen; Discovery oder Prototypen werden nicht durch
+   ihre Existenz zur Produktentscheidung.

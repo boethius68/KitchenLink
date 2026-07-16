@@ -69,6 +69,10 @@
 - Prepared two objective post-merge fixes without altering Claude's design:
   stable SwiftUI identities for repeated item names and dark system chrome owned
   by the Kitchen surface.
+- Defined four disjoint, copy-ready missions for GLM, DeepSeek, Kimi and MiniMax
+  while reserving `KL-MENU-004` and `KL-WEB-001` exclusively for Claude. The
+  assignments cover event-log durability, local order E2E regression, workforce
+  scheduling and inventory ledger foundations.
 
 ## Files To Read
 

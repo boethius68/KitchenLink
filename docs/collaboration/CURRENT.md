@@ -124,11 +124,15 @@
   required.
 - New Claude Design ZIP files can be imported with
   `scripts/import-claude-design.sh`.
+- Claude Fable 5 is currently responsible for `KL-MENU-004` and the
+  `KL-WEB-001` stack decision. Four disjoint parallel missions for GLM,
+  DeepSeek, Kimi and MiniMax are defined in
+  `docs/collaboration/PARALLEL_MISSIONS_2026-07-16.md`.
 
 ## Next Decision
 
-Apply the two narrow post-merge Kitchen fixes, then expose draft entries and
-evidence in a dedicated import-review slice: original page crop, raw text, price
-state and structural uncertainty must be visible and editable before conversion
-to the legacy sandbox menu. Correct the offline event contract and guest-web
-transaction boundary in separate scopes.
+Merge the two narrow post-merge Kitchen fixes. In parallel, Claude owns the
+draft-native evidence review and guest-web stack decision; GLM owns the isolated
+event-log prototype, DeepSeek the local order E2E regression, Kimi the workforce
+domain and MiniMax the inventory domain. Review every branch independently
+before integration.
