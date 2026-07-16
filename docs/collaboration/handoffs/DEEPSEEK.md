@@ -4,7 +4,7 @@
 **Agent:** DeepSeek (deepseek-v4-flash-free)
 **Mission:** docs/collaboration/PARALLEL_MISSIONS_2026-07-16.md → KL-QA-002
 **Branch:** `deepseek/offline-e2e-smoke`
-**Status:** Abgeschlossen; 8 Tests, alle grün (Gesamtsuite grün)
+**Status:** Abgeschlossen; 8 Tests, alle deterministisch und synchronisationsbasiert (Gesamtsuite grün)
 
 ## Erledigt
 
@@ -12,7 +12,7 @@
 
 | Datei | Inhalt |
 |-------|--------|
-| `kitchenlinkTests/KitchenLinkOfflineOrderFlowTests.swift` | 8 Tests: Gast->Owner-Flow, vollständige Statuskette, Gast-Tracking, ungültige Übergänge, tabellengetriebene 36-Fall-Abdeckung, Persistenz via Relay-Kette, Cleanup beobachtbarer Zustände, `eventually`-Cancellation |
+| `kitchenlinkTests/KitchenLinkOfflineOrderFlowTests.swift` | 8 Tests: Gast->Owner-Flow, vollständige Statuskette, Gast-Tracking, ungültige Übergänge, tabellengetriebene 36-Fall-Abdeckung, Persistenz via Relay-Kette, Cleanup beobachtbarer Zustände, synchronisationsbasierter `eventually`-Cancellation-Test |
 | `kitchenlinkTests/Support/OfflineOrderTestSupport.swift` | `OfflineTestContext`, `eventually`-Helfer (task-cancellation-sicher), `isolatedDefaults()`, `connectToSuite()` |
 | `docs/test-plans/OFFLINE_ORDER_FLOW.md` | Abgrenzung: was getestet ist vs. was der echte SQLite-Venue-Hub beweisen muss |
 | `docs/collaboration/handoffs/DEEPSEEK.md` | Dieses Update |
@@ -50,7 +50,7 @@ xcodebuild test -project kitchenlink.xcodeproj -scheme kitchenlink \
 
 - **36 parametrisierte Übergänge** (`tableDrivenTransitionCoverage`): alle 6×6-Kombinationen explizit als Expectation, nicht von `canTransition` abgeleitet
 - **kein Produktionscode** wurde verändert
-- **kein blinder fixed delay** in Tests; `eventually`-Helfer nutzt cancellables `Task.sleep` mit 200ms-Intervall und 8s-Deadline
+- **keine blinde feste Wartezeit** in Tests; `eventually`-Helfer nutzt cancellables `Task.sleep` mit 200ms-Intervall und 8s-Deadline
 - **UUID-eindeutige UserDefaults-Suite** pro Testlauf → vollständige Isolation
 - **`cleanup()` in `OfflineTestContext`** stoppt Networking, leert Relay-Caches und löscht Suite-Persistenz
 - `persistenceAcrossRelayRecreation` durchläuft die reguläre Relay-Statuskette pending→accepted→preparing

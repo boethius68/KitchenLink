@@ -243,15 +243,36 @@ func persistenceAcrossRelayRecreation() async throws {
 }
 
 @Test @MainActor
-func eventuallyCancellationReturnsFalse() async {
-    let neverTrue = { false }
-    let task = Task { @MainActor in
-        await eventually(neverTrue, timeout: .seconds(10), interval: .milliseconds(50))
+func eventuallyCancellationSkipsConditionAfterSleepThrow() async {
+    final class EvalState {
+        var count = 0
+        var continuation: CheckedContinuation<Void, Never>?
     }
-    try? await Task.sleep(for: .milliseconds(100))
+    let state = EvalState()
+
+    let task = Task { @MainActor in
+        await eventually({ @MainActor in
+            state.count += 1
+            if state.count == 1 {
+                state.continuation?.resume()
+                state.continuation = nil
+            }
+            return state.count >= 2
+        }, timeout: .seconds(10), interval: .milliseconds(50))
+    }
+
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+        if state.count >= 1 {
+            continuation.resume()
+        } else {
+            state.continuation = continuation
+        }
+    }
+
     task.cancel()
     let result = await task.value
-    #expect(!result, "eventually must return false when its task is cancelled")
+    #expect(!result, "eventually must return false when cancelled")
+    #expect(state.count == 1, "condition must not be evaluated after cancellation")
 }
 
 @Test @MainActor
