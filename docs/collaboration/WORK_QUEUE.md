@@ -190,7 +190,7 @@ gezielte Adaptertests und Erweiterung des Scanner-Benchmarks
 
 ### KL-MENU-004 - Evidenzbasierte Import-Pruefung
 
-**Status:** In Review (Claude Code + Codex, Branch `claude/menu-import-review`)
+**Status:** Erledigt (PR #2 und Abschluss-PR #3 in `main`)
 **Abhaengigkeit:** KL-MENU-003
 **Schreibbereich (exklusiv):** `kitchenlink/Features/MenuImport/` und
 gezielte UI-/Adaptertests; enthaelt die Entscheidung zum Audit-P2
@@ -215,7 +215,8 @@ automatische Freigabe und keine Produktionspersistenz.
   danach ausschliesslich in das lokale Sandbox-Menue.
 - Fokussierter End-to-End-Test, komplette Unit- und Standard-UI-Tests sowie der
   14-seitige Scanner-Benchmark sind gruen. Screenshots wurden visuell geprueft.
-- Implementierung ist noch nicht in `main` gemergt.
+- Die WIP-Grundlage wurde mit PR #2 integriert; der korrigierte gefuehrte Ablauf
+  und seine vollstaendige Verifikation folgten mit PR #3.
 
 ## Naechste parallele Scheiben
 
@@ -264,7 +265,8 @@ Sandbox-Daten.
    Entfaellt, keine vorhanden.
 3. ~~KL-OPS-001 im Claude-Worktree als Round-04-Referenz umsetzen.~~ Erledigt
    und gemergt (PR #1).
-4. KL-MENU-004 und die Web-Stack-Entscheidung in getrennten Scopes fortsetzen;
-   KL-MENU-004 entscheidet zusaetzlich den P2-Befund aus dem Claude-Audit zur
-   unlokalisierten Draft-Evidenz.
-5. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
+4. ~~KL-MENU-004 inklusive P2-Entscheidung abschliessen.~~ Erledigt und mit PR
+   #2 sowie Abschluss-PR #3 integriert.
+5. Offline-Regressions-Smoke und Web-Stack-Entscheidung in getrennten Scopes
+   pruefen; weitere Agenten-Branches nicht gesammelt mergen.
+6. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
