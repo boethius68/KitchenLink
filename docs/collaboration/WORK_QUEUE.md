@@ -30,10 +30,15 @@ Bestehende Demo-, Offline- und Simulationspfade duerfen nicht entfernt werden.
 **Schreibbereich:** `docs/collaboration/reviews/` und
 `docs/collaboration/handoffs/CLAUDE.md`
 
-Claude prueft den gesamten Stand seit `03c146a` unabhaengig auf Code-, Daten-,
-Test-, Accessibility- und Designsystemprobleme. Produktcode bleibt waehrend des
-Audits unveraendert. Der vollstaendige Auftrag und das anschliessende Review-Gate
-stehen in `docs/collaboration/CLAUDE_MISSION.md`.
+**Ergebnis**
+
+- Der Stand seit `03c146a` wurde unabhaengig auf Code-, Daten-, Test-,
+  Accessibility- und Designsystemprobleme geprueft; siehe
+  `docs/collaboration/reviews/CLAUDE_AUDIT_2026-07-16.md`.
+- Keine P0- oder P1-Findings. Ein P2 (unlokalisierte Draft-Evidenz; Eingangs-
+  bedingung fuer KL-MENU-004) und vier P3-Notizen sind dokumentiert.
+- Review-Gate bestanden: Phase B (KL-OPS-001) wurde ohne Vorfix im selben
+  Claude-Worktree begonnen.
 
 ### KL-DS-001 - Semantische SwiftUI-Bausteine
 
@@ -185,10 +190,11 @@ gezielte Adaptertests und Erweiterung des Scanner-Benchmarks
 
 ### KL-MENU-004 - Evidenzbasierte Import-Pruefung
 
-**Status:** Aktiv bei Claude Fable 5
+**Status:** In Arbeit (Claude Code, Branch `claude/menu-import-review`)
 **Abhaengigkeit:** KL-MENU-003
-**Voraussichtlicher Schreibbereich:** `kitchenlink/Features/MenuImport/` und
-gezielte UI-/Adaptertests
+**Schreibbereich (exklusiv):** `kitchenlink/Features/MenuImport/` und
+gezielte UI-/Adaptertests; enthaelt die Entscheidung zum Audit-P2
+(unlokalisierte Draft-Evidenz)
 
 Draft-Sektionen und -Eintraege mit Originalseitenausschnitt, Rohtext,
 Preiszustand und Review-Grund anzeigen. Preislose und strukturell unsichere
@@ -202,12 +208,27 @@ automatische Freigabe und keine Produktionspersistenz.
 
 **Status:** Erledigt; PR #1 nach `main` gemergt
 **Abhaengigkeit:** KL-DS-001, KL-IOS-001
-**Voraussichtlicher Schreibbereich:** neue Views unter `kitchenlink/Features/Today/`
-und `kitchenlink/Features/Kitchen/`
+**Schreibbereich:** `kitchenlink/Features/Today/`, `kitchenlink/Features/Kitchen/`,
+gezielte Navigation in `kitchenlink/App/`, `kitchenlink/DesignSystem/KitchenLinkDesignSystemV2.swift`
+sowie gezielte Tests in `kitchenlinkTests/` und `kitchenlinkUITests/`
 
-Ereignisorientiertes `Heute` und eine iPad-Kuechenansicht mit sechs gleichzeitig
-lesbaren Tickets bauen. Beide verwenden echte Sandbox-Daten und das zweiachsige
-Statusmodell. Kein Umbau der Bestell-Domain in diesem Ticket.
+**Ergebnis**
+
+- Ereignisorientiertes `Heute` (iPhone) und ein iPad-Kuechenboard mit sechs
+  gleichzeitig lesbaren Tickets ohne horizontales Scrollen sind umgesetzt.
+- Beide leiten ihren Zustand aus der bestehenden Sandbox-Bestelldomaene
+  (Repository/Relay) ab; ein Demo-Seeder erzeugt ein realistisches
+  Serviceszenario ueber die regulaeren Statusuebergaenge.
+- Vorgangsart bleibt Form, Dringlichkeit bleibt Farbe; offene Zahlung ist
+  neutral, nie rot. Zitrone erscheint nur als eine Primaeraktion in `Heute`,
+  nie im Kuechenstatus.
+- Nach Nutzerfeedback (nasse Haende, Zeitdruck am Pass) wurde die
+  Ticket-Bump-Aktion statt als Wischgeste als voller, hell gefuellter
+  52-Punkt-Button mit haptischem Erfolgsfeedback umgesetzt; siehe Abwaegung im
+  Claude-Handoff.
+- Unit-, UI- und Scanner-Benchmark-Suiten sind gruen; visuelle Pruefung auf
+  iPhone hell/dunkel und iPad Pro 13" dunkel dokumentiert im Handoff.
+- Der Nutzer hat beide Referenzflaechen visuell geprueft und PR #1 gemergt.
 
 ### KL-WEB-001 - Gast-Web-Grundlage
 
@@ -271,11 +292,15 @@ mindestens 25 Tests. Keine UI oder Persistenz.
 
 ## Integrationsreihenfolge
 
-1. KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.
-2. P0-/P1-Findings vor neuer Oberflaechenarbeit entscheiden oder beheben.
-3. KL-OPS-001 im Claude-Worktree als Round-04-Referenz umsetzen.
-4. KL-MENU-004 und die Web-Stack-Entscheidung in getrennten Claude-Scopes
-   fortsetzen.
+1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,
+   keine P0/P1.
+2. ~~P0-/P1-Findings vor neuer Oberflaechenarbeit entscheiden oder beheben.~~
+   Entfaellt, keine vorhanden.
+3. ~~KL-OPS-001 im Claude-Worktree als Round-04-Referenz umsetzen.~~ Erledigt
+   und gemergt (PR #1).
+4. KL-MENU-004 und die Web-Stack-Entscheidung in getrennten Scopes fortsetzen;
+   KL-MENU-004 entscheidet zusaetzlich den P2-Befund aus dem Claude-Audit zur
+   unlokalisierten Draft-Evidenz.
 5. KL-OFFLINE-003, KL-QA-002, KL-WORKFORCE-001 und KL-INVENTORY-001 in den
    dokumentierten disjunkten Worktrees bearbeiten.
 6. Jedes Ergebnis einzeln reviewen; Discovery oder Prototypen werden nicht durch

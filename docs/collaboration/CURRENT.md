@@ -4,6 +4,8 @@
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
+**Last merge:** PR #1 (`claude/design-audit` -> `main`), independent integration
+audit plus the Today/Kitchen reference areas.
 
 ## Product
 
@@ -45,14 +47,22 @@
   action states are promising, but the palette is not final: payment versus error
   semantics, light-surface status-symbol contrast and control-border contrast
   require one constrained correction.
-- Claude-Kontingent ist wieder verfuegbar. Weitere offene Exploration ist dennoch
-  nicht der naechste Schritt: Claude Code prueft zuerst den integrierten Stand
-  unabhaengig und setzt danach die vorhandene Round-04-Richtung kontrolliert in
-  echten Referenzbereichen um.
 - Round 04 archives and verifies Turn 6, the last regular Claude Design pass. It
   resolves the blocking status, contrast, density and typography issues. No
   reserve prompt is required; Claude Code and Codex continue implementation as
   equal peers.
+- Claude Code completed KL-CLAUDE-001 and KL-OPS-001: an independent audit of
+  the integrated state (no P0/P1 findings, one P2 and four P3 notes in
+  `docs/collaboration/reviews/CLAUDE_AUDIT_2026-07-16.md`), then the Round-04
+  direction implemented as two real reference areas, `Heute` and `Kueche`. The
+  user reviewed both visually and merged PR #1. No new palette, typography or
+  logo approval follows from this; `DECISIONS.md` remains the approval
+  boundary.
+- Following the user's own feedback on the kitchen bump action (wet hands,
+  time pressure at the pass), the ticket-advance control became a full-width,
+  light-filled high-contrast button with success haptics instead of a swipe
+  gesture. A swipe remains a possible later accelerator once the order domain
+  supports reversing a status change.
 - The platform-neutral working specification is
   `docs/design/DESIGN_SYSTEM.md`. It preserves the selected 4a direction while
   keeping exact palette, typography and logo approval explicitly open.
@@ -93,6 +103,14 @@
   such candidates for Lichtburg and two for Alexxanders; they include both real
   missing-price items and structural/translation candidates and must not be
   auto-published.
+- `kitchenlink/Features/Today/` and `kitchenlink/Features/Kitchen/` now provide
+  the V2 `Heute` and `Kueche` reference areas, reachable from the V2 business
+  home. Both derive their state from the existing sandbox order domain
+  (repository and relay) rather than a second order model, and a demo seeder
+  drives a representative service scenario for review and testing.
+- The kitchen ticket-advance action is a full-width, high-contrast button
+  with success haptics; lemon is not used there, matching the status-token
+  rule.
 - The active parallel queue and disjoint agent scopes are recorded in
   `docs/collaboration/WORK_QUEUE.md`.
 - The shared collaboration and design state must be present on `origin/main`
@@ -131,8 +149,9 @@
 
 ## Next Decision
 
-Merge the two narrow post-merge Kitchen fixes. In parallel, Claude owns the
-draft-native evidence review and guest-web stack decision; GLM owns the isolated
-event-log prototype, DeepSeek the local order E2E regression, Kimi the workforce
-domain and MiniMax the inventory domain. Review every branch independently
-before integration.
+Merge the two narrow post-merge Kitchen fixes. Claude owns `KL-MENU-004`,
+including the P2 decision on unlocated draft evidence, and the separate
+guest-web stack decision. In parallel, GLM owns the isolated event-log
+prototype, DeepSeek the local order E2E regression, Kimi the workforce domain
+and MiniMax the inventory domain. Review every branch independently before
+integration.
