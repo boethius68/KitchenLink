@@ -26,6 +26,18 @@ struct KitchenLinkRootView: View {
         .fullScreenCover(isPresented: $showLegacySandbox) {
             LegacySandboxSheet()
         }
+        .preferredColorScheme(forcedColorScheme)
+    }
+
+    private var forcedColorScheme: ColorScheme? {
+        switch KitchenLinkDesignPreviewConfiguration.forcedAppearance() {
+        case .dark:
+            return .dark
+        case .light:
+            return .light
+        case nil:
+            return nil
+        }
     }
 
     private var legacyHome: some View {

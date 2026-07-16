@@ -42,6 +42,31 @@ final class kitchenlinkUITests: XCTestCase {
     }
 
     @MainActor
+    func testTodayAndKitchenAreReachableFromV2Home() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--kitchenlink-design-v2"]
+        app.launch()
+
+        let todayLink = app.buttons["business.openToday"]
+        XCTAssertTrue(todayLink.waitForExistence(timeout: 5))
+        scrollTo(todayLink, in: app)
+        todayLink.tap()
+
+        XCTAssertTrue(app.buttons["today.primaryAction"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["today.simulateDemo"].exists)
+        XCTAssertTrue(app.otherElements["today.connection"].exists)
+
+        app.navigationBars.buttons.firstMatch.tap()
+
+        let kitchenLink = app.buttons["business.openKitchen"]
+        XCTAssertTrue(kitchenLink.waitForExistence(timeout: 5))
+        scrollTo(kitchenLink, in: app)
+        kitchenLink.tap()
+
+        XCTAssertTrue(app.otherElements["kitchen.connection"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testLegacyDesignCanReturnToV2Preview() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--kitchenlink-design-legacy"]
@@ -52,6 +77,15 @@ final class kitchenlinkUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["business.useLegacyDesign"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["business.openLegacySandbox"].exists)
+    }
+
+    @MainActor
+    private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
+        var remainingSwipes = 4
+        while !element.isHittable && remainingSwipes > 0 {
+            app.swipeUp()
+            remainingSwipes -= 1
+        }
     }
 
     @MainActor
