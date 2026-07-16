@@ -20,6 +20,7 @@ struct KitchenLinkV2BusinessHomeView: View {
                         header
                         introduction
                         scanStage
+                        operationsAccess
                         sandboxAccess
                         previewSwitch
                     }
@@ -134,6 +135,77 @@ struct KitchenLinkV2BusinessHomeView: View {
             RoundedRectangle(cornerRadius: KitchenLinkV2Radius.sheet, style: .continuous)
                 .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
         }
+    }
+
+    private var operationsAccess: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            NavigationLink {
+                KitchenLinkV2TodayView()
+            } label: {
+                operationsRow(
+                    title: "Heute",
+                    subtitle: "Ereignisse und nächste Handlungen",
+                    systemImage: "list.bullet.rectangle"
+                )
+            }
+            .accessibilityIdentifier("business.openToday")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
+                KitchenLinkV2KitchenView()
+            } label: {
+                operationsRow(
+                    title: "Küche",
+                    subtitle: "Gleichzeitige Tickets · für iPad ausgelegt",
+                    systemImage: "flame"
+                )
+            }
+            .accessibilityIdentifier("business.openKitchen")
+        }
+        .padding(.horizontal, KitchenLinkV2Spacing.large)
+        .background(
+            KitchenLinkV2Palette.Surface.raised,
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+        }
+    }
+
+    private func operationsRow(
+        title: String,
+        subtitle: String,
+        systemImage: String
+    ) -> some View {
+        HStack(spacing: KitchenLinkV2Spacing.medium) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                .frame(width: 28)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(KitchenLinkV2Typography.primaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                Text(subtitle)
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, KitchenLinkV2Spacing.medium)
+        .frame(minHeight: 52)
+        .contentShape(Rectangle())
     }
 
     private var sandboxAccess: some View {
