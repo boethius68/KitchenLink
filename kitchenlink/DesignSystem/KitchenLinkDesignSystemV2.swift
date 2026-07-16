@@ -430,6 +430,39 @@ struct KitchenLinkV2PrimaryButtonStyle: ButtonStyle {
     }
 }
 
+/// High-emphasis completion action on the permanently dark kitchen surface
+/// (bump). Deliberately grape-neutral instead of lemon: advancing a ticket is
+/// a repeated per-ticket action, and lemon never appears in kitchen status.
+/// The light fill (content.light on Traube) reaches ~12:1 against the ticket
+/// and stays operable with wet hands through the full-width 52pt target.
+struct KitchenLinkV2KitchenBumpButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(KitchenLinkV2Typography.primaryButton)
+            .foregroundStyle(isEnabled
+                ? Color(rgb: KitchenLinkV2Palette.RGB(hex: 0x2C2438))
+                : Color(rgb: KitchenLinkV2Palette.RGB(hex: 0x9A94AE)))
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .padding(.horizontal, KitchenLinkV2Spacing.large)
+            .background(backgroundColor(isPressed: configuration.isPressed))
+            .clipShape(RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous))
+            .scaleEffect(configuration.isPressed && isEnabled ? 0.99 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private func backgroundColor(isPressed: Bool) -> Color {
+        guard isEnabled else {
+            return Color(rgb: KitchenLinkV2Palette.RGB(hex: 0x383048))
+        }
+
+        return isPressed
+            ? Color(rgb: KitchenLinkV2Palette.RGB(hex: 0xD9D3E6))
+            : Color(rgb: KitchenLinkV2Palette.RGB(hex: 0xF1EFF7))
+    }
+}
+
 struct KitchenLinkV2SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 

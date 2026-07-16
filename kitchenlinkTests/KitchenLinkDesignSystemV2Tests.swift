@@ -23,6 +23,22 @@ struct KitchenLinkDesignSystemV2Tests {
     }
 
     @Test
+    func kitchenBumpButtonStaysAccessibleInAllStates() {
+        let ticketSurface = KitchenLinkV2Palette.RGB(hex: 0x2C2438)
+        let grapeText = KitchenLinkV2Palette.RGB(hex: 0x2C2438)
+        let restingFill = KitchenLinkV2Palette.RGB(hex: 0xF1EFF7)
+        let pressedFill = KitchenLinkV2Palette.RGB(hex: 0xD9D3E6)
+
+        // Text stays readable while resting and pressed.
+        #expect(grapeText.contrastRatio(against: restingFill) >= 4.5)
+        #expect(grapeText.contrastRatio(against: pressedFill) >= 4.5)
+
+        // The control itself stands out clearly against the dark ticket.
+        #expect(restingFill.contrastRatio(against: ticketSurface) >= 3.0)
+        #expect(pressedFill.contrastRatio(against: ticketSurface) >= 3.0)
+    }
+
+    @Test
     func urgencySymbolsKeepThreeToOneOnTheirSurfaces() {
         // Round 04 board 6a: every meaning-bearing status shape stays >= 3:1
         // against the surface it appears on, checked per light and dark role.

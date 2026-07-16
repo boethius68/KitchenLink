@@ -93,6 +93,7 @@ struct KitchenLinkV2KitchenView: View {
     @EnvironmentObject private var store: KitchenLinkStore
     @EnvironmentObject private var relay: OrderRelayService
     @State private var isPerformingAction = false
+    @State private var completedBumpCount = 0
 
     private let gridColumns = [
         GridItem(.adaptive(minimum: 290, maximum: 460), spacing: KitchenLinkV2Spacing.medium)
@@ -135,6 +136,7 @@ struct KitchenLinkV2KitchenView: View {
             }
         }
         .environment(\.colorScheme, .dark)
+        .sensoryFeedback(.success, trigger: completedBumpCount)
         .tint(KitchenLinkV2Palette.Content.primary)
         .navigationTitle("Küche")
         .navigationBarTitleDisplayMode(.inline)
@@ -256,34 +258,20 @@ struct KitchenLinkV2KitchenView: View {
                 }
             }
 
-            HStack {
-                Text(ticket.trailingText)
-                    .font(KitchenLinkV2Typography.primaryLine)
-                    .foregroundStyle(ticket.isOverdue
-                        ? KitchenLinkV2Palette.Urgency.waitingText
-                        : KitchenLinkV2Palette.Content.primary)
-                    .kitchenLinkV2TabularNumbers()
+            Text(ticket.trailingText)
+                .font(KitchenLinkV2Typography.primaryLine)
+                .foregroundStyle(ticket.isOverdue
+                    ? KitchenLinkV2Palette.Urgency.waitingText
+                    : KitchenLinkV2Palette.Content.primary)
+                .kitchenLinkV2TabularNumbers()
 
-                Spacer()
-
-                if let actionTitle = ticket.advanceActionTitle {
-                    Button(actionTitle) {
-                        advance(ticket)
-                    }
-                    .font(KitchenLinkV2Typography.kitchenStatus)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.primary)
-                    .frame(minHeight: 44)
-                    .padding(.horizontal, KitchenLinkV2Spacing.medium)
-                    .background {
-                        RoundedRectangle(
-                            cornerRadius: KitchenLinkV2Radius.compact,
-                            style: .continuous
-                        )
-                        .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1.5)
-                    }
-                    .disabled(isPerformingAction)
-                    .accessibilityIdentifier("kitchen.advance.\(ticket.id)")
+            if let actionTitle = ticket.advanceActionTitle {
+                Button(actionTitle) {
+                    advance(ticket)
                 }
+                .buttonStyle(KitchenLinkV2KitchenBumpButtonStyle())
+                .disabled(isPerformingAction)
+                .accessibilityIdentifier("kitchen.advance.\(ticket.id)")
             }
         }
         .padding(KitchenLinkV2Spacing.large)
@@ -315,7 +303,10 @@ struct KitchenLinkV2KitchenView: View {
 
         isPerformingAction = true
         Task {
-            _ = await relay.updateStatus(for: order, to: nextStatus)
+            let didAdvance = await relay.updateStatus(for: order, to: nextStatus)
+            if didAdvance {
+                completedBumpCount += 1
+            }
             isPerformingAction = false
         }
     }

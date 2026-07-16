@@ -78,6 +78,21 @@ wurde dadurch zusaetzlich freigegeben.
   offen (neutral, Betrag), Hinweis "Bitte ohne Ei" (Quadrat), Empfangszeile.
 - Legacy-Startpfad und Scan-Flow unveraendert (bestehende UI-Tests gruen).
 
+### Nachschärfung Bump-Aktion (Nutzerfeedback 16. Juli)
+
+- Abwaegung Wischgeste vs. Button: Der Button gewinnt als primaerer Weg
+  (nasse Haende, Gestenkonflikt mit Scrollen, Entdeckbarkeit, VoiceOver).
+  Eine Wischgeste bleibt als spaeterer Beschleuniger denkbar, aber erst mit
+  einem Rueckgaengig-Mechanismus; die Bestell-Domaene kennt bisher keine
+  Rueckwaertsuebergaenge.
+- Neuer `KitchenLinkV2KitchenBumpButtonStyle`: volle Ticketbreite, 52 pt,
+  Licht-Fuellung mit Traube-Text (~12:1 gegen das Ticket). Bewusst keine
+  Zitrone (wiederholte Aktion, Kuechenstatus). Haptisches Erfolgs-Feedback
+  ueber `sensoryFeedback(.success:)`.
+- Kontraste des Buttons (ruhend, gedrueckt, deaktiviert) sind als Unit-Test
+  abgesichert; iPad-Board erneut visuell geprueft, sechs Tickets bleiben
+  gleichzeitig sichtbar.
+
 ## Risks And Open Work
 
 - `Heute` kennt keine echte Zahlungs-Domaene: "Zahlung offen" ist die
