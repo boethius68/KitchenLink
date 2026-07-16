@@ -15,6 +15,7 @@ struct MenuImportEntryView: View {
     @State private var importInProgress = false
     @State private var importStatusMessage: String?
     @State private var importedSections: [MenuSectionData] = []
+    @State private var importedDraft: MenuImportDraft?
     @State private var showImportPreview = false
     @State private var menuWasApplied = false
     @State private var showLegacySandbox = false
@@ -36,7 +37,7 @@ struct MenuImportEntryView: View {
             .sheet(isPresented: $showDocumentScanner) {
                 MenuDocumentScannerView { images in
                     showDocumentScanner = false
-                    startImport(images)
+                    startImport(images, sourceType: .camera)
                 } onCancel: {
                     showDocumentScanner = false
                 }
@@ -179,6 +180,10 @@ struct MenuImportEntryView: View {
             .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
             .disabled(importInProgress)
             .accessibilityIdentifier("menuImport.choosePhotos")
+
+            MenuDemoFixturePicker(isDisabled: importInProgress) { fixture in
+                startDemoImport(fixture)
+            }
         }
     }
 
@@ -293,6 +298,10 @@ struct MenuImportEntryView: View {
             }
             .buttonStyle(KitchenSecondaryButtonStyle())
             .disabled(importInProgress)
+
+            MenuDemoFixturePicker(isDisabled: importInProgress) { fixture in
+                startDemoImport(fixture)
+            }
         }
     }
 
@@ -352,7 +361,12 @@ struct MenuImportEntryView: View {
         showDocumentScanner = true
     }
 
-    private func startImport(_ images: [UIImage]) {
+    private func startImport(
+        _ images: [UIImage],
+        sourceType: MenuImportSourceDocument.SourceType,
+        sourceTypeDetail: String? = nil,
+        displayName: String? = nil
+    ) {
         guard !images.isEmpty else {
             importStatusMessage = "Es wurden keine Seiten übergeben."
             return
@@ -361,6 +375,7 @@ struct MenuImportEntryView: View {
         importInProgress = true
         menuWasApplied = false
         importedSections = []
+        importedDraft = nil
         let semanticMode = MenuImportService.isLLMEnabled() && MenuImportService.hasConfiguredLLMAPIKey()
         importStatusMessage = semanticMode
             ? "Texterkennung und KI-Analyse starten..."
@@ -368,14 +383,20 @@ struct MenuImportEntryView: View {
 
         Task {
             do {
-                let sections = try await MenuImportService.importSections(from: images) { completed, total in
+                let result = try await MenuImportService.importMenu(
+                    from: images,
+                    sourceType: sourceType,
+                    sourceTypeDetail: sourceTypeDetail,
+                    displayName: displayName
+                ) { completed, total in
                     await MainActor.run {
                         importStatusMessage = semanticMode
                             ? "Seite \(completed) von \(total) erkannt. KI strukturiert das Menü..."
                             : "Seite \(completed) von \(total) lokal erkannt..."
                     }
                 }
-                importedSections = sections
+                importedSections = result.sections
+                importedDraft = result.draft
                 importStatusMessage = "Import abgeschlossen. \(MenuImportService.lastImportDiagnostics())"
                 showImportPreview = true
             } catch MenuImportService.ImportError.noMenuItemsDetected {
@@ -385,6 +406,21 @@ struct MenuImportEntryView: View {
             }
             importInProgress = false
         }
+    }
+
+    private func startDemoImport(_ fixture: DemoMenuFixture) {
+        let images = DemoMenuFixtures.images(for: fixture)
+        guard !images.isEmpty else {
+            importStatusMessage = "Die Beispielkarte konnte nicht geladen werden."
+            return
+        }
+
+        startImport(
+            images,
+            sourceType: .demoFixture,
+            sourceTypeDetail: fixture.id,
+            displayName: fixture.title
+        )
     }
 
     private func loadSelectedPhotos(_ items: [PhotosPickerItem]) async {
@@ -410,12 +446,38 @@ struct MenuImportEntryView: View {
                 return
             }
 
-            startImport(images)
+            startImport(images, sourceType: .photoLibrary)
         } catch {
             selectedPhotoItems = []
             importInProgress = false
             importStatusMessage = "Menüfotos konnten nicht geladen werden: \(error.localizedDescription)"
         }
+    }
+}
+
+private struct MenuDemoFixturePicker: View {
+    let isDisabled: Bool
+    let onSelect: (DemoMenuFixture) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(DemoMenuFixtures.all) { fixture in
+                Button {
+                    onSelect(fixture)
+                } label: {
+                    Label(
+                        fixture.title + " · " + String(fixture.pageCount) + " Seiten",
+                        systemImage: "doc.text"
+                    )
+                }
+            }
+        } label: {
+            Label("Beispielkarte testen", systemImage: "doc.text.magnifyingglass")
+        }
+        .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+        .disabled(isDisabled)
+        .accessibilityIdentifier("menuImport.demoFixture")
+        .accessibilityHint("Wählt eine mitgelieferte Speisekarte für den Scanner-Test aus.")
     }
 }
 

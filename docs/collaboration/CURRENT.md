@@ -1,6 +1,6 @@
 # KitchenLink Current State
 
-**Updated:** 15 July 2026
+**Updated:** 16 July 2026
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
@@ -69,6 +69,29 @@
   network dependency was added.
 - Document camera, photo selection, OCR, review, local menu replacement and the
   complete legacy product sandbox continue to use the existing implementation.
+- Three real multi-page menu fixtures can now be selected directly from the scan
+  entry and use the same local OCR, review and import path as uploaded photos.
+- A reproducible 14-page scanner benchmark now protects 23 section and 46 item
+  anchors in both the legacy result and the import draft. The draft retains all
+  46 item-name anchors, including two Lichtburg names whose prices Vision does
+  not currently associate, while the legacy result remains unchanged.
+- GLM completed the KL-MENU-001 taxonomy research and DeepSeek performed a
+  red-team review. The material is useful discovery, not an approved ontology:
+  source counts, saturation counts and artifact versions remain inconsistent.
+- The integration review under `docs/discovery/taxonomy-research/` accepts only
+  the lossless draft principles. A thin, provider-neutral Swift import contract
+  now exists as pre-stable version `0.1.0`, with structured evidence, typed
+  optional prices and recursive validation. Broad additional research does not
+  block implementation.
+- The local Apple Vision/rule scanner now creates `[MenuSectionData]` and a
+  `MenuImportDraft` from the same OCR pass. Source type, document fingerprint,
+  raw OCR text, page, normalized bounding box, confidence, raw price and review
+  state are carried into the draft; the old sandbox preview remains active.
+- Pending title blocks that the price-required legacy model used to discard are
+  retained as unpriced `needsReview` entries. The current fixtures produce seven
+  such candidates for Lichtburg and two for Alexxanders; they include both real
+  missing-price items and structural/translation candidates and must not be
+  auto-published.
 - The active parallel queue and disjoint agent scopes are recorded in
   `docs/collaboration/WORK_QUEUE.md`.
 - The shared collaboration and design state must be present on `origin/main`
@@ -88,6 +111,8 @@
 
 ## Next Decision
 
-Review the implemented V2 business home and scan entry on device. After any
-focused corrections, continue in parallel with the offline regression smoke test,
-the Today/kitchen reference views and a separate guest-web stack decision.
+Expose draft entries and evidence in a dedicated import-review slice: original
+page crop, raw text, price state and structural uncertainty must be visible and
+editable before conversion to the legacy sandbox menu. In parallel, continue
+with the offline regression smoke test, Today/kitchen reference views and the
+separate guest-web stack decision.

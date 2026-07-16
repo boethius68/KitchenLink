@@ -1,8 +1,8 @@
 # Codex Handoff
 
-**Updated:** 15 July 2026
+**Updated:** 16 July 2026
 **Branch:** `main`
-**Status:** First V2 implementation slice ready for review
+**Status:** Scanner-to-draft adapter ready for review
 
 ## Completed
 
@@ -46,6 +46,19 @@
   assets recolored to grape/lemon.
 - Added a model-neutral work queue with exclusive write scopes for later Codex,
   GLM, DeepSeek or Claude Code workers.
+- Added three bundled real-menu fixtures and a reproducible 14-page local Vision
+  benchmark while keeping camera, photo and sandbox demo paths available.
+- Integrated the useful lossless principles from the GLM research and DeepSeek
+  red-team review without adopting their inconsistent taxonomy as product truth.
+- Added provider-neutral `MenuImportDraft` contract version `0.1.0` with typed
+  optional prices, evidence, hierarchy, declarations and recursive validation.
+- Added `MenuImportDraftAdapter` and changed the local scanner service to produce
+  legacy sections and a draft from one OCR pass. The primary scanner view keeps
+  the draft in memory while the old review/application path remains unchanged.
+- Preserved price-less pending OCR blocks as `needsReview` entries with source
+  page and bounding box rather than deleting them or copying neighboring prices.
+- Extended the benchmark with page-aware draft name/price recall and explicit
+  assertions for the two Lichtburg OCR-price losses plus `Gemischter Eisbecher`.
 
 ## Files To Read
 
@@ -82,6 +95,13 @@
 - Visually inspected the V2 home in light mode, dark mode and the maximum
   accessibility Dynamic Type category. Corrected the wordmark asset rendering,
   dark surface hierarchy and accessibility-size header layout found during QA.
+- Ran the focused draft-adapter tests on iPhone 17 Pro Simulator; raw price,
+  bounding box, optional price and delta semantics passed.
+- Ran the complete 14-page scanner benchmark after the adapter integration. All
+  legacy thresholds still pass; draft item-name recall is 100% for all three
+  fixtures and both Lichtburg price losses remain explicitly unpriced.
+- Validated every generated fixture draft with `MenuImportDraftValidator` and
+  checked the working tree with `git diff --check`.
 
 ## Risks And Open Work
 
@@ -91,6 +111,11 @@
   cloud unavailable is still missing.
 - The scan screen reuses the production import behavior, but camera and
   PhotosPicker error branches are not yet dependency-injected for unit tests.
+- The draft intentionally over-captures uncertain title blocks: seven unpriced
+  Lichtburg candidates and two Alexxanders candidates need human structural
+  classification. They must not be auto-published.
+- The existing sandbox review still renders `[MenuSectionData]`; draft evidence,
+  missing-price entries and original page crops are not visible there yet.
 - Do not treat the working logo geometry, current typefaces, exact hex values or
   status palette as final approval.
 - Do not spend the Claude reserve prompt. Codex continues the design system and
@@ -98,6 +123,7 @@
 
 ## Recommended Next Step
 
-Collect focused user feedback on the V2 home and scan entry. Then implement the
-offline end-to-end smoke test while Today/kitchen reference views are built in a
-separate write scope. Decide the guest-web stack before starting KL-WEB-001.
+Implement KL-MENU-004 as a draft-native review slice with original evidence,
+optional price and explicit accept/edit/reject actions, followed by an explicit
+conversion into the existing sandbox menu. Keep the offline smoke test and
+Today/kitchen reference views in separate write scopes.

@@ -1,0 +1,847 @@
+{
+  "schemaVersion": 1,
+  "normalization": {
+    "pageNumbering": "1-based",
+    "nameRule": "Unicode NFC, trim, collapse whitespace, lowercase; preserve spelling, diacritics, and punctuation",
+    "exactTextRule": "Preserve visible wording and punctuation; collapse only visual line wraps inside one title or name",
+    "priceRule": "expectedPriceString preserves the visible token, including the euro sign and spacing when printed; expectedPriceCents is its integer minor-unit value"
+  },
+  "fixtures": [
+    {
+      "id": "scheune-berlin",
+      "sourceFile": "../menus/scheune-berlin.pdf",
+      "sha256": "80855ff7aeab7d85a47ced62dd3cb42edeeeec3b10b95bcebe2c6e7545f1497b",
+      "pages": 3,
+      "expectedSectionAnchors": [
+        {
+          "page": 1,
+          "exactTitle": "Vorspeisen",
+          "normalizedTitle": "vorspeisen"
+        },
+        {
+          "page": 1,
+          "exactTitle": "Salate",
+          "normalizedTitle": "salate"
+        },
+        {
+          "page": 2,
+          "exactTitle": "Deftiges aus Topf und Pfanne",
+          "normalizedTitle": "deftiges aus topf und pfanne"
+        },
+        {
+          "page": 3,
+          "exactTitle": "Scheunenkarte",
+          "normalizedTitle": "scheunenkarte"
+        }
+      ],
+      "expectedItemAnchors": [
+        {
+          "page": 1,
+          "exactName": "Rote Beete Carpaccio",
+          "normalizedName": "rote beete carpaccio",
+          "expectedPriceString": "8,90",
+          "expectedPriceCents": 890
+        },
+        {
+          "page": 1,
+          "exactName": "Roastbeef-Tonnato",
+          "normalizedName": "roastbeef-tonnato",
+          "expectedPriceString": "12,90",
+          "expectedPriceCents": 1290
+        },
+        {
+          "page": 1,
+          "exactName": "Scheunensalat",
+          "normalizedName": "scheunensalat",
+          "expectedPriceString": "19,80",
+          "expectedPriceCents": 1980
+        },
+        {
+          "page": 1,
+          "exactName": "Salat mit Zanderfilet",
+          "normalizedName": "salat mit zanderfilet",
+          "expectedPriceString": "21,90",
+          "expectedPriceCents": 2190
+        },
+        {
+          "page": 1,
+          "exactName": "Bauernsalat mit Feta",
+          "normalizedName": "bauernsalat mit feta",
+          "expectedPriceString": "15,90",
+          "expectedPriceCents": 1590
+        },
+        {
+          "page": 2,
+          "exactName": "Käsespätzle & Salat",
+          "normalizedName": "käsespätzle & salat",
+          "expectedPriceString": "19,90",
+          "expectedPriceCents": 1990
+        },
+        {
+          "page": 2,
+          "exactName": "Bauernschnitzel",
+          "normalizedName": "bauernschnitzel",
+          "expectedPriceString": "15,90",
+          "expectedPriceCents": 1590
+        },
+        {
+          "page": 2,
+          "exactName": "Sülze",
+          "normalizedName": "sülze",
+          "expectedPriceString": "16,80",
+          "expectedPriceCents": 1680
+        },
+        {
+          "page": 2,
+          "exactName": "Matjes",
+          "normalizedName": "matjes",
+          "expectedPriceString": "16,80",
+          "expectedPriceCents": 1680
+        },
+        {
+          "page": 3,
+          "exactName": "Berliner Currywurst & Pommes (auch vegan)",
+          "normalizedName": "berliner currywurst & pommes (auch vegan)",
+          "expectedPriceString": "13,90",
+          "expectedPriceCents": 1390
+        },
+        {
+          "page": 3,
+          "exactName": "Gebackener Camembert",
+          "normalizedName": "gebackener camembert",
+          "expectedPriceString": "15,50",
+          "expectedPriceCents": 1550
+        },
+        {
+          "page": 3,
+          "exactName": "Scheunenschnitzel",
+          "normalizedName": "scheunenschnitzel",
+          "expectedPriceString": "21,90",
+          "expectedPriceCents": 2190
+        },
+        {
+          "page": 3,
+          "exactName": "Klassisches Wiener Schnitzel (ca. 180g)",
+          "normalizedName": "klassisches wiener schnitzel (ca. 180g)",
+          "expectedPriceString": "28,90",
+          "expectedPriceCents": 2890
+        },
+        {
+          "page": 3,
+          "exactName": "Hausgemachte Rinderroulade",
+          "normalizedName": "hausgemachte rinderroulade",
+          "expectedPriceString": "29,90",
+          "expectedPriceCents": 2990
+        },
+        {
+          "page": 3,
+          "exactName": "Zanderfilet",
+          "normalizedName": "zanderfilet",
+          "expectedPriceString": "26,90",
+          "expectedPriceCents": 2690
+        }
+      ],
+      "expectedDeclarationAnchors": [
+        {
+          "page": 1,
+          "exactText": "–A,G,J-",
+          "kind": "unresolvedLocalCode",
+          "attachedToExactName": "Scheunensalat"
+        },
+        {
+          "page": 2,
+          "exactText": "–A,C,G,J-",
+          "kind": "unresolvedLocalCode",
+          "attachedToExactName": "Käsespätzle & Salat"
+        },
+        {
+          "page": 3,
+          "exactText": "(auch vegan)",
+          "kind": "dietaryClaim",
+          "attachedToExactName": "Berliner Currywurst & Pommes (auch vegan)"
+        },
+        {
+          "page": 3,
+          "exactText": "als veganes Gericht",
+          "kind": "dietaryClaim",
+          "attachedToExactName": "Berliner Currywurst & Pommes (auch vegan)"
+        },
+        {
+          "page": 3,
+          "exactText": "–A,D,G,J-",
+          "kind": "unresolvedLocalCode",
+          "attachedToExactName": "Zanderfilet"
+        }
+      ],
+      "knownHardCases": [
+        {
+          "id": "decorative-drop-cap-headings",
+          "pages": [
+            1,
+            2,
+            3
+          ],
+          "visibleEvidence": "The initial letters in Vorspeisen, Salate, Deftiges aus Topf und Pfanne, and Scheunenkarte are oversized and spatially separated.",
+          "benchmarkExpectation": "Recover each full section title rather than emitting a standalone initial."
+        },
+        {
+          "id": "absolute-alternative-prices",
+          "pages": [
+            1,
+            2
+          ],
+          "visibleExamples": [
+            {
+              "exactName": "Scheunensalat",
+              "primaryPriceString": "19,80",
+              "alternateLabelExact": "ohne Hähnchenbrust",
+              "alternatePriceString": "11,90",
+              "alternatePriceCents": 1190
+            },
+            {
+              "exactName": "Gebackener Ziegenkäse an Rucolasalat mit Obst",
+              "primaryPriceString": "19,80",
+              "alternateLabelExact": "als Vorspeise",
+              "alternatePriceString": "11,90",
+              "alternatePriceCents": 1190
+            },
+            {
+              "exactName": "Salat mit Zanderfilet",
+              "primaryPriceString": "21,90",
+              "alternateLabelExact": "als Vorspeise",
+              "alternatePriceString": "14,90",
+              "alternatePriceCents": 1490
+            },
+            {
+              "exactName": "Große Hausgemachte Gulaschsuppe",
+              "primaryPriceString": "14,90",
+              "alternateLabelExact": "als Vorspeise",
+              "alternatePriceString": "8,90",
+              "alternatePriceCents": 890
+            }
+          ],
+          "benchmarkExpectation": "Keep the labeled lower price as an alternative absolute price, not as a separate item or a surcharge."
+        },
+        {
+          "id": "relative-surcharges",
+          "pages": [
+            2,
+            3
+          ],
+          "visibleExamples": [
+            {
+              "attachedToExactName": "Wurstsalat „Scheune“",
+              "conditionExact": "auf Wunsch mit Bratkartoffeln statt Brot",
+              "priceString": "+3,90",
+              "priceCents": 390
+            },
+            {
+              "attachedToExactName": "Scheunenburger",
+              "conditionExact": "auf Wunsch mit doppelt Fleisch und Käse",
+              "priceString": "+5,00",
+              "priceCents": 500
+            },
+            {
+              "attachedToExactName": "Berliner Currywurst & Pommes (auch vegan)",
+              "conditionExact": "als veganes Gericht",
+              "priceString": "+2,00",
+              "priceCents": 200
+            },
+            {
+              "attachedToExactName": "Scheunenschnitzel",
+              "conditionExact": "auf Wunsch mit Champignonrahmsoße",
+              "priceString": "+3,90",
+              "priceCents": 390
+            }
+          ],
+          "benchmarkExpectation": "Preserve the leading plus sign and model these values as deltas tied to their condition."
+        },
+        {
+          "id": "unresolved-declaration-codes",
+          "pages": [
+            1,
+            2,
+            3
+          ],
+          "visibleEvidence": "Item-level letter codes such as –A,G,J- are present, but no legend appears on any fixture page.",
+          "benchmarkExpectation": "Preserve raw codes and do not infer allergen or additive meanings."
+        },
+        {
+          "id": "hash-prefixed-descriptions",
+          "pages": [
+            1,
+            2,
+            3
+          ],
+          "visibleEvidence": "Description ingredients are repeatedly prefixed with # and may wrap across lines.",
+          "benchmarkExpectation": "Keep the text with its item description rather than creating one item per hash token."
+        },
+        {
+          "id": "global-price-notices",
+          "pages": [
+            3
+          ],
+          "visibleEvidence": "The footer states a 1,90 € surcharge for changing the side to Bratkartoffeln and 0,80 € per portion for Ketchup or Mayonnaise.",
+          "benchmarkExpectation": "Treat both lines as cross-item notices, not standalone menu items."
+        }
+      ]
+    },
+    {
+      "id": "lichtburg-berlin",
+      "sourceFile": "../menus/lichtburg-berlin.pdf",
+      "sha256": "f1fbee6ef6d624e8aef0ab3eae156f5937d5ea3a4c14a5ab5572ddeb26f64eac",
+      "pages": 7,
+      "expectedSectionAnchors": [
+        {
+          "page": 1,
+          "exactTitle": "Antipasti-Vorspeisen",
+          "normalizedTitle": "antipasti-vorspeisen",
+          "companionTextExact": "Starters"
+        },
+        {
+          "page": 2,
+          "exactTitle": "Insalata / Salate",
+          "normalizedTitle": "insalata / salate"
+        },
+        {
+          "page": 2,
+          "exactTitle": "Pasta- Nudelgerichte",
+          "normalizedTitle": "pasta- nudelgerichte"
+        },
+        {
+          "page": 3,
+          "exactTitle": "Spezialitäten des Hauses",
+          "normalizedTitle": "spezialitäten des hauses",
+          "companionTextExact": "specialities of the house"
+        },
+        {
+          "page": 4,
+          "exactTitle": "Hauptgerichte & main dishes",
+          "normalizedTitle": "hauptgerichte & main dishes"
+        },
+        {
+          "page": 5,
+          "exactTitle": "Steaks",
+          "normalizedTitle": "steaks"
+        },
+        {
+          "page": 5,
+          "exactTitle": "Beilagen",
+          "normalizedTitle": "beilagen"
+        },
+        {
+          "page": 6,
+          "exactTitle": "Menü Lichtburg",
+          "normalizedTitle": "menü lichtburg"
+        },
+        {
+          "page": 6,
+          "exactTitle": "Vorspeise",
+          "normalizedTitle": "vorspeise"
+        },
+        {
+          "page": 6,
+          "exactTitle": "Haupgerichte",
+          "normalizedTitle": "haupgerichte"
+        },
+        {
+          "page": 6,
+          "exactTitle": "Dessert",
+          "normalizedTitle": "dessert"
+        },
+        {
+          "page": 7,
+          "exactTitle": "Dessert",
+          "normalizedTitle": "dessert"
+        }
+      ],
+      "expectedItemAnchors": [
+        {
+          "page": 1,
+          "exactName": "Tomaten-Creme Suppe",
+          "normalizedName": "tomaten-creme suppe",
+          "expectedPriceString": "8,90",
+          "expectedPriceCents": 890
+        },
+        {
+          "page": 1,
+          "exactName": "Mozzarella di Bufala",
+          "normalizedName": "mozzarella di bufala",
+          "expectedPriceString": "11,90",
+          "expectedPriceCents": 1190
+        },
+        {
+          "page": 1,
+          "exactName": "Carpaccio Di Manzo",
+          "normalizedName": "carpaccio di manzo",
+          "expectedPriceString": "14,90",
+          "expectedPriceCents": 1490
+        },
+        {
+          "page": 2,
+          "exactName": "Insalat con Pollo",
+          "normalizedName": "insalat con pollo",
+          "expectedPriceString": "15,90",
+          "expectedPriceCents": 1590
+        },
+        {
+          "page": 2,
+          "exactName": "Spaghetti Aglio e Olio",
+          "normalizedName": "spaghetti aglio e olio",
+          "expectedPriceString": "13,90",
+          "expectedPriceCents": 1390
+        },
+        {
+          "page": 2,
+          "exactName": "Rigatoni al Salmone",
+          "normalizedName": "rigatoni al salmone",
+          "expectedPriceString": "15,90",
+          "expectedPriceCents": 1590
+        },
+        {
+          "page": 3,
+          "exactName": "Kalbsleber „Berliner Art“",
+          "normalizedName": "kalbsleber „berliner art“",
+          "expectedPriceString": "19,90",
+          "expectedPriceCents": 1990
+        },
+        {
+          "page": 3,
+          "exactName": "Original Wiener Schnitzel",
+          "normalizedName": "original wiener schnitzel",
+          "expectedPriceString": "25,90",
+          "expectedPriceCents": 2590
+        },
+        {
+          "page": 4,
+          "exactName": "Hähnchenbrustfilet „Pfeffer“",
+          "normalizedName": "hähnchenbrustfilet „pfeffer“",
+          "expectedPriceString": "18,90",
+          "expectedPriceCents": 1890
+        },
+        {
+          "page": 4,
+          "exactName": "Gemüsepfanne",
+          "normalizedName": "gemüsepfanne",
+          "expectedPriceString": "17,90",
+          "expectedPriceCents": 1790
+        },
+        {
+          "page": 4,
+          "exactName": "Gegrillte Garnelen",
+          "normalizedName": "gegrillte garnelen",
+          "expectedPriceString": "26,90",
+          "expectedPriceCents": 2690
+        },
+        {
+          "page": 5,
+          "exactName": "Hüftsteak(250gr)",
+          "normalizedName": "hüftsteak(250gr)",
+          "expectedPriceString": "18,90",
+          "expectedPriceCents": 1890
+        },
+        {
+          "page": 5,
+          "exactName": "Hähnchen Burger",
+          "normalizedName": "hähnchen burger",
+          "expectedPriceString": "16,90",
+          "expectedPriceCents": 1690
+        },
+        {
+          "page": 6,
+          "exactName": "Menü Lichtburg",
+          "normalizedName": "menü lichtburg",
+          "entryKind": "bundle",
+          "priceBasisExact": "pro Person /per Person",
+          "expectedPriceString": "39,90",
+          "expectedPriceCents": 3990
+        },
+        {
+          "page": 7,
+          "exactName": "Creme Brûlée",
+          "normalizedName": "creme brûlée",
+          "expectedPriceString": "7,90",
+          "expectedPriceCents": 790
+        },
+        {
+          "page": 7,
+          "exactName": "Coup Dänemark",
+          "normalizedName": "coup dänemark",
+          "expectedPriceString": "7,90",
+          "expectedPriceCents": 790
+        }
+      ],
+      "expectedDeclarationAnchors": [
+        {
+          "page": 1,
+          "exactText": "Vegetarisch",
+          "kind": "dietaryClaim",
+          "attachedToExactName": "Tomaten-Creme Suppe"
+        },
+        {
+          "page": 1,
+          "exactText": "Vegetarisch",
+          "kind": "dietaryClaim",
+          "attachedToExactName": "Mozzarella di Bufala"
+        },
+        {
+          "page": 2,
+          "exactText": "Vegetarisch",
+          "kind": "dietaryClaim",
+          "attachedToExactName": "Spaghetti Aglio e Olio"
+        },
+        {
+          "page": 2,
+          "exactText": "(scharf)",
+          "kind": "warning",
+          "attachedToExactName": "Spaghetti Aglio e Olio",
+          "companionTextExact": "(hot)"
+        },
+        {
+          "page": 4,
+          "exactText": "Vegetarisch",
+          "kind": "dietaryClaim",
+          "attachedToExactName": "Gemüsepfanne"
+        }
+      ],
+      "knownHardCases": [
+        {
+          "id": "bilingual-item-blocks",
+          "pages": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "visibleEvidence": "German item text is repeatedly followed by an English translation in the same centered block.",
+          "benchmarkExpectation": "Do not emit the translation as a second menu item."
+        },
+        {
+          "id": "inline-colored-claims",
+          "pages": [
+            1,
+            2,
+            4
+          ],
+          "visibleEvidence": "The green word Vegetarisch sits directly after several bold item names; text extraction can concatenate both spans.",
+          "benchmarkExpectation": "Separate the claim from the item name while retaining its item attachment."
+        },
+        {
+          "id": "source-spelling-and-spacing",
+          "pages": [
+            2,
+            5,
+            6
+          ],
+          "visibleEvidence": "Examples include Insalat con Pollo, Hüftsteak(250gr), and the heading Haupgerichte.",
+          "benchmarkExpectation": "Preserve source spelling and spacing in exact fields; do not silently correct them."
+        },
+        {
+          "id": "steaks-with-separate-sides",
+          "pages": [
+            5
+          ],
+          "visibleEvidence": "A boxed notice says all meat dishes except burgers are served without a side, followed by two columns of separately priced sides and sauces.",
+          "benchmarkExpectation": "Keep the notice and side prices separate from the steak base prices."
+        },
+        {
+          "id": "bundle-with-alternatives",
+          "pages": [
+            6
+          ],
+          "visibleEvidence": "Menü Lichtburg contains Antipasti, one of three mains separated by oder / or, Tiramisu, and one price of 39,90 pro Person /per Person.",
+          "benchmarkExpectation": "Attach 39,90 to the bundle, not to each course or alternative."
+        },
+        {
+          "id": "missing-item-price",
+          "pages": [
+            7
+          ],
+          "visibleEvidence": "Gemischter Eisbecher has no visible price between its description and the following Coup Dänemark block.",
+          "benchmarkExpectation": "Keep the item without a price; do not copy a neighboring 7,90 value."
+        },
+        {
+          "id": "mixed-currency-display",
+          "pages": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "visibleEvidence": "Most item prices omit a currency sign, while page 5 side prices print € with inconsistent spacing.",
+          "benchmarkExpectation": "Preserve the visible price token instead of inserting a symbol into expectedPriceString."
+        }
+      ]
+    },
+    {
+      "id": "alexxanders-chemnitz",
+      "sourceFile": "../menus/alexxanders-chemnitz.pdf",
+      "sha256": "452a6d0f9d67d18fc2ca1c686c5dda0f1a77b3d9e8b54aa3454e85da1d4318e4",
+      "pages": 4,
+      "expectedSectionAnchors": [
+        {
+          "page": 2,
+          "exactTitle": "Speisekarte",
+          "normalizedTitle": "speisekarte"
+        },
+        {
+          "page": 2,
+          "exactTitle": "Vorspeisen",
+          "normalizedTitle": "vorspeisen"
+        },
+        {
+          "page": 2,
+          "exactTitle": "Suppe",
+          "normalizedTitle": "suppe"
+        },
+        {
+          "page": 3,
+          "exactTitle": "Hauptspeise",
+          "normalizedTitle": "hauptspeise"
+        },
+        {
+          "page": 3,
+          "exactTitle": "Pasta / vegetarisch",
+          "normalizedTitle": "pasta / vegetarisch"
+        },
+        {
+          "page": 4,
+          "exactTitle": "Überraschungsmenü 3 - gang",
+          "normalizedTitle": "überraschungsmenü 3 - gang"
+        },
+        {
+          "page": 4,
+          "exactTitle": "Dessert",
+          "normalizedTitle": "dessert"
+        }
+      ],
+      "expectedItemAnchors": [
+        {
+          "page": 2,
+          "exactName": "Markthausbrot",
+          "normalizedName": "markthausbrot",
+          "expectedPriceString": "5 €",
+          "expectedPriceCents": 500
+        },
+        {
+          "page": 2,
+          "exactName": "Smørrebrød",
+          "normalizedName": "smørrebrød",
+          "expectedPriceString": "14 €",
+          "expectedPriceCents": 1400
+        },
+        {
+          "page": 2,
+          "exactName": "Thunfischtatar",
+          "normalizedName": "thunfischtatar",
+          "expectedPriceString": "17 €",
+          "expectedPriceCents": 1700
+        },
+        {
+          "page": 2,
+          "exactName": "Burrata",
+          "normalizedName": "burrata",
+          "expectedPriceString": "15 €",
+          "expectedPriceCents": 1500
+        },
+        {
+          "page": 2,
+          "exactName": "Erbsensüppchen",
+          "normalizedName": "erbsensüppchen",
+          "expectedPriceString": "12 €",
+          "expectedPriceCents": 1200
+        },
+        {
+          "page": 3,
+          "exactName": "Rinderfiletgeschnetzeltes",
+          "normalizedName": "rinderfiletgeschnetzeltes",
+          "expectedPriceString": "25 €",
+          "expectedPriceCents": 2500
+        },
+        {
+          "page": 3,
+          "exactName": "Rinderfilet",
+          "normalizedName": "rinderfilet",
+          "expectedPriceString": "46 €",
+          "expectedPriceCents": 4600
+        },
+        {
+          "page": 3,
+          "exactName": "Unser Wiener Schnitzel",
+          "normalizedName": "unser wiener schnitzel",
+          "expectedPriceString": "29 €",
+          "expectedPriceCents": 2900
+        },
+        {
+          "page": 3,
+          "exactName": "Hähnchen- Roulade",
+          "normalizedName": "hähnchen- roulade",
+          "expectedPriceString": "25 €",
+          "expectedPriceCents": 2500
+        },
+        {
+          "page": 3,
+          "exactName": "Kohlrabischnitzel",
+          "normalizedName": "kohlrabischnitzel",
+          "expectedPriceString": "24 €",
+          "expectedPriceCents": 2400
+        },
+        {
+          "page": 3,
+          "exactName": "Wassermelonen- Steak",
+          "normalizedName": "wassermelonen- steak",
+          "expectedPriceString": "23 €",
+          "expectedPriceCents": 2300
+        },
+        {
+          "page": 4,
+          "exactName": "Überraschungsmenü 3 - gang",
+          "normalizedName": "überraschungsmenü 3 - gang",
+          "entryKind": "bundle",
+          "priceBasisExact": "Menüpreis pro Person",
+          "expectedPriceString": "55 €",
+          "expectedPriceCents": 5500
+        },
+        {
+          "page": 4,
+          "exactName": "Topfenmousse",
+          "normalizedName": "topfenmousse",
+          "expectedPriceString": "13 €",
+          "expectedPriceCents": 1300
+        },
+        {
+          "page": 4,
+          "exactName": "Crème brûlée",
+          "normalizedName": "crème brûlée",
+          "expectedPriceString": "12 €",
+          "expectedPriceCents": 1200
+        },
+        {
+          "page": 4,
+          "exactName": "Espresso „Affogato“",
+          "normalizedName": "espresso „affogato“",
+          "expectedPriceString": "7,40 €",
+          "expectedPriceCents": 740
+        }
+      ],
+      "expectedDeclarationAnchors": [
+        {
+          "page": 3,
+          "exactText": "Pasta / vegetarisch",
+          "kind": "sectionLabelContainingDietaryTerm",
+          "attachedToExactSection": "Pasta / vegetarisch"
+        },
+        {
+          "page": 4,
+          "exactText": "Bei Lebensmittelunverträglichkeiten, Intoleranzen und Allergien sprechen Sie bitte unser Servicepersonal an!",
+          "kind": "allergenNotice",
+          "location": "footer"
+        },
+        {
+          "page": 4,
+          "exactText": "Gern informieren wir Sie über die „Rezeptur“-Allergene.",
+          "kind": "allergenNotice",
+          "location": "footer"
+        }
+      ],
+      "knownHardCases": [
+        {
+          "id": "cover-page-without-menu-content",
+          "pages": [
+            1
+          ],
+          "visibleEvidence": "Page 1 contains branding and the slogan … wir lassen sie andersessen, but no section, item, or price.",
+          "benchmarkExpectation": "Do not create a menu item from the cover slogan or logo."
+        },
+        {
+          "id": "multi-color-word-fragments",
+          "pages": [
+            2,
+            3,
+            4
+          ],
+          "visibleEvidence": "Red letter spans are embedded inside gray headings such as Speisekarte, Vorspeisen, Hauptspeise, and Dessert.",
+          "benchmarkExpectation": "Recombine the colored spans into the full visible words."
+        },
+        {
+          "id": "two-column-portion-prices",
+          "pages": [
+            3
+          ],
+          "visibleExamples": [
+            {
+              "exactName": "Lotte",
+              "prices": [
+                {
+                  "labelExact": "Zwischengericht",
+                  "priceString": "28 €",
+                  "priceCents": 2800
+                },
+                {
+                  "labelExact": "Hauptgericht",
+                  "priceString": "36 €",
+                  "priceCents": 3600
+                }
+              ]
+            },
+            {
+              "exactName": "See- Saibling",
+              "prices": [
+                {
+                  "labelExact": "Zwischengericht",
+                  "priceString": "25 €",
+                  "priceCents": 2500
+                },
+                {
+                  "labelExact": "Hauptgericht",
+                  "priceString": "32 €",
+                  "priceCents": 3200
+                }
+              ]
+            }
+          ],
+          "benchmarkExpectation": "Attach both labeled absolute prices to the same item."
+        },
+        {
+          "id": "green-item-names-without-legend",
+          "pages": [
+            2,
+            3
+          ],
+          "visibleEvidence": "Several item names are green, but no legend explains the color anywhere in the fixture.",
+          "benchmarkExpectation": "Do not infer a dietary declaration from color alone."
+        },
+        {
+          "id": "ambiguous-vegetarian-section",
+          "pages": [
+            3
+          ],
+          "visibleEvidence": "The heading reads Pasta / vegetarisch, while the first listed item Spaghetti al Limone explicitly includes Chili- Knoblauch- Garnelen.",
+          "benchmarkExpectation": "Preserve the section text but do not automatically propagate a vegetarian claim to every listed item."
+        },
+        {
+          "id": "surprise-menu-bundle",
+          "pages": [
+            4
+          ],
+          "visibleEvidence": "The 3-course Überraschungsmenü says individual selection is not vorgesehen and is priced at 55 € per person.",
+          "benchmarkExpectation": "Represent one per-person bundle price and preserve the no-selection notice."
+        },
+        {
+          "id": "allergen-notice-without-item-codes",
+          "pages": [
+            4
+          ],
+          "visibleEvidence": "The small footer asks guests to contact service about Rezeptur-Allergene but lists no item-level allergen names or codes.",
+          "benchmarkExpectation": "Capture the notice only; do not invent item declarations."
+        }
+      ]
+    }
+  ]
+}

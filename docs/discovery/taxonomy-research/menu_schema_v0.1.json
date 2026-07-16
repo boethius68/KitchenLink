@@ -1,0 +1,1472 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kitchenlink.local/discovery/menu_schema_v0.1.json",
+  "title": "KitchenLink Menu Import Draft v0.1",
+  "description": "Lossless, evidence-bound menu import contract. Discovery artifact, NOT a production schema. Every normalized value MUST carry raw text, source location, confidence and review status. 'unknown' is always valid. No allergens/additives/ingredients/claims may be derived from world knowledge.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "sourceEvidence",
+    "draft"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.2.0",
+      "description": "Pinned schema/ontology/prompt/model version captured per draft. v0.2.0: per_unit removed from priceKind enum (now Offer.grundpreis); if/then price constraints added; BundleComponent.optionGroup required."
+    },
+    "sourceEvidence": {
+      "$ref": "#/$defs/SourceEvidence"
+    },
+    "draft": {
+      "$ref": "#/$defs/MenuImportDraft"
+    }
+  },
+  "$defs": {
+    "SourceEvidence": {
+      "type": "object",
+      "description": "Provenance of the source document (image/PDF/HTML). Rights/access status must be recorded; private user uploads are forbidden in research.",
+      "required": [
+        "sourceId",
+        "canonicalUrl",
+        "accessedAt",
+        "rightsStatus",
+        "contentFingerprint"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "canonicalUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string",
+          "description": "ISO-3166-1 alpha-2"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "BCP-47, e.g. de-DE"
+          }
+        },
+        "venueType": {
+          "type": "string",
+          "description": "Free descriptor kept as-is; canonical facet lives on the draft.",
+          "examples": [
+            "restaurant",
+            "cafe",
+            "bar",
+            "biergarten",
+            "fine_dining",
+            "hotel",
+            "delivery",
+            "bakery",
+            "canteen",
+            "seasonal"
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "photo",
+            "scan",
+            "text_pdf",
+            "image_pdf",
+            "html",
+            "qr_menu",
+            "unknown"
+          ]
+        },
+        "officialSource": {
+          "type": "boolean"
+        },
+        "accessedAt": {
+          "type": "string",
+          "format": "date"
+        },
+        "rightsStatus": {
+          "type": "string",
+          "enum": [
+            "reusable",
+            "research_only",
+            "metadata_only",
+            "unclear",
+            "excluded"
+          ]
+        },
+        "robotsStatus": {
+          "type": "string",
+          "enum": [
+            "allowed",
+            "restricted",
+            "unknown"
+          ]
+        },
+        "contentFingerprint": {
+          "type": "string",
+          "description": "sha256 of normalized text or perceptual hash for images"
+        },
+        "duplicateCluster": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "EvidenceRef": {
+      "type": "object",
+      "description": "Traceability back to the original. Required for any normalized value.",
+      "required": [
+        "rawText",
+        "sourceId",
+        "confidence",
+        "reviewStatus"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rawText": {
+          "type": "string",
+          "description": "Verbatim original text, original spelling."
+        },
+        "sourceId": {
+          "type": "string"
+        },
+        "directUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "pageOrLocation": {
+          "type": "string",
+          "description": "Page index, section title, bounding box, OCR span — whatever locates the evidence."
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "ocr",
+            "ocr_on_enhanced",
+            "layout_rule",
+            "llm",
+            "human",
+            "imported",
+            "unknown"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reviewStatus": {
+          "type": "string",
+          "enum": [
+            "unreviewed",
+            "human_accepted",
+            "human_edited",
+            "human_rejected",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "LocalizableText": {
+      "type": "object",
+      "description": "Original text plus optional translations. Translations MUST be marked as translations, never overwrite the original.",
+      "required": [
+        "value",
+        "lang"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string",
+          "description": "BCP-47"
+        },
+        "isTranslation": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "MenuImportDraft": {
+      "type": "object",
+      "required": [
+        "menuTitle",
+        "sections"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "menuTitle": {
+          "$ref": "#/$defs/LocalizableText"
+        },
+        "menuTitleEvidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        },
+        "declaredLanguages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "globalLegends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Legend"
+          },
+          "description": "Legends stated to apply to the whole menu. Scope-existence must be explicit; never assume."
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Section"
+          }
+        }
+      }
+    },
+    "Section": {
+      "type": "object",
+      "description": "Visible, ordered, nestable menu section. Original title/spelling/order preserved.",
+      "required": [
+        "originalTitle",
+        "order"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sectionId": {
+          "type": "string"
+        },
+        "originalTitle": {
+          "$ref": "#/$defs/LocalizableText"
+        },
+        "titleEvidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "subSections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Section"
+          }
+        },
+        "facets": {
+          "$ref": "#/$defs/SectionFacets"
+        },
+        "localLegends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Legend"
+          }
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Entry"
+          }
+        },
+        "continuedFromSectionId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "If a section visibly continues from a previous page/section, link it; else null."
+        }
+      }
+    },
+    "SectionFacets": {
+      "type": "object",
+      "description": "Independent classification axes. NEVER a single flat list. Each facet allows unknown/unmapped plus documented extension.",
+      "additionalProperties": false,
+      "properties": {
+        "consumptionFamily": {
+          "type": "string",
+          "enum": [
+            "food",
+            "drink",
+            "bundle",
+            "retail",
+            "fee_deposit",
+            "information",
+            "unknown"
+          ],
+          "description": "What kind of sellable thing this is."
+        },
+        "courseRole": {
+          "type": "string",
+          "description": "Free, extensible role string (NOT closed enum): breakfast, appetizer, soup, salad, main, side, dessert, snack, kids, sharing, daily, tasting, set_menu, unknown ...",
+          "examples": [
+            "appetizer",
+            "main",
+            "dessert",
+            "kids",
+            "tasting",
+            "daily",
+            "unknown"
+          ]
+        },
+        "productFamily": {
+          "type": "string",
+          "description": "Extensible tree path, e.g. 'drink/wine/white/riesling'. Never closed. Use 'unknown' rather than forcing a guess."
+        },
+        "context": {
+          "$ref": "#/$defs/ContextFacet"
+        }
+      }
+    },
+    "ContextFacet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeOfDay": {
+          "type": "string",
+          "description": "free/extensible: breakfast, lunch, dinner, all_day, unknown"
+        },
+        "dayOfWeek": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "season": {
+          "type": "string"
+        },
+        "channel": {
+          "type": "string",
+          "enum": [
+            "dine_in",
+            "takeaway",
+            "delivery",
+            "catering",
+            "all",
+            "unknown"
+          ]
+        },
+        "location": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string",
+          "description": "free: kids, sharing, min_persons:4, unknown"
+        },
+        "minPersons": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "Entry": {
+      "type": "object",
+      "description": "A single sellable line. Entry kind drives what fields are meaningful.",
+      "required": [
+        "entryKind",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "entryId": {
+          "type": "string"
+        },
+        "entryKind": {
+          "type": "string",
+          "enum": [
+            "simple_item",
+            "configurable_item",
+            "bundle",
+            "notice",
+            "fee_deposit",
+            "unknown"
+          ]
+        },
+        "name": {
+          "$ref": "#/$defs/LocalizableText"
+        },
+        "nameEvidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        },
+        "description": {
+          "$ref": "#/$defs/LocalizableText"
+        },
+        "descriptionEvidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        },
+        "itemNumber": {
+          "type": "string",
+          "description": "Verbatim numbering if present."
+        },
+        "repeatedPlacement": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if the same item appears in multiple sections (must not be silently deduped)."
+        },
+        "availability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "available",
+                "unavailable",
+                "limited",
+                "unknown"
+              ]
+            },
+            "evidence": {
+              "$ref": "#/$defs/EvidenceRef"
+            }
+          }
+        },
+        "facets": {
+          "$ref": "#/$defs/SectionFacets"
+        },
+        "offers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Offer"
+          }
+        },
+        "quantities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Quantity"
+          }
+        },
+        "optionGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptionGroup"
+          }
+        },
+        "bundleComponents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BundleComponent"
+          },
+          "description": "Only for entryKind=bundle. Each component may itself be configurable."
+        },
+        "declarations": {
+          "$ref": "#/$defs/Declarations"
+        }
+      }
+    },
+    "Quantity": {
+      "type": "object",
+      "description": "Quantity axis. Unit is free/extensible; canonical categories are ml/cl/l, mg/g/kg, piece, portion, person, diameter, plus free text.",
+      "required": [
+        "rawQuantity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rawQuantity": {
+          "type": "string",
+          "description": "Verbatim, e.g. '0,5 l', '1/2 Pfund', 'Ø 32 cm', '2 Personen'."
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "examples": [
+            "ml",
+            "cl",
+            "l",
+            "mg",
+            "g",
+            "kg",
+            "piece",
+            "portion",
+            "person",
+            "diameter_cm",
+            "unknown"
+          ]
+        },
+        "unitCategory": {
+          "type": "string",
+          "enum": [
+            "volume",
+            "weight",
+            "count",
+            "portion",
+            "person",
+            "diameter",
+            "free",
+            "unknown"
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        }
+      }
+    },
+    "Offer": {
+      "type": "object",
+      "description": "A price statement. Absolute price and price delta are STRICTLY separated. An item with no visible base price (price only at a variant) is modeled as priceKind=unknown on the item.",
+      "required": [
+        "priceKind",
+        "evidence"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "priceKind": {
+                "const": "delta"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "amountCents": {
+                "const": null
+              },
+              "deltaCents": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "deltaCents"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "priceKind": {
+                "const": "fixed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "deltaCents": {
+                "const": null
+              },
+              "amountCents": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "amountCents"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "priceKind": {
+                "const": "included"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "amountCents": {
+                "const": null
+              },
+              "deltaCents": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "priceKind": {
+                "const": "free"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "amountCents": {
+                "const": 0
+              },
+              "deltaCents": {
+                "const": null
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "priceKind": {
+          "type": "string",
+          "enum": [
+            "fixed",
+            "from",
+            "range",
+            "market",
+            "on_request",
+            "included",
+            "free",
+            "delta",
+            "unknown"
+          ]
+        },
+        "amountCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Absolute amount in minor units. Null unless a concrete absolute price is visible."
+        },
+        "deltaCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Signed surcharge/discount relative to a base; only for priceKind=delta."
+        },
+        "minAmountCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maxAmountCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "description": "ISO-4217, e.g. EUR"
+        },
+        "rawPrice": {
+          "type": "string",
+          "description": "Verbatim price token, e.g. 'ab 9,00 €', 'auf Anfrage', 'Marktpreis'."
+        },
+        "basis": {
+          "type": "string",
+          "enum": [
+            "per_item",
+            "per_person",
+            "per_piece",
+            "per_weight",
+            "per_volume",
+            "per_unit",
+            "unknown"
+          ]
+        },
+        "appliesToQuantity": {
+          "type": "string",
+          "description": "Reference to a Quantity.rawQuantity this price attaches to, e.g. '0,5 l'."
+        },
+        "deposit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amountCents": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "depositType": {
+              "type": "string",
+              "enum": [
+                "single_use",
+                "reusable",
+                "unknown"
+              ]
+            },
+            "rawText": {
+              "type": "string"
+            }
+          }
+        },
+        "grundpreis": {
+          "type": "object",
+          "description": "Per-unit base price required by PAngV (e.g. '1 L = 11,80 €'). Separate from the main price; not a priceKind value.",
+          "additionalProperties": false,
+          "properties": {
+            "amountCents": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "basis": {
+              "type": "string",
+              "enum": [
+                "per_volume",
+                "per_weight",
+                "per_piece",
+                "per_unit",
+                "unknown"
+              ]
+            },
+            "rawText": {
+              "type": "string"
+            },
+            "evidence": {
+              "$ref": "#/$defs/EvidenceRef"
+            }
+          }
+        },
+        "packagingFee": {
+          "$ref": "#/$defs/EvidenceRef"
+        },
+        "surcharge": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amountCents": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "examples": [
+                "credit_card",
+                "delivery",
+                "evening",
+                "unknown"
+              ]
+            },
+            "rawText": {
+              "type": "string"
+            }
+          }
+        },
+        "evidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        }
+      }
+    },
+    "OptionGroup": {
+      "type": "object",
+      "description": "A group of choices with selection rules. Modeled after Toast ModifierGroup evidence: required/optional, single/multiple, min/max, defaults, free-selection count, repeat, dependencies.",
+      "required": [
+        "originalTitle",
+        "selectionRule"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "groupId": {
+          "type": "string"
+        },
+        "originalTitle": {
+          "$ref": "#/$defs/LocalizableText",
+          "description": "e.g. 'Größe wählen', 'Beilagenauswahl (1 inklusive)'."
+        },
+        "titleEvidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        },
+        "selectionRule": {
+          "type": "object",
+          "required": [
+            "required",
+            "cardinality"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "string",
+              "enum": [
+                "required",
+                "optional",
+                "optional_force_show",
+                "unknown"
+              ]
+            },
+            "cardinality": {
+              "type": "string",
+              "enum": [
+                "single",
+                "multiple",
+                "unknown"
+              ]
+            },
+            "min": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "max": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "freeSelectionCount": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "How many choices are included before a surcharge applies."
+            },
+            "defaultOptionIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "repeatable": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "requires",
+                  "excludes",
+                  "enables",
+                  "unknown"
+                ]
+              },
+              "optionId": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Choice"
+          }
+        }
+      }
+    },
+    "Choice": {
+      "type": "object",
+      "description": "A modifier/variant inside a group. PRICE SEMANTICS MUST BE EXPLICIT via offer.priceKind: absolute variant price (fixed) vs delta (surcharge) vs included vs unknown.",
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "optionId": {
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/LocalizableText"
+        },
+        "nameEvidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        },
+        "choiceKind": {
+          "type": "string",
+          "enum": [
+            "size",
+            "portion",
+            "volume",
+            "preparation",
+            "protein",
+            "ingredient",
+            "side",
+            "sauce",
+            "dressing",
+            "flavor",
+            "temperature",
+            "addon",
+            "remove",
+            "substitute",
+            "upgrade",
+            "bundle_component",
+            "unknown"
+          ]
+        },
+        "preModifier": {
+          "type": "string",
+          "enum": [
+            "add",
+            "no",
+            "sub",
+            "extra",
+            "on_side",
+            "unknown"
+          ],
+          "description": "Verbatim pre-modifier category as documented by Toast (EXTRA/NO/SUB/ADD/ON SIDE)."
+        },
+        "quantity": {
+          "$ref": "#/$defs/Quantity"
+        },
+        "offer": {
+          "$ref": "#/$defs/Offer"
+        },
+        "declarations": {
+          "$ref": "#/$defs/Declarations"
+        }
+      }
+    },
+    "BundleComponent": {
+      "type": "object",
+      "description": "A slot in a set menu / bundle, e.g. 'Choose one appetizer', 'Meat or shrimp'. Component may itself reference optionGroups.",
+      "required": [
+        "slotTitle",
+        "optionGroup"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "slotTitle": {
+          "$ref": "#/$defs/LocalizableText"
+        },
+        "slotEvidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        },
+        "optionGroup": {
+          "$ref": "#/$defs/OptionGroup"
+        }
+      }
+    },
+    "Declarations": {
+      "type": "object",
+      "description": "Only explicitly evidenced statements. NEVER derive allergens/additives/ingredients/claims from world knowledge. Local codes and legend text kept separate from canonical IDs.",
+      "additionalProperties": false,
+      "properties": {
+        "allergens": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Declaration"
+          }
+        },
+        "additives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Declaration"
+          }
+        },
+        "ingredients": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Declaration"
+          },
+          "description": "Only if explicitly listed on the menu."
+        },
+        "dietaryClaims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Declaration"
+          },
+          "description": "e.g. vegan, vegetarian, gluten_free — only if claimed."
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Declaration"
+          }
+        }
+      }
+    },
+    "Declaration": {
+      "type": "object",
+      "required": [
+        "rawText",
+        "evidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rawText": {
+          "type": "string",
+          "description": "Verbatim code/symbol/text, e.g. '1', 'Gf', '🥜', '(enthältSellerie)'."
+        },
+        "localCode": {
+          "type": "string",
+          "description": "Local legend key, kept as-is, not auto-mapped."
+        },
+        "canonicalId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Canonical ID ONLY when a legend explicitly maps the local code. Null otherwise. EU-14 and US Big-8 conflict, so the source legend is authoritative."
+        },
+        "claim": {
+          "type": "string",
+          "enum": [
+            "contains",
+            "may_contain",
+            "traces",
+            "free_from",
+            "unknown"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "menu",
+            "page",
+            "section",
+            "entry",
+            "option",
+            "unknown"
+          ],
+          "description": "Stated scope of the declaration. Conflict between legend and item must be preserved."
+        },
+        "evidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        }
+      }
+    },
+    "Legend": {
+      "type": "object",
+      "description": "A legend block. Scope must be explicit (global vs local). Unmapped codes stay as-is.",
+      "required": [
+        "rawText"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rawText": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "global",
+            "page",
+            "section",
+            "entry",
+            "unknown"
+          ]
+        },
+        "mappings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "localCode",
+              "canonicalId"
+            ],
+            "properties": {
+              "localCode": {
+                "type": "string"
+              },
+              "canonicalId": {
+                "type": "string",
+                "description": "Explicitly stated mapping only."
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        },
+        "evidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "0.2.0",
+      "sourceEvidence": {
+        "sourceId": "augustinK_biergarten_2026",
+        "canonicalUrl": "https://www.augustinerkeller.de/Speisen-Getr%C3%A4nke/DE-biergarten.pdf",
+        "provider": "Augustiner-Keller",
+        "country": "DE",
+        "languages": [
+          "de-DE"
+        ],
+        "venueType": "biergarten",
+        "format": "text_pdf",
+        "officialSource": true,
+        "accessedAt": "2026-07-16",
+        "rightsStatus": "research_only",
+        "robotsStatus": "allowed",
+        "contentFingerprint": "sha256:placeholder",
+        "duplicateCluster": null,
+        "notes": "Beer sizes with absolute prices per volume."
+      },
+      "draft": {
+        "menuTitle": {
+          "value": "Biergarten Getränke",
+          "lang": "de-DE"
+        },
+        "sections": [
+          {
+            "originalTitle": {
+              "value": "Bier vom Fass",
+              "lang": "de-DE"
+            },
+            "order": 0,
+            "facets": {
+              "consumptionFamily": "drink",
+              "courseRole": "unknown",
+              "productFamily": "drink/beer/lager"
+            },
+            "entries": [
+              {
+                "entryKind": "simple_item",
+                "name": {
+                  "value": "Augustiner Edelstoff",
+                  "lang": "de-DE"
+                },
+                "quantities": [
+                  {
+                    "rawQuantity": "0,25 L",
+                    "value": 0.25,
+                    "unit": "l",
+                    "unitCategory": "volume"
+                  },
+                  {
+                    "rawQuantity": "0,5 L",
+                    "value": 0.5,
+                    "unit": "l",
+                    "unitCategory": "volume"
+                  }
+                ],
+                "offers": [
+                  {
+                    "priceKind": "fixed",
+                    "amountCents": 310,
+                    "currency": "EUR",
+                    "rawPrice": "3,10 €",
+                    "basis": "per_item",
+                    "appliesToQuantity": "0,25 L",
+                    "evidence": {
+                      "rawText": "0,25 L = 3,10 €",
+                      "sourceId": "augustinK_biergarten_2026",
+                      "confidence": 0.95,
+                      "reviewStatus": "unreviewed"
+                    }
+                  },
+                  {
+                    "priceKind": "fixed",
+                    "amountCents": 590,
+                    "currency": "EUR",
+                    "rawPrice": "5,90 €",
+                    "basis": "per_item",
+                    "appliesToQuantity": "0,5 L",
+                    "evidence": {
+                      "rawText": "0,5 L = 5,90 €",
+                      "sourceId": "augustinK_biergarten_2026",
+                      "confidence": 0.95,
+                      "reviewStatus": "unreviewed"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": "0.2.0",
+      "sourceEvidence": {
+        "sourceId": "intercontinental_berlin_alacarte_2023",
+        "canonicalUrl": "https://www.berlin.intercontinental.com/wp-content/uploads/2023/04/A3-a-la-carte-dt_und_eng.pdf",
+        "provider": "InterContinental Berlin",
+        "country": "DE",
+        "languages": [
+          "de-DE",
+          "en-US"
+        ],
+        "venueType": "fine_dining",
+        "format": "text_pdf",
+        "officialSource": true,
+        "accessedAt": "2026-07-16",
+        "rightsStatus": "research_only",
+        "robotsStatus": "allowed",
+        "contentFingerprint": "sha256:placeholder",
+        "duplicateCluster": null,
+        "notes": "Numbered allergen legend 1-14; legend scope global."
+      },
+      "draft": {
+        "menuTitle": {
+          "value": "À la carte",
+          "lang": "de-DE"
+        },
+        "sections": [
+          {
+            "originalTitle": {
+              "value": "Vorspeisen",
+              "lang": "de-DE"
+            },
+            "order": 0,
+            "facets": {
+              "consumptionFamily": "food",
+              "courseRole": "appetizer",
+              "productFamily": "unknown"
+            },
+            "entries": [
+              {
+                "entryKind": "simple_item",
+                "name": {
+                  "value": "Schneekrabbe & Imperial-Kaviar",
+                  "lang": "de-DE"
+                },
+                "offers": [
+                  {
+                    "priceKind": "fixed",
+                    "amountCents": 2800,
+                    "currency": "EUR",
+                    "rawPrice": "28,00 €",
+                    "basis": "per_item",
+                    "evidence": {
+                      "rawText": "28,00 €",
+                      "sourceId": "intercontinental_berlin_alacarte_2023",
+                      "confidence": 0.9,
+                      "reviewStatus": "unreviewed"
+                    }
+                  }
+                ],
+                "declarations": {
+                  "allergens": [
+                    {
+                      "rawText": "1,2,3,7,8",
+                      "localCode": "1,2,3,7,8",
+                      "canonicalId": null,
+                      "claim": "contains",
+                      "scope": "entry",
+                      "evidence": {
+                        "rawText": "1,2,3,7,8",
+                        "sourceId": "intercontinental_berlin_alacarte_2023",
+                        "confidence": 0.9,
+                        "reviewStatus": "unreviewed"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": "0.2.0",
+      "sourceEvidence": {
+        "sourceId": "bundle_example_meat_or_shrimp",
+        "canonicalUrl": "https://example.invalid/bundle",
+        "provider": "Example Steakhouse",
+        "country": "DE",
+        "languages": [
+          "de-DE"
+        ],
+        "venueType": "restaurant",
+        "format": "text_pdf",
+        "officialSource": false,
+        "accessedAt": "2026-07-16",
+        "rightsStatus": "unclear",
+        "robotsStatus": "unknown",
+        "contentFingerprint": "sha256:placeholder",
+        "duplicateCluster": null,
+        "notes": "Illustrative composite for meat-or-shrimp + included side + extras for surcharge."
+      },
+      "draft": {
+        "menuTitle": {
+          "value": "Beispiel-Bundle",
+          "lang": "de-DE"
+        },
+        "sections": [
+          {
+            "originalTitle": {
+              "value": "Hauptgänge",
+              "lang": "de-DE"
+            },
+            "order": 0,
+            "facets": {
+              "consumptionFamily": "food",
+              "courseRole": "main",
+              "productFamily": "unknown"
+            },
+            "entries": [
+              {
+                "entryKind": "bundle",
+                "name": {
+                  "value": "Grillteller",
+                  "lang": "de-DE"
+                },
+                "offers": [
+                  {
+                    "priceKind": "fixed",
+                    "amountCents": 2490,
+                    "currency": "EUR",
+                    "rawPrice": "24,90 €",
+                    "basis": "per_item",
+                    "evidence": {
+                      "rawText": "24,90 €",
+                      "sourceId": "bundle_example_meat_or_shrimp",
+                      "confidence": 0.9,
+                      "reviewStatus": "unreviewed"
+                    }
+                  }
+                ],
+                "bundleComponents": [
+                  {
+                    "slotTitle": {
+                      "value": "Fleisch oder Garnelen wählen",
+                      "lang": "de-DE"
+                    },
+                    "optionGroup": {
+                      "originalTitle": {
+                        "value": "Proteinwahl",
+                        "lang": "de-DE"
+                      },
+                      "selectionRule": {
+                        "required": "required",
+                        "cardinality": "single",
+                        "min": 1,
+                        "max": 1,
+                        "freeSelectionCount": 1,
+                        "defaultOptionIds": [],
+                        "repeatable": false
+                      },
+                      "options": [
+                        {
+                          "optionId": "beef",
+                          "name": {
+                            "value": "Rinderfilet",
+                            "lang": "de-DE"
+                          },
+                          "choiceKind": "protein",
+                          "offer": {
+                            "priceKind": "included",
+                            "currency": "EUR",
+                            "rawPrice": "inklusive",
+                            "basis": "per_item",
+                            "evidence": {
+                              "rawText": "inklusive",
+                              "sourceId": "bundle_example_meat_or_shrimp",
+                              "confidence": 0.9,
+                              "reviewStatus": "unreviewed"
+                            }
+                          }
+                        },
+                        {
+                          "optionId": "shrimp",
+                          "name": {
+                            "value": "Garnelen",
+                            "lang": "de-DE"
+                          },
+                          "choiceKind": "protein",
+                          "offer": {
+                            "priceKind": "delta",
+                            "deltaCents": 500,
+                            "currency": "EUR",
+                            "rawPrice": "+ 5,00 €",
+                            "basis": "per_item",
+                            "evidence": {
+                              "rawText": "+ 5,00 €",
+                              "sourceId": "bundle_example_meat_or_shrimp",
+                              "confidence": 0.9,
+                              "reviewStatus": "unreviewed"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "slotTitle": {
+                      "value": "Beilage (1 inklusive, jede weitere +2,50 €)",
+                      "lang": "de-DE"
+                    },
+                    "optionGroup": {
+                      "originalTitle": {
+                        "value": "Beilagenauswahl",
+                        "lang": "de-DE"
+                      },
+                      "selectionRule": {
+                        "required": "optional",
+                        "cardinality": "multiple",
+                        "min": 0,
+                        "max": null,
+                        "freeSelectionCount": 1,
+                        "defaultOptionIds": [],
+                        "repeatable": true
+                      },
+                      "options": [
+                        {
+                          "optionId": "fries",
+                          "name": {
+                            "value": "Pommes",
+                            "lang": "de-DE"
+                          },
+                          "choiceKind": "side",
+                          "offer": {
+                            "priceKind": "included",
+                            "rawPrice": "1x inklusive",
+                            "basis": "per_item",
+                            "evidence": {
+                              "rawText": "1 inklusive",
+                              "sourceId": "bundle_example_meat_or_shrimp",
+                              "confidence": 0.85,
+                              "reviewStatus": "unreviewed"
+                            }
+                          }
+                        },
+                        {
+                          "optionId": "salad",
+                          "name": {
+                            "value": "Salat",
+                            "lang": "de-DE"
+                          },
+                          "choiceKind": "side",
+                          "offer": {
+                            "priceKind": "delta",
+                            "deltaCents": 250,
+                            "rawPrice": "+ 2,50 €",
+                            "basis": "per_item",
+                            "evidence": {
+                              "rawText": "+ 2,50 €",
+                              "sourceId": "bundle_example_meat_or_shrimp",
+                              "confidence": 0.85,
+                              "reviewStatus": "unreviewed"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

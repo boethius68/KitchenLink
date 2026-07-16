@@ -1,0 +1,22 @@
+{
+  "fixtures": [
+    {
+      "id": "scheune-berlin",
+      "minimumSectionRecall": 1.0,
+      "minimumItemNameRecall": 0.93,
+      "minimumItemPriceRecall": 0.93
+    },
+    {
+      "id": "lichtburg-berlin",
+      "minimumSectionRecall": 0.91,
+      "minimumItemNameRecall": 0.87,
+      "minimumItemPriceRecall": 0.87
+    },
+    {
+      "id": "alexxanders-chemnitz",
+      "minimumSectionRecall": 0.85,
+      "minimumItemNameRecall": 0.93,
+      "minimumItemPriceRecall": 0.93
+    }
+  ]
+}

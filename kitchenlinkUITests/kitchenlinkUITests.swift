@@ -38,6 +38,7 @@ final class kitchenlinkUITests: XCTestCase {
         XCTAssertTrue(app.scrollViews["menuImport.entry"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["menuImport.openScanner"].exists)
         XCTAssertTrue(app.buttons["menuImport.choosePhotos"].exists)
+        XCTAssertTrue(app.buttons["menuImport.demoFixture"].exists)
     }
 
     @MainActor

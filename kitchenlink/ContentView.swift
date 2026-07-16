@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import CryptoKit
 import PhotosUI
 import SwiftUI
 import UIKit
@@ -3955,13 +3956,53 @@ enum MenuImportService {
         let text: String
         let boundingBox: CGRect
         let pageIndex: Int
+        let method: MenuImportEvidenceMethod
+        let confidence: Double
+
+        init(
+            text: String,
+            boundingBox: CGRect,
+            pageIndex: Int,
+            method: MenuImportEvidenceMethod = .ocr,
+            confidence: Double = 0.75
+        ) {
+            self.text = text
+            self.boundingBox = boundingBox
+            self.pageIndex = pageIndex
+            self.method = method
+            self.confidence = confidence
+        }
+    }
+
+    typealias BenchmarkOCRLine = MenuImportOCRLine
+
+    struct ImportResult {
+        let sections: [MenuSectionData]
+        let draft: MenuImportDraft
+    }
+
+    struct BenchmarkImportResult {
+        let sections: [MenuSectionData]
+        let ocrLines: [BenchmarkOCRLine]
+        let draft: MenuImportDraft
+    }
+
+    private struct LocalParseResult {
+        let sections: [MenuSectionData]
+        let unpricedCandidates: [MenuImportUnpricedCandidate]
     }
 
     private struct PendingMenuItem {
         let title: String
         let kind: MenuItemKind
+        let titleHeight: CGFloat
+        let titleToken: OCRLineToken
+        let sectionID: String?
+        let sectionTitle: String?
         var descriptions: [String]
+        var descriptionTokens: [OCRLineToken]
         var allergenCodes: String?
+        var lastLineMidY: CGFloat
     }
 
     private static let llmEnabledStorageKey = "kitchenlink.import.llm.enabled"
@@ -4030,6 +4071,16 @@ enum MenuImportService {
         from images: [UIImage],
         progress: (@Sendable (_ completed: Int, _ total: Int) async -> Void)? = nil
     ) async throws -> [MenuSectionData] {
+        try await importMenu(from: images, progress: progress).sections
+    }
+
+    static func importMenu(
+        from images: [UIImage],
+        sourceType: MenuImportSourceDocument.SourceType = .other,
+        sourceTypeDetail: String? = "legacy-image-import",
+        displayName: String? = nil,
+        progress: (@Sendable (_ completed: Int, _ total: Int) async -> Void)? = nil
+    ) async throws -> ImportResult {
         lastImportDiagnosticsStorage = "Nur OCR-Regeln genutzt."
         var allLines: [OCRLineToken] = []
         let totalPages = images.count
@@ -4041,6 +4092,7 @@ enum MenuImportService {
         }
 
         let detectedLegend = detectAllergenLegend(from: allLines)
+        let localParseResult = parseLinesToResult(allLines, allergenLegend: detectedLegend)
         let sections: [MenuSectionData]
 
         if isLLMEnabled(), hasConfiguredLLMAPIKey() {
@@ -4063,7 +4115,7 @@ enum MenuImportService {
             }
             lastImportDiagnosticsStorage = llmOutcome.message
         } else {
-            sections = parseLinesToSections(allLines, allergenLegend: detectedLegend)
+            sections = localParseResult.sections
             lastImportDiagnosticsStorage = isLLMEnabled()
                 ? "Kein KI-Zugang konfiguriert. Lokale OCR-Regeln genutzt."
                 : "KI-Reflexion deaktiviert. Nur OCR-Regeln genutzt."
@@ -4073,7 +4125,92 @@ enum MenuImportService {
         guard itemCount > 0 else {
             throw ImportError.noMenuItemsDetected
         }
-        return sections
+
+        let sourceDocument = makeSourceDocument(
+            from: images,
+            sourceType: sourceType,
+            sourceTypeDetail: sourceTypeDetail,
+            displayName: displayName
+        )
+        let draft = MenuImportDraftAdapter().makeDraft(
+            sourceDocument: sourceDocument,
+            legacySections: sections,
+            ocrLines: allLines.map(snapshot),
+            unpricedCandidates: localParseResult.unpricedCandidates
+        )
+        return ImportResult(sections: sections, draft: draft)
+    }
+
+    static func benchmarkLocalImport(
+        from images: [UIImage],
+        sourceDocument: MenuImportSourceDocument
+    ) async throws -> BenchmarkImportResult {
+        lastImportDiagnosticsStorage = "Benchmark: Apple Vision und lokale OCR-Regeln."
+        var allLines: [OCRLineToken] = []
+
+        for (pageIndex, image) in images.enumerated() {
+            let lines = try await recognizeLines(in: image, pageIndex: pageIndex)
+            allLines.append(contentsOf: lines)
+        }
+
+        let detectedLegend = detectAllergenLegend(from: allLines)
+        let localParseResult = parseLinesToResult(allLines, allergenLegend: detectedLegend)
+        let sections = localParseResult.sections
+        let itemCount = sections.reduce(0) { $0 + $1.items.count }
+        guard itemCount > 0 else {
+            throw ImportError.noMenuItemsDetected
+        }
+
+        let ocrLines = allLines.map(snapshot)
+        return BenchmarkImportResult(
+            sections: sections,
+            ocrLines: ocrLines,
+            draft: MenuImportDraftAdapter().makeDraft(
+                sourceDocument: sourceDocument,
+                legacySections: sections,
+                ocrLines: ocrLines,
+                unpricedCandidates: localParseResult.unpricedCandidates
+            )
+        )
+    }
+
+    private static func makeSourceDocument(
+        from images: [UIImage],
+        sourceType: MenuImportSourceDocument.SourceType,
+        sourceTypeDetail: String?,
+        displayName: String?
+    ) -> MenuImportSourceDocument {
+        var hasher = SHA256()
+        for image in images {
+            if let data = image.jpegData(compressionQuality: 0.92) {
+                hasher.update(data: data)
+            } else {
+                let fallback = "\(image.size.width)x\(image.size.height)"
+                hasher.update(data: Data(fallback.utf8))
+            }
+        }
+        let fingerprint = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        return MenuImportSourceDocument(
+            sourceType: sourceType,
+            sourceTypeDetail: sourceTypeDetail,
+            pageCount: images.count,
+            fingerprint: "sha256:\(fingerprint)",
+            displayName: displayName
+        )
+    }
+
+    private static func snapshot(_ line: OCRLineToken) -> MenuImportOCRLine {
+        MenuImportOCRLine(
+            text: line.text,
+            pageIndex: line.pageIndex,
+            minX: Double(line.boundingBox.minX),
+            minY: Double(line.boundingBox.minY),
+            midY: Double(line.boundingBox.midY),
+            width: Double(line.boundingBox.width),
+            height: Double(line.boundingBox.height),
+            method: line.method,
+            confidence: line.confidence
+        )
     }
 
     private struct OpenAIChatRequest: Encodable {
@@ -4856,7 +4993,15 @@ enum MenuImportService {
 
     private static func makeLLMLineDump(from lines: [OCRLineToken]) -> String {
         let sorted = lines
-            .map { OCRLineToken(text: normalizeLine($0.text), boundingBox: $0.boundingBox, pageIndex: $0.pageIndex) }
+            .map {
+                OCRLineToken(
+                    text: normalizeLine($0.text),
+                    boundingBox: $0.boundingBox,
+                    pageIndex: $0.pageIndex,
+                    method: $0.method,
+                    confidence: $0.confidence
+                )
+            }
             .filter { !$0.text.isEmpty }
             .sorted {
                 if $0.pageIndex != $1.pageIndex {
@@ -5132,12 +5277,16 @@ enum MenuImportService {
             throw ImportError.imageConversionFailed
         }
 
-        let primary = try await runOCR(on: enhanced, pageIndex: pageIndex)
-        let secondary = try await runOCR(on: normalized, pageIndex: pageIndex)
+        let primary = try await runOCR(on: enhanced, pageIndex: pageIndex, method: .enhancedOCR)
+        let secondary = try await runOCR(on: normalized, pageIndex: pageIndex, method: .ocr)
         return mergeOCRLines(primary: primary, secondary: secondary)
     }
 
-    private static func runOCR(on image: UIImage, pageIndex: Int) async throws -> [OCRLineToken] {
+    private static func runOCR(
+        on image: UIImage,
+        pageIndex: Int,
+        method: MenuImportEvidenceMethod
+    ) async throws -> [OCRLineToken] {
         guard let cgImage = image.cgImage else {
             throw ImportError.imageConversionFailed
         }
@@ -5156,7 +5305,13 @@ enum MenuImportService {
                     }
                     let cleaned = normalizeLine(candidate.string)
                     guard !cleaned.isEmpty else { return nil }
-                    return OCRLineToken(text: cleaned, boundingBox: observation.boundingBox, pageIndex: pageIndex)
+                    return OCRLineToken(
+                        text: cleaned,
+                        boundingBox: observation.boundingBox,
+                        pageIndex: pageIndex,
+                        method: method,
+                        confidence: Double(candidate.confidence)
+                    )
                 }
                 continuation.resume(returning: lines)
             }
@@ -5185,10 +5340,11 @@ enum MenuImportService {
     private static func mergeOCRLines(primary: [OCRLineToken], secondary: [OCRLineToken]) -> [OCRLineToken] {
         var result = primary
         for line in secondary {
+            let normalizedLine = normalizedForMatching(line.text)
             let exists = result.contains {
                 $0.pageIndex == line.pageIndex &&
                 abs($0.boundingBox.midY - line.boundingBox.midY) < 0.012 &&
-                    $0.text.compare(line.text, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+                    normalizedForMatching($0.text) == normalizedLine
             }
             if !exists {
                 result.append(line)
@@ -5199,7 +5355,15 @@ enum MenuImportService {
 
     private static func detectAllergenLegend(from lines: [OCRLineToken]) -> [String: String] {
         let normalizedLines = lines
-            .map { OCRLineToken(text: normalizeLine($0.text), boundingBox: $0.boundingBox, pageIndex: $0.pageIndex) }
+            .map {
+                OCRLineToken(
+                    text: normalizeLine($0.text),
+                    boundingBox: $0.boundingBox,
+                    pageIndex: $0.pageIndex,
+                    method: $0.method,
+                    confidence: $0.confidence
+                )
+            }
             .filter { $0.text.count >= 3 }
 
         let pagesWithAllergenHeading = Set(
@@ -5337,8 +5501,12 @@ enum MenuImportService {
         return entries
     }
 
-    private static func parseLinesToSections(_ lines: [OCRLineToken], allergenLegend: [String: String]) -> [MenuSectionData] {
+    private static func parseLinesToResult(
+        _ lines: [OCRLineToken],
+        allergenLegend: [String: String]
+    ) -> LocalParseResult {
         var sections: [MenuSectionData] = []
+        var unpricedCandidates: [MenuImportUnpricedCandidate] = []
         var currentSectionIndex: Int?
         var pendingItem: PendingMenuItem?
         var lastInsertedIndexPath: (section: Int, item: Int)?
@@ -5346,6 +5514,7 @@ enum MenuImportService {
         var pendingVariantKind: MenuItemOptionKind?
         var pendingVariantTarget: (section: Int, item: Int)?
         var pendingVariantRowMidY: CGFloat?
+        var pendingBundleTitle: String?
         var sizeHeadersByContext: [ColumnKey: [String]] = [:]
         struct ColumnKey: Hashable {
             let pageIndex: Int
@@ -5353,7 +5522,15 @@ enum MenuImportService {
         }
 
         let normalizedLines = lines
-            .map { OCRLineToken(text: normalizeLine($0.text), boundingBox: $0.boundingBox, pageIndex: $0.pageIndex) }
+            .map {
+                OCRLineToken(
+                    text: normalizeLine($0.text),
+                    boundingBox: $0.boundingBox,
+                    pageIndex: $0.pageIndex,
+                    method: $0.method,
+                    confidence: $0.confidence
+                )
+            }
             .filter { $0.text.count >= 2 }
 
         func sortForReading(_ lines: [OCRLineToken]) -> [OCRLineToken] {
@@ -5511,11 +5688,76 @@ enum MenuImportService {
                 .replacingOccurrences(of: " ", with: "")
         }
 
+        func isBundlePriceLabel(_ text: String) -> Bool {
+            let normalized = normalizedForMatching(text)
+            return normalized.hasPrefix("menupreis") ||
+                normalized.hasPrefix("menuepreis") ||
+                normalized.hasPrefix("menu preis") ||
+                normalized.hasPrefix("pro person")
+        }
+
+        func resolveBundleItemName(_ candidate: String) -> String {
+            guard let bundleTitle = pendingBundleTitle, isBundlePriceLabel(candidate) else {
+                return candidate
+            }
+
+            if let sectionIndex = sections.firstIndex(where: {
+                sectionLookupKey($0.title) == sectionLookupKey(bundleTitle)
+            }) {
+                currentSectionIndex = sectionIndex
+            } else {
+                sections.append(
+                    MenuSectionData(
+                        id: "import-section-\(UUID().uuidString)",
+                        title: bundleTitle,
+                        subtitle: "Importiert",
+                        kind: inferKind(from: bundleTitle),
+                        items: [],
+                        importConfidence: 0.74,
+                        allergenLegend: allergenLegend.isEmpty ? nil : allergenLegend
+                    )
+                )
+                currentSectionIndex = sections.indices.last
+            }
+
+            pendingBundleTitle = nil
+            return bundleTitle
+        }
+
         func clearPendingVariant() {
             pendingVariantName = nil
             pendingVariantKind = nil
             pendingVariantTarget = nil
             pendingVariantRowMidY = nil
+        }
+
+        func preservePendingItemForDraft() {
+            guard let pending = pendingItem else { return }
+            let normalizedTitle = normalizedForMatching(pending.title)
+            let isDuplicate = unpricedCandidates.contains {
+                $0.titleLine.pageIndex == pending.titleToken.pageIndex &&
+                    normalizedForMatching($0.title) == normalizedTitle &&
+                    abs($0.titleLine.minX - Double(pending.titleToken.boundingBox.minX)) < 0.002 &&
+                    abs($0.titleLine.midY - Double(pending.titleToken.boundingBox.midY)) < 0.002
+            }
+            if !isDuplicate {
+                let joinedDescription = pending.descriptions
+                    .joined(separator: " ")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                unpricedCandidates.append(
+                    MenuImportUnpricedCandidate(
+                        sectionID: pending.sectionID,
+                        sectionTitle: pending.sectionTitle,
+                        title: pending.title,
+                        kind: pending.kind.rawValue,
+                        description: joinedDescription.isEmpty ? nil : joinedDescription,
+                        allergenCodes: pending.allergenCodes,
+                        titleLine: snapshot(pending.titleToken),
+                        descriptionLines: pending.descriptionTokens.map(snapshot)
+                    )
+                )
+            }
+            pendingItem = nil
         }
 
         func mergeCodeStrings(_ first: String?, _ second: String?) -> String? {
@@ -5607,7 +5849,7 @@ enum MenuImportService {
             let token = context.token
             let line = token.text
             let isRightColumn = context.key.column > 0
-            let maxExpectedSectionX: CGFloat = isRightColumn ? 0.88 : 0.44
+            let maxExpectedSectionX: CGFloat = isRightColumn ? 0.88 : 0.52
             guard isLikelySectionLine(line) else { return nil }
             guard !isLikelySectionCommentLine(line) else { return nil }
             guard parseInlineItem(from: line) == nil else { return nil }
@@ -5628,7 +5870,8 @@ enum MenuImportService {
             let lastIndex = readingOrderContexts.count - 1
             guard index < lastIndex else { return nil }
             let lookaheadEnd = min(lastIndex, index + 10)
-            let hasMenuEntriesSoon = readingOrderContexts[(index + 1)...lookaheadEnd].contains { candidateContext in
+            let lookahead = Array(readingOrderContexts[(index + 1)...lookaheadEnd])
+            let hasMenuEntriesSoon = lookahead.contains { candidateContext in
                 guard candidateContext.key == context.key else { return false }
                 let candidate = candidateContext.token
                 if parseInlineItem(from: candidate.text) != nil { return true }
@@ -5638,6 +5881,18 @@ enum MenuImportService {
             guard hasMenuEntriesSoon else { return nil }
 
             let isKnownHeading = isKnownSectionHeading(line)
+            if !isKnownHeading {
+                let linesBeforeFirstPrice = lookahead
+                    .filter { $0.key == context.key }
+                    .prefix { parsePriceOnly(from: $0.token.text) == nil }
+                guard let firstFollowingLine = linesBeforeFirstPrice.first else { return nil }
+                let childTitle = firstFollowingLine.token.text
+                guard !childTitle.contains("/"),
+                      isLikelyItemTitleLine(childTitle, hasAlignedPrice: false) else {
+                    return nil
+                }
+            }
+
             let medianHeight = medianLineHeightByPage[token.pageIndex] ?? 0.0
             let isVisuallyProminent = medianHeight > 0 && token.boundingBox.height >= medianHeight * 1.10
             let isLeftStrong = isRightColumn ? token.boundingBox.minX <= 0.62 : token.boundingBox.minX <= 0.28
@@ -5669,8 +5924,19 @@ enum MenuImportService {
             let line = token.text
             let rightPriceColumnMinX = rightPriceColumnMinXByContext[context.key] ?? 0.56
 
+            let normalizedLine = normalizedForMatching(line)
+            if normalizedLine.contains("menu"),
+               !isBundlePriceLabel(line),
+               normalizedLine.split(separator: " ").count <= 6 {
+                pendingBundleTitle = sanitizedSectionTitle(from: line)
+            }
+
             if previousContextKey != context.key {
                 clearPendingVariant()
+                if previousContextKey?.pageIndex != context.key.pageIndex {
+                    preservePendingItemForDraft()
+                    lastInsertedIndexPath = nil
+                }
                 previousContextKey = context.key
             }
 
@@ -5684,9 +5950,13 @@ enum MenuImportService {
 
             if let sectionConfidence = sectionDetectionConfidence(context, at: tokenIndex) {
                 clearPendingVariant()
+                preservePendingItemForDraft()
                 let title = sanitizedSectionTitle(from: line)
                 let kind = inferKind(from: title)
                 let titleKey = sectionLookupKey(title)
+                if normalizedForMatching(title).contains("menu") {
+                    pendingBundleTitle = title
+                }
 
                 if let existingSectionIndex = sections.firstIndex(where: { sectionLookupKey($0.title) == titleKey }) {
                     sections[existingSectionIndex].importConfidence = max(sections[existingSectionIndex].importConfidence, sectionConfidence)
@@ -5704,7 +5974,6 @@ enum MenuImportService {
                     sections.append(section)
                     currentSectionIndex = sections.indices.last
                 }
-                pendingItem = nil
                 continue
             }
 
@@ -5747,6 +6016,7 @@ enum MenuImportService {
 
             if let (name, prices, allergenCodes) = parseInlineItemWithMultiplePrices(from: line) {
                 clearPendingVariant()
+                preservePendingItemForDraft()
                 appendItem(
                     name: name,
                     description: "Automatisch importiert",
@@ -5799,13 +6069,16 @@ enum MenuImportService {
                 }
 
                 if let normalizedVariant = normalizedSizeLabel(from: name), let target = lastInsertedIndexPath {
+                    preservePendingItemForDraft()
                     appendVariant(name: normalizedVariant, priceCents: priceCents, kind: .portion, to: target)
-                    pendingItem = nil
                     continue
                 }
 
+                preservePendingItemForDraft()
+                let resolvedName = resolveBundleItemName(name)
+
                 appendItem(
-                    name: name,
+                    name: resolvedName,
                     description: "Automatisch importiert",
                     priceCents: priceCents,
                     kind: inferKind(from: name),
@@ -5832,10 +6105,10 @@ enum MenuImportService {
                     continue
                 }
 
-                if isRightAlignedPrice, let pending = pendingItem {
+                if let pending = pendingItem {
                     clearPendingVariant()
                     appendItem(
-                        name: pending.title,
+                        name: resolveBundleItemName(pending.title),
                         description: pending.descriptions.joined(separator: " "),
                         priceCents: priceCents,
                         kind: pending.kind,
@@ -5860,13 +6133,39 @@ enum MenuImportService {
                     parsePriceOnly(from: candidate.text) != nil
             }
 
+            if var pending = pendingItem,
+               isLikelyItemTitleLine(line, hasAlignedPrice: hasPriceOnSameRow) {
+                let medianHeight = medianLineHeightByPage[token.pageIndex] ?? token.boundingBox.height
+                let lineGap = abs(pending.lastLineMidY - token.boundingBox.midY)
+                let looksLikeContinuation =
+                    line.contains("/") ||
+                    token.boundingBox.height < pending.titleHeight * 0.95 ||
+                    lineGap <= max(0.024, medianHeight * 1.35)
+
+                if looksLikeContinuation {
+                    pending.descriptions.append(line)
+                    pending.descriptionTokens.append(token)
+                    pending.lastLineMidY = token.boundingBox.midY
+                    pendingItem = pending
+                    continue
+                }
+            }
+
             if isLikelyItemTitleLine(line, hasAlignedPrice: hasPriceOnSameRow) {
                 clearPendingVariant()
+                preservePendingItemForDraft()
+                let pendingSection = currentSectionIndex.flatMap { sections.indices.contains($0) ? sections[$0] : nil }
                 pendingItem = PendingMenuItem(
                     title: line,
                     kind: inferKind(from: line),
+                    titleHeight: token.boundingBox.height,
+                    titleToken: token,
+                    sectionID: pendingSection?.id,
+                    sectionTitle: pendingSection?.title,
                     descriptions: [],
-                    allergenCodes: nil
+                    descriptionTokens: [],
+                    allergenCodes: nil,
+                    lastLineMidY: token.boundingBox.midY
                 )
                 continue
             }
@@ -5890,6 +6189,8 @@ enum MenuImportService {
                     pendingItem = nil
                 } else {
                     pending.descriptions.append(line)
+                    pending.descriptionTokens.append(token)
+                    pending.lastLineMidY = token.boundingBox.midY
                     pendingItem = pending
                 }
             } else if let currentSectionIndex, isLikelySectionCommentLine(line) {
@@ -5914,13 +6215,17 @@ enum MenuImportService {
         }
 
         clearPendingVariant()
+        preservePendingItemForDraft()
         var filtered = sections.filter { !$0.items.isEmpty }
         if !allergenLegend.isEmpty {
             for index in filtered.indices where filtered[index].allergenLegend == nil {
                 filtered[index].allergenLegend = allergenLegend
             }
         }
-        return filtered
+        return LocalParseResult(
+            sections: filtered,
+            unpricedCandidates: unpricedCandidates
+        )
     }
 
     private static func parseVariantInline(from line: String) -> (String, Int, MenuItemOptionKind)? {
@@ -5936,6 +6241,26 @@ enum MenuImportService {
         guard !cleaned.isEmpty else { return nil }
 
         let normalized = normalizedForMatching(cleaned)
+        let normalizedLabel = cleaned
+            .replacingOccurrences(of: #"^[+#\-•]\s*"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if normalized.hasPrefix("als vorspeise") ||
+            normalized.hasPrefix("als hauptgericht") ||
+            normalized.hasPrefix("als hauptspeise") {
+            return (normalizedLabel, .portion)
+        }
+        if normalized.hasPrefix("ohne ") {
+            return (normalizedLabel, .variant)
+        }
+        if normalized.hasPrefix("auf wunsch") || normalized.hasPrefix("als veganes gericht") {
+            return (normalizedLabel, .extra)
+        }
+        if cleaned.hasPrefix("#") && normalized.contains("auf wunsch") {
+            return (normalizedLabel, .extra)
+        }
+
         let startsWithWahlweiseFamily = normalized.hasPrefix("wahlweise") || (normalized.hasPrefix("wah") && normalized.contains("weise"))
         let startsAsVariant =
             startsWithWahlweiseFamily ||
@@ -6037,8 +6362,8 @@ enum MenuImportService {
         return tokens.joined(separator: ",")
     }
 
-    private static func parseInlineItem(from line: String) -> (String, Int, String?)? {
-        let pattern = #"^(.*?)[\s\.\-·_]*([0-9]{1,3}(?:[.,][0-9]{1,2}))\s*(?:€|EUR|eur)?$"#
+    static func parseInlineItem(from line: String) -> (String, Int, String?)? {
+        let pattern = #"^(.*?)[\s\.\-·_]*([0-9]{1,3}(?:[.,][0-9]{1,2})?)\s*(€|EUR|eur)?$"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
               let nameRange = Range(match.range(at: 1), in: line),
@@ -6048,6 +6373,9 @@ enum MenuImportService {
 
         let nameText = String(line[nameRange])
         let priceText = String(line[trailingPriceRange])
+        let hasFraction = priceText.contains(",") || priceText.contains(".")
+        let hasCurrency = match.range(at: 3).location != NSNotFound
+        guard hasFraction || hasCurrency else { return nil }
         guard let priceCents = parsePriceCents(priceText), priceCents > 0 else {
             return nil
         }
@@ -6064,7 +6392,8 @@ enum MenuImportService {
         return (split.name, priceCents, split.allergenCodes)
     }
 
-    private static func parsePriceOnly(from line: String) -> Int? {
+    static func parsePriceOnly(from line: String) -> Int? {
+        let hasCurrency = line.localizedCaseInsensitiveContains("EUR") || line.contains("€")
         let cleaned = line
             .replacingOccurrences(of: "€", with: "")
             .replacingOccurrences(of: "EUR", with: "", options: .caseInsensitive)
@@ -6072,7 +6401,9 @@ enum MenuImportService {
             .replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let pattern = #"^[0-9]{1,3}(?:[.,][0-9]{1,2})$"#
+        let pattern = hasCurrency
+            ? #"^[0-9]{1,3}(?:[.,][0-9]{1,2})?$"#
+            : #"^[0-9]{1,3}(?:[.,][0-9]{1,2})$"#
         guard cleaned.range(of: pattern, options: .regularExpression) != nil else {
             return nil
         }
@@ -6105,7 +6436,10 @@ enum MenuImportService {
         return .food
     }
 
-    private static func isLikelyItemTitleLine(_ text: String, hasAlignedPrice: Bool) -> Bool {
+    static func isLikelyItemTitleLine(_ text: String, hasAlignedPrice: Bool) -> Bool {
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("#") {
+            return false
+        }
         if parseVariantTitle(from: text) != nil {
             return false
         }
@@ -6143,19 +6477,35 @@ enum MenuImportService {
         let words = text.split(separator: " ")
         guard words.count >= 1, words.count <= 8 else { return false }
         if text.count > 42 { return false }
-        if text.contains(where: \.isNumber) { return false }
+        if text.contains(where: \.isNumber) {
+            let quantityPattern = #"(?i)\b[0-9]+\s*(?:g|gr|kg|ml|cl|l|cm|stuck|stueck|stück)\b"#
+            guard text.range(of: quantityPattern, options: .regularExpression) != nil else {
+                return false
+            }
+        }
 
         return true
     }
 
-    private static func isKnownSectionHeading(_ text: String) -> Bool {
+    static func isKnownSectionHeading(_ text: String) -> Bool {
         let normalized = normalizedForMatching(text)
         let compact = normalized.replacingOccurrences(of: " ", with: "")
 
+        let isBundlePriceLabel =
+            normalized.hasPrefix("menupreis") ||
+            normalized.hasPrefix("menuepreis") ||
+            normalized.hasPrefix("menu preis") ||
+            normalized.hasPrefix("pro person")
+        if !isBundlePriceLabel,
+           normalized.contains("menu"),
+           normalized.split(separator: " ").count <= 6 {
+            return true
+        }
+
         let knownCompactHeaders: Set<String> = [
-            "vorspeisen", "hauptgerichte", "dessert", "desserts", "speisen", "snacks",
+            "vorspeise", "vorspeisen", "hauptspeise", "hauptgerichte", "haupgerichte", "dessert", "desserts", "speisen", "speisekarte", "snacks",
             "salate", "salat", "pizza", "pasta", "burger", "getraenke", "drinks",
-            "cocktails", "kaffee", "tee", "bier", "wein", "beilagen",
+            "cocktails", "kaffee", "tee", "bier", "wein", "suppe", "suppen", "steaks", "beilagen",
             "ofenkartoffel", "ofenkartoffeln"
         ]
         if knownCompactHeaders.contains(compact) {
@@ -6165,8 +6515,14 @@ enum MenuImportService {
         let knownPhrases: Set<String> = [
             "ofenkartoffel in folie",
             "ofenkartoffeln in folie",
+            "deftiges aus topf und pfanne",
+            "hauptgerichte main dishes",
+            "insalata salate",
+            "pasta nudelgerichte",
+            "pasta vegetarisch",
             "pasta und fleisch",
-            "pasta neutral"
+            "pasta neutral",
+            "spezialitaten des hauses"
         ]
         return knownPhrases.contains(normalized)
     }
@@ -6191,13 +6547,12 @@ enum MenuImportService {
     }
 
     private static func isLikelySectionLine(_ text: String) -> Bool {
-        guard !text.contains(where: \.isNumber) else { return false }
-        guard parseInlineItem(from: text) == nil else { return false }
-        guard !isLikelySectionCommentLine(text) else { return false }
-
         if isKnownSectionHeading(text) {
             return true
         }
+        guard !text.contains(where: \.isNumber) else { return false }
+        guard parseInlineItem(from: text) == nil else { return false }
+        guard !isLikelySectionCommentLine(text) else { return false }
 
         let normalized = normalizedForMatching(text)
         let words = normalized.split(separator: " ")

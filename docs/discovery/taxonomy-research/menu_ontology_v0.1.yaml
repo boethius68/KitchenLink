@@ -1,0 +1,287 @@
+# KitchenLink Menu Ontology v0.1
+# Status: Discovery artifact. NOT an approved product decision.
+# EVIDENCE LEVEL: LOW — based on 6 deep menu samples (target 100-150).
+# Saturation test: NOT PERFORMED. Closed enums are preliminary.
+# New menu evidence may break assumed categories.
+# Principles (verbatim from MENU_TAXONOMY_RESEARCH_TICKET.md):
+#   - No single global flat category list.
+#   - Preserve original title, spelling, order, hierarchy, raw prices, descriptions, languages, source location.
+#   - Allow multiple facets simultaneously + unknown/unmapped/local extension.
+#   - Separate sellable variants (absolute price) from modifiers (price delta/included/unknown).
+#   - Never derive allergens/additives/ingredients/claims from world knowledge.
+#   - Every normalized value needs raw text, source/evidence, confidence, review status.
+# Versioning rule: bump minor on any axis/enum change; record ontology version on every import draft.
+
+ontologyVersion: "0.2.0"
+status: discovery
+lastReviewed: "2026-07-16"
+# --- Evidenz-Sättigungsstatus (Audit F-01/F-12, Patch P-01) ---
+evidenceLevel: "low"
+deepSampleSize: 9
+requiredSampleSize: 100
+saturationTest: "not saturated (8/20 cards tested, each brought new patterns)"
+warning: "Preliminary v0.2 - unsaturated, based on 9 deep-reviewed menus (target 100-150). Closed enums are provisional; new menu evidence may break them."
+
+axes:
+
+  # ------------------------------------------------------------------
+  # AXIS 1: consumptionFamily — what kind of sellable thing
+  # Evidence: Toast menu catalog (food/drink/retail), Google FoodMenus
+  # item types; German gastronomy separates Speisen/Getraenke/Pfand.
+  # ------------------------------------------------------------------
+  - id: consumptionFamily
+    description: "What kind of sellable thing the entry/section primarily is."
+    closed: true   # closed enum, but with explicit unknown + extension strategy
+    values:
+      - id: food
+        label: { de: "Speise", en: "Food" }
+        excludes: [drink, retail, fee_deposit]
+      - id: drink
+        label: { de: "Getraenk", en: "Drink" }
+        excludes: [food]
+      - id: bundle
+        label: { de: "Menue/Paket", en: "Bundle / Set menu" }
+        definition: "Composite sellable with multiple selectable components (e.g. 3-course menu)."
+      - id: retail
+        label: { de: "Einzelhandel", en: "Retail" }
+        definition: "Take-home product not prepared to order (e.g. bottled wine, jar)."
+      - id: fee_deposit
+        label: { de: "Gebuehr/Pfand", en: "Fee / Deposit" }
+        definition: "Non-consumable charge: deposit, packaging fee, service charge, corkage."
+      - id: information
+        label: { de: "Hinweis", en: "Information" }
+        definition: "Non-sellable notice (legend, allergen statement, availability note)."
+      - id: unknown
+        label: { de: "Unbekannt", en: "Unknown" }
+        definition: "Default. Prefer over forcing a guess."
+    extensionStrategy: "Add new closed value only via ontology minor version bump + documented evidence."
+
+  # ------------------------------------------------------------------
+  # AXIS 2: courseRole — function within a meal
+  # Evidence: Italian sequence (antipasto/primo/secondo/contorno),
+  # French (entree/plat/dessert), German Vorspeise/Hauptgang/Beilage.
+  # Open/extensible because course vocabulary varies by cuisine/venue.
+  # ------------------------------------------------------------------
+  - id: courseRole
+    description: "Functional role of an item within a meal. Extensible; NOT a closed enum."
+    closed: false
+    values:
+      - id: breakfast
+        label: { de: "Fruehstueck", en: "Breakfast" }
+      - id: appetizer
+        label: { de: "Vorspeise", en: "Appetizer / Antipasto / Entree(FR)" }
+      - id: soup
+        label: { de: "Suppe", en: "Soup" }
+      - id: salad
+        label: { de: "Salat", en: "Salad" }
+      - id: main
+        label: { de: "Hauptgang", en: "Main / Primo/Secondo / Plat" }
+      - id: side
+        label: { de: "Beilage", en: "Side / Contorno" }
+      - id: dessert
+        label: { de: "Dessert", en: "Dessert" }
+      - id: snack
+        label: { de: "Snack/Imbiss", en: "Snack" }
+      - id: kids
+        label: { de: "Kinderangebot", en: "Kids" }
+        definition: "Explicitly children-targeted section/item (Verbraucherzentrale study)."
+      - id: sharing
+        label: { de: "Zum Teilen", en: "Sharing" }
+      - id: daily
+        label: { de: "Tagesangebot", en: "Daily special" }
+      - id: tasting
+        label: { de: "Tasting/Set Menu", en: "Tasting / Set menu" }
+        definition: "Multi-course fixed progression (Prix fixe, Menu Gourmand, amuse-bouche)."
+      - id: unknown
+        label: { de: "Unbekannt", en: "Unknown" }
+    extensionStrategy: "Free string with registry of known values; unknown preferred over wrong class."
+
+  # ------------------------------------------------------------------
+  # AXIS 3: productFamily — extensible tree, never closed
+  # Evidence: FoodOn avoids is-a subclass axioms between product types
+  # and agency food categorization hierarchies (foodon.org/design/foodon-relations).
+  # We mirror that: productFamily is a slash-path, extensible tree.
+  # ------------------------------------------------------------------
+  - id: productFamily
+    description: "Extensible tree path of the product type. Never closed. Use 'unknown' rather than guessing."
+    closed: false
+    values:
+      - id: food/pizza
+        label: { de: "Pizza", en: "Pizza" }
+        parent: food
+      - id: food/pasta
+        label: { de: "Pasta", en: "Pasta" }
+        parent: food
+      - id: food/steak
+        label: { de: "Steak", en: "Steak" }
+        parent: food
+      - id: drink/wine/white/riesling
+        label: { de: "Riesling", en: "Riesling" }
+        parent: drink/wine/white
+      - id: drink/beer/lager
+        label: { de: "Helles", en: "Lager" }
+        parent: drink/beer
+      - id: drink/cocktail
+        label: { de: "Cocktail", en: "Cocktail" }
+        parent: drink
+      - id: unknown
+        label: { de: "Unbekannt", en: "Unknown" }
+    extensionStrategy: "Any slash-path allowed; new branches registered without breaking prior paths."
+
+  # ------------------------------------------------------------------
+  # AXIS 4: context — temporal/channel/audience framing
+  # Evidence: Day-of-week menus, lunch-only, seasonal (asparagus),
+  # min-persons sharing platters, delivery-only pricing.
+  # ------------------------------------------------------------------
+  - id: context
+    description: "Temporal, channel and audience framing."
+    closed: false
+    values:
+      - id: timeOfDay
+        description: "free/extensible: breakfast|lunch|dinner|all_day|unknown"
+      - id: dayOfWeek
+        description: "list of weekday tokens"
+      - id: season
+        description: "free: asparagus, game, christmas, unknown"
+      - id: channel
+        closed: true
+        values: [dine_in, takeaway, delivery, catering, all, unknown]
+      - id: audience
+        description: "free: kids, sharing, min_persons:N, unknown"
+      - id: location
+        description: "free: terrace, bar_only, unknown"
+
+  # ------------------------------------------------------------------
+  # AXIS 5: entryKind — structural kind of a line
+  # ------------------------------------------------------------------
+  - id: entryKind
+    closed: true
+    values:
+      - id: simple_item
+        definition: "Single sellable with at most flat options."
+      - id: configurable_item
+        definition: "Item whose final form/price depends on option groups."
+      - id: bundle
+        definition: "Composite of multiple selectable components (set menu)."
+      - id: notice
+        definition: "Non-sellable informational text."
+      - id: fee_deposit
+        definition: "Charge without consumable (deposit, fee)."
+      - id: unknown
+
+  # ------------------------------------------------------------------
+  # AXIS 6: priceKind — STRICT separation of absolute vs delta vs unknown
+  # Evidence: Toast pricingStrategy (SIZE_PRICE/SEQUENCE_PRICE), defaultOptionsChargePrice;
+  # PAngV 2022 Grundpreispflicht je Mengeneinheit; market prices (Marktpreis).
+  # ------------------------------------------------------------------
+  - id: priceKind
+    closed: true
+    values:
+      - { id: fixed,      definition: "Absolute price (e.g. 24,90 EUR)." }
+      - { id: from,       definition: "Lower bound shown ('ab')." }
+      - { id: range,      definition: "Explicit min-max." }
+      - { id: market,     definition: "Daily market price (Marktpreis/Tagespreis)." }
+      - { id: on_request, definition: "Price only on request ('auf Anfrage')." }
+      - { id: included,   definition: "Included in a bundle base price." }
+      - { id: free,       definition: "Explicitly free." }
+      - { id: delta,      definition: "Signed surcharge/discount relative to a base; MUST use deltaCents, never amountCents." }
+      - { id: unknown,    definition: "Price visible but semantics unclear, or no visible base price (price only at a variant)." }
+    exclusions:
+      - "An Offer with priceKind=delta MUST NOT carry amountCents; MUST carry deltaCents."
+      - "An Offer with priceKind=fixed MUST NOT carry deltaCents."
+      - "An Offer with priceKind=included MUST NOT carry amountCents or deltaCents."
+      - "An Offer with priceKind=free MUST carry amountCents=0."
+      - "An Entry may have priceKind=unknown on its own offer when price appears only at a Choice (e.g. price only at size)."
+      - "Per-unit base price (Grundpreis, PAngV) is modelled via Offer.grundpreis field, NOT as priceKind."
+
+  # ------------------------------------------------------------------
+  # AXIS 7: choiceKind — what a modifier/variant is about
+  # Evidence: Toast choiceKind, pre-modifiers NO/SUB/ADD/EXTRA/ON SIDE.
+  # ------------------------------------------------------------------
+  - id: choiceKind
+    closed: true
+    values:
+      - { id: size }
+      - { id: portion }
+      - { id: volume }
+      - { id: preparation }
+      - { id: protein }
+      - { id: ingredient }
+      - { id: side }
+      - { id: sauce }
+      - { id: dressing }
+      - { id: flavor }
+      - { id: temperature }
+      - { id: addon }
+      - { id: remove }
+      - { id: substitute }
+      - { id: upgrade }
+      - { id: bundle_component }
+      - { id: unknown, definition: "Modifier semantics not determinable from the menu. Valid; prefer over wrong class." }
+
+  # ------------------------------------------------------------------
+  # AXIS 8: preModifier — verbatim modifier category
+  # Evidence: Toast Pre-Modifiers (NO, SUB, ADD, EXTRA, ON SIDE).
+  # WARNING: US-only evidence; DACH mapping ('dazu','statt','ohne','extra')
+  # not yet validated against ≥20 German menus. Open/extensible until then.
+  # ------------------------------------------------------------------
+  - id: preModifier
+    closed: false
+    values:
+      - { id: add }
+      - { id: "no" }
+      - { id: sub }
+      - { id: extra }
+      - { id: on_side }
+      - { id: unknown, definition: "Pre-modifier not mappable to known category; keep rawText. Valid." }
+
+  # ------------------------------------------------------------------
+  # AXIS 9: selectionRule — options group semantics
+  # Evidence: Toast ModifierGroup (selectionType SINGLE/MULTI, min/max,
+  # requiredMode REQUIRED/OPTIONAL_FORCE_SHOW/OPTIONAL, instanceCount).
+  # ------------------------------------------------------------------
+  - id: selectionRule
+    closed: true
+    components:
+      required: [required, optional, optional_force_show, unknown]
+      cardinality: [single, multiple, unknown]
+      min: "integer >=0"
+      max: "integer >=0 or null"
+      freeSelectionCount: "integer >=0; count included before surcharge (Evidence: '1 inklusive' patterns)"
+      defaultOptionIds: "list of option ids"
+      repeatable: "boolean"
+
+  # ------------------------------------------------------------------
+  # AXIS 10: declaration axes — kept strictly separate
+  # Evidence: EU 1169/2011 separates allergens (Annex II, 14) from
+  # additives and from ingredients; Google FoodMenus has separate
+  # allergen vs dietary fields. Conflicts: EU-14 vs US Big-8 must NOT
+  # be silently reconciled — local legend is authoritative.
+  # ------------------------------------------------------------------
+  - id: declarations
+    closed: true
+    components:
+      allergens:
+        canonicalSource: "EU 1169/2011 Annex II (14) for DACH/EU; US Big-8 differs"
+        rule: "NEVER derive. Map local code to canonicalId ONLY via explicit legend mapping. claim: contains|may_contain|traces|free_from|unknown. scope: menu|page|section|entry|option|unknown."
+      additives:
+        rule: "Same evidence-only rule; separate from allergens."
+      ingredients:
+        rule: "Only when explicitly listed on the menu."
+      dietaryClaims:
+        rule: "Only explicit claims (vegan, vegetarian, gluten_free). NOT inferred."
+      warnings:
+        rule: "Verbatim warnings (e.g. 'consume rare at own risk')."
+
+unknownStrategy:
+  rule: "Every axis MUST accept unknown/unmapped. Unknown is a valid, reviewable result and MUST NOT be coerced into the nearest class."
+  appliesTo: [consumptionFamily, courseRole, productFamily, context, entryKind, priceKind, choiceKind, preModifier, selectionRule, declarations]
+
+versioning:
+  rule: "Any change to a closed axis (enum value add/remove/relabel) is a minor bump of ontologyVersion. Each MenuImportDraft MUST record the ontologyVersion + schemaVersion + parser/prompt/model identifiers it was produced with."
+
+openQuestions: # not yet saturated — flag for DeepSeek red-team and next research pass
+  - "No evidence yet for nested option dependencies beyond Toast's dependency model; needs more Asian/bubble-tea menus."
+  - "Weight-based pricing (per 100g steak) only weakly evidenced; PAngV implies Grundpreis but field examples thin."
+  - "Multilingual QR menus with per-language price differences not yet observed."
+  - "Chain/template duplicate clustering not yet measured quantitatively (no perceptual-hash run executed)."

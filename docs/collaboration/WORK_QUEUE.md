@@ -1,6 +1,6 @@
 # KitchenLink Work Queue
 
-**Stand:** 15. Juli 2026
+**Stand:** 16. Juli 2026
 **Phase:** Designsystem-Implementierung im internen Sandbox-Build
 
 Diese Queue zerlegt die naechste Ausbaustufe in konfliktfreie Arbeitspakete. Ein
@@ -86,6 +86,100 @@ und optional eine gleichnamige Unit-Testdatei
 Unit-Tests, V2-/Legacy-UI-Smoke-Tests sowie manuelle Hell-, Dunkel- und maximale
 Dynamic-Type-Pruefung sind erledigt. Offen bleibt ein lokaler End-to-End-Test vom
 Gastauftrag bis zum Kuechenstatus ohne Cloudverbindung.
+
+### KL-SCAN-001 - Reale Scanner-Fixtures und Regressionstest
+
+**Status:** Erledigt
+**Abhaengigkeit:** KL-IOS-001
+**Schreibbereich:** `kitchenlink/Features/MenuImport/`, `kitchenlink/Resources/`,
+`kitchenlinkTests/`, `docs/test-fixtures/` und `scripts/`
+
+**Ergebnis**
+
+- Drei reale, mehrseitige Speisekarten sind im internen Scan-Einstieg waehlbar.
+- Eine visuell gepruefte Gold-Baseline deckt 14 Seiten mit 23 Abschnitts- und 46
+  Artikelankern ab.
+- Der lokale Apple-Vision-Parser kann reproduzierbar per
+  `scripts/run-scanner-benchmark.sh` gegen Regressionsgrenzen getestet werden.
+- Verbleibende Modell- und Strukturfehler sind in
+  `docs/test-fixtures/scanner-benchmark/CURRENT_RESULTS.md` festgehalten.
+
+### KL-MENU-001 - Evidenzbasierte Menue-Discovery
+
+**Status:** Erledigt mit offenen Evidenzgrenzen
+**Abhaengigkeit:** keine
+**Schreibbereich:** `docs/discovery/taxonomy-research/`
+
+**Ergebnis**
+
+- GLM lieferte Quellenregister, Pattern-Evidenz, Ontologie, JSON-Schema,
+  Guideline und Benchmarkplan; DeepSeek fuehrte zwei Red-Team-Paesse aus.
+- Belastbar sind die Prinzipien fuer Rohwerterhalt, Evidenz, Preissemantik,
+  Unknown und menschliche Freigabe.
+- Stichprobe, Saettigung, Wiederverwendungsrechte und Artefaktversionen reichen
+  nicht fuer eine finale Produktontologie.
+- `INTEGRATION_REVIEW.md` ist die verbindliche Integrationslesart; die
+  Rechercheartefakte bleiben Discovery.
+
+### KL-MENU-002 - Versionierter Import-Draft
+
+**Status:** Erledigt
+**Abhaengigkeit:** KL-MENU-001, KL-SCAN-001
+**Schreibbereich:** neue Domain-Datei unter `kitchenlink/Features/MenuImport/`
+und zugehoerige Unit-Tests
+
+**Auftrag**
+
+- Providerneutralen `MenuImportDraft` als verlustfreies Zwischenmodell bauen.
+- Strukturierte Seite/Bounding Box, Rohtext, Confidence und Review-Status
+  erhalten.
+- Preislose Artikel erlauben und absolute Preise strikt von Deltas trennen.
+- Mengen, einfache Optionsgruppen, Bundles und explizite Deklarationen
+  erweiterbar abbilden.
+- Harte Invarianten testen; noch keine UI- oder Parsermigration in diesem Ticket.
+
+**Ergebnis**
+
+- `MenuImportDraft` `0.1.0` bildet Quelle, strukturierte Evidenz, sichtbare
+  Hierarchie, optionale typisierte Preise, Mengen, einfache Optionsgruppen,
+  Bundles, Deklarationen und Review-Status ab.
+- Rekursive Validatoren sichern Preisbedeutung, Seiten/Bounding Boxes, IDs,
+  Reihenfolge und Auswahlgrenzen ab.
+- Preislose Artikel bleiben gueltig und erzeugen eine Review-Warnung.
+
+### KL-MENU-003 - Scanner-zu-Draft-Adapter
+
+**Status:** Erledigt
+**Abhaengigkeit:** KL-MENU-002
+**Schreibbereich:** `kitchenlink/Features/MenuImport/`,
+gezielte Adaptertests und Erweiterung des Scanner-Benchmarks
+
+**Ergebnis**
+
+- Apple Vision und der lokale Regelparser erzeugen aus einem OCR-Lauf sowohl den
+  unveraenderten `[MenuSectionData]`-Pfad als auch `MenuImportDraft`.
+- OCR-Methode, Confidence, Seite, Bounding Box und sichtbarer Rohpreis werden in
+  der Draft-Evidenz erhalten; die Quelle erhaelt Typ und Fingerprint.
+- Preislose Pending-Bloecke werden nicht mehr verworfen, sondern als
+  `needsReview`-Eintraege ohne erfundenen Preis aufgenommen.
+- Der 14-Seiten-Benchmark validiert jeden Draft und misst Legacy- und
+  Draft-Recall getrennt. Lichtburg steigt im Draft bei den Namensankern von
+  14/16 auf 16/16, waehrend die zwei nicht zugeordneten Preise offen bleiben.
+- Der bestehende Sandbox-Review und die lokale Menueuebernahme bleiben aktiv;
+  der Draft ersetzt diesen Pfad noch nicht.
+
+### KL-MENU-004 - Evidenzbasierte Import-Pruefung
+
+**Status:** Wartet
+**Abhaengigkeit:** KL-MENU-003
+**Voraussichtlicher Schreibbereich:** `kitchenlink/Features/MenuImport/` und
+gezielte UI-/Adaptertests
+
+Draft-Sektionen und -Eintraege mit Originalseitenausschnitt, Rohtext,
+Preiszustand und Review-Grund anzeigen. Preislose und strukturell unsichere
+Kandidaten muessen korrigiert, umsortiert oder verworfen werden koennen, bevor
+eine explizite Konvertierung in das bestehende Sandbox-Menue erfolgt. Keine
+automatische Freigabe und keine Produktionspersistenz.
 
 ## Naechste parallele Scheiben
 
