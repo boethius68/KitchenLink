@@ -2,8 +2,8 @@
 
 **Updated:** 16 July 2026
 **Branch:** `claude/design-audit`
-**Status:** Phase A (KL-CLAUDE-001) und Phase B (KL-OPS-001) abgeschlossen;
-Merge wartet auf visuelle Nutzerfreigabe
+**Status:** Phase A (KL-CLAUDE-001) und Phase B (KL-OPS-001) abgeschlossen und
+gemergt (PR #1, 16. Juli 2026). `main` ist aktualisiert.
 
 ## Scope
 
