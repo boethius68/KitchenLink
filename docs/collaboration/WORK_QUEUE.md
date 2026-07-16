@@ -1,6 +1,6 @@
 # KitchenLink Work Queue
 
-**Stand:** 16. Juli 2026
+**Stand:** 17. Juli 2026
 **Phase:** Designsystem-Implementierung im internen Sandbox-Build
 
 Diese Queue zerlegt die naechste Ausbaustufe in konfliktfreie Arbeitspakete. Ein
@@ -190,7 +190,7 @@ gezielte Adaptertests und Erweiterung des Scanner-Benchmarks
 
 ### KL-MENU-004 - Evidenzbasierte Import-Pruefung
 
-**Status:** In Arbeit (Claude Code, Branch `claude/menu-import-review`)
+**Status:** In Review (Claude Code + Codex, Branch `claude/menu-import-review`)
 **Abhaengigkeit:** KL-MENU-003
 **Schreibbereich (exklusiv):** `kitchenlink/Features/MenuImport/` und
 gezielte UI-/Adaptertests; enthaelt die Entscheidung zum Audit-P2
@@ -201,6 +201,21 @@ Preiszustand und Review-Grund anzeigen. Preislose und strukturell unsichere
 Kandidaten muessen korrigiert, umsortiert oder verworfen werden koennen, bevor
 eine explizite Konvertierung in das bestehende Sandbox-Menue erfolgt. Keine
 automatische Freigabe und keine Produktionspersistenz.
+
+**Ergebnis**
+
+- Der Audit-P2 ist aufgeloest: nicht lokalisierte Evidenz wird ausdruecklich als
+  solche angezeigt und erzeugt keinen falschen Seitenausschnitt.
+- Eintraege koennen mit Fundstelle geprueft, bearbeitet, verschoben, angenommen
+  oder verworfen werden. Preislose Eintraege lassen sich nicht versehentlich
+  annehmen.
+- Eine ausdrueckliche Sammelaktion uebernimmt nur bereits bepreiste Kandidaten;
+  preislose Kandidaten bleiben fuer die Einzelpruefung offen.
+- Die Konvertierung bleibt bis zur vollstaendigen Klaerung gesperrt und schreibt
+  danach ausschliesslich in das lokale Sandbox-Menue.
+- Fokussierter End-to-End-Test, komplette Unit- und Standard-UI-Tests sowie der
+  14-seitige Scanner-Benchmark sind gruen. Screenshots wurden visuell geprueft.
+- Implementierung ist noch nicht in `main` gemergt.
 
 ## Naechste parallele Scheiben
 

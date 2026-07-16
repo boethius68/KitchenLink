@@ -128,6 +128,13 @@ final class MenuImportDraftReviewModel: ObservableObject {
         unresolvedEntryIDs.isEmpty && !convertibleEntryCountIsZero
     }
 
+    var unresolvedConvertibleEntryIDs: [String] {
+        unresolvedEntryIDs.filter { entryID in
+            guard let entry = entry(withID: entryID) else { return false }
+            return MenuImportDraftConverter.convertibleItem(from: entry) != nil
+        }
+    }
+
     private var convertibleEntryCountIsZero: Bool {
         !draft.sections.flatMap(\.entries).contains {
             $0.reviewState != .rejected
@@ -182,8 +189,29 @@ final class MenuImportDraftReviewModel: ObservableObject {
 
     func acceptEntry(_ entryID: String) {
         mutateEntry(entryID) { entry in
+            guard MenuImportDraftConverter.convertibleItem(from: entry) != nil else {
+                return
+            }
             entry.reviewState = .accepted
         }
+    }
+
+    /// Explicitly accepts every unresolved entry that already has a usable
+    /// fixed price. Unpriced candidates remain unresolved for individual
+    /// correction or rejection.
+    func acceptAllConvertibleEntries() {
+        let acceptedIDs = Set(unresolvedConvertibleEntryIDs)
+        guard !acceptedIDs.isEmpty else { return }
+
+        var updatedDraft = draft
+        for sectionIndex in updatedDraft.sections.indices {
+            for entryIndex in updatedDraft.sections[sectionIndex].entries.indices {
+                if acceptedIDs.contains(updatedDraft.sections[sectionIndex].entries[entryIndex].id) {
+                    updatedDraft.sections[sectionIndex].entries[entryIndex].reviewState = .accepted
+                }
+            }
+        }
+        draft = updatedDraft
     }
 
     func rejectEntry(_ entryID: String) {

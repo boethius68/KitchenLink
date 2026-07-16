@@ -1,8 +1,28 @@
 # Codex Handoff
 
-**Updated:** 16 July 2026
-**Branch:** `main`
-**Status:** Scanner-to-draft adapter complete; peer workflow corrected
+**Updated:** 17 July 2026
+**Branch:** `claude/menu-import-review`
+**Status:** KL-MENU-004 completed after Claude quota interruption; awaiting review
+
+## Latest Continuation
+
+- Continued Claude Code's pushed WIP commit `d9c9719` after its quota stopped the
+  active KL-MENU-004 verification pass. No concurrent agent was editing the
+  worktree.
+- Traced the failing guided UI test to its scroll loop: it repeatedly reopened
+  the last visible row instead of advancing through the remaining draft. The
+  scanner, draft and conversion model were not losing candidates.
+- Added an explicit batch action for unresolved entries that already have a
+  usable fixed price. Unpriced candidates remain open and must still be priced
+  or rejected individually.
+- Prevented unpriced entries from being accepted at both model and UI level,
+  and added a fixed next-open action so review no longer depends on list
+  scrolling.
+- Replaced the brittle 40-row UI loop with the actual Alexxanders workflow:
+  accept the priced candidates, price one remaining candidate, reject the other
+  and explicitly apply the resolved draft to the local sandbox.
+- Removed the temporary diagnostic test after it confirmed that resolving every
+  convertible entry leaves exactly the two known unpriced fixture candidates.
 
 ## Completed
 
@@ -105,6 +125,13 @@
   fixtures and both Lichtburg price losses remain explicitly unpriced.
 - Validated every generated fixture draft with `MenuImportDraftValidator` and
   checked the working tree with `git diff --check`.
+- Passed all focused draft-review tests, including model guards and batch
+  acceptance semantics.
+- Passed the gated fixture-to-review-to-sandbox UI test in 54 seconds and
+  visually inspected its open, detail, resolved and applied screenshots.
+- Passed the complete unit-test and standard UI-test targets on iPhone 17 Pro.
+- Re-ran the 14-page scanner benchmark. All thresholds passed; the two known
+  Lichtburg prices remain explicitly unresolved rather than inferred.
 
 ## Risks And Open Work
 
@@ -117,8 +144,11 @@
 - The draft intentionally over-captures uncertain title blocks: seven unpriced
   Lichtburg candidates and two Alexxanders candidates need human structural
   classification. They must not be auto-published.
-- The existing sandbox review still renders `[MenuSectionData]`; draft evidence,
-  missing-price entries and original page crops are not visible there yet.
+- KL-MENU-004 is implemented only on its feature branch and still needs user or
+  peer review before merge.
+- The batch action is intentionally explicit and accepts only price-bound
+  candidates. It does not publish anything and does not bypass the final local
+  sandbox conversion.
 - Do not treat the working logo geometry, current typefaces, exact hex values or
   status palette as final approval.
 - Claude Code may independently audit and continue the Round-04 implementation
@@ -126,7 +156,5 @@
 
 ## Recommended Next Step
 
-Implement KL-MENU-004 as a draft-native review slice with original evidence,
-optional price and explicit accept/edit/reject actions, followed by an explicit
-conversion into the existing sandbox menu. Keep the offline smoke test and
-Today/kitchen reference views in separate write scopes.
+Review the KL-MENU-004 screenshots and branch diff, then merge only after user
+approval. Keep the offline smoke test and guest-web work in separate scopes.
