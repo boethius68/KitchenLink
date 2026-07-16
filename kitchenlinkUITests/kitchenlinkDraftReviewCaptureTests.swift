@@ -46,65 +46,55 @@ final class kitchenlinkDraftReviewCaptureTests: XCTestCase {
         scrollUntilHittable(reviewDraftButton, in: app)
         reviewDraftButton.tap()
 
-        let convertButton = app.buttons["draftReview.convert"]
-        XCTAssertTrue(convertButton.waitForExistence(timeout: 10))
-        XCTAssertFalse(
-            convertButton.isEnabled,
-            "Conversion must stay locked while candidates are unresolved."
-        )
+        let nextOpenButton = app.buttons["draftReview.nextOpen"]
+        XCTAssertTrue(nextOpenButton.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["draftReview.convert"].exists)
         attachScreenshot(of: app, named: "draft-review-open-items")
 
-        // Resolve every open candidate: keep already-priced ones, give the
-        // first unpriced one a price, discard the remaining unpriced ones.
-        var didPriceACandidate = false
-        var didCaptureDetail = false
-        var remainingResolutions = 40
+        // The explicit batch action accepts only convertible fixed-price
+        // candidates. The two unpriced fixture candidates must stay open.
+        let acceptAllPricedButton = app.buttons["draftReview.acceptAllPriced"]
+        XCTAssertTrue(acceptAllPricedButton.waitForExistence(timeout: 5))
+        acceptAllPricedButton.tap()
 
-        while remainingResolutions > 0 {
-            let openEntry = app.buttons.matching(
-                NSPredicate(format: "identifier BEGINSWITH 'draftReview.entry.' AND value == 'offen'")
-            ).firstMatch
-            guard openEntry.waitForExistence(timeout: 3) else { break }
+        let twoOpen = NSPredicate(format: "label CONTAINS '2 zu klären'")
+        expectation(for: twoOpen, evaluatedWith: app.staticTexts["draftReview.summary"])
+        waitForExpectations(timeout: 5)
 
-            scrollUntilHittable(openEntry, in: app)
-            openEntry.tap()
+        // Correct one unpriced candidate.
+        nextOpenButton.tap()
+        let acceptButton = app.buttons["draftReview.detail.accept"]
+        XCTAssertTrue(acceptButton.waitForExistence(timeout: 5))
+        XCTAssertFalse(acceptButton.isEnabled)
+        attachScreenshot(of: app, named: "draft-review-detail")
 
-            let acceptButton = app.buttons["draftReview.detail.accept"]
-            XCTAssertTrue(acceptButton.waitForExistence(timeout: 5))
-            if !didCaptureDetail {
-                didCaptureDetail = true
-                attachScreenshot(of: app, named: "draft-review-detail")
-            }
+        let priceField = app.textFields["draftReview.detail.price"]
+        XCTAssertTrue(priceField.waitForExistence(timeout: 5))
+        scrollUntilHittable(priceField, in: app)
+        priceField.tap()
+        priceField.typeText("9,90")
 
-            let priceField = app.textFields["draftReview.detail.price"]
-            XCTAssertTrue(priceField.waitForExistence(timeout: 5))
-            let currentPrice = (priceField.value as? String) ?? ""
-            let hasPrice = !currentPrice.isEmpty && currentPrice != "z. B. 12,90"
+        expectation(
+            for: NSPredicate(format: "enabled == true"),
+            evaluatedWith: acceptButton
+        )
+        waitForExpectations(timeout: 5)
+        scrollUntilHittable(acceptButton, in: app)
+        acceptButton.tap()
+        XCTAssertTrue(acceptButton.waitForNonExistence(timeout: 5))
 
-            if hasPrice {
-                scrollUntilHittable(acceptButton, in: app)
-                acceptButton.tap()
-            } else if !didPriceACandidate {
-                scrollUntilHittable(priceField, in: app)
-                priceField.tap()
-                priceField.typeText("9,90")
-                didPriceACandidate = true
-                scrollUntilHittable(acceptButton, in: app)
-                acceptButton.tap()
-            } else {
-                let rejectButton = app.buttons["draftReview.detail.reject"]
-                scrollUntilHittable(rejectButton, in: app)
-                rejectButton.tap()
-            }
+        // Discard the remaining unpriced structural candidate.
+        XCTAssertTrue(nextOpenButton.waitForExistence(timeout: 5))
+        nextOpenButton.tap()
+        XCTAssertTrue(acceptButton.waitForExistence(timeout: 5))
+        XCTAssertFalse(acceptButton.isEnabled)
+        let rejectButton = app.buttons["draftReview.detail.reject"]
+        scrollUntilHittable(rejectButton, in: app)
+        rejectButton.tap()
+        XCTAssertTrue(acceptButton.waitForNonExistence(timeout: 5))
 
-            XCTAssertTrue(
-                acceptButton.waitForNonExistence(timeout: 5),
-                "Detail sheet should close after resolving an entry."
-            )
-            remainingResolutions -= 1
-        }
-
-        XCTAssertTrue(didPriceACandidate, "Expected at least one unpriced open candidate.")
+        let convertButton = app.buttons["draftReview.convert"]
+        XCTAssertTrue(convertButton.waitForExistence(timeout: 5))
         XCTAssertTrue(convertButton.isEnabled, "All candidates resolved; conversion must unlock.")
         attachScreenshot(of: app, named: "draft-review-resolved")
 
@@ -118,10 +108,16 @@ final class kitchenlinkDraftReviewCaptureTests: XCTestCase {
     @MainActor
     private func scrollUntilHittable(_ element: XCUIElement, in app: XCUIApplication) {
         var remainingSwipes = 6
+        let scrollView = app.scrollViews.firstMatch
         while !element.isHittable && remainingSwipes > 0 {
-            app.swipeUp()
+            if scrollView.exists {
+                scrollView.swipeUp()
+            } else {
+                app.swipeUp()
+            }
             remainingSwipes -= 1
         }
+        XCTAssertTrue(element.isHittable, "Expected element to become hittable after scrolling.")
     }
 
     @MainActor

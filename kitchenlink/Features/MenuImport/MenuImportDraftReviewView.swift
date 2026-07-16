@@ -188,7 +188,17 @@ struct MenuImportDraftReviewView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("draftReview.entry.\(entry.id)")
-        .accessibilityValue(model.unresolvedEntryIDs.contains(entry.id) ? "offen" : "geklärt")
+        .accessibilityValue(rowStateValue(for: entry))
+    }
+
+    private func rowStateValue(for entry: MenuImportEntry) -> String {
+        guard model.unresolvedEntryIDs.contains(entry.id) else {
+            return "geklärt"
+        }
+        if case .unpriced = MenuImportEntryPriceState.state(for: entry) {
+            return "offen · ohne Preis"
+        }
+        return "offen"
     }
 
     private func stateLine(for entry: MenuImportEntry) -> String {
@@ -227,26 +237,43 @@ struct MenuImportDraftReviewView: View {
 
     private var actionBar: some View {
         let unresolved = model.unresolvedEntryIDs.count
+        let unresolvedConvertible = model.unresolvedConvertibleEntryIDs.count
 
         return VStack(spacing: KitchenLinkV2Spacing.small) {
             if unresolved > 0 {
-                Text("\(unresolved) Einträge müssen noch geklärt werden (Preis setzen, verschieben oder verwerfen).")
+                Text("\(unresolved) Einträge müssen vor der Übernahme noch geklärt werden.")
                     .font(KitchenLinkV2Typography.meta)
                     .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
                     .fixedSize(horizontal: false, vertical: true)
-            }
 
-            Button {
-                if let sections = model.convertToSandboxSections() {
-                    onApply(sections)
-                    dismiss()
+                Button("Nächsten offenen Eintrag prüfen") {
+                    if let entryID = model.unresolvedEntryIDs.first {
+                        selectedEntry = SelectedEntry(id: entryID)
+                    }
                 }
-            } label: {
-                Text("In Sandbox-Menü übernehmen")
+                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                .accessibilityIdentifier("draftReview.nextOpen")
+
+                if unresolvedConvertible > 0 {
+                    Button("Alle \(unresolvedConvertible) bepreisten übernehmen") {
+                        model.acceptAllConvertibleEntries()
+                    }
+                    .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                    .accessibilityIdentifier("draftReview.acceptAllPriced")
+                    .accessibilityHint("Preislose Einträge bleiben zur einzelnen Prüfung offen.")
+                }
+            } else {
+                Button {
+                    if let sections = model.convertToSandboxSections() {
+                        onApply(sections)
+                        dismiss()
+                    }
+                } label: {
+                    Text("In Sandbox-Menü übernehmen")
+                }
+                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                .accessibilityIdentifier("draftReview.convert")
             }
-            .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
-            .disabled(!model.canConvert)
-            .accessibilityIdentifier("draftReview.convert")
         }
         .padding(.horizontal, KitchenLinkV2Spacing.large)
         .padding(.top, KitchenLinkV2Spacing.medium)
@@ -524,12 +551,20 @@ struct MenuImportEntryDetailView: View {
                 .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
                 .accessibilityIdentifier("draftReview.detail.restore")
             } else {
+                if !acceptIsPossible {
+                    Text("Ohne Preis kann der Eintrag nicht übernommen werden — Preis eintragen oder Eintrag verwerfen.")
+                        .font(KitchenLinkV2Typography.meta)
+                        .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 Button("Eintrag übernehmen") {
                     commitFields()
                     model.acceptEntry(entryID)
                     dismiss()
                 }
                 .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                .disabled(!acceptIsPossible)
                 .accessibilityIdentifier("draftReview.detail.accept")
 
                 Button("Eintrag verwerfen") {
@@ -540,6 +575,15 @@ struct MenuImportEntryDetailView: View {
                 .accessibilityIdentifier("draftReview.detail.reject")
             }
         }
+    }
+
+    /// The sandbox menu is price-bound, so acceptance requires a parseable
+    /// price in the field. Unpriced entries are priced or discarded instead
+    /// of being accepted into a state that could never convert.
+    private var acceptIsPossible: Bool {
+        MenuImportPriceText.cents(
+            from: priceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        ) != nil
     }
 
     private func loadFieldsIfNeeded() {

@@ -145,6 +145,39 @@ struct MenuImportDraftReviewTests {
     }
 
     @Test @MainActor
+    func unpricedEntryCannotBeAcceptedWithoutAUsablePrice() throws {
+        let model = MenuImportDraftReviewModel(draft: reviewableDraft())
+
+        model.acceptEntry("entry-unpriced")
+
+        let entry = try #require(model.entry(withID: "entry-unpriced"))
+        #expect(entry.reviewState == .needsReview)
+        #expect(model.unresolvedEntryIDs == ["entry-unpriced"])
+        #expect(!model.canConvert)
+    }
+
+    @Test @MainActor
+    func batchAcceptanceKeepsUnpricedEntriesOpen() throws {
+        var draft = reviewableDraft()
+        draft.sections[0].entries[0].reviewState = .needsReview
+        draft.sections[0].entries[1].reviewState = .needsReview
+        let model = MenuImportDraftReviewModel(draft: draft)
+
+        #expect(model.unresolvedConvertibleEntryIDs == [
+            "entry-schnitzel",
+            "entry-gulasch",
+        ])
+
+        model.acceptAllConvertibleEntries()
+
+        #expect(try #require(model.entry(withID: "entry-schnitzel")).reviewState == .accepted)
+        #expect(try #require(model.entry(withID: "entry-gulasch")).reviewState == .accepted)
+        #expect(try #require(model.entry(withID: "entry-unpriced")).reviewState == .needsReview)
+        #expect(model.unresolvedEntryIDs == ["entry-unpriced"])
+        #expect(!model.canConvert)
+    }
+
+    @Test @MainActor
     func humanEnteredPriceCarriesUnlocatedHumanEvidence() throws {
         let model = MenuImportDraftReviewModel(draft: reviewableDraft())
 
