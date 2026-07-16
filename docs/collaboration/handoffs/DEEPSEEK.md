@@ -1,88 +1,64 @@
-# Handoff — DeepSeek (KL-OFFLINE-002: Red-Team GLM Venue-Hub-Architektur)
+# Handoff — DeepSeek (KL-OFFLINE-002: Red-Team + Stage 1 + POC)
 
 **Datum:** 2026-07-16
 **Agent:** DeepSeek-V4-Free (Red-Team-Instanz)
-**Ticket:** KL-OFFLINE-002 – unabhängiger Red-Team-Review der GLM-Venue-Hub-Architektur
+**Ticket:** KL-OFFLINE-002 – adversariale Review + Folge-Dokumente
 **Branch:** `deepseek/offline-venue-hub-review`
 **Basis:** `glm/offline-venue-hub` (Commit c07115b)
-**Status:** Red-Team-Review abgeschlossen; 4 Kernbereiche bewertet (1× bedingt Go, 3× No-Go)
+**Status:** Red-Team-Review + 2 Folge-Dokumente abgeschlossen
 
 ## Was in dieser Session erledigt wurde
 
-Adversarialer Red-Team-Review der GLM-Venue-Hub-Architektur (`GLM_ARCHITECTURE.md`, `GLM_SOURCES.md`).
+### Phase 1: Red-Team Review (abgeschlossen)
+28 Findings (6 P0, 5 P1, 5 P2, 4 P3), Faktencheck mit 3 Abweichungen.
+Go/No-Go: 1× bedingt (Event-Log), 3× No-Go (HTTP-Server, Gastzugriff, Failover).
 
-### Geprüft
-- `GLM_ARCHITECTURE.md` (629 Zeilen) – vollständige Zielarchitektur
-- `GLM_SOURCES.md` (158 Zeilen) – Quellenregister mit 55 Quellen
-- `docs/PRODUCT_BLUEPRINT.md` §16 (Offline-Architektur), §3 (Gast-Web)
-- `docs/collaboration/DECISIONS.md`
-- `docs/collaboration/CURRENT.md`
-- `docs/collaboration/handoffs/GLM.md`, `DEEPSEEK.md`, `CODEX.md`, `CLAUDE.md`
-- `kitchenlink/OrderRelayService.swift`, `OrderingDomain.swift`, `KitchenLinkRepository.swift`
+### Phase 2: Folge-Dokumente (diese Session)
 
-### Findings (28 gesamt)
+**1. `STAGE1_EVENT_LOG_CONTRACT.md`** – Minimaler SQLite/GRDB-Event-Log:
+- Tabellendefinitionen (events, idempotency, outbox, schema_version)
+- Atomic Append Contract (Event + Idempotenz + Outbox in einer Transaktion)
+- Schema-Versionierung via GRDB-Migrations (kein String-Parsing wie OrderRelayService)
+- Replay/Recovery (Kaltstart, Absturz)
+- ACK erst nach dauerhaftem COMMIT (§16.2)
+- Keine willkürlichen Snapshot-/Checkpointintervalle
+- Gemessene Grenzen (müssen vor Stage 2 auf echter Hardware erhoben werden)
+- Transactional Outbox mit 4 Status (pending/sending/sent/permanent_failure)
+- Primärquellen: sqlite.org, GRDB-Dokumentation, Transactional Outbox Pattern
 
-**P0 (6 Findings):**
-| ID | Titel | Bereich |
-|---|---|---|
-| P0-01 | Mixed Content & Secure Context blockieren Gast-Browser | Gastzugriff |
-| P0-02 | AP Isolation macht lokale Kommunikation unmöglich | Gastzugriff |
-| P0-03 | Keine Transport-Sicherheit im lokalen WLAN | Security |
-| P0-04 | 60-Sekunden-Failover-Lücke | Failover |
-| P0-05 | SWIM auf iOS nicht produktionsreif | Failover |
-| P0-06 | Kein Epoch/Term im Event-Modell | Event-Log (upgraded from P1) |
-
-**P1 (5 Findings):**
-| ID | Titel | Bereich |
-|---|---|---|
-| P1-01 | Event-Log Recovery nach Hub-Verlust | Event-Log |
-| P1-02 | Bonjour-Zuverlässigkeit auf iOS | Discovery |
-| P1-03 | HTTP-Server-Komplexität unterschätzt | HTTP-Server |
-| P1-04 | Supabase-Outbox/Inbox nur skizziert | Cloud-Sync |
-| P1-05 | Request-Rate-Limiting fehlt | HTTP-Server |
-
-**P2 (5 Findings):**
-- WAL-Checkpointing und Snapshotting fehlt, mDNS-Auflösung auf Android/Windows, HMAC-Schlüsselverteilung, MPC-Fallback nicht betrachtet, kein Rate-Limiting auf Endpunkten
-
-**P3 (4 Findings):**
-- ULID-Kollision, GRDB-Version-Pinning, shift_id-Lebenszyklus, UUIDv7 auf iOS <17
-
-**Faktencheck (3 Abweichungen):**
-- S16 (MPC unreliability) – Quelle von 2015, für Staff-only akzeptabel
-- S40 (swift-SWIM) – irreführend als "Swift-Referenzimplementierung" (Dead Project)
-- S08 (NWHTTPProtocol) – unvollständig für Produktion
-
-### Go / No-Go Bewertung
-
-| Komponente | Rating | Bedingungen |
-|---|---|---|
-| Lokales Event-Log (SQLite/WAL/GRDB) | ⚠️ BEDINGT GO | 6 Auflagen (GRDB-Pinning, WAL-Checkpointing, Snapshots, Transactional Outbox, Migrationstests, Crash-Simulation) |
-| Lokaler HTTP-Server (NWListener) | ❌ NO-GO | Mixed Content, CORS, kein TLS, Komplexität unterschätzt |
-| Gastzugriff (QR→Browser→Hub) | ❌ NO-GO | 3 ungelöste P0-Probleme (Mixed Content, AP Isolation, mDNS-Heterogenität) |
-| Mehrgeräte-Failover (Lease/SWIM) | ❌ NO-GO | SWIM nicht produktionstauglich, 60s-Lücke, kein Epoch, kein Fencing, Event Recovery fehlt |
+**2. `LOCAL_NETWORK_POC.md`** – Testmatrix für Gast-Browser → Hub:
+- Korrigierte Annahmen: WebSocket ≠ TLS/Auth, keine Apple-CA, Top-Level-HTTP ≠ Mixed Content, Chrome LNA, Failover-Zeiten gemessen, Privacy Manifest korrekt zitiert
+- Testmatrix: iOS Safari, Android Chrome, Windows Edge, macOS Safari
+- 3 Szenarien × AP Isolation AN/AUS/Kein WLAN
+- Chrome Local Network Access (LNA) ab Chrome 94, hart ab ~Chrome 130
+- App-Lifecycle (Vordergrund, Hintergrund, suspendiert, beendet, Anruf, Low Power, Standby)
+- Hub-Ausfall (Crash, Akku leer, SQLite-Korruption)
+- Messprotokoll-Vorlage
+- 6 offene Hypothesen mit Falsifikationskriterien
 
 ## Veränderte Dateien (diese Session)
 
-- `docs/discovery/offline-venue-hub/DEEPSEEK_REVIEW.md` **(neu)** – Vollständiger Red-Team-Report (30 kB)
+- `docs/discovery/offline-venue-hub/STAGE1_EVENT_LOG_CONTRACT.md` **(neu)** – 15,7 kB
+- `docs/discovery/offline-venue-hub/LOCAL_NETWORK_POC.md` **(neu)** – 17,6 kB
+- `docs/discovery/offline-venue-hub/DEEPSEEK_REVIEW.md` **(bestehend, unverändert)** – 30 kB
 - `docs/collaboration/handoffs/DEEPSEEK.md` **(dieses Update)**
 
 ## Verbleibendes Risiko / Offenpunkte
 
-- **Größtes architektonisches Risiko:** Der lokale Gastzugriff (QR→Browser→Hub) ist der zentrale Product-Market-Fit für KitchenLink. Wenn er wegen Mixed Content / AP Isolation / mDNS nicht funktioniert, entfällt der Hauptgrund für den Venue-Hub.
-- **SWIM-Evaluierung:** GLM hat SWIM empfohlen ohne iOS-Produktionsnachweis. Dies muss vor Implementierung durch ein adäquates Heartbeat-Verfahren ersetzt werden.
-- **Event Recovery:** Das Risiko des Datenverlusts bei physischem Hub-Verlust ist nicht adressiert und könnte zu unumkehrbaren Bestellverlusten führen.
-- **GLM hat solide Arbeit geleistet.** Die Quellen-Recherche und die Komponentenstruktur sind wertvoll. Die identifizierten Lücken sind typisch für eine Architektur in der Discovery-Phase und kein Zeichen von schlechter Arbeit.
+1. **LNA-Härtung ab Chrome 130:** Der Zeitpunkt des harten LNA-Blocks ist nicht genau bekannt. Wenn Chrome im Ziel-Release der Sandbox LNA hart blockt, ist der gesamte Cloud-HTTPS→lokaler-Hub-Pfad tot, unabhängig von Mixed Content.
+2. **Safari iOS 18 Verhalten:** Safari 18 (iOS 18) wurde noch nicht getestet. Die Annahmen basieren auf Safari 15–17. Ein Update könnte Top-Level-HTTP zu Privat-IPs blockieren.
+3. **AP Isolation Messung:** Kein Referenz-Venue getestet. Die 5 Router-Hypothesen in LOCAL_NETWORK_POC.md §3.4 müssen vor Ort verifiziert werden.
+4. **GRDB-Version-Pinning:** Im Contract nicht festgelegt – muss vor Implementierung in Package.swift auf eine konkrete Version pinnen.
+5. **Kein Code, kein Deployment.** Beide Dokumente sind Specifications/Pläne, keine Implementierung.
 
 ## Empfohlener nächster Schritt
 
-1. **User-Entscheidungen einholen** (siehe 7 Fragen in DEEPSEEK_REVIEW.md §"Offene Fragen")
-2. **HTTP-Server durch WebSocket-Protokoll ersetzen** (Staff-App als Proxy) oder **Gastzugriff auf Cloud-Betrieb beschränken** (lokaler Gastzugriff auf post-Sandbox verschieben)
-3. **SWIM durch Bonjour-Heartbeat mit IP-Fallback ersetzen**
-4. **Epoch ins Event-Modell aufnehmen** (als Voraussetzung für Failover)
-5. **Event Recovery spezifizieren** (synchrone Replikation auf zweites Gerät?)
+1. **LOCAL_NETWORK_POC durchführen** – echte Geräte, echte Router, alle 6 Hypothesen testen
+2. **STAGE1 Implementierung** – GRDB-Integration, Tabellen, Atomic Append Contract
+3. **Abhängig von POC-Ergebnissen:** Entscheidung über Gastzugriff-Pfad (nur Cloud vs. lokal vs. Hybrid)
 
 ## Schreibbereich & Kollisionsfreiheit
 
 - Nur Dateien unter `docs/discovery/offline-venue-hub/` + Handoff geändert.
-- Kein Produkt-Code; `GLM_ARCHITECTURE.md` und `GLM_SOURCES.md` nicht verändert.
+- Kein Produkt-Code; `GLM_ARCHITECTURE.md`, `GLM_SOURCES.md` nicht verändert.
 - Keine Einträge in `DECISIONS.md`, `CURRENT.md` oder `WORK_QUEUE.md`.
