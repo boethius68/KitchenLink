@@ -16,6 +16,9 @@ struct MenuImportEntryView: View {
     @State private var importStatusMessage: String?
     @State private var importedSections: [MenuSectionData] = []
     @State private var importedDraft: MenuImportDraft?
+    @State private var importedPages: [UIImage] = []
+    @State private var draftReviewModel: MenuImportDraftReviewModel?
+    @State private var showDraftReview = false
     @State private var showImportPreview = false
     @State private var menuWasApplied = false
     @State private var showLegacySandbox = false
@@ -49,6 +52,18 @@ struct MenuImportEntryView: View {
                     menuWasApplied = true
                     importStatusMessage = "Das erkannte Menü ist jetzt in der lokalen Sandbox aktiv."
                     showImportPreview = false
+                }
+            }
+            .sheet(isPresented: $showDraftReview) {
+                if let draftReviewModel {
+                    MenuImportDraftReviewView(
+                        model: draftReviewModel,
+                        pages: importedPages
+                    ) { reviewedSections in
+                        store.replaceMenu(with: reviewedSections)
+                        menuWasApplied = true
+                        importStatusMessage = "Das geprüfte Menü ist jetzt in der lokalen Sandbox aktiv."
+                    }
                 }
             }
             .fullScreenCover(isPresented: $showLegacySandbox) {
@@ -252,6 +267,17 @@ struct MenuImportEntryView: View {
                     .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
                     .accessibilityIdentifier("menuImport.reviewResult")
                 }
+
+                if draftReviewModel != nil {
+                    Button {
+                        showDraftReview = true
+                    } label: {
+                        Label("Evidenz prüfen (Entwurf)", systemImage: "doc.text.magnifyingglass")
+                    }
+                    .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                    .accessibilityIdentifier("menuImport.reviewDraft")
+                    .accessibilityHint("Zeigt jeden Eintrag mit Originalausschnitt, Rohtext und Preiszustand vor der Übernahme.")
+                }
             }
         }
     }
@@ -376,6 +402,8 @@ struct MenuImportEntryView: View {
         menuWasApplied = false
         importedSections = []
         importedDraft = nil
+        draftReviewModel = nil
+        importedPages = images
         let semanticMode = MenuImportService.isLLMEnabled() && MenuImportService.hasConfiguredLLMAPIKey()
         importStatusMessage = semanticMode
             ? "Texterkennung und KI-Analyse starten..."
@@ -397,6 +425,7 @@ struct MenuImportEntryView: View {
                 }
                 importedSections = result.sections
                 importedDraft = result.draft
+                draftReviewModel = MenuImportDraftReviewModel(draft: result.draft)
                 importStatusMessage = "Import abgeschlossen. \(MenuImportService.lastImportDiagnostics())"
                 showImportPreview = true
             } catch MenuImportService.ImportError.noMenuItemsDetected {

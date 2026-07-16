@@ -2,7 +2,9 @@ import Foundation
 
 struct MenuImportDraft: Codable, Equatable, Sendable {
     // This contract is intentionally pre-stable while scanner evidence expands.
-    static let currentSchemaVersion = "0.1.0"
+    // 0.2.0 adds MenuImportEvidence.isLocated so review UIs can distinguish a
+    // real page location from a synthesized fallback anchor.
+    static let currentSchemaVersion = "0.2.0"
 
     let schemaVersion: String
     var id: String
@@ -113,6 +115,12 @@ struct MenuImportEvidence: Codable, Equatable, Sendable {
     var confidence: Double
     var reviewState: MenuImportReviewState
 
+    /// True when `pageIndex`/`boundingBox` show the visible source of the
+    /// evidenced value itself. False when the adapter could only anchor the
+    /// value to a related or arbitrary line; review UIs must then explain the
+    /// missing location instead of rendering the box as a page crop.
+    var isLocated: Bool
+
     init(
         rawText: String,
         pageIndex: Int,
@@ -120,7 +128,8 @@ struct MenuImportEvidence: Codable, Equatable, Sendable {
         method: MenuImportEvidenceMethod,
         methodDetail: String? = nil,
         confidence: Double,
-        reviewState: MenuImportReviewState = .unreviewed
+        reviewState: MenuImportReviewState = .unreviewed,
+        isLocated: Bool = true
     ) {
         self.rawText = rawText
         self.pageIndex = pageIndex
@@ -129,6 +138,22 @@ struct MenuImportEvidence: Codable, Equatable, Sendable {
         self.methodDetail = methodDetail
         self.confidence = confidence
         self.reviewState = reviewState
+        self.isLocated = isLocated
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        rawText = try container.decode(String.self, forKey: .rawText)
+        pageIndex = try container.decode(Int.self, forKey: .pageIndex)
+        boundingBox = try container.decode(
+            MenuImportNormalizedBoundingBox.self,
+            forKey: .boundingBox
+        )
+        method = try container.decode(MenuImportEvidenceMethod.self, forKey: .method)
+        methodDetail = try container.decodeIfPresent(String.self, forKey: .methodDetail)
+        confidence = try container.decode(Double.self, forKey: .confidence)
+        reviewState = try container.decode(MenuImportReviewState.self, forKey: .reviewState)
+        isLocated = try container.decodeIfPresent(Bool.self, forKey: .isLocated) ?? true
     }
 }
 

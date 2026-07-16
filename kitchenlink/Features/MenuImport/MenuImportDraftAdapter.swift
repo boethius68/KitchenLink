@@ -41,7 +41,8 @@ struct MenuImportOCRLine: Codable, Equatable, Sendable {
     func evidence(
         method overrideMethod: MenuImportEvidenceMethod? = nil,
         methodDetail: String? = nil,
-        reviewState: MenuImportReviewState = .unreviewed
+        reviewState: MenuImportReviewState = .unreviewed,
+        isLocated: Bool = true
     ) -> MenuImportEvidence {
         MenuImportEvidence(
             rawText: text,
@@ -55,7 +56,8 @@ struct MenuImportOCRLine: Codable, Equatable, Sendable {
             method: overrideMethod ?? method,
             methodDetail: methodDetail,
             confidence: confidence,
-            reviewState: reviewState
+            reviewState: reviewState,
+            isLocated: isLocated
         )
     }
 }
@@ -272,7 +274,8 @@ struct MenuImportDraftAdapter {
                 line: firstLine,
                 fallbackLines: fallbackLines,
                 confidence: 0.65,
-                detail: "legacy-option-kind"
+                detail: "legacy-option-kind",
+                isLocated: false
             )
             let choices = matchingVariants.enumerated().map { choiceIndex, variant in
                 let choiceLine = matcher.bestTextLine(
@@ -346,7 +349,8 @@ struct MenuImportDraftAdapter {
             preferredLine: line,
             fallbackLines: fallbackLines,
             confidence: 0.35,
-            detail: "legacy-price-without-matched-ocr-line"
+            detail: "legacy-price-without-matched-ocr-line",
+            preferredLineShowsValue: false
         )
         return MenuImportOffer(
             id: id,
@@ -380,7 +384,8 @@ struct MenuImportDraftAdapter {
             line: line ?? fallbackLine,
             fallbackLines: fallbackLines,
             confidence: line == nil ? 0.45 : nil,
-            detail: line == nil ? "combined-legacy-description" : "legacy-description"
+            detail: line == nil ? "combined-legacy-description" : "legacy-description",
+            isLocated: line != nil
         )
     }
 
@@ -402,7 +407,8 @@ struct MenuImportDraftAdapter {
                 evidence: candidate.titleLine.evidence(
                     method: .layoutRule,
                     methodDetail: "unpriced-description-without-own-line",
-                    reviewState: .needsReview
+                    reviewState: .needsReview,
+                    isLocated: false
                 )
             )
         }
@@ -468,7 +474,8 @@ struct MenuImportDraftAdapter {
                     line: titleLine ?? candidate.titleLine,
                     fallbackLines: fallbackLines,
                     confidence: titleLine == nil ? 0.5 : nil,
-                    detail: titleLine == nil ? "section-inferred-from-parser-context" : "section-title-rule"
+                    detail: titleLine == nil ? "section-inferred-from-parser-context" : "section-title-rule",
+                    isLocated: titleLine != nil
                 ),
                 order: sections.count,
                 entries: [],
@@ -532,7 +539,8 @@ struct MenuImportDraftAdapter {
         line: MenuImportOCRLine?,
         fallbackLines: [MenuImportOCRLine],
         confidence: Double?,
-        detail: String
+        detail: String,
+        isLocated: Bool = true
     ) -> MenuImportText {
         MenuImportText(
             value: value,
@@ -542,7 +550,8 @@ struct MenuImportDraftAdapter {
                 preferredLine: line,
                 fallbackLines: fallbackLines,
                 confidence: confidence,
-                detail: detail
+                detail: detail,
+                preferredLineShowsValue: isLocated
             )
         )
     }
@@ -552,13 +561,15 @@ struct MenuImportDraftAdapter {
         preferredLine: MenuImportOCRLine?,
         fallbackLines: [MenuImportOCRLine],
         confidence: Double?,
-        detail: String
+        detail: String,
+        preferredLineShowsValue: Bool = true
     ) -> MenuImportEvidence {
         if let preferredLine {
             var evidence = preferredLine.evidence(
                 method: confidence == nil ? nil : .layoutRule,
                 methodDetail: detail,
-                reviewState: confidence == nil ? .unreviewed : .needsReview
+                reviewState: confidence == nil ? .unreviewed : .needsReview,
+                isLocated: preferredLineShowsValue
             )
             if let confidence {
                 evidence.confidence = min(max(confidence, 0), 1)
@@ -570,7 +581,8 @@ struct MenuImportDraftAdapter {
             var evidence = fallback.evidence(
                 method: .layoutRule,
                 methodDetail: detail,
-                reviewState: .needsReview
+                reviewState: .needsReview,
+                isLocated: false
             )
             evidence.confidence = min(max(confidence ?? 0.35, 0), 1)
             return evidence
@@ -588,7 +600,8 @@ struct MenuImportDraftAdapter {
             method: .layoutRule,
             methodDetail: detail,
             confidence: min(max(confidence ?? 0, 0), 1),
-            reviewState: .needsReview
+            reviewState: .needsReview,
+            isLocated: false
         )
     }
 
