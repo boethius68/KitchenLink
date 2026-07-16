@@ -1,11 +1,11 @@
 # KitchenLink Current State
 
-**Updated:** 16 July 2026
+**Updated:** 17 July 2026
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
-**Last merge:** PR #1 (`claude/design-audit` -> `main`), independent integration
-audit plus the Today/Kitchen reference areas.
+**Last merge:** PR #3 (`claude/menu-import-review` -> `main`), completion of the
+evidence-based menu-import review after the WIP foundation merged in PR #2.
 
 ## Product
 
@@ -103,6 +103,15 @@ audit plus the Today/Kitchen reference areas.
   such candidates for Lichtburg and two for Alexxanders; they include both real
   missing-price items and structural/translation candidates and must not be
   auto-published.
+- The draft-native review now displays original evidence, raw text, price state
+  and review reasons. Unlocated fallback evidence is explicitly marked and does
+  not render a misleading crop.
+- Operators can edit, move, accept or reject entries before conversion. An
+  explicit batch action accepts only unresolved entries with a usable fixed
+  price; unpriced candidates remain open for individual correction or rejection.
+- Conversion stays locked until every candidate is resolved and writes only to
+  the existing local sandbox menu. The complete unit/UI suites and the 14-page
+  scanner benchmark passed before integration.
 - `kitchenlink/Features/Today/` and `kitchenlink/Features/Kitchen/` now provide
   the V2 `Heute` and `Kueche` reference areas, reachable from the V2 business
   home. Both derive their state from the existing sandbox order domain
@@ -138,9 +147,7 @@ audit plus the Today/Kitchen reference areas.
 
 ## Next Decision
 
-Expose draft entries and evidence in a dedicated import-review slice: original
-page crop, raw text, price state and structural uncertainty must be visible and
-editable before conversion to the legacy sandbox menu (KL-MENU-004), including
-a decision on the audit's P2 finding about unlocated draft evidence. In
-parallel, continue with the offline regression smoke test and the separate
-guest-web stack decision.
+Review and integrate the completed offline regression smoke test in its own
+scope, then make the separate guest-web stack decision for KL-WEB-001. The
+workforce, inventory and offline-event-log branches remain independent
+proposals and must be reviewed separately before any integration.

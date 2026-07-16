@@ -1,8 +1,8 @@
 # Codex Handoff
 
 **Updated:** 17 July 2026
-**Branch:** `claude/menu-import-review`
-**Status:** KL-MENU-004 completed after Claude quota interruption; awaiting review
+**Branch:** `main`
+**Status:** KL-MENU-004 completed and integrated through PR #3
 
 ## Latest Continuation
 
@@ -23,6 +23,8 @@
   and explicitly apply the resolved draft to the local sandbox.
 - Removed the temporary diagnostic test after it confirmed that resolving every
   convertible entry leaves exactly the two known unpriced fixture candidates.
+- Opened and integrated follow-up PR #3 after PR #2 had already merged Claude's
+  WIP commit. `main` now contains the corrected workflow and its verification.
 
 ## Completed
 
@@ -144,8 +146,6 @@
 - The draft intentionally over-captures uncertain title blocks: seven unpriced
   Lichtburg candidates and two Alexxanders candidates need human structural
   classification. They must not be auto-published.
-- KL-MENU-004 is implemented only on its feature branch and still needs user or
-  peer review before merge.
 - The batch action is intentionally explicit and accepts only price-bound
   candidates. It does not publish anything and does not bypass the final local
   sandbox conversion.
@@ -156,5 +156,6 @@
 
 ## Recommended Next Step
 
-Review the KL-MENU-004 screenshots and branch diff, then merge only after user
-approval. Keep the offline smoke test and guest-web work in separate scopes.
+Review the completed offline smoke-test branch next, then decide the guest-web
+stack separately. Keep workforce, inventory and event-log proposals isolated
+until each has its own review.
