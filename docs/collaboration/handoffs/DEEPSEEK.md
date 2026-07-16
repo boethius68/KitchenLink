@@ -4,7 +4,7 @@
 **Agent:** DeepSeek (deepseek-v4-flash-free)
 **Mission:** docs/collaboration/PARALLEL_MISSIONS_2026-07-16.md → KL-QA-002
 **Branch:** `deepseek/offline-e2e-smoke`
-**Status:** Abgeschlossen; 7 Tests, alle grün (Gesamtsuite grün)
+**Status:** Abgeschlossen; 8 Tests, alle grün (Gesamtsuite grün)
 
 ## Erledigt
 
@@ -12,7 +12,7 @@
 
 | Datei | Inhalt |
 |-------|--------|
-| `kitchenlinkTests/KitchenLinkOfflineOrderFlowTests.swift` | 7 Tests: Gast->Owner-Flow, vollständige Statuskette, Gast-Tracking, ungültige Übergänge, tabellengetriebene 36-Fall-Abdeckung, Persistenz via Relay-Kette, Cleanup beobachtbarer Zustände |
+| `kitchenlinkTests/KitchenLinkOfflineOrderFlowTests.swift` | 8 Tests: Gast->Owner-Flow, vollständige Statuskette, Gast-Tracking, ungültige Übergänge, tabellengetriebene 36-Fall-Abdeckung, Persistenz via Relay-Kette, Cleanup beobachtbarer Zustände, `eventually`-Cancellation |
 | `kitchenlinkTests/Support/OfflineOrderTestSupport.swift` | `OfflineTestContext`, `eventually`-Helfer (task-cancellation-sicher), `isolatedDefaults()`, `connectToSuite()` |
 | `docs/test-plans/OFFLINE_ORDER_FLOW.md` | Abgrenzung: was getestet ist vs. was der echte SQLite-Venue-Hub beweisen muss |
 | `docs/collaboration/handoffs/DEEPSEEK.md` | Dieses Update |
@@ -24,7 +24,7 @@
 | `transitionCases` enthielt 34/36 Paare; `accepted→pending` und `preparing→pending` fehlten | Ergänzt; alle Erwartungen explizit |
 | `persistenceAcrossRelayRecreation` setzte Status direkt via Repository statt Relay-Kette | Ersetzt durch `updateStatus`-Aufrufe pending→accepted→preparing über `ownerRelay` |
 | `relayTeardownLeavesNoTraces` beanspruchte Task-Freiheit, die nicht beweisbar ist | Umbenannt zu `relayTeardownClearsObservableState`; `defer { cleanup() }` ergänzt |
-| `eventually` ignorierte Task-Cancellation (`try?` auf `Task.sleep`) | Ersetzt durch `do/try/catch` – Cancellation beendet die Polling-Schleife |
+| `eventually` ignorierte Task-Cancellation (`try?` auf `Task.sleep`, `catch` wertete Condition erneut aus, kein `isCancelled`-Check vor Condition) | `isCancelled`-Check vor jeder Condition; `catch` gibt `false` ohne Condition; finaler Check vor letzter Auswertung |
 | Handoff behauptete `-parallel-testing-enabled NO` sei nötig | Entfernt; parallele Ausführung läuft stabil |
 
 ### Verifikation
@@ -50,7 +50,7 @@ xcodebuild test -project kitchenlink.xcodeproj -scheme kitchenlink \
 
 - **36 parametrisierte Übergänge** (`tableDrivenTransitionCoverage`): alle 6×6-Kombinationen explizit als Expectation, nicht von `canTransition` abgeleitet
 - **kein Produktionscode** wurde verändert
-- **kein `sleep`** in Tests; `eventually`-Helfer mit 200ms-Intervall, 8s-Timeout und Cancellation-Support
+- **kein blinder fixed delay** in Tests; `eventually`-Helfer nutzt cancellables `Task.sleep` mit 200ms-Intervall und 8s-Deadline
 - **UUID-eindeutige UserDefaults-Suite** pro Testlauf → vollständige Isolation
 - **`cleanup()` in `OfflineTestContext`** stoppt Networking, leert Relay-Caches und löscht Suite-Persistenz
 - `persistenceAcrossRelayRecreation` durchläuft die reguläre Relay-Statuskette pending→accepted→preparing

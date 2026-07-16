@@ -19,13 +19,14 @@ vorhandene `OrderRelayService`- und `LocalDemoRepository`-Domäne auf
 | `tableDrivenTransitionCoverage` | 36 parametrisierte Fälle decken alle 6×6-Kombinationen explizit ab |
 | `persistenceAcrossRelayRecreation` | Bestelldaten (Items, Betrag, Tisch, Notiz, Status) überleben Relay-/Repo-Neuerzeugung; Status wird über die reguläre Relay-Kette gesetzt |
 | `relayTeardownClearsObservableState` | `stopNetworking` wird aufgerufen, Cache und persistierte Daten werden gelöscht |
+| `eventuallyCancellationReturnsFalse` | Task-Cancellation während Polling wird erkannt; `eventually` gibt `false` zurück, ohne die Condition erneut auszuwerten |
 
 ## Architektur der Testinfrastruktur
 
 - Zwei isolierte `LocalDemoRepository`-Instanzen auf **derselben** isolierten
   `UserDefaults`-Suite → gemeinsame Datenbasis ohne Seiteneffekte
 - Zwei `OrderRelayService`-Instanzen (Gast = `.customer`, Owner = `.owner`)
-- `eventually`-Helfer mit hartem 8s-Timeout und 200ms-Polling (kein `sleep`)
+- `eventually`-Helfer mit 8s-Timeout und 200ms-Polling-Intervall via cancellablem `Task.sleep` (kein blinder fixed delay)
 - Jeder Test erzeugt eine UUID-eindeutige Suite; `defer` bzw. explizites
   `cleanup()` räumt Tasks und Daten vollständig weg
 

@@ -243,6 +243,18 @@ func persistenceAcrossRelayRecreation() async throws {
 }
 
 @Test @MainActor
+func eventuallyCancellationReturnsFalse() async {
+    let neverTrue = { false }
+    let task = Task { @MainActor in
+        await eventually(neverTrue, timeout: .seconds(10), interval: .milliseconds(50))
+    }
+    try? await Task.sleep(for: .milliseconds(100))
+    task.cancel()
+    let result = await task.value
+    #expect(!result, "eventually must return false when its task is cancelled")
+}
+
+@Test @MainActor
 func relayTeardownClearsObservableState() async throws {
     let context = try OfflineTestContext()
     defer { context.cleanup() }

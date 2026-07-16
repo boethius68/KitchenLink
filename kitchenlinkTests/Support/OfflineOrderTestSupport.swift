@@ -26,13 +26,15 @@ func connectToSuite(suiteName: String) throws -> UserDefaults {
 func eventually(_ condition: @MainActor () -> Bool, timeout: Duration = .seconds(8), interval: Duration = .milliseconds(200)) async -> Bool {
     let deadline = ContinuousClock.now + timeout
     while ContinuousClock.now < deadline {
+        if Task.isCancelled { return false }
         if condition() { return true }
         do {
             try await Task.sleep(for: interval)
         } catch {
-            return condition()
+            return false
         }
     }
+    if Task.isCancelled { return false }
     return condition()
 }
 
