@@ -99,6 +99,13 @@
   before Claude Code and Codex start parallel worktrees from it.
 - No production deployment, live payment activation or final fiscal integration
   is approved.
+- Claude's audited Round-04 Today and Kitchen reference implementation was merged
+  to `main` in PR #1 (`46f9008`). It includes the six-ticket kitchen board and a
+  full-width 52-point bump action with success haptics. Demo and legacy paths
+  remain available.
+- The combined Claude, GLM and DeepSeek integration review is recorded in
+  `docs/collaboration/reviews/AGENT_ROUND_REVIEW_2026-07-16.md`. GLM and DeepSeek
+  outputs remain discovery material and were not merged as approved contracts.
 
 ## Agent Setup
 
@@ -120,8 +127,8 @@
 
 ## Next Decision
 
-Expose draft entries and evidence in a dedicated import-review slice: original
-page crop, raw text, price state and structural uncertainty must be visible and
-editable before conversion to the legacy sandbox menu. In parallel, continue
-with the offline regression smoke test, Today/kitchen reference views and the
-separate guest-web stack decision.
+Apply the two narrow post-merge Kitchen fixes, then expose draft entries and
+evidence in a dedicated import-review slice: original page crop, raw text, price
+state and structural uncertainty must be visible and editable before conversion
+to the legacy sandbox menu. Correct the offline event contract and guest-web
+transaction boundary in separate scopes.

@@ -1,8 +1,8 @@
 # Codex Handoff
 
 **Updated:** 16 July 2026
-**Branch:** `main`
-**Status:** Scanner-to-draft adapter complete; peer workflow corrected
+**Branch:** `codex/post-merge-hardening`
+**Status:** Claude PR #1 reviewed after merge; narrow Kitchen fixes prepared
 
 ## Completed
 
@@ -62,6 +62,13 @@
 - Replaced the accidental Codex-gatekeeper workflow with a user-approved peer
   model: Claude Code and Codex have identical technical authority, `main` is
   neutral and the user remains the product and design authority.
+- Verified the user merge of Claude PR #1, including its later wet-hand-friendly
+  52-point kitchen bump action.
+- Reviewed Claude, GLM and DeepSeek outputs together and recorded the result in
+  `docs/collaboration/reviews/AGENT_ROUND_REVIEW_2026-07-16.md`.
+- Prepared two objective post-merge fixes without altering Claude's design:
+  stable SwiftUI identities for repeated item names and dark system chrome owned
+  by the Kitchen surface.
 
 ## Files To Read
 
@@ -105,6 +112,9 @@
   fixtures and both Lichtburg price losses remain explicitly unpriced.
 - Validated every generated fixture draft with `MenuImportDraftValidator` and
   checked the working tree with `git diff --check`.
+- Ran four focused design-system tests, seven Today/Kitchen derivation tests and
+  the activated screenshot harness on iPhone 17 Pro after the Claude merge; all
+  passed on the final post-merge patch.
 
 ## Risks And Open Work
 
@@ -123,10 +133,13 @@
   status palette as final approval.
 - Claude Code may independently audit and continue the Round-04 implementation
   under the shared peer workflow; Codex approval is not required.
+- GLM's guest-web ADR still lacks one explicit transactional write boundary and
+  a separate mandatory local guest path.
+- DeepSeek's event-log and local-network documents contain blocking correctness
+  errors and must not be treated as implementation contracts.
 
 ## Recommended Next Step
 
-Implement KL-MENU-004 as a draft-native review slice with original evidence,
-optional price and explicit accept/edit/reject actions, followed by an explicit
-conversion into the existing sandbox menu. Keep the offline smoke test and
-Today/kitchen reference views in separate write scopes.
+Verify and land the two post-merge Kitchen fixes. Then implement KL-MENU-004 as a
+draft-native review slice while the guest transaction boundary and offline event
+contract are corrected in separate write scopes.
