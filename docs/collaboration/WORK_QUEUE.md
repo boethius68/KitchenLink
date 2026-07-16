@@ -63,7 +63,7 @@ und optional eine gleichnamige Unit-Testdatei
 
 ### KL-IOS-001 - Schaltbarer Scan-Einstieg V2
 
-**Status:** In Review
+**Status:** Erledigt; mit PR #1 in `main` integriert
 **Abhaengigkeit:** KL-DS-001
 **Schreibbereich:** `kitchenlink/App/`,
 `kitchenlink/Features/MenuImport/` und gezielte UI-Tests
@@ -248,14 +248,67 @@ sowie gezielte Tests in `kitchenlinkTests/` und `kitchenlinkUITests/`
 
 ### KL-WEB-001 - Gast-Web-Grundlage
 
-**Status:** Wartet auf Stack-Entscheidung
+**Status:** Wartet auf Nutzer-Stack-Entscheidung; zwei konkurrierende Vorschlaege
 **Abhaengigkeit:** semantische Token-Namen aus KL-DS-001
 
 Zuerst den Web-Stack und den Deployment-Pfad als kleine Architecture Decision
-festlegen. Danach eine mobile Gastkarte mit acht Gerichten, Venue-fuehrendem
+festlegen. Danach eine mobile Gastkarte mit acht Gerichen, Venue-fuehrendem
 Branding, traubenbasierter Mengensteuerung und genau einer fixierten
 Zitronenaktion umsetzen. Noch keine Live-Zahlung und keine Entfernung der
 Sandbox-Daten.
+
+Hinweis: Neben der urspruenglichen Claude-Fable-5-Zuweisung hat GLM den Branch
+`glm/guest-web-architecture` mit einem eigenen ADR (Next.js + Cloudflare Pages,
+ueberarbeitet um einen autoritativen Order-Gate) gepusht. Beides sind Vorschlaege;
+nur der Nutzer entscheidt den Stack.
+
+## Parallele Runde 2 (Stand 17. Juli 2026)
+
+Vier disjunkte Missionszweige sind implementiert und gepusht, aber jeder ist
+6 Commits hinter `main` (PR #2/#3/#4 sind nach dem Branching gemergt) und braucht
+einen Rebase plus unabhaengiges Review vor Integration.
+
+### KL-OFFLINE-003 - Autoritatives Event-Log und Outbox
+
+**Status:** Implementiert auf `glm/offline-event-log-v2`, nicht integriert
+**Abhaengigkeit:** keine
+**Schreibbereich:** `prototypes/KitchenLinkEventLog/`,
+`docs/architecture/offline/EVENT_LOG_V2.md`, `handoffs/GLM.md`
+
+Ausfuehrbarer Swift-/SQLite-Referenzprototyp. 27 Dateien, Schema, Outbox,
+Transport, mindestens 20 Tests. Isoliertes Swift Package, kein App-Konflikt;
+geringstes Rebase-Risiko.
+
+### KL-QA-002 - Lokaler Bestell-E2E-Smoke
+
+**Status:** Implementiert auf `deepseek/offline-e2e-smoke`, nicht integriert
+**Abhaengigkeit:** Repository-/Relay-Domaene
+**Schreibbereich:** Offline-Test-/Supportdateien, Testplan, `handoffs/DEEPSEEK.md`
+
+Zwei Relay-/Repository-Instanzen pruefen Gastauftrag, Owner-Empfang, Statuskette,
+Tracking, ungueltige Uebergaenge und Neustartpersistenz. 5 Commits inklusive
+Cancellation-Test. Hoechstes Rebase-Risiko wegen gemeinsamer Testdateien.
+
+### KL-WORKFORCE-001 - Schichtplan-Domaene
+
+**Status:** Implementiert auf `kimi/workforce-domain`, nicht integriert
+**Abhaengigkeit:** keine
+**Schreibbereich:** neue Dateien unter `Features/Workforce/`, fokussierte Tests,
+Domain-Dokument, `handoffs/KIMI.md`
+
+Isolierte Swift-Domaenengrundlage fuer Mitarbeiter, Verfuegbarkeit, Planung,
+Zeiterfassung. 632 Zeilen Tests. Niedriges Rebase-Risiko (neue Dateien).
+
+### KL-INVENTORY-001 - Warenwirtschafts-Domaene
+
+**Status:** Nicht begonnen; Branch `minimax/inventory-domain` ist leer
+**Abhaengigkeit:** keine
+**Schreibbereich:** neue Dateien unter `Features/Inventory/`, fokussierte Tests,
+Domain-Dokument, `handoffs/MINIMAX.md`
+
+Der Branch enthaelt keinen eigenen MiniMax-Commit und keine
+`Features/Inventory/`-Dateien; er ist bei einem alten Codex-Basis-Commit stehen
+geblieben. Die Mission muss neu vergeben oder gestrichen werden.
 
 ## Integrationsreihenfolge
 
@@ -267,6 +320,10 @@ Sandbox-Daten.
    und gemergt (PR #1).
 4. ~~KL-MENU-004 inklusive P2-Entscheidung abschliessen.~~ Erledigt und mit PR
    #2 sowie Abschluss-PR #3 integriert.
-5. Offline-Regressions-Smoke und Web-Stack-Entscheidung in getrennten Scopes
-   pruefen; weitere Agenten-Branches nicht gesammelt mergen.
-6. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
+5. PR #5 (`codex/kitchen-hardening-fix`) reviewen und mergen: dunkles
+   System-Chrome und stabile SwiftUI-Identitaeten am Kitchen-View.
+6. Vier Round-2-Missionszweige nacheinander rebase + review + PR, sortiert nach
+   Konflikt risiko: KL-OFFLINE-003, KL-WORKFORCE-001, KL-QA-002, danach
+   KL-INVENTORY-001 neu vergeben.
+7. KL-WEB-001 erst nach Nutzervorgabe des Web-Stacks weiterverfolgen.
+8. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.

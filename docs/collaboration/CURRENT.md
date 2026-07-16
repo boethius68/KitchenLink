@@ -4,8 +4,10 @@
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
-**Last merge:** PR #3 (`claude/menu-import-review` -> `main`), completion of the
-evidence-based menu-import review after the WIP foundation merged in PR #2.
+**Last merge:** PR #4 (`codex/record-menu-import-merge` -> `main`), recording the
+completed evidence-based menu-import review. PR #1 delivered the Claude audit and
+the `Heute`/`Kueche` reference areas, PR #2/#3 completed `KL-MENU-004` (draft-native
+review slice), PR #4 recorded the merge in shared collaboration state.
 
 ## Product
 
@@ -147,7 +149,25 @@ evidence-based menu-import review after the WIP foundation merged in PR #2.
 
 ## Next Decision
 
-Review and integrate the completed offline regression smoke test in its own
-scope, then make the separate guest-web stack decision for KL-WEB-001. The
-workforce, inventory and offline-event-log branches remain independent
-proposals and must be reviewed separately before any integration.
+Four Round-2 mission branches are implemented and pushed, but each is 6 commits
+behind `main` (PR #2/#3/#4 landed after they branched) and needs a rebase plus
+independent review before any integration:
+
+- `glm/offline-event-log-v2` — KL-OFFLINE-003, isolated Swift package, 27 files,
+  schema/outbox/transport plus 20+ tests. Lowest conflict risk.
+- `kimi/workforce-domain` — KL-WORKFORCE-001, new `Features/Workforce/` and 632
+  lines of domain tests. Low conflict risk.
+- `deepseek/offline-e2e-smoke` — KL-QA-002, 5 commits, E2E + cancellation tests.
+  Highest conflict risk because it touches shared test files.
+- `minimax/inventory-domain` — **never started.** The branch has no MiniMax
+  commit and no `Features/Inventory/` content; KL-INVENTORY-001 needs to be
+  reassigned or dropped.
+
+Separately, KL-WEB-001 now has two competing stack proposals: Claude Fable 5 was
+originally assigned, but GLM pushed `glm/guest-web-architecture` with an
+alternative ADR (Next.js + Cloudflare Pages, revised for an authoritative order
+gate). Only the user can approve the guest-web stack.
+
+PR #5 (`codex/kitchen-hardening-fix`) is open with two narrow post-merge Kitchen
+fixes: forced dark system chrome via `preferredColorScheme` and stable SwiftUI
+identities for repeated ticket item names.
