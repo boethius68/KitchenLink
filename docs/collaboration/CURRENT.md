@@ -105,6 +105,9 @@
 - Claude Code `2.1.150` is installed locally.
 - The two-phase Claude audit and design implementation mission is recorded in
   `docs/collaboration/CLAUDE_MISSION.md`; Claude works in an isolated worktree.
+- The user starts Claude Fable 5 independently through the Claude app. The local
+  folder and copy-ready prompts are documented in
+  `docs/collaboration/CLAUDE_START_HERE.md`.
 - The official Claude Design MCP endpoint is registered in the Claude user
   configuration. Interactive authentication with `/design-login` is still
   required.

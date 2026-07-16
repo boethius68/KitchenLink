@@ -1,6 +1,7 @@
 # Claude Code Mission
 
 **Stand:** 16. Juli 2026
+**Modell:** Claude Fable 5
 **Zielbranch:** `codex/claude-design-audit`
 **Arbeitsweise:** Zwei getrennte Phasen mit Review-Gate
 
