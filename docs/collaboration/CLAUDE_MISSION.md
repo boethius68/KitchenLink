@@ -2,7 +2,7 @@
 
 **Stand:** 16. Juli 2026
 **Modell:** Claude Fable 5
-**Zielbranch:** `codex/claude-design-audit`
+**Zielbranch:** `claude/design-audit`
 **Arbeitsweise:** Zwei getrennte Phasen mit Review-Gate
 
 Claude Code erhaelt Zugriff auf das vollstaendige Repository in einem eigenen
@@ -74,13 +74,17 @@ Danach separat:
 - Empfehlung, ob Phase B ohne Vorfix beginnen kann
 
 Wenn keine Findings bestehen, das ausdruecklich sagen und verbleibende
-Testluecken benennen. Das Audit als eigenen Commit abschliessen. Nicht pushen.
+Testluecken benennen. Das Audit als eigenen Commit abschliessen, den eigenen
+Branch pushen und einen Draft Pull Request gegen `main` anlegen oder
+aktualisieren. Noch nicht mergen.
 
 ## Review-Gate
 
-Nach Phase A stoppen. Codex wertet den Audit-Commit aus. Phase B beginnt erst
-nach einer ausdruecklichen Folgeanweisung im selben Claude-Worktree. P0- oder
-P1-Findings werden vor der Designumsetzung entschieden oder behoben.
+Claude bewertet den Auditbefund eigenstaendig. Bei P0- oder P1-Findings stoppt
+Claude und legt dem Nutzer Problem, Beleg und Korrekturvorschlag vor. Ohne P0/P1
+kann der Nutzer Phase B direkt im selben Claude-Worktree starten; eine Freigabe
+durch Codex ist nicht erforderlich. Codex kann wie jeder andere Peer ein Review
+beisteuern, besitzt aber kein Gate.
 
 ## Phase B: Round-04-Design umsetzen
 
@@ -132,4 +136,6 @@ Audit-Fixes dort werden getrennt beauftragt und committed.
 - Unit-Tests, V2-/Legacy-UI-Smokes und der Scanner-Benchmark bleiben erfolgreich.
 - Mindestens je ein visueller Check auf iPhone hell/dunkel und iPad dunkel wird
   im Handoff dokumentiert.
-- Phase B endet in einem eigenen Commit und wird nicht gepusht.
+- Phase B endet in einem eigenen Commit, wird auf den Claude-Branch gepusht und
+  aktualisiert den Draft Pull Request. Der Merge wartet auf die visuelle
+  Nutzerfreigabe, nicht auf die Freigabe eines bestimmten Agenten.

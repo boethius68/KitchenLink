@@ -55,3 +55,15 @@ append-only; superseded decisions are marked rather than deleted.
   brand foundation; lemon is reserved for the logo handoff and primary actions.
   This selects the role model, not the final hex values, typefaces or status
   palette.
+
+## Collaboration Governance
+
+- **Agent parity:** Claude Code, Codex and future coding agents work as equal
+  technical collaborators. No agent is the boss, permanent integrator or
+  mandatory gatekeeper for another agent's work.
+- **Shared integration:** `main` is a neutral shared integration branch. Every
+  agent works in its own branch and worktree and may propose, implement, review
+  or integrate work under the same rules.
+- **User authority:** The user retains final authority over product scope,
+  design approval, production activation and other product decisions. Agent
+  disagreement is surfaced to the user rather than resolved by hierarchy.

@@ -2,7 +2,7 @@
 
 **Updated:** 16 July 2026
 **Branch:** `main`
-**Status:** Scanner-to-draft adapter ready for review
+**Status:** Scanner-to-draft adapter complete; peer workflow corrected
 
 ## Completed
 
@@ -59,6 +59,9 @@
   page and bounding box rather than deleting them or copying neighboring prices.
 - Extended the benchmark with page-aware draft name/price recall and explicit
   assertions for the two Lichtburg OCR-price losses plus `Gemischter Eisbecher`.
+- Replaced the accidental Codex-gatekeeper workflow with a user-approved peer
+  model: Claude Code and Codex have identical technical authority, `main` is
+  neutral and the user remains the product and design authority.
 
 ## Files To Read
 
@@ -118,8 +121,8 @@
   missing-price entries and original page crops are not visible there yet.
 - Do not treat the working logo geometry, current typefaces, exact hex values or
   status palette as final approval.
-- Do not spend the Claude reserve prompt. Codex continues the design system and
-  implementation from Round 04.
+- Claude Code may independently audit and continue the Round-04 implementation
+  under the shared peer workflow; Codex approval is not required.
 
 ## Recommended Next Step
 

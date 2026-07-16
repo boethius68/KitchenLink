@@ -7,7 +7,12 @@ Start every KitchenLink session by reading:
 - `docs/collaboration/CURRENT.md`
 - `docs/collaboration/DECISIONS.md`
 - `docs/PRODUCT_BLUEPRINT.md`
-- `docs/collaboration/handoffs/CODEX.md`
+- the latest handoff from every other agent active on a related ticket
+
+Claude Code and Codex are equal technical collaborators. Claude may claim
+tickets, challenge earlier work, implement, review, push branches and integrate
+approved changes under the same rules as every other agent. Codex approval is
+not a prerequisite. The user remains the product and design authority.
 
 Before ending a task, update `docs/collaboration/handoffs/CLAUDE.md` with scope,
 files changed, verification, unresolved issues and the recommended next step.

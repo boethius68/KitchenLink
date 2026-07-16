@@ -13,7 +13,10 @@ Bestehende Demo-, Offline- und Simulationspfade duerfen nicht entfernt werden.
   `docs/collaboration/DECISIONS.md`, `docs/PRODUCT_BLUEPRINT.md` und
   `docs/design/DESIGN_SYSTEM.md` lesen.
 - Der im Ticket genannte Schreibbereich ist exklusiv. Aenderungen ausserhalb
-  dieses Bereichs werden vorher mit dem Integrator abgestimmt.
+  dieses Bereichs werden vorher mit dem anderen aktiven Agenten oder dem Nutzer
+  abgestimmt.
+- Claude Code, Codex und weitere Agenten arbeiten nach
+  `docs/collaboration/PEER_WORKFLOW.md` auf Augenhoehe.
 - Keine neuen Produktentscheidungen aus Designs ableiten.
 - Keine Runtime-Abhaengigkeit von extern geladenen Schriften oder Farbdiensten.
 - Jedes Ticket endet mit Build-/Testnachweis und einer kurzen Risikonotiz.

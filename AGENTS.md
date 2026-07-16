@@ -21,13 +21,25 @@ Before changing code or product documents, read in this order:
 
 ## Collaboration
 
+- Claude Code, Codex and other coding agents are equal technical collaborators.
+  No agent is the permanent lead, gatekeeper or owner of integration.
+- The user is the product and design authority. Only the user can approve new
+  product scope, visual direction, production activation or other decisions
+  reserved in `DECISIONS.md`.
+- `main` is a shared integration branch and belongs to no agent. Feature work is
+  performed in agent-owned branches and worktrees.
 - Never let two agents edit the same working tree concurrently.
 - Use a separate Git worktree and branch for parallel implementation work.
 - Do not overwrite unrelated uncommitted changes.
 - Each agent updates only its own handoff file when finishing a task.
-- Only the integrator updates `CURRENT.md` after changes have been merged.
+- Either agent may propose, implement, review, challenge or integrate work under
+  the same rules. Approval from one specific agent is never mandatory.
+- The agent performing a merge updates `CURRENT.md` after the merge. There is no
+  permanent integrator role.
 - Add a decision to `DECISIONS.md` only after explicit user approval.
 - Record verification performed and any remaining risk in the handoff.
+- Follow `docs/collaboration/PEER_WORKFLOW.md` for task claiming, pull requests,
+  reviews and integration.
 
 ## Delivery
 

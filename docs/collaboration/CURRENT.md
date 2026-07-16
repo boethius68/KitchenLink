@@ -51,7 +51,8 @@
   echten Referenzbereichen um.
 - Round 04 archives and verifies Turn 6, the last regular Claude Design pass. It
   resolves the blocking status, contrast, density and typography issues. No
-  reserve prompt is required; Codex owns the work from this point.
+  reserve prompt is required; Claude Code and Codex continue implementation as
+  equal peers.
 - The platform-neutral working specification is
   `docs/design/DESIGN_SYSTEM.md`. It preserves the selected 4a direction while
   keeping exact palette, typography and logo approval explicitly open.
@@ -102,6 +103,9 @@
 ## Agent Setup
 
 - Shared instructions are available through `AGENTS.md` and `CLAUDE.md`.
+- Claude Code and Codex are equal technical collaborators. `main` is neutral;
+  the user remains the product and design authority. The binding integration
+  process is `docs/collaboration/PEER_WORKFLOW.md`.
 - Claude Code `2.1.150` is installed locally.
 - The two-phase Claude audit and design implementation mission is recorded in
   `docs/collaboration/CLAUDE_MISSION.md`; Claude works in an isolated worktree.
