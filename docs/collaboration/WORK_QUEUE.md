@@ -190,10 +190,11 @@ gezielte Adaptertests und Erweiterung des Scanner-Benchmarks
 
 ### KL-MENU-004 - Evidenzbasierte Import-Pruefung
 
-**Status:** Wartet
+**Status:** In Arbeit (Claude Code, Branch `claude/menu-import-review`)
 **Abhaengigkeit:** KL-MENU-003
-**Voraussichtlicher Schreibbereich:** `kitchenlink/Features/MenuImport/` und
-gezielte UI-/Adaptertests
+**Schreibbereich (exklusiv):** `kitchenlink/Features/MenuImport/` und
+gezielte UI-/Adaptertests; enthaelt die Entscheidung zum Audit-P2
+(unlokalisierte Draft-Evidenz)
 
 Draft-Sektionen und -Eintraege mit Originalseitenausschnitt, Rohtext,
 Preiszustand und Review-Grund anzeigen. Preislose und strukturell unsichere
