@@ -60,11 +60,13 @@ button {
 .kl-type-primary {
   font-size: 1.0625rem; /* 17 */
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .kl-type-secondary {
   font-size: 0.9375rem; /* 15 */
   font-weight: 400;
+  line-height: 1.3;
 }
 
 .kl-type-meta {
@@ -85,34 +87,65 @@ button {
   padding: var(--kl-space-2) var(--kl-space-4);
 }
 
-/* Seitenlayout mobil zuerst */
+/* Seitenlayout mobil zuerst. Der Venue-Kopf liegt ausserhalb dieses
+   Containers und ist damit randlos/buendig (Referenz 6c Screen 2). */
 .kl-page {
   max-width: 40rem;
   margin: 0 auto;
-  padding: 0 var(--kl-space-4) calc(7rem + env(safe-area-inset-bottom));
+  padding: 0 var(--kl-space-4) calc(6rem + env(safe-area-inset-bottom));
 }
 
-/* Venue-Kopf: das Restaurant fuehrt; Traube ist der sichere Fallback */
+/* Venue-Kopf: das Restaurant fuehrt; Traube ist der sichere Fallback.
+   Randlos ueber die volle Breite, kein Kartenabstand (Referenz 6c). */
 .kl-venue-header {
   background: var(--kl-brand-grape);
   color: var(--kl-content-light);
-  border-radius: var(--kl-radius-card);
-  padding: var(--kl-space-5) var(--kl-space-4);
-  margin: var(--kl-space-4) 0 var(--kl-space-5);
+  padding: var(--kl-space-4);
+}
+
+.kl-venue-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--kl-space-3);
+  max-width: 40rem;
+  margin: 0 auto;
 }
 
 .kl-venue-header h1 {
   margin: 0;
 }
 
-.kl-venue-header p {
-  margin: var(--kl-space-1) 0 0;
+.kl-venue-header-context {
+  max-width: 40rem;
+  margin: var(--kl-space-1) auto 0;
   color: var(--kl-text-secondary-inverse);
+}
+
+/* Neutrale Pille: nie Zitrone (§5 "informative Labels"), z.B. "geoeffnet",
+   "beliebt", "vegetarisch". */
+.kl-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.1875rem var(--kl-space-2);
+  white-space: nowrap;
+  flex: none;
+}
+
+.kl-badge-on-dark {
+  background: var(--kl-surface-dark-raised);
+  color: var(--kl-text-secondary-inverse);
+}
+
+.kl-badge-on-light {
+  background: var(--kl-surface-recessed);
+  color: var(--kl-text-secondary);
 }
 
 /* Menueliste: Abstand und border.subtle statt Karte um jede Zeile (§8) */
 .kl-menu-section-title {
-  margin: var(--kl-space-5) 0 var(--kl-space-2);
+  margin: var(--kl-space-4) 0 var(--kl-space-1);
 }
 
 .kl-menu-list {
@@ -124,8 +157,8 @@ button {
 .kl-menu-row {
   display: flex;
   align-items: flex-start;
-  gap: var(--kl-space-3);
-  padding: var(--kl-space-4) 0;
+  gap: var(--kl-space-2);
+  padding: var(--kl-space-3) 0;
   border-bottom: 1px solid var(--kl-border-subtle);
 }
 
@@ -134,22 +167,31 @@ button {
   min-width: 0;
 }
 
+.kl-menu-row-name {
+  display: flex;
+  align-items: center;
+  gap: var(--kl-space-2);
+  flex-wrap: wrap;
+}
+
 .kl-menu-row-info p {
-  margin: var(--kl-space-1) 0 0;
+  margin: 0.125rem 0 0;
   color: var(--kl-text-secondary);
 }
 
 .kl-menu-row-price {
-  margin-top: var(--kl-space-1);
+  margin-top: 0.125rem;
   color: var(--kl-text-primary);
 }
 
-/* Mengensteuerung: traubenbasiert, nie Zitrone (§5), Ziele >= 44px (§8) */
+/* Mengensteuerung: umrandet auf heller Flaeche (border-control), traubig
+   im Text, nie Zitrone (§5), Ziele >= 44px (§8). Referenz 6c Screen 2. */
 .kl-stepper {
   display: flex;
   align-items: center;
-  background: var(--kl-surface-control);
+  border: 1px solid var(--kl-border-control);
   border-radius: var(--kl-radius-compact);
+  flex: none;
 }
 
 .kl-stepper-button,
@@ -159,92 +201,66 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: none;
   background: transparent;
   color: var(--kl-text-primary);
   border-radius: var(--kl-radius-compact);
 }
 
-.kl-add-button {
-  background: var(--kl-brand-grape);
-  color: var(--kl-content-light);
-  padding: 0 var(--kl-space-3);
+.kl-stepper-button {
+  border: none;
 }
 
+.kl-add-button {
+  border: 1px solid var(--kl-border-control);
+  flex: none;
+}
+
+.kl-stepper-button:active,
 .kl-add-button:active {
-  background: var(--kl-brand-deep);
+  background: var(--kl-surface-recessed);
 }
 
 .kl-stepper-quantity {
-  min-width: 2rem;
+  min-width: 1.5rem;
   text-align: center;
 }
 
-@media (prefers-color-scheme: dark) {
-  /* Auf Traube-Seitenflaeche heben sich Kopf und Hinzufuegen-Control nur
-     ueber surface.darkRaised ab (analog Ticket-Hierarchie der Kueche). */
-  .kl-venue-header {
-    background: var(--kl-surface-dark-raised);
-  }
-
-  .kl-add-button {
-    background: var(--kl-surface-dark-raised);
-  }
-
-  .kl-add-button:active {
-    background: var(--kl-brand-deep);
-  }
-}
-
-/* Fixierte Bestellaktion: die einzige dauerhafte Zitronenflaeche (§9) */
+/* Fixierte Bestellaktion: die gesamte Leiste ist die einzige dauerhafte
+   Zitronenflaeche (§5, §9; Referenz 6c Screen 2: durchgehender Balken). */
 .kl-order-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--kl-surface-card);
-  border-top: 1px solid var(--kl-border-subtle);
-  box-shadow: 0 -4px 16px rgba(34, 27, 46, 0.12); /* echte Ebene (§8) */
   padding: var(--kl-space-3) var(--kl-space-4)
     calc(var(--kl-space-3) + env(safe-area-inset-bottom));
 }
 
-.kl-order-bar-inner {
+.kl-order-bar-button {
+  width: 100%;
   max-width: 40rem;
   margin: 0 auto;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--kl-space-4);
-}
-
-.kl-order-bar-summary {
-  flex: 1 1 auto;
-}
-
-.kl-order-bar-total {
-  color: var(--kl-text-primary);
-}
-
-.kl-order-bar-count {
-  color: var(--kl-text-secondary);
-}
-
-.kl-order-button {
-  min-height: 3rem; /* 48 */
-  padding: 0 var(--kl-space-5);
+  min-height: 3.25rem;
+  padding: 0 var(--kl-space-4);
   border: none;
   border-radius: var(--kl-radius-control);
   background: var(--kl-brand-lemon);
   color: var(--kl-brand-grape); /* Zitrone nur gefuellt mit Traube-Text (§5) */
+  box-shadow: 0 -4px 16px rgba(34, 27, 46, 0.16); /* echte Ebene (§8) */
 }
 
-.kl-order-button:active {
+.kl-order-bar-button:active {
   background: var(--kl-brand-lemon-pressed);
 }
 
-.kl-order-button:disabled {
-  background: var(--kl-surface-control);
+.kl-order-bar-button:disabled {
+  background: var(--kl-surface-recessed);
   color: var(--kl-text-muted);
+  box-shadow: none;
   cursor: not-allowed;
 }
 
@@ -326,7 +342,7 @@ button {
 
 /* Kleine Vertrauenssignatur: KitchenLink fuehrt im Gast-Web nicht (§2) */
 .kl-trust-signature {
-  margin: var(--kl-space-6) 0 var(--kl-space-4);
+  margin: var(--kl-space-5) 0 var(--kl-space-4);
   text-align: center;
   color: var(--kl-text-muted);
 }

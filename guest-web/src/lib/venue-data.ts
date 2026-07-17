@@ -12,6 +12,8 @@ export type GuestMenuItemKind = "food" | "drink";
 export interface GuestMenuItem {
   id: string;
   name: string;
+  /** Kleine neutrale Pille neben dem Namen, z. B. "beliebt" oder "vegetarisch". */
+  tag?: string;
   description: string;
   priceCents: number;
   kind: GuestMenuItemKind;
@@ -20,7 +22,7 @@ export interface GuestMenuItem {
 export interface GuestVenue {
   slug: string;
   name: string;
-  tagline: string;
+  isOpen: boolean;
   menu: GuestMenuItem[];
 }
 
@@ -28,7 +30,7 @@ export const sandboxVenues: GuestVenue[] = [
   {
     slug: "alte-muehle",
     name: "Gasthaus Alte Mühle",
-    tagline: "Regionale Küche am Mühlbach",
+    isOpen: true,
     menu: [
       {
         id: "kuerbissuppe",
@@ -40,6 +42,7 @@ export const sandboxVenues: GuestVenue[] = [
       {
         id: "flammkuchen",
         name: "Flammkuchen Elsässer Art",
+        tag: "beliebt",
         description: "Crème fraîche, Zwiebeln und geräucherter Speck",
         priceCents: 1150,
         kind: "food",
@@ -47,6 +50,7 @@ export const sandboxVenues: GuestVenue[] = [
       {
         id: "kaesespaetzle",
         name: "Käsespätzle",
+        tag: "vegetarisch",
         description: "Bergkäse, Röstzwiebeln und kleiner Blattsalat",
         priceCents: 1490,
         kind: "food",
@@ -54,6 +58,7 @@ export const sandboxVenues: GuestVenue[] = [
       {
         id: "wiener-schnitzel",
         name: "Wiener Schnitzel",
+        tag: "beliebt",
         description: "Kartoffel-Gurken-Salat und Preiselbeeren",
         priceCents: 2180,
         kind: "food",

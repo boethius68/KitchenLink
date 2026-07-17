@@ -19,7 +19,9 @@ export default function Home() {
             <Link href={`/${venue.slug}/menu`}>
               <span className="kl-type-primary">{venue.name}</span>
               <br />
-              <span className="kl-type-secondary">{venue.tagline}</span>
+              <span className="kl-type-secondary">
+                {venue.isOpen ? "geöffnet" : "geschlossen"}
+              </span>
             </Link>
           </li>
         ))}

@@ -36,58 +36,59 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
   const total = totalCents(cart, venue.menu);
 
   return (
-    <main className="kl-page">
-      {/* Das Restaurant führt den Kopf; Traube ist der sichere Fallback,
-          solange die Venue keine eigene Identität hinterlegt hat (§2). */}
+    <>
+      {/* Randloser Venue-Kopf: das Restaurant fuehrt, Traube ist der
+          sichere Fallback (§2, §9). Tisch-/Kanalkontext ist ein Platzhalter,
+          solange es noch keine echte QR-/Tisch-Session gibt. */}
       <header className="kl-venue-header">
-        <h1 className="kl-type-display">{venue.name}</h1>
-        <p className="kl-type-secondary">{venue.tagline}</p>
+        <div className="kl-venue-header-top">
+          <h1 className="kl-type-display">{venue.name}</h1>
+          <span className="kl-badge kl-badge-on-dark kl-type-meta">
+            {venue.isOpen ? "geöffnet" : "geschlossen"}
+          </span>
+        </div>
+        <p className="kl-venue-header-context kl-type-secondary">Speisekarte</p>
       </header>
 
-      {sections.map((section) => (
-        <section key={section.title} aria-label={section.title}>
-          <h2 className="kl-type-section kl-menu-section-title">
-            {section.title}
-          </h2>
-          <ul className="kl-menu-list">
-            {section.items.map((item) => (
-              <MenuRow
-                key={item.id}
-                item={item}
-                quantity={cart[item.id] ?? 0}
-                onIncrement={() => setCart((c) => increment(c, item.id))}
-                onDecrement={() => setCart((c) => decrement(c, item.id))}
-              />
-            ))}
-          </ul>
-        </section>
-      ))}
+      <main className="kl-page">
+        {sections.map((section) => (
+          <section key={section.title} aria-label={section.title}>
+            <h2 className="kl-type-section kl-menu-section-title">
+              {section.title}
+            </h2>
+            <ul className="kl-menu-list">
+              {section.items.map((item) => (
+                <MenuRow
+                  key={item.id}
+                  item={item}
+                  quantity={cart[item.id] ?? 0}
+                  onIncrement={() => setCart((c) => increment(c, item.id))}
+                  onDecrement={() => setCart((c) => decrement(c, item.id))}
+                />
+              ))}
+            </ul>
+          </section>
+        ))}
 
-      <p className="kl-trust-signature kl-type-meta">
-        Bereitgestellt mit KitchenLink
-      </p>
+        <p className="kl-trust-signature kl-type-meta">
+          Bereitgestellt mit KitchenLink
+        </p>
+      </main>
 
       <div className="kl-order-bar">
-        <div className="kl-order-bar-inner">
-          <div className="kl-order-bar-summary">
-            <div className="kl-order-bar-total kl-type-primary kl-tabular">
-              {formatEuro(total)}
-            </div>
-            <div className="kl-order-bar-count kl-type-meta">
-              {count === 1 ? "1 Artikel" : `${count} Artikel`}
-            </div>
-          </div>
-          {/* Die fixierte Bestellaktion ist die einzige dauerhafte
-              Zitronenfläche des Gast-Webs (§5, §9). */}
-          <button
-            type="button"
-            className="kl-order-button kl-type-button"
-            disabled={count === 0}
-            onClick={() => setSummaryOpen(true)}
-          >
-            Bestellung ansehen
-          </button>
-        </div>
+        {/* Die gesamte Leiste ist die einzige dauerhafte Zitronenflaeche
+            (§5, §9) und ein einzelnes, durchgehendes Aktionsziel. */}
+        <button
+          type="button"
+          className="kl-order-bar-button"
+          disabled={count === 0}
+          onClick={() => setSummaryOpen(true)}
+        >
+          <span className="kl-type-button kl-tabular">
+            {count === 1 ? "1 Artikel" : `${count} Artikel`} · bestellen
+          </span>
+          <span className="kl-type-button kl-tabular">{formatEuro(total)}</span>
+        </button>
       </div>
 
       {isSummaryOpen && (
@@ -98,7 +99,7 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
           onClose={() => setSummaryOpen(false)}
         />
       )}
-    </main>
+    </>
   );
 }
 
@@ -113,13 +114,20 @@ function MenuRow({ item, quantity, onIncrement, onDecrement }: MenuRowProps) {
   return (
     <li className="kl-menu-row">
       <div className="kl-menu-row-info">
-        <div className="kl-type-primary">{item.name}</div>
+        <div className="kl-menu-row-name">
+          <span className="kl-type-primary">{item.name}</span>
+          {item.tag && (
+            <span className="kl-badge kl-badge-on-light kl-type-meta">
+              {item.tag}
+            </span>
+          )}
+        </div>
         <p className="kl-type-secondary">{item.description}</p>
         <div className="kl-menu-row-price kl-type-primary kl-tabular">
           {formatEuro(item.priceCents)}
         </div>
       </div>
-      {/* Mengensteuerung traubenbasiert, nie Zitrone (§5). */}
+      {/* Umrandete Mengensteuerung, traubenbasiert, nie Zitrone (§5). */}
       {quantity === 0 ? (
         <button
           type="button"

@@ -66,17 +66,15 @@
   --kl-surface-control: var(--kl-surface-recessed);
 }
 
+/*
+ * Kein automatischer Seitenwechsel auf Dunkel: Jeder verifizierte Round-04-
+ * Referenzscreen zeigt das Gast-Web hell mit einem immer-Traube-Kopf (§9,
+ * "Restaurant fuehrt"); nur die Kueche ist "immer Tief" (§9 Kueche), das
+ * Gast-Web nicht. Die Dringlichkeits-Tokens bleiben fuer eine spaetere
+ * Bestellverfolgung dunkel-faehig, ohne die Seite selbst umzuschalten.
+ */
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Dunkler Kontext: Traube traegt die Flaeche (§9 Kueche analog) */
-    --kl-text-primary: var(--kl-text-primary-inverse);
-    --kl-text-secondary: var(--kl-text-secondary-inverse);
-    --kl-text-muted: var(--kl-text-muted-inverse);
-    --kl-border-subtle: var(--kl-border-subtle-inverse);
-    --kl-border-control: var(--kl-border-control-inverse);
-    --kl-focus-ring: var(--kl-focus-ring-inverse);
-
-    /* §6 Dringlichkeit — dunkler Kontext */
     --kl-urgency-fresh-symbol: #3fa96d;
     --kl-urgency-fresh-text: #5bc088;
     --kl-urgency-neutral-symbol: #9a94ae;
@@ -85,9 +83,5 @@
     --kl-urgency-waiting-text: #e9b84a;
     --kl-urgency-critical-symbol: #ef6e64;
     --kl-urgency-critical-text: #ef6e64;
-
-    --kl-surface-page: var(--kl-brand-grape);
-    --kl-surface-card: var(--kl-surface-dark-raised);
-    --kl-surface-control: var(--kl-surface-dark-raised);
   }
 }
