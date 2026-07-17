@@ -2,48 +2,54 @@
 
 **Updated:** 16 July 2026
 **Branch:** `claude/menu-import-review`
-**Status:** KL-MENU-004 in Arbeit — Kernimplementierung steht, ein
-E2E-Harness-Befund ist noch offen (siehe unten). KL-CLAUDE-001 und
-KL-OPS-001 sind gemergt (PR #1).
+**Status:** KL-MENU-004 abgeschlossen und gemergt (PR #2/#3; Merge-
+Dokumentation durch Codex in PR #4). KL-CLAUDE-001 und KL-OPS-001 sind
+gemergt (PR #1).
 
-## KL-MENU-004 Zwischenstand
+## KL-MENU-004 Ergebnis
 
-**Umgesetzt (Branch `claude/menu-import-review`):**
+**Umgesetzt (gemergt via PR #2/#3):**
 
 - Audit-P2 geloest: `MenuImportEvidence.isLocated` (Schema `0.2.0`)
   unterscheidet echte Fundstellen von synthetischen Ankern; der Adapter setzt
-  den Zustand an allen Fallback-Pfaden explizit (Preis ohne eigene OCR-Zeile,
-  Beschreibung ohne eigene Zeile, synthetische Gruppentitel, abgeleitete
-  Abschnitte, degenerierte Anker).
+  den Zustand an allen Fallback-Pfaden explizit.
 - `MenuImportDraftReviewModel` + `MenuImportDraftConverter`: In-Memory-Review
   mit Preis setzen/entfernen (Human-Evidenz, explizit unlokalisiert),
-  Umbenennen, Verschieben zwischen Abschnitten (Order-Renormalisierung),
-  Annehmen/Verwerfen/Wiederherstellen; Konvertierung in `[MenuSectionData]`
-  erst, wenn alle offenen Kandidaten geklaert sind (verworfen zaehlt als
-  geklaert, unbepreist blockiert). Varianten, Allergencodes und
-  Dokument-Legende werden zurueckgemappt.
+  Umbenennen, Verschieben, Annehmen/Verwerfen/Wiederherstellen und
+  Sammelaktion `acceptAllConvertibleEntries` (nur bepreiste, geflaggte
+  Eintraege). `acceptEntry` verweigert preislose Eintraege auf Modellebene;
+  Konvertierung erst, wenn alle offenen Kandidaten geklaert sind.
 - `MenuImportDraftReviewView` + Detail-Sheet: Originalseitenausschnitt
-  (Vision-Y-Flip via `MenuImportEvidenceCropper`), Rohtext, Preiszustand,
-  Pruefgrund, Korrekturfelder, Abschnitts-Picker; explizite
-  "Keine eigene Fundstelle"-Darstellung statt falscher Crops. Einstieg ueber
-  "Evidenz prüfen (Entwurf)" im V2-Ergebnis; Legacy-Review bleibt unveraendert.
-- Unit-Tests: Cropper-Geometrie, isLocated-Adapterpfade, Konverter
-  (Verworfen/Unbepreist/Varianten/Legende), Review-Gating, Preisparser —
-  alle gruen. Ein UI-Zustandsbug (Preisfeld leckte zwischen Eintraegen)
-  wurde durch den E2E-Harness gefunden und behoben (`loadedEntryID`-Bindung).
+  (Vision-Y-Flip), Rohtext, Preiszustand, Pruefgrund, Korrekturfelder,
+  Abschnitts-Picker, "Naechsten offenen Eintrag pruefen" und die
+  Sammelaktion; die Uebernahme erscheint erst nach Klaerung. Unlokalisierte
+  Evidenz zeigt einen expliziten Hinweis statt eines falschen Crops.
+  Legacy-Review bleibt unveraendert erreichbar.
 
-**Offen:**
+**Befund aus der E2E-Verifikation (geklaert):**
 
-- Der gefuehrte E2E-Harness-Lauf (`kitchenlinkDraftReviewCaptureTests`,
-  nur mit `TEST_RUNNER_KITCHENLINK_CAPTURE_DRAFT_REVIEW=1`) endet noch mit
-  "Expected at least one unpriced open candidate": Er loest ~40 offene
-  Eintraege, erreicht die zwei unbepreisten Alexxanders-Kandidaten aber nicht
-  innerhalb des Zeitfensters. Diagnose laeuft; Verdacht ist eine hohe Zahl
-  preislich unbelegter (`needsReview`) Eintraege vor den unbepreisten
-  Kandidaten plus Iterations-/Zeitbudget des Harness — kein bestaetigter
-  App-Bug. Naechster Schritt: Zustand der Liste am Laufende auswerten und
-  ggf. eine Sammelaktion "Alle mit Fundstelle uebernehmen" abwaegen.
-- Handoff-/Queue-Abschluss und visuelle Doku folgen nach der Klaerung.
+- Das Modell war durchgehend korrekt (per Diagnose auf dem echten
+  interaktiven Draft belegt: 26 offene Eintraege, alle bepreisten loesen per
+  `acceptEntry`, exakt die zwei preislosen bleiben). Der urspruengliche
+  Harness-Haenger war ein XCUITest-Artefakt (veralteter Accessibility-Frame
+  nach Scroll traf die bereits geklaerte Nachbarzeile). Der Harness ist jetzt
+  deterministisch: Batch-Aktion, gezielte Klaerung der zwei preislosen
+  Kandidaten (einer bepreist, einer verworfen), Gate-Pruefung, Konvertierung.
+- Zwei echte Fixes fielen dabei ab: Sheet-State-Leak zwischen Eintraegen
+  (`loadedEntryID`-Bindung) und wirkungsloses Annehmen preisloser Eintraege
+  (jetzt Modell-Guard + deaktivierter Button mit Hinweis).
+
+**Verifikation KL-MENU-004:**
+
+- Unit-Suite gruen (Cropper-Geometrie, isLocated-Pfade, Konverter,
+  Review-Gating, Batch-Regeln, Preisparser).
+- E2E-Harness gruen in ~56 s: Fixture-Import -> Review (Uebernahme gesperrt)
+  -> Sammelaktion (24 bepreiste) -> "Zwischengericht" bepreist,
+  "Gastgeber" verworfen (Accept ohne Preis nachweislich deaktiviert)
+  -> Uebernahme freigeschaltet -> Sandbox-Menue ersetzt.
+- UI-Regressionssuite 4/4, Scanner-Benchmark passed (Werte unveraendert).
+- Screenshots im xcresult: offene Liste, Detail mit Crop/Pruefgrund,
+  aufgeloester Zustand, uebernommenes Menue.
 
 ## Scope
 
