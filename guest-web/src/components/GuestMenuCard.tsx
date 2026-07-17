@@ -10,6 +10,17 @@ import {
   itemCount,
   totalCents,
 } from "@/lib/cart";
+import {
+  createSupabaseOrderBackend,
+} from "@/lib/order-backend-supabase";
+import { submitOrder } from "@/lib/order-submit";
+import {
+  acceptedState,
+  errorState,
+  initialSubmitUiState,
+  submittingState,
+  type SubmitUiState,
+} from "@/lib/order-ack";
 import type { GuestMenuItem, GuestVenue } from "@/lib/venue-data";
 
 interface GuestMenuCardProps {
@@ -19,6 +30,9 @@ interface GuestMenuCardProps {
 export function GuestMenuCard({ venue }: GuestMenuCardProps) {
   const [cart, setCart] = useState<Cart>(emptyCart);
   const [isSummaryOpen, setSummaryOpen] = useState(false);
+  const [submitState, setSubmitState] = useState<SubmitUiState>(
+    initialSubmitUiState(),
+  );
 
   const sections = useMemo(
     () =>
@@ -81,7 +95,7 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
         <button
           type="button"
           className="kl-order-bar-button"
-          disabled={count === 0}
+          disabled={count === 0 || submitState.kind === "submitting"}
           onClick={() => setSummaryOpen(true)}
         >
           <span className="kl-type-button kl-tabular">
@@ -96,7 +110,30 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
           venue={venue}
           cart={cart}
           totalCents={total}
-          onClose={() => setSummaryOpen(false)}
+          submitState={submitState}
+          onClose={() => {
+            // Nach bestätigter Bestellung schließt das Sheet in den Ausgangs-
+            // zustand; ein Fehler bleibt sichtbar, bis der Nutzer das Sheet
+            // schließt oder erneut sendet.
+            setSubmitState((current: SubmitUiState) =>
+              current.kind === "submitting" ? current : initialSubmitUiState(),
+            );
+            setSummaryOpen(false);
+          }}
+          onSubmit={async () => {
+            setSubmitState(submittingState());
+            const result = await submitOrder({
+              venue,
+              cart,
+              backend: createSupabaseOrderBackend(),
+            });
+            if (result.ok) {
+              setSubmitState(acceptedState(result.ack));
+              setCart(emptyCart);
+            } else {
+              setSubmitState(errorState(result.message));
+            }
+          }}
         />
       )}
     </>
@@ -171,16 +208,21 @@ interface OrderSummarySheetProps {
   venue: GuestVenue;
   cart: Cart;
   totalCents: number;
+  submitState: SubmitUiState;
   onClose: () => void;
+  onSubmit: () => void | Promise<void>;
 }
 
 function OrderSummarySheet({
   venue,
   cart,
   totalCents,
+  submitState,
   onClose,
+  onSubmit,
 }: OrderSummarySheetProps) {
   const lines = venue.menu.filter((item) => (cart[item.id] ?? 0) > 0);
+  const isSubmitting = submitState.kind === "submitting";
 
   return (
     <div
@@ -223,19 +265,65 @@ function OrderSummarySheet({
             {formatEuro(totalCents)}
           </span>
         </div>
-        <p className="kl-sheet-note kl-type-secondary">
-          Sandbox: Die verbindliche Übermittlung folgt mit der autoritativen
-          Bestellgrenze. Es wird nichts bestellt und nichts bezahlt.
-        </p>
-        <button
-          type="button"
-          className="kl-secondary-button kl-type-button"
-          onClick={onClose}
-          autoFocus
-        >
-          Zurück zur Karte
-        </button>
+
+        <SubmitStatusRow submitState={submitState} />
+
+        <div className="kl-sheet-actions">
+          <button
+            type="button"
+            className="kl-primary-button kl-type-button"
+            onClick={onSubmit}
+            disabled={isSubmitting || lines.length === 0}
+          >
+            {isSubmitting ? "Übermitteln…" : "Sandbox-Bestellung senden"}
+          </button>
+          <button
+            type="button"
+            className="kl-secondary-button kl-type-button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            autoFocus
+          >
+            {submitState.kind === "accepted" ? "Schließen" : "Zurück zur Karte"}
+          </button>
+        </div>
       </div>
     </div>
+  );
+}
+
+function SubmitStatusRow({ submitState }: { submitState: SubmitUiState }) {
+  if (submitState.kind === "accepted") {
+    const ack = submitState.ack;
+    return (
+      <p className="kl-sheet-note kl-type-secondary" role="status">
+        Bestätigt (Sandbox, kein Echtgeld). Bestellung {ack.orderId.slice(0, 8)}{" "}
+        als {ack.status} eingegangen
+        {ack.idempotentReplay ? " (idempotente Wiederholung)" : ""}. Status aus
+        der Serverantwort.
+      </p>
+    );
+  }
+  if (submitState.kind === "error") {
+    return (
+      <p className="kl-sheet-note kl-type-secondary" role="alert">
+        Übermittlung fehlgeschlagen: {submitState.message}. Keine Bestellung
+        gespeichert.
+      </p>
+    );
+  }
+  if (submitState.kind === "submitting") {
+    return (
+      <p className="kl-sheet-note kl-type-secondary" aria-live="polite">
+        Übermitteln … noch nicht bestätigt.
+      </p>
+    );
+  }
+  return (
+    <p className="kl-sheet-note kl-type-secondary">
+      Sandbox: Nach dem Senden wird die autoritative Bestellgrenze
+      (Supabase-Anonymous-Sign-in + RPC) aufgerufen. Es wird nichts bezahlt.
+      Ohne laufende Supabase-Instanz schlägt das Senden fehl.
+    </p>
   );
 }
