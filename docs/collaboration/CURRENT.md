@@ -4,11 +4,13 @@
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
-**Last merge:** PR #9 (`deepseek/offline-e2e-smoke` -> `main`), the KL-QA-002
-offline order regression smoke, after PR #6 (collaboration-state sync) and
-PR #5 (kitchen hardening) were reviewed and merged the same day. Earlier:
-PR #1 delivered the Claude audit and the `Heute`/`Kueche` reference areas,
-PR #2/#3 completed `KL-MENU-004`, PR #4 recorded that merge.
+**Last merge:** `claude/guest-web-foundation` -> `main`, the KL-WEB-001
+guest-web foundation (Next.js App Router, statically generated eight-dish
+guest menu card, shared design tokens). Before that, the same day: PR #9
+(KL-QA-002 offline order smoke), PR #6 (collaboration-state sync) and PR #5
+(kitchen hardening). Earlier: PR #1 delivered the Claude audit and the
+`Heute`/`Kueche` reference areas, PR #2/#3 completed `KL-MENU-004`, PR #4
+recorded that merge.
 
 ## Product
 
@@ -129,6 +131,21 @@ PR #2/#3 completed `KL-MENU-004`, PR #4 recorded that merge.
 - The kitchen ticket-advance action is a full-width, high-contrast button
   with success haptics; lemon is not used there, matching the status-token
   rule.
+- `guest-web/` now holds the KL-WEB-001 guest-web foundation: a Next.js App
+  Router (TypeScript) project with a statically generated eight-dish guest
+  menu card over a local sandbox venue, the same seam the later Supabase
+  path will replace. Design tokens from `DESIGN_SYSTEM.md` exist as CSS
+  variables sharing the SwiftUI semantic names, kept consistent with a
+  Vitest check. The first pass was rebuilt after the user compared it
+  against the actual Round-04 visual export (not just the derived
+  `DESIGN_SYSTEM.md` spec) and requested a closer match: a flush venue
+  header with an open/closed badge, outlined `border-control` quantity
+  controls, a single full-width lemon order-bar button, small tag pills,
+  and no unrequested page-wide dark-mode surface flip (only the venue
+  header is grape-led; the content area stays light, matching every
+  verified reference screen). The authoritative order gate, Supabase
+  wiring and PWA/offline stage are deliberately not part of this
+  foundation.
 - The active parallel queue and disjoint agent scopes are recorded in
   `docs/collaboration/WORK_QUEUE.md`.
 - The shared collaboration and design state must be present on `origin/main`
@@ -163,17 +180,23 @@ integration: the remaining mission branches were rebased onto the PR #4 merge
 base, all three merges applied conflict-free, and `minimax/inventory-domain`
 does not exist on `origin` at all.
 
+The KL-WEB-001 guest-web foundation merged the same day, reviewed visually by
+the user against the Round-04 Claude Design export rather than only the
+derived `DESIGN_SYSTEM.md` spec (see `guest-web/README.md` and the Claude
+handoff for the six divergences found and corrected).
+
 Remaining, in recommended order:
 
 - Review `glm/offline-event-log-v2` (PR #7, KL-OFFLINE-003) in its own scope —
   isolated Swift package prototype (schema, outbox, transport, 20+ tests).
 - Review `kimi/workforce-domain` (PR #8, KL-WORKFORCE-001) in its own scope —
   new `Features/Workforce/` domain plus 632 lines of tests.
-- KL-WEB-001: the user approved the stack on 17 July 2026 (see
-  `DECISIONS.md`, Guest Web): Next.js App Router per ADR-001, sandbox
-  deployment on Vercel with hosting-neutral code (the Cloudflare PoC becomes
-  a pre-production gate), Supabase Anonymous Sign-in and path-based venue
-  routes. The guest-web foundation implementation is ready to be claimed.
+- KL-WEB-001 next increments, each its own scope: the authoritative order
+  gate (Edge Function or PostgreSQL RPC, ADR-001 §6), Supabase Anonymous
+  Sign-in wiring, and the Vercel sandbox deployment (with the
+  Cloudflare-Workers PoC still required before any production activation).
+- `minimax/inventory-domain` does not exist on `origin`; KL-INVENTORY-001
+  needs to be reassigned or dropped.
 - KL-INVENTORY-001 was never started and needs to be reassigned or dropped.
 - `deepseek/offline-venue-hub-review` and `glm/offline-venue-hub` remain
   discovery material and need their own review before anything is adopted.
