@@ -190,7 +190,7 @@ gezielte Adaptertests und Erweiterung des Scanner-Benchmarks
 
 ### KL-MENU-004 - Evidenzbasierte Import-Pruefung
 
-**Status:** In Review (Claude Code + Codex, Branch `claude/menu-import-review`)
+**Status:** In Review (Claude Code + Codex, PR #2, Branch `claude/menu-import-review`)
 **Abhaengigkeit:** KL-MENU-003
 **Schreibbereich (exklusiv):** `kitchenlink/Features/MenuImport/` und
 gezielte UI-/Adaptertests; enthaelt die Entscheidung zum Audit-P2

@@ -128,6 +128,8 @@ final class MenuImportDraftReviewModel: ObservableObject {
         unresolvedEntryIDs.isEmpty && !convertibleEntryCountIsZero
     }
 
+    /// Flagged entries that already carry a usable fixed price: they only
+    /// need confirmation and are safe to accept in one batch action.
     var unresolvedConvertibleEntryIDs: [String] {
         unresolvedEntryIDs.filter { entryID in
             guard let entry = entry(withID: entryID) else { return false }
