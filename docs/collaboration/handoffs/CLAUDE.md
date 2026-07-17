@@ -3,15 +3,88 @@
 **Updated:** 17 July 2026
 **Branch:** `main` (Integrationsarbeit); KL-WEB-001 gemergt aus
 `claude/guest-web-foundation`
-**Status:** PR #7 (KL-OFFLINE-003) und PR #8 (KL-WORKFORCE-001) reviewt und
-integriert, keine P0/P1 (PR #8 mit einem kleinen Fix waehrend der Integration).
-ADR-001 nachtraeglich nach `main` gebracht, da GLMs frischer Mission-Branch sie
-sonst nicht im Arbeitsbaum gehabt haette. KL-WEB-001-Fundament umgesetzt, gegen
-die visuelle Claude-Design-Referenz korrigiert, verifiziert und gemergt. Zwei
-neue Missionen (KL-WEB-002 an GLM 5.2, KL-INVENTORY-001-Neuversuch an
-MiniMax/DeepSeek) zugewiesen. Zuvor am selben Tag: PR #5/#6/#9 reviewt und
-integriert sowie die vier KL-WEB-001-Entscheidungen des Nutzers in
+**Status:** Alle vier Runde-2-Missionen (KL-OFFLINE-003, KL-WORKFORCE-001,
+KL-WEB-002, KL-INVENTORY-001) reviewt und in `main` integriert, keine P0/P1.
+Zwei echte Funde waehrend der Integration behoben (KL-WORKFORCE-001,
+KL-WEB-002), eine Design-Frage bei KL-INVENTORY-001 genau nachverfolgt statt
+ungeprueft als Bug behandelt. ADR-001 nachtraeglich nach `main` gebracht, da
+GLMs frischer Mission-Branch sie sonst nicht im Arbeitsbaum gehabt haette.
+KL-WEB-001-Fundament umgesetzt, gegen die visuelle Claude-Design-Referenz
+korrigiert, verifiziert und gemergt. Zuvor am selben Tag: PR #5/#6/#9 reviewt
+und integriert sowie die vier KL-WEB-001-Entscheidungen des Nutzers in
 `DECISIONS.md` dokumentiert.
+
+## Session-Teil 6: Review und Integration KL-WEB-002 und KL-INVENTORY-001
+
+### Scope
+
+Nutzer meldete beide Missionen als fertig. Beide reviewt, ein Fund pro
+Ticket behandelt (einer behoben, einer bewusst nicht), beide gemergt.
+
+### Review-Ergebnis KL-WEB-002 (GLM, `glm/guest-web-order-gate`)
+
+- Branch war 4 Commits hinter `main`; lokal konfliktfrei rebased.
+- Migration gegen die tatsaechliche SQL geprueft: additive Spalten
+  (`idempotency_key`, `idempotency_payload_hash`, `created_by`,
+  `menu_items.slug`), deckungsgleicher Sandbox-Seed, RLS auf allen sechs
+  betroffenen Tabellen (vorher keine einzige geschuetzt), `guest_web_submit_order`
+  als `SECURITY DEFINER`-RPC mit `FOR UPDATE`-Sperre, Idempotenz ueber
+  Payload-Hash-Vergleich plus Unique-Constraint.
+- TypeScript-Verdrahtung (`order-submit.ts`, `order-ack.ts`,
+  `order-backend-supabase.ts`, `supabase-client.ts`) gegen ADR-001 §6/§7
+  geprueft; Status kommt nachweislich nur aus der Serverantwort.
+- CSS-/Komponenten-Diff bestaetigt die Behauptung "visuelles Design
+  unangetastet": nur neue Klassen, keine bestehende Regel geaendert.
+- **Echter Fund, behoben:** Nach erfolgreicher Bestellung leerte
+  `setCart(emptyCart)` den Warenkorb sofort; die Sheet-Summe fiel dadurch
+  auf "0,00 €" zurueck, direkt neben der Bestaetigungsmeldung. Der
+  tatsaechliche Server-Betrag (`ack.totalCents`) wurde berechnet, aber nie
+  angezeigt. Fix: Warenkorb-Schnappschuss zum Sende-Zeitpunkt; die Summe
+  zeigt nach Bestaetigung `ack.totalCents` statt des inzwischen leeren
+  Live-Warenkorbs. Verifiziert mit Typecheck, Lint, 40/40 Vitest-Tests,
+  Build und manueller Browser-Pruefung der ohne echte Supabase-Instanz
+  erreichbaren Zustaende (Artikel hinzufuegen, Sheet oeffnen, Senden ohne
+  Backend zeigt den korrekten Fehler und behaelt die Live-Summe fuer einen
+  Retry). Der "accepted"-Zustand selbst liess sich ohne laufende
+  Supabase-Instanz nicht live pruefen; per Code-Lektuere verifiziert.
+- **Dokumentiertes Restrisiko, bewusst nicht behoben:** Eine enge Race
+  Condition zwischen Idempotenz-Vorpruefung und INSERT (zwei nahezu
+  gleichzeitige Sendungen mit demselben Key) wird nur vom
+  DB-Unique-Constraint aufgefangen, nicht von einem gezielten
+  Exception-Handler, der sie auf Konflikt/Replay abbildet — der Verlierer
+  bekommt ein generisches `rpc_error`. Nicht behoben, weil ich die
+  `SECURITY DEFINER`-PL/pgSQL-Funktion hier nicht gegen eine echte
+  Postgres-Instanz testen kann; ein blinder Fix an sicherheitsrelevantem
+  SQL waere unverantwortlich. Die Kerngarantie (nie zwei Bestellungen fuer
+  einen Key) haelt trotzdem.
+- Gemergt nach `main`; GLMs Remote-Branch unveraendert gelassen (nur lokal
+  rebased und mit dem Fix committet).
+
+### Review-Ergebnis KL-INVENTORY-001 (MiniMax, `minimax/inventory-domain`)
+
+- Branch war 9 Commits hinter `main`; lokal konfliktfrei rebased.
+- Ledger, Projektion, Mengeneinheiten und Rezept-Resolver gegen
+  `INVENTORY_MODEL.md`s eigene Behauptungen gelesen, nicht nur die Doku.
+- 52 Inventory-Tests (Vorgabe: 25+), komplette Unit-Suite gruen.
+- **Vermeintlicher Fund, nach genauer Pruefung verworfen:** `record()`
+  prueft den Reversal-/Transfer-Schutz vor der Idempotenzpruefung. Ein
+  zweiter `reverse()` derselben Bewegung scheitert deshalb immer als
+  `alreadyReversed`, obwohl der automatisch generierte
+  `reversal:<originalID>`-Schluessel und der Fingerprint (der `note` und
+  `timestamp` bewusst ausschliesst) wie ein identischer Retry aussehen
+  wuerden. Auf den ersten Blick ein Bug (widerspricht der generellen
+  "gleicher Schluessel + gleiche Signatur -> Replay"-Regel aus §5). Nach
+  Nachverfolgung der tatsaechlichen Konsequenzen: das ist die sicherere
+  Wahl fuer ein Ledger. Sie garantiert "genau einmal" fuer einen Storno,
+  statt einen zweiten Klick still als Erfolg zu replayen — bei einem
+  Bestandsledger ist das eher erwuenscht als generische
+  Idempotenz-Replay-Semantik. MiniMax dokumentiert diese Abwaegung bereits
+  selbst im eigenen Handoff unter "Designentscheidungen — Reversal-Schutz
+  vor Idempotenz". Kein Codeeingriff.
+- `INVENTORY_MODEL.md` liegt neben dem Feature-Code
+  (`kitchenlink/Features/Inventory/`) statt unter `docs/domain/` wie im
+  urspruenglichen Mission-Brief vorgesehen — harmlose Pfadabweichung.
+- Gemergt nach `main`; MiniMax' Remote-Branch unveraendert gelassen.
 
 ## Session-Teil 4: Review und Integration PR #7 (KL-OFFLINE-003)
 
@@ -256,10 +329,10 @@ autoritative Bestellgrenze, Supabase-Anbindung, PWA-Stufe.
 
 ## Recommended Next Step
 
-PR #7 und PR #8 sind erledigt. Die beiden neu zugewiesenen Missionen laufen
-(KL-WEB-002 bei GLM 5.2 auf `glm/guest-web-order-gate`, KL-INVENTORY-001-
-Neuversuch bei MiniMax oder DeepSeek auf `minimax/inventory-domain`); deren
-Ergebnisse brauchen jeweils ein eigenes Review, sobald sie geliefert sind.
-Bis dahin: `deepseek/offline-venue-hub-review` und `glm/offline-venue-hub`
-bleiben als Discovery-Material zu reviewen, bevor daraus irgendetwas
-uebernommen wird.
+Alle vier Runde-2-Missionen (KL-OFFLINE-003, KL-WORKFORCE-001, KL-WEB-002,
+KL-INVENTORY-001) sind reviewt und gemergt. Offen bleiben: das dokumentierte
+Race-Condition-Risiko bei KL-WEB-002 (echte Supabase-Integrationstests
+brauchen eine laufende Instanz, die hier nicht verfuegbar ist), das
+Vercel-Sandbox-Deployment und die PWA-/Offline-Stufe fuer das Gast-Web, sowie
+`deepseek/offline-venue-hub-review` und `glm/offline-venue-hub` als
+ungereviewtes Discovery-Material.

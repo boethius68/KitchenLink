@@ -295,82 +295,74 @@ in der Sandbox.
 
 ### KL-WEB-002 - Autoritative Bestellgrenze und Anonyme Identitaet
 
-**Status:** Branch und Worktree bereit (`glm/guest-web-order-gate`), Auftrag
-vergeben an GLM 5.2 — vollstaendiger Copy-Ready-Prompt in
-`docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md`
+**Status:** Erledigt; von Claude Code reviewt und in `main` integriert
 **Abhaengigkeit:** KL-WEB-001 (erledigt, gemergt)
-**Schreibbereich (exklusiv):** `guest-web/` (Fortsetzung), neue additive
-Migrationsdateien unter `supabase/migrations/` (bestehende
-`20260318011000_kitchenlink_core_schema.sql` bleibt unveraendert), neue
-Supabase-Function/RPC-Datei, `docs/architecture/guest-web/` und
+**Schreibbereich:** war `guest-web/` (Fortsetzung), additive Migration unter
+`supabase/migrations/`, `docs/architecture/guest-web/` und
 `docs/collaboration/handoffs/GLM.md`
 
-GLM hat mit ADR-001 (`docs/architecture/guest-web/ADR-001_GUEST_WEB_STACK.md`)
-die Architektur entworfen; der Nutzer hat sie am 17. Juli 2026 als
-Arbeitsgrundlage freigegeben (`DECISIONS.md`, Guest Web). Dieses Ticket setzt
-ADR-001 §6 und §6.3 technisch um:
+GLM hat ADR-001 §6 (autoritative Bestellgrenze) und §6.3 (Anonymous Sign-in)
+technisch umgesetzt: additive Migration (`idempotency_key` +
+Payload-Hash-Vergleich + Unique-Constraint auf `orders`, `menu_items.slug`,
+deckungsgleicher Sandbox-Seed), Row Level Security auf allen sechs
+betroffenen Tabellen aktiviert (vorher keine einzige RLS-geschuetzt),
+`guest_web_submit_order` als `SECURITY DEFINER`-RPC mit `FOR UPDATE`-Sperre
+als einziger Schreibpfad, Frontend-Verdrahtung (`order-submit.ts`,
+`order-ack.ts`, `order-backend-supabase.ts`) mit ausschliesslich
+serverseitigem ACK. Die bestehende Gastkarte (Tokens, Layout, Controls)
+blieb unangetastet, bestaetigt durch CSS-/Komponenten-Diff (nur neue Klassen).
 
-- **Autoritative Bestellgrenze** (Edge Function oder PostgreSQL-RPC, D6 bleibt
-  Implementierungswahl von GLM): serverseitige Pruefung von Preis (aus der DB,
-  nie aus dem Client), Verfuegbarkeit, Oeffnungszeit, Kapazitaet und
-  Idempotenz-Key, bevor eine Bestellung dauerhaft persistiert wird. Der Browser
-  darf niemals direkt in Bestelltabellen schreiben.
-- **Supabase Anonymous Sign-in** (laut Nutzerentscheidung, nicht die blosse
-  `anon`-Rolle): Gast-Session ist ueber `authenticated` + `is_anonymous`
-  identifizierbar; RLS-Policies pruefen `auth.jwt() ->> 'is_anonymous'`.
-- **ACK-Vertrag**: Die Gastkarte zeigt "Eingegangen" erst nach echtem Server-ACK,
-  nie optimistisch.
-- Die bestehende `guest-web/`-Gastkarte (Tokens, Layout, Warenkorb-UI) bleibt
-  unveraendert; dieses Ticket ergaenzt nur den Absende-/Bestaetigungspfad
-  (`order-submit.ts`/`order-ack.ts` laut ADR-001 §7) und die serverseitige
-  Gegenseite.
-- Sandbox-Grundsatz beachten: keine echte Zahlung, sichtbares Sandbox-Banner
-  bleibt bestehen.
+Claude-Review fand und behob einen echten Fund waehrend der Integration:
+Nach erfolgreicher Bestellung fiel die Sheet-Summe auf "0,00 €" zurueck
+(Warenkorb wurde vor der naechsten Renderung geleert), obwohl der
+Server-Betrag (`ack.totalCents`) korrekt berechnet, aber nie angezeigt
+wurde. Behoben durch Warenkorb-Schnappschuss zum Sende-Zeitpunkt; verifiziert
+mit Typecheck, Lint, 40/40 Vitest-Tests, Build und manueller Browser-Pruefung
+der ohne echte Supabase-Instanz erreichbaren Zustaende.
 
-**Abnahme**
+Dokumentiertes, nicht behobenes Restrisiko: eine enge Race Condition bei
+zwei nahezu gleichzeitigen Sendungen mit demselben Idempotenz-Key wird nur
+vom DB-Unique-Constraint aufgefangen, nicht von einem gezielten
+Exception-Handler, der sie sauber auf Konflikt/Replay abbildet — der
+Verlierer bekommt ein generisches `rpc_error` statt eines sauberen Signals.
+Die Kerngarantie (nie zwei Bestellungen fuer einen Key) haelt trotzdem;
+Fix ist ein Folgeticket fuer echte Supabase-Integrationstests, kein
+Merge-Blocker.
 
-- Vitest-Tests fuer die neue Absende-/ACK-Logik.
-- Migration ist additiv und rueckwaertskompatibel zur bestehenden
-  `kitchenlink_core_schema.sql`.
-- Kurzes Risikoprotokoll (RLS-Luecken, offene D6-Wahl-Begruendung) im Handoff.
+### KL-INVENTORY-001 - Warenwirtschafts-Domaene
 
-### KL-INVENTORY-001 - Warenwirtschafts-Domaene (Neuvergabe)
-
-**Status:** Branch und Worktree bereit (`minimax/inventory-domain`), Auftrag
-vergeben an MiniMax oder DeepSeek — vollstaendiger Copy-Ready-Prompt in
-`docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md`
+**Status:** Erledigt; von Claude Code reviewt und in `main` integriert
 **Abhaengigkeit:** keine
-**Schreibbereich (exklusiv):** neue Dateien unter `Features/Inventory/`,
-fokussierte Tests, ein Domain-Dokument und `docs/collaboration/handoffs/MINIMAX.md`
-beziehungsweise `docs/collaboration/handoffs/DEEPSEEK.md`
+**Schreibbereich:** war neue Dateien unter `Features/Inventory/`, fokussierte
+Tests und `docs/collaboration/handoffs/MINIMAX.md`
 
-MiniMax hatte dieses Ticket zugewiesen, aber nie geliefert (kein Branch, kein
-Commit). Zuschnitt und Vorbild ist das erfolgreiche KL-WORKFORCE-001 (Kimi,
-`kimi/workforce-domain`): isolierte Swift-Domaenengrundlage, nur neue Dateien,
-kein Antasten von `OrderingDomain.swift`, `KitchenLinkRepository.swift` oder
-bestehenden Features.
+MiniMax hat den Warenwirtschafts-Kern nach Blueprint §11 geliefert:
+dimensionssichere Mengen (Masse/Volumen/Stueck, Decimal, deterministische
+Halb-Auf-Rundung), ein append-only Ledger mit Idempotenz-Schluesseln,
+Reversal- und ausgeglichenem Transfer-Schutz, eine frisch berechnete
+physisch/reserviert/verfuegbar-Projektion, ein Rezept-Resolver und ein
+erklaerbarer Bestellvorschlags-Advisor. 52 Inventory-Tests (Vorgabe: 25+),
+komplette Unit-Suite gruen.
 
-- Zutaten, Verkaufsartikel und Einheiten (Blueprint §11) als Datenmodell.
-- Lagerorte und Bestaende; jede Bestandsaenderung als unveraenderliche
-  Lagerbewegung, aktueller Bestand daraus abgeleitet (Blueprint §11, letzter
-  Satz).
-- Mindestbestaende und Warnungen als reine Validierungslogik.
-- Harte Invarianten testen (keine negativen Bestaende ausser durch
-  dokumentierte Korrekturbewegung, jede Bewegung hat Ursache/Quelle).
-- Keine UI, kein Anschluss an die bestehende Order-Domaene in diesem Ticket.
-
-**Abnahme**
-
-- Neue Dateien kompilieren im bestehenden Xcode-Target.
-- Kein bestehender Screen oder Test veraendert sich.
-- Handoff dokumentiert Testabdeckung und bewusste Vereinfachungen.
+Claude-Review ging einer moeglichen Design-Frage nach, statt sie ungeprueft
+als Bug zu behandeln: `record()` prueft den Reversal-/Transfer-Schutz vor
+der Idempotenzpruefung, wodurch ein zweiter `reverse()` derselben Bewegung
+immer als `alreadyReversed` scheitert, obwohl Schluessel und Signatur wie
+ein identischer Retry aussehen wuerden. Nach genauer Konsequenzanalyse ist
+das die sicherere Wahl fuer ein Ledger (garantiert "genau einmal" statt
+einen zweiten Storno-Klick still als Erfolg zu replayen) — MiniMax
+dokumentiert diese Abwaegung bereits selbst im Handoff unter
+"Designentscheidungen". Kein Codeeingriff noetig.
+`INVENTORY_MODEL.md` liegt neben dem Feature-Code statt unter `docs/domain/`
+wie im urspruenglichen Mission-Brief — harmlose Pfadabweichung, kein
+Scope-Verstoss.
 
 ## Parallele Runde 2 (Stand 17. Juli 2026, nach Integration von PR #9)
 
 Die urspruengliche Rebase-Warnung ist ueberholt: Die Missionszweige wurden vor
-Integrationsbeginn auf die PR-#4-Merge-Basis rebased. KL-QA-002 ist konfliktfrei
-integriert; die verbleibenden Zweige brauchen weiterhin je ein unabhaengiges
-Review in eigenem Scope. Claude Code uebernimmt PR #7 und PR #8 als naechstes.
+Integrationsbeginn auf die PR-#4-Merge-Basis rebased. Alle vier Missionszweige
+dieser Runde (KL-OFFLINE-003, KL-QA-002, KL-WORKFORCE-001, KL-INVENTORY-001)
+sind mittlerweile reviewt und integriert.
 
 ### KL-OFFLINE-003 - Autoritatives Event-Log und Outbox
 
@@ -427,8 +419,8 @@ der Integration behoben (beide Zweige setzen `acceptedAt` jetzt konsistent
 zurueck) plus Regressionstest, der genau diesen zuvor ungetesteten Pfad
 abdeckt. Komplette Unit-Suite auf dem gemergten Stand gruen.
 
-KL-INVENTORY-001 ist als Neuvergabe fuer MiniMax oder DeepSeek jetzt unter dem
-Gast-Web-Folgeticket weiter oben eingetragen (KL-WEB-002-Abschnitt).
+KL-INVENTORY-001 (die vierte Mission dieser Runde) steht jetzt als eigener,
+erledigter Abschnitt weiter oben.
 
 ## Integrationsreihenfolge
 
@@ -449,10 +441,8 @@ Gast-Web-Folgeticket weiter oben eingetragen (KL-WEB-002-Abschnitt).
    waehrend der Integration, siehe Handoff).
 7. ~~KL-WEB-001 erst nach Nutzervorgabe des Web-Stacks weiterverfolgen.~~
    Stack am 17. Juli 2026 entschieden; Fundament gemergt.
-8. Parallel dazu: KL-WEB-002 (autoritative Bestellgrenze + Supabase Anonymous
-   Sign-in) an GLM 5.2, KL-INVENTORY-001 (Neuvergabe) an MiniMax oder DeepSeek.
-   Beide starten von aktuellem `origin/main` in eigenem Worktree/Branch.
-   ADR-001 (zuvor nur auf dem nicht gemergten `glm/guest-web-architecture`)
-   wurde nachtraeglich nach `main` gebracht, da GLMs Mission-Branch sie sonst
-   nicht im Arbeitsbaum gehabt haette.
+8. ~~Parallel dazu: KL-WEB-002 an GLM 5.2, KL-INVENTORY-001 (Neuvergabe) an
+   MiniMax.~~ Beide erledigt und am 17. Juli 2026 reviewt und integriert
+   (siehe Handoff fuer Details: ein behobener Fund bei KL-WEB-002, eine
+   gepruefte und bestaetigte Design-Entscheidung bei KL-INVENTORY-001).
 9. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.

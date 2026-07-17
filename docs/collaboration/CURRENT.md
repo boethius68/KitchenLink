@@ -4,12 +4,12 @@
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
-**Last merge:** `kimi/workforce-domain` -> `main` (PR #8, KL-WORKFORCE-001),
-the isolated Swift workforce/shift-planning domain foundation under
-`kitchenlink/Features/Workforce/`. Claude Code's review found and fixed one
-real bug during integration (`finalizeSwap` leaving a stale `acceptedAt`)
-before merging, plus a regression test for it. Before that, the same day:
-PR #7 (KL-OFFLINE-003 event-log/outbox prototype), `claude/guest-web-foundation`
+**Last merge:** `minimax/inventory-domain` -> `main` (KL-INVENTORY-001), the
+isolated Swift inventory/stock domain foundation under
+`kitchenlink/Features/Inventory/`. Before that, the same day:
+`glm/guest-web-order-gate` (KL-WEB-002, the authoritative guest order gate and
+Supabase Anonymous Sign-in), PR #8 (KL-WORKFORCE-001 workforce domain), PR #7
+(KL-OFFLINE-003 event-log/outbox prototype), `claude/guest-web-foundation`
 (KL-WEB-001 guest-web foundation), PR #9 (KL-QA-002 offline order smoke), PR #6
 (collaboration-state sync) and PR #5 (kitchen hardening). Earlier: PR #1
 delivered the Claude audit and the `Heute`/`Kueche` reference areas, PR #2/#3
@@ -163,14 +163,31 @@ recorded that merge.
   controls, a single full-width lemon order-bar button, small tag pills,
   and no unrequested page-wide dark-mode surface flip (only the venue
   header is grape-led; the content area stays light, matching every
-  verified reference screen). The authoritative order gate, Supabase
-  wiring and PWA/offline stage are deliberately not part of this
-  foundation.
+  verified reference screen). The PWA/offline stage remains deliberately out
+  of scope.
 - `docs/architecture/guest-web/ADR-001_GUEST_WEB_STACK.md` and `SOURCES.md`
   (Revision 2, the version the user approved as the guest-web stack decision
   basis) are now on `main` under the same path GLM's own mission references.
   They previously existed only on the unmerged `glm/guest-web-architecture`
   branch; brought over verbatim, no content changes.
+- KL-WEB-002 (GLM) implements ADR-001 §6/§6.3 for real: an additive migration
+  (`idempotency_key` + payload-hash comparison, `menu_items.slug`, a sandbox
+  seed matching `venue-data.ts`), Row Level Security enabled on all six
+  guest-facing tables (previously none had any), and `guest_web_submit_order`
+  — a `SECURITY DEFINER` RPC with a `FOR UPDATE`-locked re-pricing step — as
+  the sole write path for guest orders. The guest card's visual design is
+  unchanged; only the submit/ACK wiring is new. A narrow race (two
+  near-simultaneous submits with the same idempotency key) is caught by the
+  database's unique constraint but not remapped to a clean conflict/replay
+  result client-side — documented as a follow-up, not a merge blocker, since
+  the core "never two orders for one key" guarantee still holds.
+- `kitchenlink/Features/Inventory/` (KL-INVENTORY-001) is an isolated Swift
+  domain foundation for the stock core required by Blueprint §11:
+  dimension-safe quantities (mass/volume/count), an append-only ledger with
+  idempotency keys, reversal and balanced-transfer protection, a
+  fresh-computed physical/reserved/available projection, a recipe resolver
+  and a replenishment advisor. No UI, persistence, cloud sync or valuation
+  logic, as scoped.
 - The active parallel queue and disjoint agent scopes are recorded in
   `docs/collaboration/WORK_QUEUE.md`.
 - The shared collaboration and design state must be present on `origin/main`
@@ -202,8 +219,9 @@ PR #6 (collaboration-state sync), PR #5 (kitchen hardening) and PR #9
 (KL-QA-002 offline order smoke) were reviewed by Claude Code and integrated on
 17 July 2026. The Round-2 rebase warning from PR #6 became obsolete before
 integration: the remaining mission branches were rebased onto the PR #4 merge
-base, all three merges applied conflict-free, and `minimax/inventory-domain`
-does not exist on `origin` at all.
+base and all merges applied conflict-free. The KL-INVENTORY-001 mission that
+never got a `minimax/inventory-domain` branch the first time around was
+reassigned and delivered the same day (see below).
 
 The KL-WEB-001 guest-web foundation merged the same day, reviewed visually by
 the user against the Round-04 Claude Design export rather than only the
@@ -225,23 +243,26 @@ a rejected swap on a previously-accepted shift, contradicting the
 untested path. 38/38 workforce tests and the complete unit suite are green
 on the merged state.
 
-Two new missions were assigned the same day and are documented as copy-ready
-prompts in `docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md`, each with its
-own fresh branch and worktree from current `main`:
+Two missions were assigned the same day (documented as copy-ready prompts in
+`docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md`) and both were delivered
+and integrated the same day too:
 
-- **GLM 5.2** — KL-WEB-002 on `glm/guest-web-order-gate`
-  (`/Users/test/Developments/kitchenlink-glm-web`): the authoritative guest
-  order gate and Supabase Anonymous Sign-in wiring for the merged guest-web
-  foundation (ADR-001 §6/§6.3). The existing card's visual design is out of
-  scope; this is a data-wiring ticket. ADR-001 itself had to be brought into
-  `main` first (see Code section) since it previously existed only on the
-  unmerged `glm/guest-web-architecture` branch — GLM's fresh mission branch
-  surfaced the gap when it went looking for the file.
-- **MiniMax or DeepSeek** — KL-INVENTORY-001 retry on
-  `minimax/inventory-domain`
-  (`/Users/test/Developments/kitchenlink-minimax-inventory`): the same
-  well-specified ledger-based stock domain ticket MiniMax was assigned once
-  before and never delivered.
+- **KL-WEB-002** (GLM 5.2, `glm/guest-web-order-gate`): reviewed by Claude
+  Code and merged. One real bug was found and fixed during integration — the
+  order summary sheet showed a stale "Summe: 0,00 €" right next to the
+  confirmed-order message, because the cart was cleared before the sheet's
+  live total recomputed. Fixed by snapshotting the cart and showing the
+  server-confirmed total once accepted. A narrow, documented (not fixed)
+  risk remains: a concurrent double-submit race with the same idempotency
+  key surfaces as a generic error instead of a clean conflict/replay result
+  for the losing request; the core "never two orders for one key" guarantee
+  is unaffected.
+- **KL-INVENTORY-001** (MiniMax, `minimax/inventory-domain`): reviewed by
+  Claude Code and merged, no code changes needed. One design choice was
+  investigated in depth rather than assumed to be a bug — reversal
+  protection intentionally runs before the idempotency check, guaranteeing
+  "exactly once" for a Storno rather than silently replaying a second click.
+  MiniMax's own handoff already documents this exact tradeoff.
 
 Remaining:
 
