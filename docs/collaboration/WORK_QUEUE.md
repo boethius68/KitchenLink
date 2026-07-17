@@ -249,8 +249,10 @@ sowie gezielte Tests in `kitchenlinkTests/` und `kitchenlinkUITests/`
 
 ### KL-WEB-001 - Gast-Web-Grundlage
 
-**Status:** Stack entschieden (17. Juli 2026); Umsetzung frei zur Uebernahme
+**Status:** In Arbeit: Claude Code, Branch `claude/guest-web-foundation`
 **Abhaengigkeit:** semantische Token-Namen aus KL-DS-001
+**Schreibbereich (exklusiv):** neues Verzeichnis `guest-web/`, dieser
+Queue-Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
 
 Der Nutzer hat entschieden (siehe `DECISIONS.md`, Guest Web): Next.js App
 Router auf Basis von ADR-001 (`glm/guest-web-architecture`), Sandbox-Deployment
