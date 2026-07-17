@@ -49,20 +49,18 @@ extension WorkforcePlannedShift {
         return .success(())
     }
 
-    /// Setzt den Zustand nach erfolgreichem Tausch zurück auf veröffentlicht,
-    /// damit der neue Inhaber die Schicht annehmen kann.
+    /// Setzt den Zustand nach Tausch-Entscheidung zurück auf veröffentlicht,
+    /// damit ein Mitarbeiter die Schicht (neu) annehmen kann. `acceptedAt` wird
+    /// in beiden Fällen zurückgesetzt: eine Schicht, deren Status wieder
+    /// `published` ist, darf keinen Zeitstempel einer vorherigen Annahme tragen,
+    /// sonst widersprechen sich Status und `acceptedAt`.
     mutating func finalizeSwap(accepted: Bool) -> Result<Void, WorkforceValidationError> {
         guard status == .swapRequested else {
             return .failure(.invalidStatusTransition)
         }
-        if accepted {
-            status = .published
-            swapRequestID = nil
-            acceptedAt = nil
-        } else {
-            status = .published
-            swapRequestID = nil
-        }
+        status = .published
+        swapRequestID = nil
+        acceptedAt = nil
         return .success(())
     }
 

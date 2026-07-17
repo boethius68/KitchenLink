@@ -121,15 +121,12 @@ struct WorkforcePlannedShiftValidator {
         }
 
         // Availability check: at least one availability covers the whole shift.
+        // Availability is opt-in and explicit; a shift without a covering
+        // availability is rejected even without an approved leave.
         let covering = context.availabilities.contains {
             $0.employeeID == shift.employeeID &&
             $0.range.startsAt <= shift.range.startsAt &&
             $0.range.endsAt >= shift.range.endsAt
-        }
-        if !covering {
-            // If no explicit availability is recorded, we still reject the shift
-            // unless a leave is approved. Availability is opt-in and explicit.
-            // To allow a shift without availability, caller must add availability.
         }
         guard covering else {
             return .failure(.unavailable)

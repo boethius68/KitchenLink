@@ -269,6 +269,24 @@ struct KitchenLinkWorkforceDomainTests {
         #expect(shift.swapRequestID == nil)
     }
 
+    @Test
+    func rejectedSwapFromAcceptedShiftClearsStaleAcceptedAt() throws {
+        // A shift that was already accepted, then put up for swap, then the
+        // swap is rejected: the shift returns to `published` and must not
+        // keep the old `acceptedAt` from before the swap was requested --
+        // otherwise status and acceptedAt contradict each other.
+        var shift = try fixtureShift()
+        _ = shift.publish(at: Date())
+        _ = shift.accept(at: Date())
+        #expect(shift.acceptedAt != nil)
+        _ = shift.requestSwap("swap-2")
+        let result = shift.finalizeSwap(accepted: false)
+        expectSuccess(result)
+        #expect(shift.status == .published)
+        #expect(shift.swapRequestID == nil)
+        #expect(shift.acceptedAt == nil)
+    }
+
     // MARK: - Swap request lifecycle
 
     @Test
