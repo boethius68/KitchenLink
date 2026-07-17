@@ -249,10 +249,10 @@ sowie gezielte Tests in `kitchenlinkTests/` und `kitchenlinkUITests/`
 
 ### KL-WEB-001 - Gast-Web-Grundlage
 
-**Status:** Fundament umgesetzt; In Review auf `claude/guest-web-foundation`
+**Status:** Erledigt; mit `claude/guest-web-foundation` in `main` integriert
 **Abhaengigkeit:** semantische Token-Namen aus KL-DS-001
-**Schreibbereich (exklusiv):** neues Verzeichnis `guest-web/`, dieser
-Queue-Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+**Schreibbereich:** war exklusiv `guest-web/`, `docs/collaboration/handoffs/CLAUDE.md`
+und dieser Eintrag; jetzt frei fuer die Folgeticket KL-WEB-002
 
 **Ergebnis des Fundaments (17. Juli 2026):** Next.js-16-App-Router-Projekt
 unter `guest-web/` mit statisch generierter Menueroute
@@ -293,21 +293,89 @@ auf Vercel bei hosting-neutralem Code (Cloudflare-PoC als Gate vor Produktion),
 Supabase Anonymous Sign-in fuer Gastbestellungen und pfadbasierte Venue-Routen
 in der Sandbox.
 
-Naechster Umsetzungsschritt: mobile Gastkarte mit acht Gerichten,
-Venue-fuehrendem Branding, traubenbasierter Mengensteuerung und genau einer
-fixierten Zitronenaktion. Noch keine Live-Zahlung und keine Entfernung der
-Sandbox-Daten.
+### KL-WEB-002 - Autoritative Bestellgrenze und Anonyme Identitaet
+
+**Status:** Branch und Worktree bereit (`glm/guest-web-order-gate`), Auftrag
+vergeben an GLM 5.2 — vollstaendiger Copy-Ready-Prompt in
+`docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md`
+**Abhaengigkeit:** KL-WEB-001 (erledigt, gemergt)
+**Schreibbereich (exklusiv):** `guest-web/` (Fortsetzung), neue additive
+Migrationsdateien unter `supabase/migrations/` (bestehende
+`20260318011000_kitchenlink_core_schema.sql` bleibt unveraendert), neue
+Supabase-Function/RPC-Datei, `docs/architecture/guest-web/` und
+`docs/collaboration/handoffs/GLM.md`
+
+GLM hat mit ADR-001 (`docs/architecture/guest-web/ADR-001_GUEST_WEB_STACK.md`)
+die Architektur entworfen; der Nutzer hat sie am 17. Juli 2026 als
+Arbeitsgrundlage freigegeben (`DECISIONS.md`, Guest Web). Dieses Ticket setzt
+ADR-001 §6 und §6.3 technisch um:
+
+- **Autoritative Bestellgrenze** (Edge Function oder PostgreSQL-RPC, D6 bleibt
+  Implementierungswahl von GLM): serverseitige Pruefung von Preis (aus der DB,
+  nie aus dem Client), Verfuegbarkeit, Oeffnungszeit, Kapazitaet und
+  Idempotenz-Key, bevor eine Bestellung dauerhaft persistiert wird. Der Browser
+  darf niemals direkt in Bestelltabellen schreiben.
+- **Supabase Anonymous Sign-in** (laut Nutzerentscheidung, nicht die blosse
+  `anon`-Rolle): Gast-Session ist ueber `authenticated` + `is_anonymous`
+  identifizierbar; RLS-Policies pruefen `auth.jwt() ->> 'is_anonymous'`.
+- **ACK-Vertrag**: Die Gastkarte zeigt "Eingegangen" erst nach echtem Server-ACK,
+  nie optimistisch.
+- Die bestehende `guest-web/`-Gastkarte (Tokens, Layout, Warenkorb-UI) bleibt
+  unveraendert; dieses Ticket ergaenzt nur den Absende-/Bestaetigungspfad
+  (`order-submit.ts`/`order-ack.ts` laut ADR-001 §7) und die serverseitige
+  Gegenseite.
+- Sandbox-Grundsatz beachten: keine echte Zahlung, sichtbares Sandbox-Banner
+  bleibt bestehen.
+
+**Abnahme**
+
+- Vitest-Tests fuer die neue Absende-/ACK-Logik.
+- Migration ist additiv und rueckwaertskompatibel zur bestehenden
+  `kitchenlink_core_schema.sql`.
+- Kurzes Risikoprotokoll (RLS-Luecken, offene D6-Wahl-Begruendung) im Handoff.
+
+### KL-INVENTORY-001 - Warenwirtschafts-Domaene (Neuvergabe)
+
+**Status:** Branch und Worktree bereit (`minimax/inventory-domain`), Auftrag
+vergeben an MiniMax oder DeepSeek — vollstaendiger Copy-Ready-Prompt in
+`docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md`
+**Abhaengigkeit:** keine
+**Schreibbereich (exklusiv):** neue Dateien unter `Features/Inventory/`,
+fokussierte Tests, ein Domain-Dokument und `docs/collaboration/handoffs/MINIMAX.md`
+beziehungsweise `docs/collaboration/handoffs/DEEPSEEK.md`
+
+MiniMax hatte dieses Ticket zugewiesen, aber nie geliefert (kein Branch, kein
+Commit). Zuschnitt und Vorbild ist das erfolgreiche KL-WORKFORCE-001 (Kimi,
+`kimi/workforce-domain`): isolierte Swift-Domaenengrundlage, nur neue Dateien,
+kein Antasten von `OrderingDomain.swift`, `KitchenLinkRepository.swift` oder
+bestehenden Features.
+
+- Zutaten, Verkaufsartikel und Einheiten (Blueprint §11) als Datenmodell.
+- Lagerorte und Bestaende; jede Bestandsaenderung als unveraenderliche
+  Lagerbewegung, aktueller Bestand daraus abgeleitet (Blueprint §11, letzter
+  Satz).
+- Mindestbestaende und Warnungen als reine Validierungslogik.
+- Harte Invarianten testen (keine negativen Bestaende ausser durch
+  dokumentierte Korrekturbewegung, jede Bewegung hat Ursache/Quelle).
+- Keine UI, kein Anschluss an die bestehende Order-Domaene in diesem Ticket.
+
+**Abnahme**
+
+- Neue Dateien kompilieren im bestehenden Xcode-Target.
+- Kein bestehender Screen oder Test veraendert sich.
+- Handoff dokumentiert Testabdeckung und bewusste Vereinfachungen.
 
 ## Parallele Runde 2 (Stand 17. Juli 2026, nach Integration von PR #9)
 
 Die urspruengliche Rebase-Warnung ist ueberholt: Die Missionszweige wurden vor
 Integrationsbeginn auf die PR-#4-Merge-Basis rebased. KL-QA-002 ist konfliktfrei
 integriert; die verbleibenden Zweige brauchen weiterhin je ein unabhaengiges
-Review in eigenem Scope.
+Review in eigenem Scope. Claude Code uebernimmt PR #7 und PR #8 als naechstes.
 
 ### KL-OFFLINE-003 - Autoritatives Event-Log und Outbox
 
-**Status:** Implementiert auf `glm/offline-event-log-v2`, nicht integriert
+**Status:** Implementiert auf `glm/offline-event-log-v2` (PR #7), Review durch
+Claude Code als naechstes
 **Abhaengigkeit:** keine
 **Schreibbereich:** `prototypes/KitchenLinkEventLog/`,
 `docs/architecture/offline/EVENT_LOG_V2.md`, `handoffs/GLM.md`
@@ -332,7 +400,8 @@ echten Venue-Hub steht in `docs/test-plans/OFFLINE_ORDER_FLOW.md`.
 
 ### KL-WORKFORCE-001 - Schichtplan-Domaene
 
-**Status:** Implementiert auf `kimi/workforce-domain`, nicht integriert
+**Status:** Implementiert auf `kimi/workforce-domain` (PR #8), Review durch
+Claude Code als naechstes
 **Abhaengigkeit:** keine
 **Schreibbereich:** neue Dateien unter `Features/Workforce/`, fokussierte Tests,
 Domain-Dokument, `handoffs/KIMI.md`
@@ -340,16 +409,8 @@ Domain-Dokument, `handoffs/KIMI.md`
 Isolierte Swift-Domaenengrundlage fuer Mitarbeiter, Verfuegbarkeit, Planung,
 Zeiterfassung. 632 Zeilen Tests. Niedriges Rebase-Risiko (neue Dateien).
 
-### KL-INVENTORY-001 - Warenwirtschafts-Domaene
-
-**Status:** Nicht begonnen; kein Branch vorhanden
-**Abhaengigkeit:** keine
-**Schreibbereich:** neue Dateien unter `Features/Inventory/`, fokussierte Tests,
-Domain-Dokument, `handoffs/MINIMAX.md`
-
-Ein Branch `minimax/inventory-domain` existiert auf `origin` nicht (mehr); es
-gibt keinen MiniMax-Commit und keine `Features/Inventory/`-Dateien. Die Mission
-muss neu vergeben oder gestrichen werden.
+KL-INVENTORY-001 ist als Neuvergabe fuer MiniMax oder DeepSeek jetzt unter dem
+Gast-Web-Folgeticket weiter oben eingetragen (KL-WEB-002-Abschnitt).
 
 ## Integrationsreihenfolge
 
@@ -364,10 +425,11 @@ muss neu vergeben oder gestrichen werden.
 5. ~~PR #5 (`codex/kitchen-hardening-fix`) reviewen und mergen.~~ Erledigt;
    zusammen mit PR #6 (Doku-Sync) und PR #9 (KL-QA-002) am 17. Juli 2026
    reviewt und integriert.
-6. Verbleibende Round-2-Zweige einzeln reviewen und integrieren:
-   KL-OFFLINE-003 (PR #7), dann KL-WORKFORCE-001 (PR #8); danach
-   KL-INVENTORY-001 neu vergeben oder streichen.
+6. Claude Code reviewt und integriert PR #7 (KL-OFFLINE-003) und PR #8
+   (KL-WORKFORCE-001) einzeln in eigenem Scope.
 7. ~~KL-WEB-001 erst nach Nutzervorgabe des Web-Stacks weiterverfolgen.~~
-   Stack am 17. Juli 2026 entschieden; die Umsetzung kann in eigenem Scope
-   starten.
-8. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
+   Stack am 17. Juli 2026 entschieden; Fundament gemergt.
+8. Parallel dazu: KL-WEB-002 (autoritative Bestellgrenze + Supabase Anonymous
+   Sign-in) an GLM 5.2, KL-INVENTORY-001 (Neuvergabe) an MiniMax oder DeepSeek.
+   Beide starten von aktuellem `origin/main` in eigenem Worktree/Branch.
+9. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
