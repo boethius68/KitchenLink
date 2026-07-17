@@ -4,12 +4,14 @@
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
-**Last merge:** `claude/guest-web-foundation` -> `main`, the KL-WEB-001
-guest-web foundation (Next.js App Router, statically generated eight-dish
-guest menu card, shared design tokens). Before that, the same day: PR #9
-(KL-QA-002 offline order smoke), PR #6 (collaboration-state sync) and PR #5
-(kitchen hardening). Earlier: PR #1 delivered the Claude audit and the
-`Heute`/`Kueche` reference areas, PR #2/#3 completed `KL-MENU-004`, PR #4
+**Last merge:** `glm/offline-event-log-v2` -> `main` (PR #7, KL-OFFLINE-003),
+the isolated Swift/SQLite event-log-and-outbox prototype under
+`prototypes/KitchenLinkEventLog/`, reviewed by Claude Code with no P0/P1
+findings. Before that, the same day: `claude/guest-web-foundation` (KL-WEB-001
+guest-web foundation), PR #9 (KL-QA-002 offline order smoke), PR #6
+(collaboration-state sync) and PR #5 (kitchen hardening). Earlier: PR #1
+delivered the Claude audit and the `Heute`/`Kueche` reference areas, PR #2/#3
+completed `KL-MENU-004`, PR #4
 recorded that merge.
 
 ## Product
@@ -131,6 +133,15 @@ recorded that merge.
 - The kitchen ticket-advance action is a full-width, high-contrast button
   with success haptics; lemon is not used there, matching the status-token
   rule.
+- `prototypes/KitchenLinkEventLog/` (KL-OFFLINE-003) is an isolated Swift
+  package prototype for the authoritative local event log and its outbox:
+  append-only events with optimistic concurrency, idempotency via
+  `(venue_id, idempotency_key, request_fingerprint)`, and a lease-based
+  outbox claim/nack/ack cycle with an honest, source-linked durability
+  policy (WAL + `synchronous=FULL` + `fullfsync`, no unproven crash-safety
+  claims). It has no app dependency and activates nothing productive; the
+  later iOS integration seam is documented but deliberately out of scope
+  (`docs/architecture/offline/EVENT_LOG_V2.md` §12).
 - `guest-web/` now holds the KL-WEB-001 guest-web foundation: a Next.js App
   Router (TypeScript) project with a statically generated eight-dish guest
   menu card over a local sandbox venue, the same seam the later Supabase
@@ -185,18 +196,31 @@ the user against the Round-04 Claude Design export rather than only the
 derived `DESIGN_SYSTEM.md` spec (see `guest-web/README.md` and the Claude
 handoff for the six divergences found and corrected).
 
+PR #7 (`glm/offline-event-log-v2`, KL-OFFLINE-003) was reviewed by Claude Code
+and integrated the same day: 35/35 tests pass, no P0/P1 findings. Three minor
+observations (a stale AUTOINCREMENT comment, two sequentially-run tests whose
+names imply real multi-threading, an unescaped fingerprint delimiter) are
+non-blocking and already self-disclosed in `EVENT_LOG_V2.md` and the GLM
+handoff.
+
+Two new missions were assigned the same day and are documented as copy-ready
+prompts in `docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md`, each with its
+own fresh branch and worktree from current `main`:
+
+- **GLM 5.2** — KL-WEB-002 on `glm/guest-web-order-gate`
+  (`/Users/test/Developments/kitchenlink-glm-web`): the authoritative guest
+  order gate and Supabase Anonymous Sign-in wiring for the merged guest-web
+  foundation (ADR-001 §6/§6.3). The existing card's visual design is out of
+  scope; this is a data-wiring ticket.
+- **MiniMax or DeepSeek** — KL-INVENTORY-001 retry on
+  `minimax/inventory-domain`
+  (`/Users/test/Developments/kitchenlink-minimax-inventory`): the same
+  well-specified ledger-based stock domain ticket MiniMax was assigned once
+  before and never delivered.
+
 Remaining, in recommended order:
 
-- Review `glm/offline-event-log-v2` (PR #7, KL-OFFLINE-003) in its own scope —
-  isolated Swift package prototype (schema, outbox, transport, 20+ tests).
 - Review `kimi/workforce-domain` (PR #8, KL-WORKFORCE-001) in its own scope —
   new `Features/Workforce/` domain plus 632 lines of tests.
-- KL-WEB-001 next increments, each its own scope: the authoritative order
-  gate (Edge Function or PostgreSQL RPC, ADR-001 §6), Supabase Anonymous
-  Sign-in wiring, and the Vercel sandbox deployment (with the
-  Cloudflare-Workers PoC still required before any production activation).
-- `minimax/inventory-domain` does not exist on `origin`; KL-INVENTORY-001
-  needs to be reassigned or dropped.
-- KL-INVENTORY-001 was never started and needs to be reassigned or dropped.
 - `deepseek/offline-venue-hub-review` and `glm/offline-venue-hub` remain
   discovery material and need their own review before anything is adopted.

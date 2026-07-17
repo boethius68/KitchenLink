@@ -374,15 +374,24 @@ Review in eigenem Scope. Claude Code uebernimmt PR #7 und PR #8 als naechstes.
 
 ### KL-OFFLINE-003 - Autoritatives Event-Log und Outbox
 
-**Status:** Implementiert auf `glm/offline-event-log-v2` (PR #7), Review durch
-Claude Code als naechstes
+**Status:** Erledigt; von Claude Code reviewt und in `main` integriert
 **Abhaengigkeit:** keine
 **Schreibbereich:** `prototypes/KitchenLinkEventLog/`,
 `docs/architecture/offline/EVENT_LOG_V2.md`, `handoffs/GLM.md`
 
-Ausfuehrbarer Swift-/SQLite-Referenzprototyp. 27 Dateien, Schema, Outbox,
-Transport, mindestens 20 Tests. Isoliertes Swift Package, kein App-Konflikt;
-geringstes Rebase-Risiko.
+Ausfuehrbarer Swift-/SQLite-Referenzprototyp: autoritatives Append-only-
+Ereignisprotokoll, Optimistic Concurrency, Idempotenz ueber
+`(venue_id, idempotency_key, request_fingerprint)`, Outbox mit
+Lease-basiertem Claim/NACK/ACK und Wiederanlauf, ehrliche Durability-Policy.
+Claude-Review ohne P0/P1: 35/35 Tests grün (erneut auf dem gemergten Stand
+verifiziert), Invarianten aus `EVENT_LOG_V2.md` gegen die tatsaechliche
+Implementierung geprueft. Drei kleine, bereits von GLM selbst offengelegte
+Beobachtungen (veralteter AUTOINCREMENT-Kommentar auf einer
+`WITHOUT ROWID`-Tabelle, zwei Testnamen die echte Nebenlaeufigkeit
+suggerieren aber sequentiell laufen, ungeschuetzte Newline-Trennung im
+Fingerprint) sind nicht blockierend. Isoliertes Swift Package, kein
+App-/Domain-Code beruehrt; Branch lokal rebased, GLMs Remote-Branch
+unveraendert gelassen.
 
 ### KL-QA-002 - Lokaler Bestell-E2E-Smoke
 
@@ -425,8 +434,9 @@ Gast-Web-Folgeticket weiter oben eingetragen (KL-WEB-002-Abschnitt).
 5. ~~PR #5 (`codex/kitchen-hardening-fix`) reviewen und mergen.~~ Erledigt;
    zusammen mit PR #6 (Doku-Sync) und PR #9 (KL-QA-002) am 17. Juli 2026
    reviewt und integriert.
-6. Claude Code reviewt und integriert PR #7 (KL-OFFLINE-003) und PR #8
-   (KL-WORKFORCE-001) einzeln in eigenem Scope.
+6. ~~Claude Code reviewt und integriert PR #7 (KL-OFFLINE-003) und PR #8
+   (KL-WORKFORCE-001) einzeln in eigenem Scope.~~ PR #7 erledigt (17. Juli
+   2026, keine P0/P1, siehe Handoff). PR #8 folgt als naechstes.
 7. ~~KL-WEB-001 erst nach Nutzervorgabe des Web-Stacks weiterverfolgen.~~
    Stack am 17. Juli 2026 entschieden; Fundament gemergt.
 8. Parallel dazu: KL-WEB-002 (autoritative Bestellgrenze + Supabase Anonymous

@@ -1,11 +1,50 @@
 # Claude Code Handoff
 
 **Updated:** 17 July 2026
-**Branch:** `claude/guest-web-foundation` (KL-WEB-001); Integrationsarbeit auf `main`
-**Status:** KL-WEB-001-Fundament umgesetzt, gegen die visuelle Claude-Design-
-Referenz korrigiert und erneut verifiziert; Branch bereit fuer Review/PR.
-Zuvor am selben Tag: PR #5/#6/#9 reviewt und integriert sowie die vier
+**Branch:** `main` (Integrationsarbeit); KL-WEB-001 gemergt aus
+`claude/guest-web-foundation`
+**Status:** PR #7 (KL-OFFLINE-003) reviewt und integriert, keine P0/P1.
+KL-WEB-001-Fundament umgesetzt, gegen die visuelle Claude-Design-Referenz
+korrigiert, verifiziert und gemergt. Zwei neue Missionen (KL-WEB-002 an
+GLM 5.2, KL-INVENTORY-001-Neuversuch an MiniMax/DeepSeek) zugewiesen. Zuvor am
+selben Tag: PR #5/#6/#9 reviewt und integriert sowie die vier
 KL-WEB-001-Entscheidungen des Nutzers in `DECISIONS.md` dokumentiert.
+
+## Session-Teil 4: Review und Integration PR #7 (KL-OFFLINE-003)
+
+### Scope
+
+Auf Nutzeranfrage Arbeit an GLM 5.2 und MiniMax/DeepSeek verteilt: zwei neue
+Missionen mit frischen Branches/Worktrees von aktuellem `main` in
+`docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md` dokumentiert (KL-WEB-002
+fuer GLM, KL-INVENTORY-001-Neuversuch fuer MiniMax oder DeepSeek). Danach PR #7
+(`glm/offline-event-log-v2`) reviewt und integriert.
+
+### Review-Ergebnis PR #7
+
+- Branch war 21 Commits hinter `main`; lokal konfliktfrei rebased (GLMs
+  Remote-Branch bewusst nicht ueberschrieben — Force-Push auf fremde
+  Branches ist ohne explizite Nutzerfreigabe nicht zulaessig).
+- Code gegen die Invarianten in `EVENT_LOG_V2.md` geprueft (nicht nur die
+  Doku gelesen): `EventStore.append` (Pre-TX- und In-TX-Idempotenz-Check,
+  Optimistic-Concurrency-Semantik), `Outbox` (Claim/NACK/ACK/Lease-Recovery,
+  atomar per PK-Update statt `UPDATE ... LIMIT`), `SQLiteConnection`
+  (`BEGIN IMMEDIATE`, serialisierende `DispatchQueue`, ehrliche
+  Durability-Pragmas).
+- `swift test`: 35/35 gruen, sowohl im Worktree als auch erneut auf dem
+  gemergten `main`-Stand.
+- Keine P0/P1. Drei kleine, nicht blockierende Beobachtungen (alle bereits
+  von GLM selbst in Doku/Handoff offengelegt): veralteter
+  AUTOINCREMENT-Kommentar auf einer `WITHOUT ROWID`-Tabelle (tatsaechlicher
+  Mechanismus ist korrektes `MAX+1` unter Transaktionssperre); zwei
+  Testnamen (`testClaimIsExclusive`, `testParallelDuplicateAppendsCollapse`)
+  suggerieren echte Nebenlaeufigkeit, laufen aber sequentiell (Inline-
+  Kommentar sagt das selbst, Limitation steht in `EVENT_LOG_V2.md` §11 und
+  im GLM-Handoff); Fingerprint-Kanonisierung trennt Felder nur mit Newline
+  ohne Escaping (theoretisch, nicht ausnutzbar mit den strukturierten
+  internen Feldern dieses Systems).
+- Vollstaendig isoliertes Swift Package unter `prototypes/`; kein
+  App-/Domain-Code beruehrt. Gemergt nach `main`.
 
 ## Session-Teil 3: Visuelle Korrektur gegen Claude-Design Round 04
 
@@ -163,8 +202,9 @@ autoritative Bestellgrenze, Supabase-Anbindung, PWA-Stufe.
 
 ## Recommended Next Step
 
-`claude/guest-web-foundation` reviewen (Peer oder Nutzer; visuelle
-Produktflaeche -> Nutzerblick sinnvoll) und nach Abnahme mergen. Danach in
-getrennten Scopes: autoritative Bestellgrenze (D6-Entscheidung faellt dort),
-Vercel-Sandbox-Deployment, sowie Reviews von PR #7 (KL-OFFLINE-003) und
-PR #8 (KL-WORKFORCE-001). KL-INVENTORY-001 neu vergeben oder streichen.
+PR #8 (KL-WORKFORCE-001, `kimi/workforce-domain`) reviewen und bei gruenem
+Befund integrieren — gleiches Vorgehen wie bei PR #7 (Rebase pruefen, Code
+gegen die Testabdeckung lesen, komplette Suite laufen lassen). Parallel dazu
+laufen die beiden neu zugewiesenen Missionen (KL-WEB-002 bei GLM 5.2,
+KL-INVENTORY-001-Neuversuch bei MiniMax oder DeepSeek); deren Ergebnisse
+brauchen jeweils ein eigenes Review, sobald sie geliefert sind.
