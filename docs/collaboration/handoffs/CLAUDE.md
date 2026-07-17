@@ -2,9 +2,79 @@
 
 **Updated:** 17 July 2026
 **Branch:** `claude/guest-web-foundation` (KL-WEB-001); Integrationsarbeit auf `main`
-**Status:** KL-WEB-001-Fundament umgesetzt und verifiziert, Branch bereit fuer
-Review/PR. Zuvor am selben Tag: PR #5/#6/#9 reviewt und integriert sowie die
-vier KL-WEB-001-Entscheidungen des Nutzers in `DECISIONS.md` dokumentiert.
+**Status:** KL-WEB-001-Fundament umgesetzt, gegen die visuelle Claude-Design-
+Referenz korrigiert und erneut verifiziert; Branch bereit fuer Review/PR.
+Zuvor am selben Tag: PR #5/#6/#9 reviewt und integriert sowie die vier
+KL-WEB-001-Entscheidungen des Nutzers in `DECISIONS.md` dokumentiert.
+
+## Session-Teil 3: Visuelle Korrektur gegen Claude-Design Round 04
+
+### Anlass
+
+Der Nutzer verglich die erste Fassung der Gastkarte mit dem tatsaechlichen
+visuellen Referenzscreen
+(`docs/design/claude-design/round-04/export/territories.html`, Abschnitt 6c,
+Screen 2 "Gast-Web · 390 px · dichte Karte") und stellte eine strukturelle
+Abweichung fest, nicht nur eine Farbnuance. Die erste Fassung war aus
+`DESIGN_SYSTEM.md` (der abgeleiteten, plattformneutralen Spezifikation)
+implementiert worden, ohne den zugrunde liegenden visuellen Export noch
+einmal direkt zu pruefen.
+
+### Vorgehen
+
+Sechs konkrete Abweichungen identifiziert und einzeln mit dem Nutzer
+geklaert (nicht pauschal "an die Referenz angleichen"), da nicht jede
+Abweichung gleich zu bewerten war:
+
+| Punkt | Referenz | Erste Fassung | Nutzerentscheidung |
+| --- | --- | --- | --- |
+| Preiszeile | inline in Sekundaerzeile | eigene fette Zeile | **eigene Zeile beibehalten** (bewusste Abweichung von der Referenz) |
+| Controls | umrandet (border-control) | gefuellt (Traube/grau) | umrandet uebernehmen |
+| Bestellleiste | gesamte Leiste = Zitrone | neutrale Leiste + Button | gesamte Leiste uebernehmen |
+| Venue-Kopf | buendig, Tisch-Kontext + Badge | abgesetzte Karte + Tagline | Kontext + Badge uebernehmen |
+| Tag-Badges | "beliebt"/"vegetarisch" Pills | keine | uebernehmen |
+| Dichte | kompakt | grosszuegiger | Referenzdichte uebernehmen |
+
+### Umgesetzt
+
+- `venue-data.ts`: `tagline` durch `isOpen: boolean` ersetzt; optionales
+  `tag?: string` pro Artikel ("beliebt", "vegetarisch").
+- `GuestMenuCard.tsx`: Venue-Kopf jetzt randlos (ausserhalb von `kl-page`),
+  mit geoeffnet/geschlossen-Badge und Kontextzeile "Speisekarte" (bewusst
+  **kein** erfundener Tischname — es gibt noch keine echte QR-/Tisch-Session;
+  das waere irrefuehrend gewesen). Add-Button und Stepper auf
+  `border-control`-Umrandung umgestellt. Bestellleiste ist jetzt ein
+  einzelnes `<button>`-Element, das die gesamte Leiste als Zitronenflaeche
+  einnimmt (Artikelzahl+Label links, Summe rechts), statt einer neutralen
+  Leiste mit eingebettetem Button.
+- `globals.css`: Abstaende in Menuezeilen und Section-Titeln verdichtet;
+  `.kl-badge`-Varianten (hell/dunkel) ergaenzt.
+- `tokens.css`: Den unabgestimmten Seiten-weiten Dark-Mode-Wechsel entfernt
+  (vorher kippten `--kl-surface-page/-card/-control` unter
+  `prefers-color-scheme: dark` auf Traube-Flaechen). Kein verifizierter
+  Referenzscreen zeigt ein durchgehend dunkles Gast-Web — nur die Kueche ist
+  laut Designsystem "immer Tief". Die Dringlichkeits-Tokens behalten ihre
+  Dunkel-Variante (unbenutzt, aber vorwaertskompatibel fuer eine spaetere
+  Bestellverfolgung).
+
+### Verifikation
+
+- Typecheck, ESLint, 18/18 Vitest-Tests, SSG-Build erneut gruen.
+- Im Browser (375×812, hell und dunkel) erneut interaktiv geprueft: Klick auf
+  "+" oeffnet den umrandeten Stepper, die Bestellleiste fuellt sich
+  vollstaendig gelb mit korrekter Summe (6,90 € + 14,90 € = 21,80 € im Test),
+  das Sheet zeigt dieselbe Summe. Dunkelmodus zeigt jetzt durchgehend die
+  helle Karte mit Traube-Kopf statt eines page-weiten Farbwechsels.
+
+### Risiken und offene Punkte (zusaetzlich zu Teil 2)
+
+- Die Kontextzeile "Speisekarte" im Kopf ist ein bewusster Platzhalter ohne
+  echten Tisch-/Kanalbezug; sobald ein QR-/Tisch-Fluss existiert, sollte
+  `GuestVenue`/die Route einen echten Kontext (Tischlabel oder Kanal)
+  mitfuehren statt des statischen Textes.
+- Die Preiszeile weicht bewusst von der Referenz ab (Nutzerentscheidung);
+  falls spaeter eine dichtere Variante gewuenscht wird, ist das eine reine
+  CSS-/Markup-Aenderung ohne Datenmodelländerung.
 
 ## Session-Teil 2: KL-WEB-001 Gast-Web-Fundament
 
