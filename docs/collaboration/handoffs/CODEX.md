@@ -1,10 +1,63 @@
 # Codex Handoff
 
 **Updated:** 17 July 2026
-**Branch:** `main`
-**Status:** KL-MENU-004 completed and integrated through PR #3
+**Branch:** `codex/sync-collaboration-state` (Doku-Sync), `codex/kitchen-hardening-fix` (PR #5)
+**Status:** Projektstand-Audit und Sync der Kollaborationsdokumente auf den echten
+Repository-Stand
 
-## Latest Continuation
+## Latest Continuation (17. Juli 2026)
+
+- Vollstaendiger Status-Check des Projekts gegen die echten Branches, Worktrees
+  und gemergten PRs. Die Doku (`CURRENT.md`, `WORK_QUEUE.md`) wies signifikante
+  Luecken auf: PR #4 war nicht erwähnt, vier Round-2-Missionsbranches waren als
+  „in Arbeit" statt als „implementiert, nicht integriert" markiert, und
+  `KL-IOS-001` stand noch auf „In Review" trotz Merge mit PR #1.
+- MiniMax-Branch `minimax/inventory-domain` als nicht begonnen identifiziert: kein
+  eigener Commit, keine `Features/Inventory/`-Dateien. KL-INVENTORY-001 muss neu
+  vergeben werden.
+- Eigener Kitchen-Hardening-Fix (dd1c77e) aus dem veralteten
+  `codex/post-merge-hardening` isoliert und als sauberer Branch
+  `codex/kitchen-hardening-fix` von aktuellem `main` aufgebaut:
+  `.preferredColorScheme(.dark)` am Kitchen-View und stabile SwiftUI-Identitäten
+  fuer wiederholte Item-Namen. PR #5 ist offen.
+- `CURRENT.md`, `WORK_QUEUE.md` und dieser Handoff auf den echten Stand gebracht:
+  PR #4 erfasst, Round-2-Sektion mit echtem Status ergaenzt, KL-IOS-001 als
+  erledigt markiert, KL-WEB-001 mit beiden konkurrierenden Vorschlaegen
+  dokumentiert.
+
+## Verification
+
+- `xcodebuild build` auf iPhone 17 Pro fuer den Kitchen-Hardening-Fix:
+  **BUILD SUCCEEDED**.
+- `kitchenlinkV2ScreenshotTests` kompiliert und geladen (ohne Capture-Env-Flag
+  uebersprungen, wie erwartet).
+- `git diff --check` auf allen Doku-Aenderungen: keine Whitespace-Fehler.
+- Reale Branch-Zustaende mit `git rev-list --count`, `git log` und
+  `git diff --stat` gegen `origin/main` verifiziert.
+
+## Risks And Open Work
+
+- Die vier Round-2-Branches sind 6 Commits hinter `main`; ein Rebase wird bei
+  `deepseek/offline-e2e-smoke` und `kimi/workforce-domain` Konflikte in
+  `MenuImportDraftReviewTests.swift` und aehnlichen geteilten Testdateien
+  erzeugen. Konfliktloesung muss den main-Stand (PR #2/#3) bewahren, nicht die
+  alten Branch-Staende.
+- KL-WEB-001 hat zwei konkurrierende Stack-Vorschlaege (Claude Fable 5
+  urspruenglich zugewiesen, GLM hat eigenen ADR gepusht). Nur der Nutzer
+  entscheidet.
+- KL-INVENTORY-001 ist unbesetzt, seit MiniMax nie geliefert hat.
+- Unautorisierte Nebenzweige existieren: `deepseek/offline-venue-hub-review`
+  (KL-OFFLINE-002 Red-Team) und `glm/offline-venue-hub` liegen ebenfalls
+  brach und sind nicht Teil der offiziellen Round-2-Missionen.
+
+## Recommended Next Step
+
+PR #5 reviewen und mergen. Danach die Round-2-Branches in der Reihenfolge
+KL-OFFLINE-003 -> KL-WORKFORCE-001 -> KL-QA-002 rebase + review + integrieren,
+jedes separat. KL-INVENTORY-001 neu vergeben. KL-WEB-001 erst nach
+Nutzerentscheid zum Stack.
+
+## Fruehere Continuation
 
 - Continued Claude Code's pushed WIP commit `d9c9719` after its quota stopped the
   active KL-MENU-004 verification pass. No concurrent agent was editing the
