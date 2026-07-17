@@ -249,10 +249,24 @@ sowie gezielte Tests in `kitchenlinkTests/` und `kitchenlinkUITests/`
 
 ### KL-WEB-001 - Gast-Web-Grundlage
 
-**Status:** In Arbeit: Claude Code, Branch `claude/guest-web-foundation`
+**Status:** Fundament umgesetzt; In Review auf `claude/guest-web-foundation`
 **Abhaengigkeit:** semantische Token-Namen aus KL-DS-001
 **Schreibbereich (exklusiv):** neues Verzeichnis `guest-web/`, dieser
 Queue-Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+**Ergebnis des Fundaments (17. Juli 2026):** Next.js-16-App-Router-Projekt
+unter `guest-web/` mit statisch generierter Menueroute
+(`/[venueSlug]/menu`), lokaler Sandbox-Venue (acht Gerichte) als bewusster
+Naht fuer den spaeteren Supabase-Pfad, venue-gefuehrtem Kopf mit
+Traube-Fallback, traubenbasierter 44-px-Mengensteuerung, genau einer
+fixierten Zitronen-Bestellaktion, Bestelluebersicht als Sheet ohne
+Uebermittlung, Sandbox-Banner auf jeder Seite und System-Font-Fallbacks
+ohne Google-Fonts-Laufzeitabhaengigkeit. Tokens liegen als CSS-Variablen
+mit den semantischen DESIGN_SYSTEM-Namen vor; ein Vitest-Abgleich haelt
+`tokens.css` und `design-tokens.ts` konsistent. Typecheck, ESLint, 18
+Vitest-Tests und der SSG-Build sind gruen; hell/dunkel mobil visuell
+geprueft. Bestellgrenze, Supabase-Anbindung und PWA-Stufe folgen als
+eigene Tickets.
 
 Der Nutzer hat entschieden (siehe `DECISIONS.md`, Guest Web): Next.js App
 Router auf Basis von ADR-001 (`glm/guest-web-architecture`), Sandbox-Deployment
