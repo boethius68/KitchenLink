@@ -33,6 +33,10 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
   const [submitState, setSubmitState] = useState<SubmitUiState>(
     initialSubmitUiState(),
   );
+  // Schnappschuss des Warenkorbs im Moment der Bestaetigung: der Warenkorb
+  // wird bei Erfolg sofort geleert, das Sheet soll aber weiterhin zeigen, was
+  // bestaetigt wurde, statt auf 0,00 EUR zurueckzufallen.
+  const [confirmedCart, setConfirmedCart] = useState<Cart | null>(null);
 
   const sections = useMemo(
     () =>
@@ -108,8 +112,8 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
       {isSummaryOpen && (
         <OrderSummarySheet
           venue={venue}
-          cart={cart}
-          totalCents={total}
+          cart={submitState.kind === "accepted" && confirmedCart ? confirmedCart : cart}
+          totalCents={submitState.kind === "accepted" ? submitState.ack.totalCents : total}
           submitState={submitState}
           onClose={() => {
             // Nach bestätigter Bestellung schließt das Sheet in den Ausgangs-
@@ -118,9 +122,11 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
             setSubmitState((current: SubmitUiState) =>
               current.kind === "submitting" ? current : initialSubmitUiState(),
             );
+            setConfirmedCart(null);
             setSummaryOpen(false);
           }}
           onSubmit={async () => {
+            const cartAtSubmission = cart;
             setSubmitState(submittingState());
             const result = await submitOrder({
               venue,
@@ -129,6 +135,7 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
             });
             if (result.ok) {
               setSubmitState(acceptedState(result.ack));
+              setConfirmedCart(cartAtSubmission);
               setCart(emptyCart);
             } else {
               setSubmitState(errorState(result.message));
