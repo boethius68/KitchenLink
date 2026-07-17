@@ -8,7 +8,11 @@ export default defineConfig({
     },
   },
   test: {
+    // Unit-Tests bleiben instanzfrei und schnell. Integrationstests (gegen
+    // eine echte Supabase-Instanz) liegen unter __tests__/integration/ und
+    // laufen über `npm run test:integration` (eigene Config).
     include: ["__tests__/**/*.test.ts"],
+    exclude: ["__tests__/integration/**", "node_modules/**", ".next/**"],
     environment: "node",
   },
 });

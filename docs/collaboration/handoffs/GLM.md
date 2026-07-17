@@ -1,140 +1,114 @@
-# Handoff — GLM (KL-WEB-002 Bestellgrenze)
+# Handoff — GLM (KL-WEB-003 Gast-Web-Sandbox in Betrieb)
 
-**Datum:** 17. Juli 2026
+**Datum:** 18. Juli 2026
 **Agent:** GLM-5.2 via ZCode
-**Branch:** `glm/guest-web-order-gate` (von aktuellem `main`)
-**Ticket:** KL-WEB-002 — autoritative Bestellgrenze, RLS, Anonymous Sign-in
-**Status:** Vollständig umgesetzt und verifiziert (typecheck/lint/test/build grün);
-committet und gepusht. Bereit für Review.
+**Branch:** `glm/web-next` (von aktuellem `main`, `4f65ac2`)
+**Ticket:** KL-WEB-003 — Gast-Web zur laufenden Sandbox (Deploy + echte Tests)
+**Status:** Vollständig umgesetzt und verifiziert (typecheck/lint/test/build
+grün); committet und gepusht. Bereit für Review.
 
-> Dieses Handoff ersetzt den vorherigen KL-OFFLINE-003-Eintrag auf diesem
-> Branch. KL-OFFLINE-003 bleibt unter `docs/architecture/offline/EVENT_LOG_V2.md`
-> auf `main` erhalten.
+> KL-WEB-002 (autoritative Bestellgrenze) ist zuvor gemergt worden
+> (`1cfd253`, inkl. Claude-Review-Fix). Dieser Strang macht jene Logik
+> lauffähig. Der alte `glm/guest-web-order-gate`-Branch war nach dem Merge
+> divergiert und wurde auf Nutzerwunsch gelöscht; die Arbeit liegt vollständig
+> auf `main`.
 
-## Kontext
+## Anlass und Entscheidung
 
-Umsetzung von ADR-001 §6 (autoritative Bestellgrenze) und §6.3 (anon-Rolle vs.
-Supabase Anonymous Sign-in), wie vom Nutzer freigegeben (DECISIONS.md, Guest
-Web). Vorheriger Stand: statisch generierte Gastkarte auf lokaler Fixture, keine
-Supabase-Anbindung, keine Bestellübermittlung, und **keine RLS auf irgendeiner
-Tabelle** (jede Tabelle unter dem Anon-Key offen). Hinweis: ADR-001 lag zu
-Beginn nur auf dem nie gemergten Branch `glm/guest-web-architecture`; der Nutzer
-hat das behoben und ADR-001 + SOURCES.md (Revision 2) auf `main` gemergt, so
-dass §6/§6.3 in meinem Arbeitsbaum vorlagen.
-
-## D6-Entscheidung (Implementierungsdetail, keine Produktdisktion)
-
-Gewählt: **Option B — PostgreSQL `SECURITY DEFINER` RPC** statt Edge Function.
-Begründung detailliert in `docs/architecture/guest-web/ORDER_GATE.md` §2: gesamte
-Logik in der additiven SQL-Migration (mein exklusiver Schreibbereich), kein
-zweiter Laufzeit-Typ, keine clientseitige Service-Role-Secret-Handhabung,
-Idempotenz nativ über Unique-Constraint + Hash, „Persistierung erst bei Erfolg"
-in einer Transaktion. Die komplexere Ablaufsteuerung bleibt in getestetem
-TypeScript.
+Nachdem alle aktiven Tickets gemergt waren, hat der Nutzer als nächsten Strang
+„Gast-Web deployen & echt testen" gewählt — die KL-WEB-002-Logik war nie gegen
+eine echte Supabase-Instanz gelaufen und nicht deployt. Im Repo war dazu noch
+nichts Konkretes angelegt (kein `config.toml`, keine Projektverknüpfung, keine
+`.env`, keine Vercel-Konfig.; Secrets nirgends hartcodiert). Für das Hosting
+wurde „Vercel jetzt vorbereiten" gewählt, bewusst **ohne** die Hosting-
+Entscheidung D4 (ADR-001 §8 PoC) vorwegzunehmen.
 
 ## Umgesetzte Dateien (alle im exklusiven Schreibbereich)
 
-- `supabase/migrations/20260717120000_guest_web_order_gate.sql` (neu, additiv;
-  `20260318011000_kitchenlink_core_schema.sql` unangetastet):
-  - Sandbox-Seed deckungsgleich mit `guest-web/src/lib/venue-data.ts`
-    (1 Venue, 1 Menü, 2 Kategorien, 8 `menu_items` mit identischen Preisen;
-    feste UUIDs, `on conflict` idempotent).
-  - `orders.idempotency_key` + `unique(venue_id, idempotency_key)` +
-    `orders.idempotency_payload_hash` + `orders.created_by`; `menu_items.slug`.
-  - **RLS aktiviert** auf venues, menus, menu_categories, menu_items, orders,
-    order_items (vorher: keine). Menü öffentlich lesbar (anon + authenticated);
-    orders/order_items ohne direkte Schreib-Policies; orders Eigen-Lese-Policy
-    `created_by = auth.uid()`.
-  - RPC `public.guest_web_submit_order` (`SECURITY DEFINER`, fixierter
-    `search_path`): Anonymous-Identitäts-Check (`auth.uid()`, JWT
-    `is_anonymous`), Venue-Lookup über Slug, `FOR UPDATE` auf menu_items,
-    serverseitige Neubepreisung aus `price_cents`, Ablehnung fremder/inaktiver
-    Items, Idempotenz-Prüfung (gleich+gleich=Replay; gleich+anders=Konflikt),
-    atomarer INSERT orders+order_items, ACK-Rückgabe. `revoke` von public/anon,
-    `grant execute` nur an authenticated.
-- `guest-web/src/lib/order-ack.ts` (neu): reine ACK-Logik, `toOrderAck`,
-  `SubmitUiState`. Status ausschließlich aus Serverantwort, nie optimistisch.
-- `guest-web/src/lib/order-submit.ts` (neu): `submitOrder` orchestriert
-  Anonymous Sign-in + RPC; deterministischer Idempotenz-Key;
-  Fehler-→Ergebnis-Mapping; `OrderBackend`-Schnittstelle (injizierbar für Tests).
-- `guest-web/src/lib/order-backend-supabase.ts` (neu): Produktions-Backend mit
-  echten `signInAnonymously()`- und `supabase.rpc('guest_web_submit_order')`-
-  Aufrufen.
-- `guest-web/src/lib/supabase-client.ts` (neu): Browser-Client aus
-  `NEXT_PUBLIC_SUPABASE_*`.
-- `guest-web/src/components/GuestMenuCard.tsx` (Datenverdrahtung, **Design
-  unangetastet**): Bestellaktion im Sheet ruft `submitOrder`, Statuszeile zeigt
-  ACK/Fehler/waiting aus Serverantwort. Sandbox-Banner + Kein-Echtgeld-Regel
-  bleiben.
-- `guest-web/src/app/globals.css`: zwei neue Klassen (`kl-sheet-actions`,
-  `kl-primary-button`) im Sheet; Tokens/Layout/Controls unverändert.
-- `guest-web/__tests__/order-ack.test.ts` (neu, 10 Tests),
-  `guest-web/__tests__/order-submit.test.ts` (neu, 12 Tests).
-- `guest-web/.env.example` (neu, keine Secrets) + `.gitignore`-Ausnahme
-  `!.env.example`.
-- `guest-web/package.json`/`package-lock.json`: `@supabase/supabase-js`.
-- `docs/architecture/guest-web/ORDER_GATE.md` (neu): D6, RLS-Modell,
-  Idempotenzvertrag, Simulationen, Teststand.
+- `supabase/migrations/20260718010000_guest_web_submit_order_race_fix.sql`
+  (neu, additiv): redefiniert `guest_web_submit_order` so, dass der INSERT in
+  einen `EXCEPTION WHEN unique_violation`-Subblock eingebettet ist. Schließt
+  das dokumentierte, nicht behobene Restrisiko aus KL-WEB-002: eine enge Race
+  bei zwei gleichzeitigen Sendungen mit demselben Idempotenz-Key wird jetzt
+  sauber auf Replay (gleicher Payload) bzw. Konflikt (anderer Payload)
+  abgebildet, statt als generisches `rpc_error` nach oben zu reichen. Keine
+  Tabellen-/Policy-Änderung; grants bleiben wie gehabt.
+- `supabase/config.toml` (neu): Supabase-CLI-Initialisierung für `supabase
+  link`/`db push`, ohne Secrets und ohne feste `project_id`.
+- `guest-web/__tests__/integration/guest-web-submit-order.integration.test.ts`
+  (neu): echte RPC-End-to-End-Tests (Anonymous Sign-in → Bestellung → ACK →
+  Replay → Konflikt → RLS-Anon-Ablehnung). Skippt sauber, wenn keine Instanz
+  konfiguriert ist (`KL_INTEGRATION=1` + Env-Variablen).
+- `guest-web/vitest.config.ts`: `__tests__/integration/**` aus dem Unit-Run
+  ausgeschlossen (Unit bleibt instanzfrei).
+- `guest-web/vitest.integration.config.ts` (neu): eigene Config für
+  Integrationstests (Timeout 30 s für echte Netz-Aufrufe).
+- `guest-web/package.json`: `npm run test:integration` hinzugefügt.
+- `guest-web/README.md`: Stand auf KL-WEB-003 korrigiert (Bestellgrenze ist da,
+  nicht mehr „noch nicht enthalten"); Kommandos + „In Betrieb nehmen"-Verweis.
+- `docs/architecture/guest-web/SANDBOX_SETUP.md` (neu): Schritt-für-Schritt-
+  Leitfaden für den Nutzer — Supabase-Projekt (EU-Frankfurt), Anonymous-Sign-in
+  aktivieren, drei Migrationen anwenden, `.env.local`, Vercel-Deployment,
+  Integrationstests, Smoke-Check, Fehler-Checkliste.
+- `docs/collaboration/WORK_QUEUE.md` (dieser Eintrag): KL-WEB-003 dokumentiert.
 
 ## Verifikation (in `guest-web/`)
 
 - `npm run typecheck`: ✓ sauber.
 - `npm run lint`: ✓ sauber (0 Probleme).
-- `npm test` (Vitest): ✓ 40/40 Tests grün (5 Dateien; die 22 neuen Submit-/ACK-
-  Tests plus die 18 bestehenden).
-- `npm run build`: ✓ SSG erfolgreich, `/alte-muehle/menu` wird weiterhin statisch
-  vorgerendert (Fixture erhalten).
+- `npm test` (Vitest Unit): ✓ 40/40 Tests (Integrationstests ausgeschlossen).
+- `npm run test:integration`: ✓ skippt sauber (4 skipped) ohne konfigurierte
+  Instanz — kein falsches Rot, kein falsches Grün.
+- `npm run build`: ✓ SSG intakt, `/alte-muehle/menu` statisch vorgerendert.
 
-## Menü-Fetch: Fixture bleibt (dokumentiert)
+## Was dieser Strang bewusst NICHT tut
 
-Die lokale Fixture `venue-data.ts` bleibt für Menüanzeige/SSG bestehen
-(bewusste Naht aus KL-WEB-001, kein Redesign, kein Risiko). Der Supabase-Seed
-existiert parallel, damit die RPC aus DB-Preisen rechnet. Ein späteres Ticket
-tauscht nur `getVenueBySlug` gegen einen Supabase-Fetch. In ORDER_GATE.md §1
-explizit festgehalten.
+- Keine Hosting-Entscheidung D4 (Vercel = erster Sandbox-Deploy; CF-PoC aus
+  ADR-001 §8 bleibt offen). Keine `vercel.json`-Lock-in-Datei.
+- Kein PWA/Offline-Shell (Stage 2, Entscheidung D5).
+- Keine Menü-Fetch-Umstellung auf Supabase (Folgeticket; Fixture bleibt für
+  SSG/Anzeige).
+- Keine Secrets im Repo; kein Anlegen von Cloud-Ressourcen durch den Agent.
 
-## Bewusst simulierte Teile
+## Offen für den Nutzer (nicht für den Agent)
 
-Öffnungszeit = „immer offen", Bestellkapazität = „unbegrenzt"; beide als
-ausdrückliche Annahmen in der RPC kommentiert und in ORDER_GATE.md §5
-dokumentiert. Generelle Sandbox-Regel: keine echten Zahlungen, keine
-steuerlich gültigen Belege; Sandbox-Banner und Kein-Echtgeld-Regel bleiben.
+`SANDBOX_SETUP.md` führt Schritt für Schritt: Supabase-Projekt anlegen
+(EU-Frankfurt), **Anonymous Sign-in aktivieren** (sonst scheitert jede
+Bestellung), drei Migrationen anwenden (`supabase db push` oder SQL-Editor),
+`guest-web/.env.local` befüllen (gitignore-geschützt), Repo in Vercel
+verbinden mit `NEXT_PUBLIC_SUPABASE_*` als Env-Variablen. Ist die Instanz
+konfiguriert, laufen `KL_INTEGRATION=1 npm run test:integration` echte Aussagen
+(siehe `ORDER_GATE.md` §7 Abgrenzung).
 
 ## Restrisiken / Offenpunkte (ehrlich)
 
-- **Keine echte RPC-Ausführung / kein RLS-Integrationstest.** In dieser
-  Umgebung ist keine Supabase-Instanz verfügbar. Die Unit-Tests (mit Mock-
-  Backend) beweisen die Verarbeitungslogik (Idempotenz-Key-Normierung,
-  Fehler-Mapping, „kein falsches ACK"), **nicht** die PL/pgSQL-RPC, die
-  `FOR UPDATE`-Sperre, die `raise exception`-Pfade, den Hash-Abgleich und
-  **nicht** die RLS-Durchsetzung gegen echtes PostgreSQL. ORDER_GATE.md §7
-  grenzt das explizit ab.
-- **`signInAnonymously()` und der `is_anonymous`-JWT-Pfad sind verdrahtet,
-  aber nicht gegen Supabase Auth gelaufen.**
-- **Laufzeit ohne Instanz:** ohne `NEXT_PUBLIC_SUPABASE_*` liefert
-  `submitOrder` strukturiert `no_backend` (kein falsches ACK); Menü/SSG laufen
-  weiter. Ende-zu-Ende-Test braucht ein Sandbox-Supabase-Projekt mit
-  angewendeter Migration + Anonymous-Sign-in.
+- **Integrationstests sind code-seitig vorbereitet, aber nicht gelaufen** —
+  dafür fehlt die echte Instanz (vom Nutzer anzulegen). Die Tests beweisen
+  erst etwas, wenn `KL_INTEGRATION=1` gegen ein echtes Projekt läuft.
+- **Race-Fix ist SQL, nicht gegen echtes PostgreSQL verifiziert.** Die
+  `EXCEPTION WHEN unique_violation`-Logik ist Standard-PL/pgSQL und
+  sorgfältig geschrieben, aber in dieser Umgebung nicht laufend geprüft. Der
+  Integrationstest „Replay" deckt den seriellen Fall ab; die echte
+  Concurrent-Race wäre ein eigenes Last-Test-Szenario.
+- **`npm audit`:** unverändert zwei moderate Findings in Dev-/Transitiv-
+  Abhängigkeiten des Scaffolds (KL-WEB-001 notiert); Sandbox-unkritisch.
 - **Cleanup orphaned anonymous users** (DECISIONS.md Guest Web) noch nicht
-  umgesetzt; betrifft das Supabase-Projekt, nicht diesen Code-Scope.
-- **`npm audit`:** zwei moderate Findings in Dev-/Transitiv-Abhängigkeiten des
-  Scaffolds (bereits aus KL-WEB-001 bekannt); Sandbox-unkritisch.
-- **Annahme-Status `pending`:** erfolgreich persistierte Sandbox-Bestellungen
-  erhalten `pending`; eine automatische `accepted`-Logik (Blueprint §6.3) ist
-  nicht Teil dieses Tickets.
+  umgesetzt; Supabase-Projekt-Konfiguration, kein Code-Scope.
 
 ## Schreibbereich & Kollisionsfreiheit
 
-Nur `guest-web/`, die neue additive Migration
-`supabase/migrations/20260717120000_guest_web_order_gate.sql` (`20260318011000_…`
-unangetastet), `docs/architecture/guest-web/ORDER_GATE.md` und diese Handoff-
-Datei. Keine Berührung von PR-#7-/#8-Scopes, nichts außerhalb. `.zcode/` im
-Repo-Wurzel liegt außerhalb meines Bereichs und wurde bewusst nicht committet.
-Keine `DECISIONS.md`/`CURRENT.md`-Edits (keine neue Nutzerentscheidung; D6 ist
-Implementierungsdetail, in ORDER_GATE.md begründet).
+`guest-web/`, `supabase/` (nur neue additive Dateien; bestehende Migrationen
+unangetastet), `docs/architecture/guest-web/SANDBOX_SETUP.md`, dieser
+`WORK_QUEUE.md`-Eintrag und diese Handoff-Datei. Keine Berührung von
+PR-#7/#8-Scopes oder iOS-Code; nichts außerhalb. Keine `DECISIONS.md`/
+`CURRENT.md`-Edits (keine neue Nutzerentscheidung; D4 bleibt dem Nutzer).
+`.zcode/` im Repo-Wurzel liegt außerhalb meines Bereichs und wurde bewusst
+nicht committet.
 
 ## Empfohlener nächster Schritt
 
-Review von KL-WEB-002 (Peer oder Nutzer). Danach in getrennten Scopes:
-Integrationstests gegen eine echte Supabase-Instanz, Menü-Fetch via Supabase,
-Öffnungszeit-/Kapazitäts-Prüfungen, Vercel-Sandbox-Deployment.
+Review von KL-WEB-003 (Peer oder Nutzer). Danach führt der Nutzer die
+Account-Schritte aus `SANDBOX_SETUP.md` aus; sobald eine Instanz steht, laufen
+die Integrationstests echte Aussagen und das Vercel-Deployment kann live
+getestet werden. Erst danach: D4-Hosting-PoC (Vercel vs. Cloudflare Workers)
+als eigenes Ticket.

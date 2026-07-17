@@ -1,6 +1,6 @@
 # KitchenLink Work Queue
 
-**Stand:** 17. Juli 2026
+**Stand:** 18. Juli 2026
 **Phase:** Designsystem-Implementierung im internen Sandbox-Build
 
 Diese Queue zerlegt die naechste Ausbaustufe in konfliktfreie Arbeitspakete. Ein
@@ -448,6 +448,53 @@ Kernbefunde der Lesart:
   fuer den Nutzer.
 - Keine `DECISIONS.md`-Aenderung; Discovery bleibt Discovery.
 
+## Naechster aktiver Strang
+
+### KL-WEB-003 - Gast-Web-Sandbox in Betrieb nehmen (Deploy + echte Tests)
+
+**Status:** Implementiert auf `glm/web-next`; bereit fuer Review
+**Abhaengigkeit:** KL-WEB-002 (erledigt, gemergt)
+**Schreibbereich:** `guest-web/`, `supabase/` (nur additive/neue Config,
+Migrationen unangetastet), `docs/architecture/guest-web/`,
+`docs/collaboration/handoffs/GLM.md`, dieser Eintrag
+
+Die Gast-Web-Logik aus KL-WEB-002 war nie gegen eine echte Supabase-Instanz
+gelaufen und nicht deployt. Dieser Strang macht sie lauffaehig, ohne dass der
+Agent Cloud-Ressourcen anlegt oder Secrets committet:
+
+- **Race-Follow-up aus KL-WEB-002 (Behoben):** neue additive Migration
+  `supabase/migrations/20260718010000_guest_web_submit_order_race_fix.sql`
+  redefiniert `guest_web_submit_order` so, dass eine enge Race Condition bei
+  zwei gleichzeitigen Sendungen mit demselben Idempotenz-Key nicht mehr als
+  generisches rpc_error durchgeht, sondern sauber auf Replay/Konflikt abgebildet
+  wird (`EXCEPTION WHEN unique_violation`). Die Kerngarantie (nie zwei
+  Bestellungen fuer einen Key) galt schon; der Verlierer bekommt jetzt ein
+  klares Ergebnis statt eines generischen Fehlers.
+- **Supabase-CLI-Initialisierung:** `supabase/config.toml` (keine Secrets, keine
+  feste `project_id`), sodass `supabase link`/`db push` funktioniert.
+- **Integrationstest-Geruest:** `guest-web/__tests__/integration/` mit echten
+  RPC-End-to-End-Tests (Anonymous Sign-in -> Bestellung -> ACK -> Replay ->
+  Konflikt -> RLS-Anon-Ablehnung). Skippt sauber, wenn keine Instanz
+  konfiguriert ist (`KL_INTEGRATION=1`); getrennt vom instanzfreien Unit-Run
+  via `npm run test:integration`.
+- **Setup-Leitfaden:** `docs/architecture/guest-web/SANDBOX_SETUP.md` fuehrt den
+  Nutzer Schritt fuer Schritt durch Supabase-Projekt (EU-Frankfurt), Anonymous-
+  Sign-in-Aktivierung, Migrationen, `.env.local` und Vercel-Deployment.
+  Explizit: Vercel ist der erste Sandbox-Deploy, **keine** Hosting-Entscheidung
+  (D4) — die PoC-Matrix aus ADR-001 §8 bleibt offen.
+- `guest-web/README.md` auf den aktuellen Stand gebracht (Kommandos +
+  In-Betrieb-nehmen-Verweis).
+
+Verifikation in `guest-web/`: typecheck + lint sauber, 40/40 Unit-Tests,
+Integrationstests skippen sauber ohne Instanz, SSG-Build mit
+`/alte-muehle/menu` intakt.
+
+**Offen fuer den Nutzer (nicht fuer den Agent):** Supabase-Projekt anlegen,
+Anonymous Sign-in aktivieren, Migrationen anwenden, `.env.local`/Vercel-Env
+setzen, Repo in Vercel verbinden. Der Leitfaden `SANDBOX_SETUP.md` fuehrt
+Schritt fuer Schritt. Ist die Instanz konfiguriert, laufen die
+Integrationstests echte Aussagen (siehe `ORDER_GATE.md` §7 Abgrenzung).
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,
@@ -475,4 +522,8 @@ Kernbefunde der Lesart:
    Discovery-Dokumente und Integrationslesart nach `main` gebracht, siehe
    Discovery-Abschnitt oben. Netzwerkseitiger Hub-Teil bleibt bis zu
    Nutzerentscheidungen blockiert.
-10. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
+10. ~~Gast-Web zur laufenden Sandbox bringen (KL-WEB-003).~~ Implementiert auf
+    `glm/web-next`; Race-Follow-up behoben, Integrationstest-Geruest und
+    Setup-Leitfaden angelegt. Wartet auf Nutzer-Account-Schritte (Supabase-
+    Projekt, Vercel) laut `SANDBOX_SETUP.md`.
+11. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.

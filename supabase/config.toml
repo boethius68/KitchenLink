@@ -1,0 +1,24 @@
+# Supabase-Projekt-Konfiguration für die KitchenLink Gast-Web-Sandbox.
+#
+# Diese Datei wird von der Supabase-CLI (`supabase` >= 1.x) verwendet, um das
+# lokale Repository mit einem Supabase-Projekt zu verknüpfen und Migrationen
+# anzuwenden (`supabase link` + `supabase db push`).
+#
+# Sie enthält KEINE Secrets und keine feste project_id/ref. Die Verknüpfung zu
+# einem konkreten Projekt entsteht erst durch `supabase link --project-ref <ref>`
+# (siehe docs/architecture/guest-web/SANDBOX_SETUP.md). Die CLI schreibt die ref
+# dann in ihre lokale Verknüpfung, nicht hierher.
+#
+# ADR-001 fordert Supabase EU-Region Frankfurt (eu-central-1); das wird bei der
+# Projektanlage im Dashboard gewählt, nicht in dieser Datei.
+
+[api]
+enabled = true
+# Port nur fuer lokales self-hosted relevant; fuer ein Cloud-Projekt ignoriert.
+port = 54321
+
+[db]
+# Migrationen liegen unter supabase/migrations/ und werden via
+# `supabase db push` angewendet. Der Sandbox-Seed (Venue + 8 Items) ist Teil
+# der Migration 20260717120000_guest_web_order_gate.sql, nicht einer separaten
+# seed.sql — deshalb wird hier bewusst kein Seed-Pfad gesetzt.
