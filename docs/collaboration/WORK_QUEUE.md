@@ -422,6 +422,32 @@ abdeckt. Komplette Unit-Suite auf dem gemergten Stand gruen.
 KL-INVENTORY-001 (die vierte Mission dieser Runde) steht jetzt als eigener,
 erledigter Abschnitt weiter oben.
 
+## Discovery: Offline Venue Hub (Blueprint §16)
+
+**Status:** Discovery reviewt (18. Juli 2026); keine Umsetzungsfreigabe
+
+Die beiden zuvor ungereviewten Branches `deepseek/offline-venue-hub-review`
+(Superset) und `glm/offline-venue-hub` wurden von Claude Code gelesen. Die
+fuenf Discovery-Dokumente (GLM-Architektur + Quellen, DeepSeek-Red-Team,
+Stage-1-Event-Log-Contract, Netzwerk-POC-Testmatrix) liegen jetzt unter
+`docs/discovery/offline-venue-hub/` auf `main`, zusammen mit einer
+Integrationslesart (`INTEGRATION_REVIEW.md`) analog zur Taxonomie-Recherche.
+Die veralteten Handoff-Dateien der Branches wurden bewusst nicht uebernommen.
+
+Kernbefunde der Lesart:
+- Der Stage-1-Event-Log-Contract (der einzige Teil mit „bedingtem Go") ist
+  faktisch bereits durch den gemergten KL-OFFLINE-003-Prototyp abgedeckt; die
+  Entwuerfe konvergieren im Prinzip, divergieren in der Umsetzung (eigenes
+  SQLite vs. GRDB). Naechster risikoarmer Schritt waere die iOS-
+  Integrationsnaht (Event-Store hinter `KitchenLinkRepository`).
+- Der netzwerkseitige Hub-Teil bleibt blockiert durch ungeloeste P0-Risiken,
+  besonders die Kollision mit KL-WEB-002: Ein cloud-first per HTTPS
+  ausgeliefertes Gast-Web kann einen lokalen HTTP-Hub nicht erreichen
+  (Mixed Content + Chrome Local Network Access). Die Offline-Gastbestellung
+  aus Blueprint §16.2 ist damit eine echte Produkt-/Architekturweggabelung
+  fuer den Nutzer.
+- Keine `DECISIONS.md`-Aenderung; Discovery bleibt Discovery.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,
@@ -445,4 +471,8 @@ erledigter Abschnitt weiter oben.
    MiniMax.~~ Beide erledigt und am 17. Juli 2026 reviewt und integriert
    (siehe Handoff fuer Details: ein behobener Fund bei KL-WEB-002, eine
    gepruefte und bestaetigte Design-Entscheidung bei KL-INVENTORY-001).
-9. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
+9. ~~Offline-Venue-Hub-Discovery reviewen.~~ Erledigt (18. Juli 2026);
+   Discovery-Dokumente und Integrationslesart nach `main` gebracht, siehe
+   Discovery-Abschnitt oben. Netzwerkseitiger Hub-Teil bleibt bis zu
+   Nutzerentscheidungen blockiert.
+10. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.

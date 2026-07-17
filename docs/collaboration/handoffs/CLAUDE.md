@@ -1,18 +1,56 @@
 # Claude Code Handoff
 
-**Updated:** 17 July 2026
+**Updated:** 18 July 2026
 **Branch:** `main` (Integrationsarbeit); KL-WEB-001 gemergt aus
 `claude/guest-web-foundation`
 **Status:** Alle vier Runde-2-Missionen (KL-OFFLINE-003, KL-WORKFORCE-001,
 KL-WEB-002, KL-INVENTORY-001) reviewt und in `main` integriert, keine P0/P1.
 Zwei echte Funde waehrend der Integration behoben (KL-WORKFORCE-001,
 KL-WEB-002), eine Design-Frage bei KL-INVENTORY-001 genau nachverfolgt statt
-ungeprueft als Bug behandelt. ADR-001 nachtraeglich nach `main` gebracht, da
-GLMs frischer Mission-Branch sie sonst nicht im Arbeitsbaum gehabt haette.
-KL-WEB-001-Fundament umgesetzt, gegen die visuelle Claude-Design-Referenz
-korrigiert, verifiziert und gemergt. Zuvor am selben Tag: PR #5/#6/#9 reviewt
-und integriert sowie die vier KL-WEB-001-Entscheidungen des Nutzers in
-`DECISIONS.md` dokumentiert.
+ungeprueft als Bug behandelt. Danach die Offline-Venue-Hub-Discovery reviewt
+und mit einer Integrationslesart nach `main` gebracht. ADR-001 nachtraeglich
+nach `main` gebracht, da GLMs frischer Mission-Branch sie sonst nicht im
+Arbeitsbaum gehabt haette. KL-WEB-001-Fundament umgesetzt, gegen die visuelle
+Claude-Design-Referenz korrigiert, verifiziert und gemergt. Zuvor am selben
+Tag: PR #5/#6/#9 reviewt und integriert sowie die vier KL-WEB-001-
+Entscheidungen des Nutzers in `DECISIONS.md` dokumentiert.
+
+## Session-Teil 7: Review Offline-Venue-Hub-Discovery
+
+### Scope
+
+Die beiden zuletzt offenen, ungereviewten Branches
+(`deepseek/offline-venue-hub-review` als Superset, `glm/offline-venue-hub`)
+gelesen und als Discovery eingeordnet. Kein Produktcode, keine Freigabe.
+
+### Vorgehen und Befund
+
+- Alle fuenf Discovery-Dokumente vollstaendig gelesen (GLM-Architektur +
+  Quellen, DeepSeek-Red-Team, Stage-1-Event-Log-Contract, Netzwerk-POC).
+- Die fuenf Dokumente verbatim aus dem Branch extrahiert und unter
+  `docs/discovery/offline-venue-hub/` nach `main` gebracht — nur diese
+  Dateien, **nicht** den ganzen Branch (dessen Handoff-Versionen sind
+  veraltet und wuerden den aktuellen Stand regressieren; gleiche Methode wie
+  bei der ADR-001-Extraktion).
+- Eigene Integrationslesart `INTEGRATION_REVIEW.md` geschrieben (analog zur
+  Taxonomie-`INTEGRATION_REVIEW.md`), die drei Dinge festhaelt:
+  1. **Stage 1 ist faktisch bereits gebaut** — der gemergte
+     KL-OFFLINE-003-Prototyp deckt genau den Teil ab, dem DeepSeek als
+     einzigem ein bedingtes Go gab. Die Entwuerfe konvergieren im Prinzip,
+     divergieren in der Umsetzung (eigenes SQLite vs. GRDB; der Prototyp ist
+     auf der Abhaengigkeitsachse die staerkere Wahl). Offen bleibt die
+     iOS-Integrationsnaht (`LocalDemoRepository` hinter
+     `KitchenLinkRepository` ablösen).
+  2. **Der netzwerkseitige Hub-Teil kollidiert mit KL-WEB-002.** DeepSeeks
+     staerkster P0: ein cloud-first per HTTPS ausgeliefertes Gast-Web kann
+     einen lokalen HTTP-Hub nicht per `fetch` erreichen (Mixed Content +
+     Chrome Local Network Access). Die Offline-Gastbestellung aus Blueprint
+     §16.2 ist damit eine echte Produkt-/Architekturweggabelung, kein
+     Implementierungsdetail.
+  3. Belastbare Prinzipien (Event Sourcing statt CRDT, ACK-nach-Commit,
+     Transactional Outbox, „messen statt annehmen") sind uebernehmbar; die
+     P0-Netzwerkrisiken und Failover-Fragen bleiben Nutzer-/Messentscheidung.
+- Keine `DECISIONS.md`-Aenderung. WORK_QUEUE und CURRENT.md nachgezogen.
 
 ## Session-Teil 6: Review und Integration KL-WEB-002 und KL-INVENTORY-001
 
@@ -329,10 +367,22 @@ autoritative Bestellgrenze, Supabase-Anbindung, PWA-Stufe.
 
 ## Recommended Next Step
 
-Alle vier Runde-2-Missionen (KL-OFFLINE-003, KL-WORKFORCE-001, KL-WEB-002,
-KL-INVENTORY-001) sind reviewt und gemergt. Offen bleiben: das dokumentierte
-Race-Condition-Risiko bei KL-WEB-002 (echte Supabase-Integrationstests
-brauchen eine laufende Instanz, die hier nicht verfuegbar ist), das
-Vercel-Sandbox-Deployment und die PWA-/Offline-Stufe fuer das Gast-Web, sowie
-`deepseek/offline-venue-hub-review` und `glm/offline-venue-hub` als
-ungereviewtes Discovery-Material.
+Alle vier Runde-2-Missionen und die Offline-Venue-Hub-Discovery sind reviewt
+und in `main`. Es liegt jetzt eine Reihe von **Nutzerentscheidungen** an,
+bevor weiterer Code sinnvoll ist:
+
+- **Offline-Gastbestellung (Blueprint §16.2):** Die in
+  `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4 dokumentierte
+  Weggabelung — kann/soll der lokale Gastzugriff ueberhaupt Teil der Sandbox
+  sein, angesichts der Mixed-Content-/LNA-Kollision mit dem cloud-first
+  Gast-Web? Das ist die groesste offene Architekturfrage.
+- **KL-WEB-002 haerten:** Vercel-Sandbox-Deployment einrichten (aussenwirksam,
+  braucht Nutzerfreigabe), dann echte Supabase-Integrationstests fuer die RPC
+  und die dokumentierte Idempotenz-Race.
+- **KL-OFFLINE-003 weiterfuehren:** risikoarme iOS-Integrationsnaht (Event-
+  Store hinter `KitchenLinkRepository`, `LocalDemoRepository` ablösen, Demo-
+  Pfade erhalten) — nur auf Nutzerwunsch, da es die erste echte Ablösung eines
+  bestehenden Sandbox-Pfades waere.
+
+Kein reines „weiter coden" ohne Richtungsentscheidung; die naechsten grossen
+Schritte sind produkt-/architekturseitig und gehoeren dem Nutzer.

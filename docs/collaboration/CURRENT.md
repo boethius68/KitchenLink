@@ -1,6 +1,6 @@
 # KitchenLink Current State
 
-**Updated:** 17 July 2026
+**Updated:** 18 July 2026
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
@@ -264,7 +264,23 @@ and integrated the same day too:
   "exactly once" for a Storno rather than silently replaying a second click.
   MiniMax's own handoff already documents this exact tradeoff.
 
+The offline-venue-hub discovery (both branches) was reviewed on 18 July 2026.
+The five discovery documents plus an integration reading now live under
+`docs/discovery/offline-venue-hub/`. Key reading: the Stage-1 event-log
+contract — the only part the red-team gave a conditional go — is effectively
+already covered by the merged KL-OFFLINE-003 prototype, so the next low-risk
+step there would be the iOS integration seam (event store behind
+`KitchenLinkRepository`). The network side of the hub stays blocked on
+unresolved P0 decisions, most notably a collision with the just-merged
+cloud-first guest web: an HTTPS-served guest page cannot reach a local HTTP
+hub (Mixed Content + Chrome Local Network Access), so Blueprint §16.2's
+offline guest ordering is a genuine product/architecture fork for the user.
+No `DECISIONS.md` change follows — discovery stays discovery.
+
 Remaining:
 
-- `deepseek/offline-venue-hub-review` and `glm/offline-venue-hub` remain
-  discovery material and need their own review before anything is adopted.
+- The network-side venue hub (local HTTP server, guest-to-hub reach,
+  leader election/failover) is blocked on the user P0 decisions recorded in
+  `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4.
+- The KL-WEB-002 idempotency-race follow-up and the Vercel sandbox
+  deployment / PWA stage for the guest web remain open in their own scopes.
