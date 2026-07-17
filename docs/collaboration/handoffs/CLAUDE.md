@@ -1,159 +1,102 @@
 # Claude Code Handoff
 
-**Updated:** 16 July 2026
-**Branch:** `claude/menu-import-review`
-**Status:** KL-MENU-004 abgeschlossen und gemergt (PR #2/#3; Merge-
-Dokumentation durch Codex in PR #4). KL-CLAUDE-001 und KL-OPS-001 sind
-gemergt (PR #1).
-
-## KL-MENU-004 Ergebnis
-
-**Umgesetzt (gemergt via PR #2/#3):**
-
-- Audit-P2 geloest: `MenuImportEvidence.isLocated` (Schema `0.2.0`)
-  unterscheidet echte Fundstellen von synthetischen Ankern; der Adapter setzt
-  den Zustand an allen Fallback-Pfaden explizit.
-- `MenuImportDraftReviewModel` + `MenuImportDraftConverter`: In-Memory-Review
-  mit Preis setzen/entfernen (Human-Evidenz, explizit unlokalisiert),
-  Umbenennen, Verschieben, Annehmen/Verwerfen/Wiederherstellen und
-  Sammelaktion `acceptAllConvertibleEntries` (nur bepreiste, geflaggte
-  Eintraege). `acceptEntry` verweigert preislose Eintraege auf Modellebene;
-  Konvertierung erst, wenn alle offenen Kandidaten geklaert sind.
-- `MenuImportDraftReviewView` + Detail-Sheet: Originalseitenausschnitt
-  (Vision-Y-Flip), Rohtext, Preiszustand, Pruefgrund, Korrekturfelder,
-  Abschnitts-Picker, "Naechsten offenen Eintrag pruefen" und die
-  Sammelaktion; die Uebernahme erscheint erst nach Klaerung. Unlokalisierte
-  Evidenz zeigt einen expliziten Hinweis statt eines falschen Crops.
-  Legacy-Review bleibt unveraendert erreichbar.
-
-**Befund aus der E2E-Verifikation (geklaert):**
-
-- Das Modell war durchgehend korrekt (per Diagnose auf dem echten
-  interaktiven Draft belegt: 26 offene Eintraege, alle bepreisten loesen per
-  `acceptEntry`, exakt die zwei preislosen bleiben). Der urspruengliche
-  Harness-Haenger war ein XCUITest-Artefakt (veralteter Accessibility-Frame
-  nach Scroll traf die bereits geklaerte Nachbarzeile). Der Harness ist jetzt
-  deterministisch: Batch-Aktion, gezielte Klaerung der zwei preislosen
-  Kandidaten (einer bepreist, einer verworfen), Gate-Pruefung, Konvertierung.
-- Zwei echte Fixes fielen dabei ab: Sheet-State-Leak zwischen Eintraegen
-  (`loadedEntryID`-Bindung) und wirkungsloses Annehmen preisloser Eintraege
-  (jetzt Modell-Guard + deaktivierter Button mit Hinweis).
-
-**Verifikation KL-MENU-004:**
-
-- Unit-Suite gruen (Cropper-Geometrie, isLocated-Pfade, Konverter,
-  Review-Gating, Batch-Regeln, Preisparser).
-- E2E-Harness gruen in ~56 s: Fixture-Import -> Review (Uebernahme gesperrt)
-  -> Sammelaktion (24 bepreiste) -> "Zwischengericht" bepreist,
-  "Gastgeber" verworfen (Accept ohne Preis nachweislich deaktiviert)
-  -> Uebernahme freigeschaltet -> Sandbox-Menue ersetzt.
-- UI-Regressionssuite 4/4, Scanner-Benchmark passed (Werte unveraendert).
-- Screenshots im xcresult: offene Liste, Detail mit Crop/Pruefgrund,
-  aufgeloester Zustand, uebernommenes Menue.
+**Updated:** 17 July 2026
+**Branch:** `main` (Integration); lokaler Pruef-Branch `claude/integration-verify`
+**Status:** Review und Integration von PR #6, PR #5 und PR #9 abgeschlossen;
+Kollaborationsdokumente auf den neuen Stand gebracht.
 
 ## Scope
 
-Zweiphasige Mission nach `docs/collaboration/CLAUDE_MISSION.md`. Primaere
-visuelle Quelle war das lebende Claude-Design-Projekt (`d564bf09-…`,
-"KitchenLink Brand Territories.dc.html"); es ist byte-identisch (SHA-256
-`3077…e0bc`) mit `docs/design/claude-design/round-04/export/territories.html`.
-Grenze der Nutzerfreigaben war `docs/collaboration/DECISIONS.md`; kein Design
-wurde dadurch zusaetzlich freigegeben.
+Peer-Review und Integration dreier offener Pull Requests in getrennten
+Review-Scopes, gemaess `CURRENT.md` "Next Decision" und Nutzerfreigabe:
 
-## Completed
+1. **PR #6** `codex/sync-collaboration-state` — Doku-Sync (CURRENT, WORK_QUEUE,
+   CODEX-Handoff).
+2. **PR #5** `codex/kitchen-hardening-fix` — `.preferredColorScheme(.dark)` am
+   Kuechen-View plus stabile SwiftUI-Identitaeten fuer wiederholte
+   Artikelzeilen; Screenshot-Harness prueft den Relaunch ohne
+   Appearance-Override.
+3. **PR #9** `deepseek/offline-e2e-smoke` — KL-QA-002, lokaler
+   Offline-Bestell-E2E-Smoke (8 Tests + Testplan).
 
-### Phase A — unabhaengiges Audit
+Alle drei wurden zuerst auf einem lokalen Pruef-Branch gemergt und verifiziert,
+erst nach expliziter Nutzerfreigabe nach `main` integriert und gepusht.
 
-- `docs/collaboration/reviews/CLAUDE_AUDIT_2026-07-16.md`: keine P0/P1;
-  1x P2 (unlokalisierte Draft-Evidenz, Eingangsbedingung fuer KL-MENU-004),
-  4x P3. Unit-, UI- und Benchmark-Laeufe reproduzierten alle dokumentierten
-  Ergebnisse.
+## Review-Ergebnisse
 
-### Phase B — Heute und Kueche als Round-04-Referenzflaechen
-
-- `kitchenlink/Features/Today/KitchenLinkV2TodayEvents.swift`: pure, getestete
-  Ableitung Sandbox-Bestellung -> Ereignis (Vorgangsart = Form, Dringlichkeit =
-  Farbe, Verb sichtbar). Offene Zahlung (serviert) ist neutral; Kueche ueber
-  Richtzeit wird Amber; storniert traegt keine naechste Handlung.
-- `kitchenlink/Features/Today/KitchenLinkV2TodayView.swift`: ereignisorientierte
-  Arbeitsliste mit Verbindungszeile (durchgestrichener Ring nur bei fehlendem
-  Empfang), genau einer Zitronen-Primaeraktion (naechste Handlung des
-  dringendsten Ereignisses bzw. "Service starten") und traubenbasierter
-  Demo-Aktion.
-- `kitchenlink/Features/Today/KitchenLinkV2DemoOperations.swift`: Demo-Szenario
-  ueber die bestehende Repository-/Relay-Domaene (send + regulaere
-  Statusuebergaenge, rueckdatierte `createdAt`); ersetzt lokale
-  Sandbox-Bestellungen, keine zweite Bestell-Domaene.
-- `kitchenlink/Features/Kitchen/KitchenLinkV2KitchenView.swift`: Kuechenboard
-  auf Tief (per Designsystem immer dunkel), adaptives Grid, sechs gleichzeitige
-  Tickets auf iPad ohne horizontales Scrollen, Urgency-Oberkante, Hinweis als
-  Quadrat-Form, 44-Punkt-Aktionen, keine Zitrone.
-- `kitchenlink/App/KitchenLinkV2BusinessHomeView.swift`: Betriebszugang
-  (`business.openToday`, `business.openKitchen`).
-- `kitchenlink/App/KitchenLinkDesignPreviewConfiguration.swift` und
-  `KitchenLinkRootView.swift`: Sandbox-Launch-Argumente
-  `--kitchenlink-demo-service` (Szenario beim Oeffnen von Heute/Kueche) und
-  `--kitchenlink-appearance-light/-dark` (reproduzierbare visuelle Checks).
+- **PR #6:** Kernaussagen gegen die echten Remote-Branches verifiziert.
+  Zwei Angaben waren beim Merge bereits ueberholt (im Folge-Update korrigiert):
+  Die Round-2-Branches wurden zwei Minuten nach dem Sync-Commit auf die
+  PR-#4-Merge-Basis rebased (nicht mehr "6 Commits hinter main"), und
+  `minimax/inventory-domain` existiert auf `origin` nicht. Die Kernaussage
+  (KL-INVENTORY-001 nie geliefert) bleibt richtig.
+- **PR #5:** Beide Fixes korrekt. `preferredColorScheme(.dark)` erzwingt die
+  dunkle System-Chrome der Kueche auch auf hellen Geraeten (Designregel
+  "Kueche immer auf Tief"); der `ForEach`-Wechsel auf Offset-Identitaet behebt
+  kollidierende IDs bei doppelten Artikelzeilen (`id: \.self` auf Strings).
+- **PR #9:** Keine Befunde. Die 36-Fall-Uebergangstabelle deckt exakt die
+  `canTransition`-Semantik aus `OrderingDomain.swift` ab; die Tests nutzen
+  `LocalDemoRepository.updateOrderStatus` korrekt als unvalidierte
+  Setup-Hintertuer (die Uebergangsregeln leben im Relay und genau dort werden
+  sie getestet); der `eventually`-Helfer ist nachweislich cancellation-sicher.
+  Der Testplan `docs/test-plans/OFFLINE_ORDER_FLOW.md` grenzt ehrlich ab, was
+  die Smoke nicht beweist (SQLite-Durability, Idempotenz, echter
+  Venue-Hub-Transport). Entgegen der Warnung aus PR #6 fasst der finale Branch
+  keine geteilten Testdateien mehr an.
 
 ## Files Changed
 
-- Neu: `kitchenlink/Features/Today/` (3 Dateien),
-  `kitchenlink/Features/Kitchen/KitchenLinkV2KitchenView.swift`,
-  `kitchenlinkTests/KitchenLinkV2TodayEventsTests.swift`,
-  `kitchenlinkUITests/kitchenlinkV2ScreenshotTests.swift` (Capture-Harness,
-  ohne Umgebungsflag uebersprungen).
-- Geaendert: `kitchenlink/App/…` (3 Dateien, Navigation + Launch-Argumente),
-  `kitchenlinkTests/KitchenLinkDesignSystemV2Tests.swift` (6a-Kontrasttest),
-  `kitchenlinkUITests/kitchenlinkUITests.swift` (Navigations-Smoke),
-  `docs/collaboration/handoffs/CLAUDE.md`,
-  `docs/collaboration/reviews/CLAUDE_AUDIT_2026-07-16.md` (Phase A).
+- Merges: PR #6 (3 Doku-Dateien), PR #5 (`KitchenLinkV2KitchenView.swift`,
+  `kitchenlinkV2ScreenshotTests.swift`), PR #9 (`DEEPSEEK.md`,
+  `docs/test-plans/OFFLINE_ORDER_FLOW.md`,
+  `kitchenlinkTests/KitchenLinkOfflineOrderFlowTests.swift`,
+  `kitchenlinkTests/Support/OfflineOrderTestSupport.swift`).
+- Nach dem Merge (dieser Commit): `docs/collaboration/CURRENT.md`,
+  `docs/collaboration/WORK_QUEUE.md` (Driftkorrekturen, KL-QA-002 erledigt,
+  Integrationsreihenfolge aktualisiert) und dieses Handoff.
 
 ## Verification
 
-- Unit-Suite iPhone 17 Pro: TEST SUCCEEDED, inklusive 7 neuer
-  Ereignis-/Ticket-Tests und des parametrischen Urgency-Kontrasttests
-  (alle Symbole >= 3:1 auf Sprudel, Traube, Tief und `#383048`).
-- UI-Suite: 4/4, inklusive neuem Smoke V2-Home -> Heute -> Kueche mit stabilen
-  Accessibility-IDs.
-- Scanner-Benchmark nach den Phase-B-Aenderungen erneut ausgefuehrt:
-  passed, Werte unveraendert.
-- Visuell geprueft (Screenshots via Capture-Harness): Heute iPhone hell und
-  dunkel, Kueche iPhone dunkel, Heute und Kueche iPad Pro 13" dunkel mit sechs
-  gleichzeitigen Tickets (3x2-Raster, kein horizontales Scrollen). Abnahmefaelle
-  sichtbar: neue Bestellung (frisch), Kueche wartet (+3:00, Amber), Zahlung
-  offen (neutral, Betrag), Hinweis "Bitte ohne Ei" (Quadrat), Empfangszeile.
-- Legacy-Startpfad und Scan-Flow unveraendert (bestehende UI-Tests gruen).
+Alle Laeufe auf dem lokalen Pruef-Branch mit allen drei Merges,
+iPhone 17 Pro Simulator:
 
-### Nachschärfung Bump-Aktion (Nutzerfeedback 16. Juli)
-
-- Abwaegung Wischgeste vs. Button: Der Button gewinnt als primaerer Weg
-  (nasse Haende, Gestenkonflikt mit Scrollen, Entdeckbarkeit, VoiceOver).
-  Eine Wischgeste bleibt als spaeterer Beschleuniger denkbar, aber erst mit
-  einem Rueckgaengig-Mechanismus; die Bestell-Domaene kennt bisher keine
-  Rueckwaertsuebergaenge.
-- Neuer `KitchenLinkV2KitchenBumpButtonStyle`: volle Ticketbreite, 52 pt,
-  Licht-Fuellung mit Traube-Text (~12:1 gegen das Ticket). Bewusst keine
-  Zitrone (wiederholte Aktion, Kuechenstatus). Haptisches Erfolgs-Feedback
-  ueber `sensoryFeedback(.success:)`.
-- Kontraste des Buttons (ruhend, gedrueckt, deaktiviert) sind als Unit-Test
-  abgesichert; iPad-Board erneut visuell geprueft, sechs Tickets bleiben
-  gleichzeitig sichtbar.
+- Unit-Suite: **60/60 gruen**, inklusive aller 8 neuen Offline-Tests
+  (`xcodebuild test -only-testing:kitchenlinkTests`).
+- Standard-UI-Suite: gruen; beide Capture-Harnesse werden ohne Env-Flag
+  korrekt uebersprungen.
+- Gated Screenshot-Harness (der von PR #5 geaenderte Pfad) real ausgefuehrt
+  mit `TEST_RUNNER_KITCHENLINK_CAPTURE_V2_SCREENSHOTS=1` und heller
+  Appearance: **passed** (~29 s). Hinweis: Die `TEST_RUNNER_`-Variablen muessen
+  als Umgebungsvariablen vor `xcodebuild` stehen, nicht als Trailing-Argumente
+  (sonst Build-Settings, Test wird uebersprungen).
+- 14-Seiten-Scanner-Benchmark: **passed**, alle Werte auf der dokumentierten
+  Baseline (Lichtburg-Draft 16/16 Namen, 2 bekannte Preisverluste bleiben
+  unbepreist; Alexxanders unveraendert).
+- Alle drei Merges konfliktfrei; `main` nach Integration byte-identisch mit dem
+  verifizierten Pruef-Branch (`git diff` leer).
 
 ## Risks And Open Work
 
-- `Heute` kennt keine echte Zahlungs-Domaene: "Zahlung offen" ist die
-  Interpretation von `served` und traegt bewusst keine Aktion.
-- Offline-Zustand ist der Empfangszustand des lokalen Demo-Relays; ein echter
-  Venue-Hub-/Sync-Status existiert noch nicht (bekannte Blueprint-Luecke).
-- Das Demo-Szenario ersetzt beim Laden alle lokalen Sandbox-Bestellungen
-  (bewusst, im Button-Hinweis dokumentiert).
-- P2-1 aus dem Audit bleibt Eingangsbedingung fuer KL-MENU-004.
-- `gh` CLI fehlt lokal; Draft-PR ueber
-  https://github.com/boethius68/KitchenLink/pull/new/claude/design-audit anlegen.
+- `docs/collaboration/PARALLEL_MISSIONS_2026-07-16.md` wird vom
+  DeepSeek-Handoff referenziert, existiert aber nur auf
+  `codex/post-merge-hardening` (Commit 70e3c19) — toter Verweis auf `main`
+  (P3; Handoff-Datei gehoert DeepSeek).
+- `codex/post-merge-hardening` ist durch PR #5 weitgehend redundant
+  (enthaelt zusaetzlich nur die Missions-Datei); Aufraeumen liegt bei Codex.
+- Der Supabase-Anon-Key steht hartkodiert in `OrderRelayService.swift`
+  (vorbestehend, von DeepSeek angemerkt; kein Bestandteil dieser PRs).
+- PR #7 (`glm/offline-event-log-v2`) und PR #8 (`kimi/workforce-domain`)
+  sind ungereviewt; `deepseek/offline-venue-hub-review` und
+  `glm/offline-venue-hub` sind Discovery ohne Review.
+- KL-INVENTORY-001 ist unbesetzt (kein Branch auf `origin`).
+- `gh` CLI fehlt lokal; Merges wurden als lokale Merge-Commits mit
+  GitHub-konformen Messages gepusht, damit die PRs als merged markiert werden.
 
 ## Recommended Next Step
 
-Visuelle Nutzerfreigabe der beiden Referenzflaechen einholen; danach Merge nach
-`main` durch einen beliebigen Peer und Fortsetzung mit KL-MENU-004
-(Evidenz-Review, inkl. Entscheidung zu P2-1) sowie dem Offline-E2E-Smoke in
-getrennten Scopes.
+KL-WEB-001-Stack-Entscheidung dem Nutzer vorlegen (Grundlage: revidiertes
+ADR-001 auf `glm/guest-web-architecture` — Next.js App Router, Hosting bewusst
+offen via Vercel-vs-Cloudflare-Workers-PoC, autoritative Bestellgrenze).
+Parallel oder danach: PR #7 (KL-OFFLINE-003) und PR #8 (KL-WORKFORCE-001)
+jeweils in eigenem Scope reviewen; KL-INVENTORY-001 neu vergeben oder
+streichen.

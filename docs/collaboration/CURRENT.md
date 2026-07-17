@@ -4,10 +4,11 @@
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
-**Last merge:** PR #4 (`codex/record-menu-import-merge` -> `main`), recording the
-completed evidence-based menu-import review. PR #1 delivered the Claude audit and
-the `Heute`/`Kueche` reference areas, PR #2/#3 completed `KL-MENU-004` (draft-native
-review slice), PR #4 recorded the merge in shared collaboration state.
+**Last merge:** PR #9 (`deepseek/offline-e2e-smoke` -> `main`), the KL-QA-002
+offline order regression smoke, after PR #6 (collaboration-state sync) and
+PR #5 (kitchen hardening) were reviewed and merged the same day. Earlier:
+PR #1 delivered the Claude audit and the `Heute`/`Kueche` reference areas,
+PR #2/#3 completed `KL-MENU-004`, PR #4 recorded that merge.
 
 ## Product
 
@@ -114,6 +115,12 @@ review slice), PR #4 recorded the merge in shared collaboration state.
 - Conversion stays locked until every candidate is resolved and writes only to
   the existing local sandbox menu. The complete unit/UI suites and the 14-page
   scanner benchmark passed before integration.
+- `kitchenlinkTests/KitchenLinkOfflineOrderFlowTests.swift` (KL-QA-002) covers
+  the local offline order flow: guest-to-owner delivery, the full lifecycle
+  chain, guest tracking, all 36 status-transition combinations, persistence
+  across relay recreation and observable teardown. What this smoke does not
+  prove (SQLite durability, idempotency, real venue-hub transport) is recorded
+  in `docs/test-plans/OFFLINE_ORDER_FLOW.md`.
 - `kitchenlink/Features/Today/` and `kitchenlink/Features/Kitchen/` now provide
   the V2 `Heute` and `Kueche` reference areas, reachable from the V2 business
   home. Both derive their state from the existing sandbox order domain
@@ -149,25 +156,23 @@ review slice), PR #4 recorded the merge in shared collaboration state.
 
 ## Next Decision
 
-Four Round-2 mission branches are implemented and pushed, but each is 6 commits
-behind `main` (PR #2/#3/#4 landed after they branched) and needs a rebase plus
-independent review before any integration:
+PR #6 (collaboration-state sync), PR #5 (kitchen hardening) and PR #9
+(KL-QA-002 offline order smoke) were reviewed by Claude Code and integrated on
+17 July 2026. The Round-2 rebase warning from PR #6 became obsolete before
+integration: the remaining mission branches were rebased onto the PR #4 merge
+base, all three merges applied conflict-free, and `minimax/inventory-domain`
+does not exist on `origin` at all.
 
-- `glm/offline-event-log-v2` — KL-OFFLINE-003, isolated Swift package, 27 files,
-  schema/outbox/transport plus 20+ tests. Lowest conflict risk.
-- `kimi/workforce-domain` — KL-WORKFORCE-001, new `Features/Workforce/` and 632
-  lines of domain tests. Low conflict risk.
-- `deepseek/offline-e2e-smoke` — KL-QA-002, 5 commits, E2E + cancellation tests.
-  Highest conflict risk because it touches shared test files.
-- `minimax/inventory-domain` — **never started.** The branch has no MiniMax
-  commit and no `Features/Inventory/` content; KL-INVENTORY-001 needs to be
-  reassigned or dropped.
+Remaining, in recommended order:
 
-Separately, KL-WEB-001 now has two competing stack proposals: Claude Fable 5 was
-originally assigned, but GLM pushed `glm/guest-web-architecture` with an
-alternative ADR (Next.js + Cloudflare Pages, revised for an authoritative order
-gate). Only the user can approve the guest-web stack.
-
-PR #5 (`codex/kitchen-hardening-fix`) is open with two narrow post-merge Kitchen
-fixes: forced dark system chrome via `preferredColorScheme` and stable SwiftUI
-identities for repeated ticket item names.
+- Review `glm/offline-event-log-v2` (PR #7, KL-OFFLINE-003) in its own scope —
+  isolated Swift package prototype (schema, outbox, transport, 20+ tests).
+- Review `kimi/workforce-domain` (PR #8, KL-WORKFORCE-001) in its own scope —
+  new `Features/Workforce/` domain plus 632 lines of tests.
+- KL-WEB-001: the guest-web stack decision belongs to the user. GLM's revised
+  ADR-001 on `glm/guest-web-architecture` (Next.js App Router, hosting kept
+  open via a Vercel-vs-Cloudflare-Workers PoC, authoritative order gate) is
+  the current decision basis.
+- KL-INVENTORY-001 was never started and needs to be reassigned or dropped.
+- `deepseek/offline-venue-hub-review` and `glm/offline-venue-hub` remain
+  discovery material and need their own review before anything is adopted.

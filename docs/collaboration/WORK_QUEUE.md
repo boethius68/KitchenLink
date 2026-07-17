@@ -104,8 +104,9 @@ und optional eine gleichnamige Unit-Testdatei
 - Fehlende visuelle Assertions werden als konkrete Restluecke dokumentiert.
 
 Unit-Tests, V2-/Legacy-UI-Smoke-Tests sowie manuelle Hell-, Dunkel- und maximale
-Dynamic-Type-Pruefung sind erledigt. Offen bleibt ein lokaler End-to-End-Test vom
-Gastauftrag bis zum Kuechenstatus ohne Cloudverbindung.
+Dynamic-Type-Pruefung sind erledigt. Die frueher offene Restluecke — ein lokaler
+End-to-End-Test vom Gastauftrag bis zum Kuechenstatus ohne Cloudverbindung — ist
+mit KL-QA-002 (PR #9) geschlossen.
 
 ### KL-SCAN-001 - Reale Scanner-Fixtures und Regressionstest
 
@@ -262,11 +263,12 @@ Hinweis: Neben der urspruenglichen Claude-Fable-5-Zuweisung hat GLM den Branch
 ueberarbeitet um einen autoritativen Order-Gate) gepusht. Beides sind Vorschlaege;
 nur der Nutzer entscheidt den Stack.
 
-## Parallele Runde 2 (Stand 17. Juli 2026)
+## Parallele Runde 2 (Stand 17. Juli 2026, nach Integration von PR #9)
 
-Vier disjunkte Missionszweige sind implementiert und gepusht, aber jeder ist
-6 Commits hinter `main` (PR #2/#3/#4 sind nach dem Branching gemergt) und braucht
-einen Rebase plus unabhaengiges Review vor Integration.
+Die urspruengliche Rebase-Warnung ist ueberholt: Die Missionszweige wurden vor
+Integrationsbeginn auf die PR-#4-Merge-Basis rebased. KL-QA-002 ist konfliktfrei
+integriert; die verbleibenden Zweige brauchen weiterhin je ein unabhaengiges
+Review in eigenem Scope.
 
 ### KL-OFFLINE-003 - Autoritatives Event-Log und Outbox
 
@@ -281,13 +283,17 @@ geringstes Rebase-Risiko.
 
 ### KL-QA-002 - Lokaler Bestell-E2E-Smoke
 
-**Status:** Implementiert auf `deepseek/offline-e2e-smoke`, nicht integriert
+**Status:** Erledigt; mit PR #9 konfliktfrei in `main` integriert
 **Abhaengigkeit:** Repository-/Relay-Domaene
 **Schreibbereich:** Offline-Test-/Supportdateien, Testplan, `handoffs/DEEPSEEK.md`
 
 Zwei Relay-/Repository-Instanzen pruefen Gastauftrag, Owner-Empfang, Statuskette,
-Tracking, ungueltige Uebergaenge und Neustartpersistenz. 5 Commits inklusive
-Cancellation-Test. Hoechstes Rebase-Risiko wegen gemeinsamer Testdateien.
+Tracking, alle 36 Statusuebergaenge, Neustartpersistenz und beobachtbaren
+Teardown. Claude-Review ohne Befunde; auf dem gemergten Stand liefen die
+komplette Unit-Suite (60/60), die Standard-UI-Suite und der 14-Seiten-
+Scanner-Benchmark gruen. Das befuerchtete Rebase-Risiko trat nicht ein: Der
+finale Branch fasste keine geteilten Testdateien mehr an. Die Abgrenzung zum
+echten Venue-Hub steht in `docs/test-plans/OFFLINE_ORDER_FLOW.md`.
 
 ### KL-WORKFORCE-001 - Schichtplan-Domaene
 
@@ -301,14 +307,14 @@ Zeiterfassung. 632 Zeilen Tests. Niedriges Rebase-Risiko (neue Dateien).
 
 ### KL-INVENTORY-001 - Warenwirtschafts-Domaene
 
-**Status:** Nicht begonnen; Branch `minimax/inventory-domain` ist leer
+**Status:** Nicht begonnen; kein Branch vorhanden
 **Abhaengigkeit:** keine
 **Schreibbereich:** neue Dateien unter `Features/Inventory/`, fokussierte Tests,
 Domain-Dokument, `handoffs/MINIMAX.md`
 
-Der Branch enthaelt keinen eigenen MiniMax-Commit und keine
-`Features/Inventory/`-Dateien; er ist bei einem alten Codex-Basis-Commit stehen
-geblieben. Die Mission muss neu vergeben oder gestrichen werden.
+Ein Branch `minimax/inventory-domain` existiert auf `origin` nicht (mehr); es
+gibt keinen MiniMax-Commit und keine `Features/Inventory/`-Dateien. Die Mission
+muss neu vergeben oder gestrichen werden.
 
 ## Integrationsreihenfolge
 
@@ -320,10 +326,11 @@ geblieben. Die Mission muss neu vergeben oder gestrichen werden.
    und gemergt (PR #1).
 4. ~~KL-MENU-004 inklusive P2-Entscheidung abschliessen.~~ Erledigt und mit PR
    #2 sowie Abschluss-PR #3 integriert.
-5. PR #5 (`codex/kitchen-hardening-fix`) reviewen und mergen: dunkles
-   System-Chrome und stabile SwiftUI-Identitaeten am Kitchen-View.
-6. Vier Round-2-Missionszweige nacheinander rebase + review + PR, sortiert nach
-   Konflikt risiko: KL-OFFLINE-003, KL-WORKFORCE-001, KL-QA-002, danach
-   KL-INVENTORY-001 neu vergeben.
+5. ~~PR #5 (`codex/kitchen-hardening-fix`) reviewen und mergen.~~ Erledigt;
+   zusammen mit PR #6 (Doku-Sync) und PR #9 (KL-QA-002) am 17. Juli 2026
+   reviewt und integriert.
+6. Verbleibende Round-2-Zweige einzeln reviewen und integrieren:
+   KL-OFFLINE-003 (PR #7), dann KL-WORKFORCE-001 (PR #8); danach
+   KL-INVENTORY-001 neu vergeben oder streichen.
 7. KL-WEB-001 erst nach Nutzervorgabe des Web-Stacks weiterverfolgen.
 8. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
