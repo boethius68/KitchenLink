@@ -249,8 +249,43 @@ sowie gezielte Tests in `kitchenlinkTests/` und `kitchenlinkUITests/`
 
 ### KL-WEB-001 - Gast-Web-Grundlage
 
-**Status:** Stack entschieden (17. Juli 2026); Umsetzung frei zur Uebernahme
+**Status:** Fundament umgesetzt; In Review auf `claude/guest-web-foundation`
 **Abhaengigkeit:** semantische Token-Namen aus KL-DS-001
+**Schreibbereich (exklusiv):** neues Verzeichnis `guest-web/`, dieser
+Queue-Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+**Ergebnis des Fundaments (17. Juli 2026):** Next.js-16-App-Router-Projekt
+unter `guest-web/` mit statisch generierter Menueroute
+(`/[venueSlug]/menu`), lokaler Sandbox-Venue (acht Gerichte) als bewusster
+Naht fuer den spaeteren Supabase-Pfad, Bestelluebersicht als Sheet ohne
+Uebermittlung, Sandbox-Banner auf jeder Seite und System-Font-Fallbacks
+ohne Google-Fonts-Laufzeitabhaengigkeit. Tokens liegen als CSS-Variablen
+mit den semantischen DESIGN_SYSTEM-Namen vor; ein Vitest-Abgleich haelt
+`tokens.css` und `design-tokens.ts` konsistent.
+
+**Nutzer-Review gegen die visuelle Quelle (17. Juli 2026):** Der Nutzer hat
+die erste Fassung mit dem tatsaechlichen Claude-Design-Referenzscreen
+(`docs/design/claude-design/round-04/export/territories.html`, 6c Screen 2)
+verglichen und eine strukturelle Abweichung festgestellt. Nach Klaerung
+einzeln korrigiert:
+
+- randloser Venue-Kopf mit "geoeffnet"/"geschlossen"-Badge statt abgesetzter
+  Karte mit Tagline;
+- umrandete (`border-control`) statt gefuellte Mengensteuerung;
+- die gesamte Bestellleiste ist jetzt die Zitronenflaeche (ein durchgehender
+  Button), nicht eine neutrale Leiste mit eingebettetem Button;
+- kleine Tag-Pills ("beliebt", "vegetarisch") neben dem Artikelnamen;
+- dichtere Abstaende naeher an der Referenzkarte.
+- Bewusst NICHT uebernommen (Nutzerentscheidung): der Preis bleibt eine
+  eigene, fett hervorgehobene Zeile statt inline in der Beschreibung.
+- Zusaetzlich als Nebeneffekt bereinigt: der ungefragte volle
+  Seiten-Dark-Modus-Wechsel entfiel, da kein Referenzscreen ein durchgehend
+  dunkles Gast-Web zeigt (nur die Kueche ist "immer Tief").
+
+Erneut verifiziert: Typecheck, ESLint, 18 Vitest-Tests und SSG-Build gruen;
+Interaktion (Stepper, Bestellleiste, Sheet-Summe) sowie hell/dunkel mobil im
+Browser erneut visuell geprueft. Bestellgrenze, Supabase-Anbindung und
+PWA-Stufe folgen weiterhin als eigene Tickets.
 
 Der Nutzer hat entschieden (siehe `DECISIONS.md`, Guest Web): Next.js App
 Router auf Basis von ADR-001 (`glm/guest-web-architecture`), Sandbox-Deployment

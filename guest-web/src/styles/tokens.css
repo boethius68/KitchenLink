@@ -1,0 +1,87 @@
+/*
+ * KitchenLink Design-Tokens (Web)
+ * Quelle: docs/design/DESIGN_SYSTEM.md (4a "Ruhe", Round 04 Turn 6)
+ *
+ * Die semantischen Namen sind mit der SwiftUI-Umsetzung geteilt
+ * (DESIGN_SYSTEM.md §11): `brand.grape` -> `--kl-brand-grape` usw.
+ * Werte sind Arbeitsstand, keine finale Markenfreigabe.
+ */
+
+:root {
+  /* §3 Grundfarben — schemaunabhaengig */
+  --kl-brand-grape: #2c2438;
+  --kl-brand-deep: #221b2e;
+  --kl-brand-lemon: #b6cc1b;
+  --kl-brand-lemon-pressed: #9fb014;
+  --kl-surface-base: #f4f2f8;
+  --kl-surface-raised: #fcfbfe;
+  --kl-surface-recessed: #eceaf3;
+  --kl-surface-dark-raised: #383048;
+  --kl-content-light: #f1eff7;
+
+  /* §4 Inhalt und Kontur — heller Kontext */
+  --kl-text-primary: #2c2438;
+  --kl-text-secondary: #56506a;
+  --kl-text-muted: #6e6880;
+  --kl-border-subtle: rgba(44, 36, 56, 0.12);
+  --kl-border-control: #7e7890;
+  --kl-focus-ring: #2c2438;
+
+  /* §4 Inverse-Namen bleiben in beiden Schemata adressierbar */
+  --kl-text-primary-inverse: #f1eff7;
+  --kl-text-secondary-inverse: #b4aec6;
+  --kl-text-muted-inverse: #9a94ae;
+  --kl-border-subtle-inverse: rgba(241, 239, 247, 0.14);
+  --kl-border-control-inverse: #9a94ae;
+  --kl-focus-ring-inverse: #f1eff7;
+
+  /* §6 Dringlichkeit — heller Kontext: Symbol / Text */
+  --kl-urgency-fresh-symbol: #2e8f5a;
+  --kl-urgency-fresh-text: #1f7a47;
+  --kl-urgency-neutral-symbol: #6e6880;
+  --kl-urgency-neutral-text: #56506a;
+  --kl-urgency-waiting-symbol: #a97512;
+  --kl-urgency-waiting-text: #8a6410;
+  --kl-urgency-critical-symbol: #b3261e;
+  --kl-urgency-critical-text: #a31c15;
+
+  /* §8 Radius */
+  --kl-radius-label: 6px;
+  --kl-radius-compact: 9px;
+  --kl-radius-control: 12px;
+  --kl-radius-card: 14px;
+  --kl-radius-sheet: 20px;
+
+  /* §8 Abstandsskala */
+  --kl-space-1: 4px;
+  --kl-space-2: 8px;
+  --kl-space-3: 12px;
+  --kl-space-4: 16px;
+  --kl-space-5: 24px;
+  --kl-space-6: 32px;
+
+  /* Seitenrollen (abgeleitet, schemaabhaengig) */
+  --kl-surface-page: var(--kl-surface-base);
+  --kl-surface-card: var(--kl-surface-raised);
+  --kl-surface-control: var(--kl-surface-recessed);
+}
+
+/*
+ * Kein automatischer Seitenwechsel auf Dunkel: Jeder verifizierte Round-04-
+ * Referenzscreen zeigt das Gast-Web hell mit einem immer-Traube-Kopf (§9,
+ * "Restaurant fuehrt"); nur die Kueche ist "immer Tief" (§9 Kueche), das
+ * Gast-Web nicht. Die Dringlichkeits-Tokens bleiben fuer eine spaetere
+ * Bestellverfolgung dunkel-faehig, ohne die Seite selbst umzuschalten.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --kl-urgency-fresh-symbol: #3fa96d;
+    --kl-urgency-fresh-text: #5bc088;
+    --kl-urgency-neutral-symbol: #9a94ae;
+    --kl-urgency-neutral-text: #b4aec6;
+    --kl-urgency-waiting-symbol: #d79a2a;
+    --kl-urgency-waiting-text: #e9b84a;
+    --kl-urgency-critical-symbol: #ef6e64;
+    --kl-urgency-critical-text: #ef6e64;
+  }
+}

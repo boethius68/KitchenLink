@@ -1,0 +1,363 @@
+@import "../styles/tokens.css";
+
+/*
+ * Basisstile Gast-Web. Bricolage Grotesque / Source Sans 3 sind noch nicht
+ * als lokale Assets freigegeben (DESIGN_SYSTEM.md §11); bis dahin gelten
+ * System-Fallbacks. Keine Laufzeitabhaengigkeit von Google Fonts.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  /* respektiert Nutzer-Schriftgroesse; alle Groessen in rem */
+  font-size: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--kl-surface-page);
+  color: var(--kl-text-primary);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--kl-focus-ring);
+  outline-offset: 2px;
+}
+
+.kl-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Typo-Rollen (DESIGN_SYSTEM.md §7, Basisgroessen in rem bei 16px-Basis) */
+.kl-type-display {
+  font-size: 1.75rem; /* 28 */
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.kl-type-section {
+  font-size: 1.25rem; /* 20 */
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.kl-type-primary {
+  font-size: 1.0625rem; /* 17 */
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.kl-type-secondary {
+  font-size: 0.9375rem; /* 15 */
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.kl-type-meta {
+  font-size: 0.8125rem; /* 13, Minimum fuer notwendige UI-Information */
+  font-weight: 600;
+}
+
+.kl-type-button {
+  font-size: 1rem; /* 16 */
+  font-weight: 700;
+}
+
+/* Sandbox-Banner: Pflicht auf jeder Gast-Seite (Blueprint §20) */
+.kl-sandbox-banner {
+  background: var(--kl-brand-deep);
+  color: var(--kl-content-light);
+  text-align: center;
+  padding: var(--kl-space-2) var(--kl-space-4);
+}
+
+/* Seitenlayout mobil zuerst. Der Venue-Kopf liegt ausserhalb dieses
+   Containers und ist damit randlos/buendig (Referenz 6c Screen 2). */
+.kl-page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0 var(--kl-space-4) calc(6rem + env(safe-area-inset-bottom));
+}
+
+/* Venue-Kopf: das Restaurant fuehrt; Traube ist der sichere Fallback.
+   Randlos ueber die volle Breite, kein Kartenabstand (Referenz 6c). */
+.kl-venue-header {
+  background: var(--kl-brand-grape);
+  color: var(--kl-content-light);
+  padding: var(--kl-space-4);
+}
+
+.kl-venue-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--kl-space-3);
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.kl-venue-header h1 {
+  margin: 0;
+}
+
+.kl-venue-header-context {
+  max-width: 40rem;
+  margin: var(--kl-space-1) auto 0;
+  color: var(--kl-text-secondary-inverse);
+}
+
+/* Neutrale Pille: nie Zitrone (§5 "informative Labels"), z.B. "geoeffnet",
+   "beliebt", "vegetarisch". */
+.kl-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.1875rem var(--kl-space-2);
+  white-space: nowrap;
+  flex: none;
+}
+
+.kl-badge-on-dark {
+  background: var(--kl-surface-dark-raised);
+  color: var(--kl-text-secondary-inverse);
+}
+
+.kl-badge-on-light {
+  background: var(--kl-surface-recessed);
+  color: var(--kl-text-secondary);
+}
+
+/* Menueliste: Abstand und border.subtle statt Karte um jede Zeile (§8) */
+.kl-menu-section-title {
+  margin: var(--kl-space-4) 0 var(--kl-space-1);
+}
+
+.kl-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kl-menu-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kl-space-2);
+  padding: var(--kl-space-3) 0;
+  border-bottom: 1px solid var(--kl-border-subtle);
+}
+
+.kl-menu-row-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.kl-menu-row-name {
+  display: flex;
+  align-items: center;
+  gap: var(--kl-space-2);
+  flex-wrap: wrap;
+}
+
+.kl-menu-row-info p {
+  margin: 0.125rem 0 0;
+  color: var(--kl-text-secondary);
+}
+
+.kl-menu-row-price {
+  margin-top: 0.125rem;
+  color: var(--kl-text-primary);
+}
+
+/* Mengensteuerung: umrandet auf heller Flaeche (border-control), traubig
+   im Text, nie Zitrone (§5), Ziele >= 44px (§8). Referenz 6c Screen 2. */
+.kl-stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--kl-border-control);
+  border-radius: var(--kl-radius-compact);
+  flex: none;
+}
+
+.kl-stepper-button,
+.kl-add-button {
+  min-width: 2.75rem; /* 44 */
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--kl-text-primary);
+  border-radius: var(--kl-radius-compact);
+}
+
+.kl-stepper-button {
+  border: none;
+}
+
+.kl-add-button {
+  border: 1px solid var(--kl-border-control);
+  flex: none;
+}
+
+.kl-stepper-button:active,
+.kl-add-button:active {
+  background: var(--kl-surface-recessed);
+}
+
+.kl-stepper-quantity {
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+/* Fixierte Bestellaktion: die gesamte Leiste ist die einzige dauerhafte
+   Zitronenflaeche (§5, §9; Referenz 6c Screen 2: durchgehender Balken). */
+.kl-order-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--kl-space-3) var(--kl-space-4)
+    calc(var(--kl-space-3) + env(safe-area-inset-bottom));
+}
+
+.kl-order-bar-button {
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kl-space-4);
+  min-height: 3.25rem;
+  padding: 0 var(--kl-space-4);
+  border: none;
+  border-radius: var(--kl-radius-control);
+  background: var(--kl-brand-lemon);
+  color: var(--kl-brand-grape); /* Zitrone nur gefuellt mit Traube-Text (§5) */
+  box-shadow: 0 -4px 16px rgba(34, 27, 46, 0.16); /* echte Ebene (§8) */
+}
+
+.kl-order-bar-button:active {
+  background: var(--kl-brand-lemon-pressed);
+}
+
+.kl-order-bar-button:disabled {
+  background: var(--kl-surface-recessed);
+  color: var(--kl-text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Bestelluebersicht als Sheet (§8 radius.sheet, echte Ebene) */
+.kl-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(34, 27, 46, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 10;
+}
+
+.kl-sheet {
+  width: 100%;
+  max-width: 40rem;
+  background: var(--kl-surface-card);
+  border-radius: var(--kl-radius-sheet) var(--kl-radius-sheet) 0 0;
+  padding: var(--kl-space-5) var(--kl-space-4)
+    calc(var(--kl-space-5) + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 32px rgba(34, 27, 46, 0.24);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .kl-sheet {
+    animation: kl-sheet-in 200ms ease-out;
+  }
+
+  @keyframes kl-sheet-in {
+    from {
+      transform: translateY(12%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+}
+
+.kl-sheet h2 {
+  margin: 0 0 var(--kl-space-4);
+}
+
+.kl-sheet-lines {
+  list-style: none;
+  margin: 0 0 var(--kl-space-4);
+  padding: 0;
+}
+
+.kl-sheet-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--kl-space-3);
+  padding: var(--kl-space-2) 0;
+  border-bottom: 1px solid var(--kl-border-subtle);
+}
+
+.kl-sheet-total {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--kl-space-3) 0;
+}
+
+.kl-sheet-note {
+  color: var(--kl-text-secondary);
+  margin: 0 0 var(--kl-space-4);
+}
+
+.kl-secondary-button {
+  min-height: 2.75rem;
+  width: 100%;
+  border: 1px solid var(--kl-border-control);
+  border-radius: var(--kl-radius-control);
+  background: transparent;
+  color: var(--kl-text-primary);
+}
+
+/* Kleine Vertrauenssignatur: KitchenLink fuehrt im Gast-Web nicht (§2) */
+.kl-trust-signature {
+  margin: var(--kl-space-5) 0 var(--kl-space-4);
+  text-align: center;
+  color: var(--kl-text-muted);
+}
+
+/* Startseite (interner Sandbox-Index) */
+.kl-index-list {
+  list-style: none;
+  margin: var(--kl-space-5) 0;
+  padding: 0;
+}
+
+.kl-index-list a {
+  display: block;
+  padding: var(--kl-space-4);
+  background: var(--kl-surface-card);
+  border-radius: var(--kl-radius-card);
+  text-decoration: none;
+}
