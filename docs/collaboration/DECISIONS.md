@@ -56,6 +56,24 @@ append-only; superseded decisions are marked rather than deleted.
   This selects the role model, not the final hex values, typefaces or status
   palette.
 
+## Guest Web (KL-WEB-001, approved 17 July 2026)
+
+- **Framework:** Next.js (App Router, TypeScript) per ADR-001 on
+  `glm/guest-web-architecture` is the working basis for the guest web.
+- **Hosting path:** The sandbox beta deploys to Vercel. The code stays
+  hosting-neutral; the Vercel-versus-Cloudflare-Workers PoC from ADR-001 §8
+  becomes a mandatory gate before any production activation.
+- **Anonymous identity:** Guest ordering uses Supabase Anonymous Sign-in
+  (`authenticated` role with `is_anonymous` claim) combined with the
+  authoritative order gate; a cleanup policy for orphaned anonymous users is
+  required. The bare `anon` role is not used for order writes.
+- **URL structure:** The sandbox uses path-based venue routes (`…/<venue>`).
+  Per-venue subdomains and custom domains remain open product decisions to
+  revisit before production.
+- Still open by design: custom domains per restaurant (D3), the PWA/offline
+  shell stage (D5) and the order-gate implementation variant Edge Function
+  versus PostgreSQL RPC (D6, implementation detail).
+
 ## Collaboration Governance
 
 - **Agent parity:** Claude Code, Codex and future coding agents work as equal

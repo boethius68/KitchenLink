@@ -3,7 +3,10 @@
 **Updated:** 17 July 2026
 **Branch:** `main` (Integration); lokaler Pruef-Branch `claude/integration-verify`
 **Status:** Review und Integration von PR #6, PR #5 und PR #9 abgeschlossen;
-Kollaborationsdokumente auf den neuen Stand gebracht.
+Kollaborationsdokumente aktualisiert. Anschliessend die vier
+KL-WEB-001-Entscheidungen des Nutzers eingeholt und in `DECISIONS.md`
+dokumentiert (Next.js/ADR-001, Vercel-Sandbox mit PoC-Gate vor Produktion,
+Anonymous Sign-in, pfadbasierte Venue-Routen).
 
 ## Scope
 
@@ -94,9 +97,9 @@ iPhone 17 Pro Simulator:
 
 ## Recommended Next Step
 
-KL-WEB-001-Stack-Entscheidung dem Nutzer vorlegen (Grundlage: revidiertes
-ADR-001 auf `glm/guest-web-architecture` — Next.js App Router, Hosting bewusst
-offen via Vercel-vs-Cloudflare-Workers-PoC, autoritative Bestellgrenze).
-Parallel oder danach: PR #7 (KL-OFFLINE-003) und PR #8 (KL-WORKFORCE-001)
-jeweils in eigenem Scope reviewen; KL-INVENTORY-001 neu vergeben oder
-streichen.
+KL-WEB-001-Umsetzung in eigenem Scope starten (`guest-web/`-Fundament nach
+ADR-001 §9: Next.js-Scaffold, Design-Tokens aus `DESIGN_SYSTEM.md`,
+SSG-Menueroute mit Sandbox-Daten, Sandbox-Banner; Bestellgrenze und Checkout
+folgen als eigene Schritte). Parallel oder danach: PR #7 (KL-OFFLINE-003) und
+PR #8 (KL-WORKFORCE-001) jeweils in eigenem Scope reviewen;
+KL-INVENTORY-001 neu vergeben oder streichen.

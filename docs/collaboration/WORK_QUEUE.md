@@ -249,19 +249,19 @@ sowie gezielte Tests in `kitchenlinkTests/` und `kitchenlinkUITests/`
 
 ### KL-WEB-001 - Gast-Web-Grundlage
 
-**Status:** Wartet auf Nutzer-Stack-Entscheidung; zwei konkurrierende Vorschlaege
+**Status:** Stack entschieden (17. Juli 2026); Umsetzung frei zur Uebernahme
 **Abhaengigkeit:** semantische Token-Namen aus KL-DS-001
 
-Zuerst den Web-Stack und den Deployment-Pfad als kleine Architecture Decision
-festlegen. Danach eine mobile Gastkarte mit acht Gerichen, Venue-fuehrendem
-Branding, traubenbasierter Mengensteuerung und genau einer fixierten
-Zitronenaktion umsetzen. Noch keine Live-Zahlung und keine Entfernung der
-Sandbox-Daten.
+Der Nutzer hat entschieden (siehe `DECISIONS.md`, Guest Web): Next.js App
+Router auf Basis von ADR-001 (`glm/guest-web-architecture`), Sandbox-Deployment
+auf Vercel bei hosting-neutralem Code (Cloudflare-PoC als Gate vor Produktion),
+Supabase Anonymous Sign-in fuer Gastbestellungen und pfadbasierte Venue-Routen
+in der Sandbox.
 
-Hinweis: Neben der urspruenglichen Claude-Fable-5-Zuweisung hat GLM den Branch
-`glm/guest-web-architecture` mit einem eigenen ADR (Next.js + Cloudflare Pages,
-ueberarbeitet um einen autoritativen Order-Gate) gepusht. Beides sind Vorschlaege;
-nur der Nutzer entscheidt den Stack.
+Naechster Umsetzungsschritt: mobile Gastkarte mit acht Gerichten,
+Venue-fuehrendem Branding, traubenbasierter Mengensteuerung und genau einer
+fixierten Zitronenaktion. Noch keine Live-Zahlung und keine Entfernung der
+Sandbox-Daten.
 
 ## Parallele Runde 2 (Stand 17. Juli 2026, nach Integration von PR #9)
 
@@ -332,5 +332,7 @@ muss neu vergeben oder gestrichen werden.
 6. Verbleibende Round-2-Zweige einzeln reviewen und integrieren:
    KL-OFFLINE-003 (PR #7), dann KL-WORKFORCE-001 (PR #8); danach
    KL-INVENTORY-001 neu vergeben oder streichen.
-7. KL-WEB-001 erst nach Nutzervorgabe des Web-Stacks weiterverfolgen.
+7. ~~KL-WEB-001 erst nach Nutzervorgabe des Web-Stacks weiterverfolgen.~~
+   Stack am 17. Juli 2026 entschieden; die Umsetzung kann in eigenem Scope
+   starten.
 8. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.

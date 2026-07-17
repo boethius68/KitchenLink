@@ -169,10 +169,11 @@ Remaining, in recommended order:
   isolated Swift package prototype (schema, outbox, transport, 20+ tests).
 - Review `kimi/workforce-domain` (PR #8, KL-WORKFORCE-001) in its own scope —
   new `Features/Workforce/` domain plus 632 lines of tests.
-- KL-WEB-001: the guest-web stack decision belongs to the user. GLM's revised
-  ADR-001 on `glm/guest-web-architecture` (Next.js App Router, hosting kept
-  open via a Vercel-vs-Cloudflare-Workers PoC, authoritative order gate) is
-  the current decision basis.
+- KL-WEB-001: the user approved the stack on 17 July 2026 (see
+  `DECISIONS.md`, Guest Web): Next.js App Router per ADR-001, sandbox
+  deployment on Vercel with hosting-neutral code (the Cloudflare PoC becomes
+  a pre-production gate), Supabase Anonymous Sign-in and path-based venue
+  routes. The guest-web foundation implementation is ready to be claimed.
 - KL-INVENTORY-001 was never started and needs to be reassigned or dropped.
 - `deepseek/offline-venue-hub-review` and `glm/offline-venue-hub` remain
   discovery material and need their own review before anything is adopted.
