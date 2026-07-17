@@ -409,14 +409,23 @@ echten Venue-Hub steht in `docs/test-plans/OFFLINE_ORDER_FLOW.md`.
 
 ### KL-WORKFORCE-001 - Schichtplan-Domaene
 
-**Status:** Implementiert auf `kimi/workforce-domain` (PR #8), Review durch
-Claude Code als naechstes
+**Status:** Erledigt; von Claude Code reviewt und in `main` integriert
 **Abhaengigkeit:** keine
 **Schreibbereich:** neue Dateien unter `Features/Workforce/`, fokussierte Tests,
 Domain-Dokument, `handoffs/KIMI.md`
 
 Isolierte Swift-Domaenengrundlage fuer Mitarbeiter, Verfuegbarkeit, Planung,
-Zeiterfassung. 632 Zeilen Tests. Niedriges Rebase-Risiko (neue Dateien).
+Zeiterfassung: getrennte Betriebsschicht/geplante Schicht/Zeiteintrag-Objekte,
+explizite Zeitzonen mit DST-korrekter Vorlagenausloesung (beide
+Europe/Berlin-Uebergaenge 2025 verifiziert), reine Validatoren, deterministische
+Sandbox-Fixture. 38 Tests gruen (Handoff nannte 33; tatsaechlich mehr geliefert
+als angegeben). Claude-Review fand einen echten, engen Bug:
+`finalizeSwap(accepted: false)` liess einen veralteten `acceptedAt`-Zeitstempel
+stehen, wenn eine bereits angenommene Schicht per abgelehnter Tauschanfrage
+zurueck auf `published` fiel — Status und Zeitstempel widersprachen sich. Bei
+der Integration behoben (beide Zweige setzen `acceptedAt` jetzt konsistent
+zurueck) plus Regressionstest, der genau diesen zuvor ungetesteten Pfad
+abdeckt. Komplette Unit-Suite auf dem gemergten Stand gruen.
 
 KL-INVENTORY-001 ist als Neuvergabe fuer MiniMax oder DeepSeek jetzt unter dem
 Gast-Web-Folgeticket weiter oben eingetragen (KL-WEB-002-Abschnitt).
@@ -435,11 +444,15 @@ Gast-Web-Folgeticket weiter oben eingetragen (KL-WEB-002-Abschnitt).
    zusammen mit PR #6 (Doku-Sync) und PR #9 (KL-QA-002) am 17. Juli 2026
    reviewt und integriert.
 6. ~~Claude Code reviewt und integriert PR #7 (KL-OFFLINE-003) und PR #8
-   (KL-WORKFORCE-001) einzeln in eigenem Scope.~~ PR #7 erledigt (17. Juli
-   2026, keine P0/P1, siehe Handoff). PR #8 folgt als naechstes.
+   (KL-WORKFORCE-001) einzeln in eigenem Scope.~~ Beide erledigt (17. Juli
+   2026, keine P0/P1; PR #8 mit einem kleinen Fix zur `finalizeSwap`-Logik
+   waehrend der Integration, siehe Handoff).
 7. ~~KL-WEB-001 erst nach Nutzervorgabe des Web-Stacks weiterverfolgen.~~
    Stack am 17. Juli 2026 entschieden; Fundament gemergt.
 8. Parallel dazu: KL-WEB-002 (autoritative Bestellgrenze + Supabase Anonymous
    Sign-in) an GLM 5.2, KL-INVENTORY-001 (Neuvergabe) an MiniMax oder DeepSeek.
    Beide starten von aktuellem `origin/main` in eigenem Worktree/Branch.
+   ADR-001 (zuvor nur auf dem nicht gemergten `glm/guest-web-architecture`)
+   wurde nachtraeglich nach `main` gebracht, da GLMs Mission-Branch sie sonst
+   nicht im Arbeitsbaum gehabt haette.
 9. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.

@@ -4,11 +4,13 @@
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
-**Last merge:** `glm/offline-event-log-v2` -> `main` (PR #7, KL-OFFLINE-003),
-the isolated Swift/SQLite event-log-and-outbox prototype under
-`prototypes/KitchenLinkEventLog/`, reviewed by Claude Code with no P0/P1
-findings. Before that, the same day: `claude/guest-web-foundation` (KL-WEB-001
-guest-web foundation), PR #9 (KL-QA-002 offline order smoke), PR #6
+**Last merge:** `kimi/workforce-domain` -> `main` (PR #8, KL-WORKFORCE-001),
+the isolated Swift workforce/shift-planning domain foundation under
+`kitchenlink/Features/Workforce/`. Claude Code's review found and fixed one
+real bug during integration (`finalizeSwap` leaving a stale `acceptedAt`)
+before merging, plus a regression test for it. Before that, the same day:
+PR #7 (KL-OFFLINE-003 event-log/outbox prototype), `claude/guest-web-foundation`
+(KL-WEB-001 guest-web foundation), PR #9 (KL-QA-002 offline order smoke), PR #6
 (collaboration-state sync) and PR #5 (kitchen hardening). Earlier: PR #1
 delivered the Claude audit and the `Heute`/`Kueche` reference areas, PR #2/#3
 completed `KL-MENU-004`, PR #4
@@ -142,6 +144,13 @@ recorded that merge.
   claims). It has no app dependency and activates nothing productive; the
   later iOS integration seam is documented but deliberately out of scope
   (`docs/architecture/offline/EVENT_LOG_V2.md` §12).
+- `kitchenlink/Features/Workforce/` (KL-WORKFORCE-001) is an isolated Swift
+  domain foundation for shift planning, time tracking and staffing
+  (Blueprint §9): `VenueShift`, `WorkforcePlannedShift` and time-entry
+  objects stay separate as required, every availability/leave/shift carries
+  an explicit time zone, and shift-template resolution is DST-correct
+  (verified against both 2025 Europe/Berlin transitions). No UI,
+  persistence, cloud or legal-policy encoding, as scoped.
 - `guest-web/` now holds the KL-WEB-001 guest-web foundation: a Next.js App
   Router (TypeScript) project with a statically generated eight-dish guest
   menu card over a local sandbox venue, the same seam the later Supabase
@@ -157,6 +166,11 @@ recorded that merge.
   verified reference screen). The authoritative order gate, Supabase
   wiring and PWA/offline stage are deliberately not part of this
   foundation.
+- `docs/architecture/guest-web/ADR-001_GUEST_WEB_STACK.md` and `SOURCES.md`
+  (Revision 2, the version the user approved as the guest-web stack decision
+  basis) are now on `main` under the same path GLM's own mission references.
+  They previously existed only on the unmerged `glm/guest-web-architecture`
+  branch; brought over verbatim, no content changes.
 - The active parallel queue and disjoint agent scopes are recorded in
   `docs/collaboration/WORK_QUEUE.md`.
 - The shared collaboration and design state must be present on `origin/main`
@@ -203,6 +217,14 @@ names imply real multi-threading, an unescaped fingerprint delimiter) are
 non-blocking and already self-disclosed in `EVENT_LOG_V2.md` and the GLM
 handoff.
 
+PR #8 (`kimi/workforce-domain`, KL-WORKFORCE-001) was reviewed by Claude Code
+and integrated the same day. One real bug was found and fixed during
+integration: `finalizeSwap(accepted: false)` left a stale `acceptedAt` after
+a rejected swap on a previously-accepted shift, contradicting the
+`.published` status; fixed with a regression test covering the previously
+untested path. 38/38 workforce tests and the complete unit suite are green
+on the merged state.
+
 Two new missions were assigned the same day and are documented as copy-ready
 prompts in `docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md`, each with its
 own fresh branch and worktree from current `main`:
@@ -211,16 +233,17 @@ own fresh branch and worktree from current `main`:
   (`/Users/test/Developments/kitchenlink-glm-web`): the authoritative guest
   order gate and Supabase Anonymous Sign-in wiring for the merged guest-web
   foundation (ADR-001 §6/§6.3). The existing card's visual design is out of
-  scope; this is a data-wiring ticket.
+  scope; this is a data-wiring ticket. ADR-001 itself had to be brought into
+  `main` first (see Code section) since it previously existed only on the
+  unmerged `glm/guest-web-architecture` branch — GLM's fresh mission branch
+  surfaced the gap when it went looking for the file.
 - **MiniMax or DeepSeek** — KL-INVENTORY-001 retry on
   `minimax/inventory-domain`
   (`/Users/test/Developments/kitchenlink-minimax-inventory`): the same
   well-specified ledger-based stock domain ticket MiniMax was assigned once
   before and never delivered.
 
-Remaining, in recommended order:
+Remaining:
 
-- Review `kimi/workforce-domain` (PR #8, KL-WORKFORCE-001) in its own scope —
-  new `Features/Workforce/` domain plus 632 lines of tests.
 - `deepseek/offline-venue-hub-review` and `glm/offline-venue-hub` remain
   discovery material and need their own review before anything is adopted.

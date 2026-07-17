@@ -3,12 +3,15 @@
 **Updated:** 17 July 2026
 **Branch:** `main` (Integrationsarbeit); KL-WEB-001 gemergt aus
 `claude/guest-web-foundation`
-**Status:** PR #7 (KL-OFFLINE-003) reviewt und integriert, keine P0/P1.
-KL-WEB-001-Fundament umgesetzt, gegen die visuelle Claude-Design-Referenz
-korrigiert, verifiziert und gemergt. Zwei neue Missionen (KL-WEB-002 an
-GLM 5.2, KL-INVENTORY-001-Neuversuch an MiniMax/DeepSeek) zugewiesen. Zuvor am
-selben Tag: PR #5/#6/#9 reviewt und integriert sowie die vier
-KL-WEB-001-Entscheidungen des Nutzers in `DECISIONS.md` dokumentiert.
+**Status:** PR #7 (KL-OFFLINE-003) und PR #8 (KL-WORKFORCE-001) reviewt und
+integriert, keine P0/P1 (PR #8 mit einem kleinen Fix waehrend der Integration).
+ADR-001 nachtraeglich nach `main` gebracht, da GLMs frischer Mission-Branch sie
+sonst nicht im Arbeitsbaum gehabt haette. KL-WEB-001-Fundament umgesetzt, gegen
+die visuelle Claude-Design-Referenz korrigiert, verifiziert und gemergt. Zwei
+neue Missionen (KL-WEB-002 an GLM 5.2, KL-INVENTORY-001-Neuversuch an
+MiniMax/DeepSeek) zugewiesen. Zuvor am selben Tag: PR #5/#6/#9 reviewt und
+integriert sowie die vier KL-WEB-001-Entscheidungen des Nutzers in
+`DECISIONS.md` dokumentiert.
 
 ## Session-Teil 4: Review und Integration PR #7 (KL-OFFLINE-003)
 
@@ -45,6 +48,57 @@ fuer GLM, KL-INVENTORY-001-Neuversuch fuer MiniMax oder DeepSeek). Danach PR #7
   internen Feldern dieses Systems).
 - Vollstaendig isoliertes Swift Package unter `prototypes/`; kein
   App-/Domain-Code beruehrt. Gemergt nach `main`.
+
+## Session-Teil 5: Review und Integration PR #8, ADR-001-Reparatur
+
+### ADR-001 fehlte auf `main`
+
+Waehrend GLM (in einem externen Tool, sichtbar per Nutzer-Screenshot) am
+KL-WEB-002-Auftrag arbeitete, stellte sich heraus: `docs/architecture/guest-web/`
+existierte auf `main` ueberhaupt nicht — ADR-001 lag nur auf dem nie gemergten
+Branch `glm/guest-web-architecture`. Die Mission verwies darauf, ohne dass ich
+geprueft hatte, ob die Datei tatsaechlich auf `main` ankam. Behoben:
+
+- `ADR-001_GUEST_WEB_STACK.md` und `SOURCES.md` (Revision 2, die vom Nutzer
+  als Entscheidungsgrundlage akzeptierte Fassung) unveraendert aus
+  `origin/glm/guest-web-architecture` extrahiert und auf `main` committet.
+- GLMs Worktree (`kitchenlink-glm-web`, Branch `glm/guest-web-order-gate`) war
+  zu diesem Zeitpunkt sauber (keine unfertige Arbeit); `origin/main` dort
+  konfliktfrei gemergt und gepusht, damit die Dateien sofort im tatsaechlichen
+  Arbeitsverzeichnis der laufenden GLM-Session sichtbar wurden.
+- Antwort mit der Loesung und der Klarstellung zur zweiten GLM-Frage
+  (`signInAnonymously` soll echt verdrahtet werden, nicht nur unit-getestet)
+  an den Nutzer zur Weitergabe formuliert.
+
+### Review-Ergebnis PR #8 (KL-WORKFORCE-001)
+
+- Branch war 24 Commits hinter `main`; lokal konfliktfrei rebased (Kimis
+  Remote-Branch unveraendert gelassen, wie bei GLM).
+- Code gegen `WORKFORCE_MODEL.md` geprueft: Zeitmodell (`WorkforceTimeModels.swift`,
+  explizite Zeitzonen, `resolvedRange` fuer Schichtvorlagen), Zustandsautomaten
+  (`WorkforceShiftLifecycle.swift`), Validatoren (`WorkforceValidators.swift`).
+  Beide dokumentierten Europe/Berlin-DST-Uebergaenge 2025 im Test nachvollzogen
+  und die Zieldaten (30. Maerz / 26. Oktober) als tatsaechlich letzte Sonntage
+  der jeweiligen Monate verifiziert.
+- Scheinbare Diskrepanz aufgeklaert statt als Befund gemeldet: `xcodebuild`
+  zeigte 74 "passed"-Zeilen fuer nur 37 tatsaechliche `@Test`-Funktionen —
+  ein bekanntes, harmloses Doppel-Reporting von Swift Testing unter
+  `xcodebuild` (zwei Reporter-Pfade fuer denselben Lauf), keine echte
+  Doppelausfuehrung. Das Handoff nannte "33" Tests, tatsaechlich waren es 37 —
+  unkritische Unter-, keine Ueberberichterstattung.
+- Echter Fund: `finalizeSwap(accepted: false)` liess `acceptedAt` unveraendert,
+  wenn eine zuvor angenommene Schicht per abgelehnter Tauschanfrage auf
+  `.published` zurueckfiel — Status und Zeitstempel widersprachen sich. Kein
+  Test deckte genau diesen Pfad ab (`requestSwap` aus `.accepted` heraus,
+  gefolgt von `finalizeSwap(accepted: false)`).
+- Waehrend der Integration selbst behoben (beide Zweige setzen `acceptedAt`
+  jetzt zurueck) plus gezielter Regressionstest; zusaetzlich ein toter
+  No-Op-`if`-Block im Validator entfernt (reine Kommentar-Leiche, kein
+  Verhaltensunterschied). 38/38 Workforce-Tests und die komplette Unit-Suite
+  liefen auf dem lokal gefixten Branch und erneut auf dem gemergten
+  `main`-Stand gruen.
+- Vollstaendig isolierte neue Dateien unter `Features/Workforce/`; kein
+  bestehender App-Code veraendert. Gemergt nach `main`.
 
 ## Session-Teil 3: Visuelle Korrektur gegen Claude-Design Round 04
 
@@ -202,9 +256,10 @@ autoritative Bestellgrenze, Supabase-Anbindung, PWA-Stufe.
 
 ## Recommended Next Step
 
-PR #8 (KL-WORKFORCE-001, `kimi/workforce-domain`) reviewen und bei gruenem
-Befund integrieren — gleiches Vorgehen wie bei PR #7 (Rebase pruefen, Code
-gegen die Testabdeckung lesen, komplette Suite laufen lassen). Parallel dazu
-laufen die beiden neu zugewiesenen Missionen (KL-WEB-002 bei GLM 5.2,
-KL-INVENTORY-001-Neuversuch bei MiniMax oder DeepSeek); deren Ergebnisse
-brauchen jeweils ein eigenes Review, sobald sie geliefert sind.
+PR #7 und PR #8 sind erledigt. Die beiden neu zugewiesenen Missionen laufen
+(KL-WEB-002 bei GLM 5.2 auf `glm/guest-web-order-gate`, KL-INVENTORY-001-
+Neuversuch bei MiniMax oder DeepSeek auf `minimax/inventory-domain`); deren
+Ergebnisse brauchen jeweils ein eigenes Review, sobald sie geliefert sind.
+Bis dahin: `deepseek/offline-venue-hub-review` und `glm/offline-venue-hub`
+bleiben als Discovery-Material zu reviewen, bevor daraus irgendetwas
+uebernommen wird.
