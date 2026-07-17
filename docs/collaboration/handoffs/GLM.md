@@ -1,152 +1,140 @@
-# Handoff — GLM (KL-OFFLINE-003 Event-Log-Prototyp)
+# Handoff — GLM (KL-WEB-002 Bestellgrenze)
 
-**Datum:** 2026-07-16
+**Datum:** 17. Juli 2026
 **Agent:** GLM-5.2 via ZCode
-**Ticket:** KL-OFFLINE-003 (siehe `docs/collaboration/PARALLEL_MISSIONS_2026-07-16.md`)
-**Branch:** `glm/offline-event-log-v2`
-**Worktree:** `/Users/test/Developments/kitchenlink-glm-eventlog`
-**Status:** Ausführbarer, getesteter Referenzprototyp; `swift test` grün (35/35).
+**Branch:** `glm/guest-web-order-gate` (von aktuellem `main`)
+**Ticket:** KL-WEB-002 — autoritative Bestellgrenze, RLS, Anonymous Sign-in
+**Status:** Vollständig umgesetzt und verifiziert (typecheck/lint/test/build grün);
+committet und gepusht. Bereit für Review.
 
-> Dieses Handoff ersetzt den früheren KL-MENU-001-Recherche-Eintrag auf diesem
-> Branch. KL-MENU-001-Ergebnisse bleiben unter `docs/discovery/` auf `main`.
+> Dieses Handoff ersetzt den vorherigen KL-OFFLINE-003-Eintrag auf diesem
+> Branch. KL-OFFLINE-003 bleibt unter `docs/architecture/offline/EVENT_LOG_V2.md`
+> auf `main` erhalten.
 
-## Was in dieser Session erledigt wurde
+## Kontext
 
-Vollständige Umsetzung von KL-OFFLINE-003: ein eigenständiges Swift Package
-`prototypes/KitchenLinkEventLog/`, das das autoritative lokale
-KitchenLink-Ereignisprotokoll und seine Outbox als ausführbaren, getesteten
-Referenzprototyp implementiert. Keine App-Abhängigkeit; SQLite direkt über das
-systemseitige `SQLite3`-Modul.
+Umsetzung von ADR-001 §6 (autoritative Bestellgrenze) und §6.3 (anon-Rolle vs.
+Supabase Anonymous Sign-in), wie vom Nutzer freigegeben (DECISIONS.md, Guest
+Web). Vorheriger Stand: statisch generierte Gastkarte auf lokaler Fixture, keine
+Supabase-Anbindung, keine Bestellübermittlung, und **keine RLS auf irgendeiner
+Tabelle** (jede Tabelle unter dem Anon-Key offen). Hinweis: ADR-001 lag zu
+Beginn nur auf dem nie gemergten Branch `glm/guest-web-architecture`; der Nutzer
+hat das behoben und ADR-001 + SOURCES.md (Revision 2) auf `main` gemergt, so
+dass §6/§6.3 in meinem Arbeitsbaum vorlagen.
 
-### Umfang (Pflichtumfang aus der Mission, alle erfüllt)
+## D6-Entscheidung (Implementierungsdetail, keine Produktdisktion)
 
-- **Gültiges SQLite-Schema + Migrationen** (`EventLogSchema`): `events`,
-  `aggregate_revisions`, `outbox`, `schema_meta`. Versioniert, idempotent,
-  Downgrade-resistent. Kein `SELECT FOR UPDATE`.
-- **WAL + dokumentierte Durability-Policy** (`SQLiteConnection`):
-  `journal_mode=WAL`, `synchronous=FULL`, `fullfsync=ON`, `busy_timeout`,
-  `foreign_keys=ON`. Kein Stromausfall-Behauptung, der nicht geliefert wird
-  (§Durability in `EVENT_LOG_V2.md`).
-- **Append in genau einer Transaktion** (`EventStore.append` über
-  `connection.transaction { ... }`): Event + `aggregate_revisions`-Upsert +
-  Outbox-Zeilen atomar. Pre-TX-Idempotenz-Check + in-TX-Recheck.
-- **Idempotenz** über `(venue_id, idempotency_key, request_fingerprint)`:
-  gleicher Request → dasselbe Event (`wasReplay`); anderer Payload unter
-  gleichem Key → `idempotencyConflict`.
-- **Vollständige Event-Felder:** Event-ID, monotone `local_seq`, Aggregate-ID
-  und `-Revision, Eventtyp, `payload_version`, kanonischer Payload-BLOB,
-  Device-ID, `occurred_at_ms`, `logged_at_ms`.
-- **Outbox** mit `unique(event_seq, target)`, `pending/in_flight/acknowledged/
-  failed`, Lease-Zeit, Versuchszahl, Backoff-Zeit und
-  Wiederaufnahme abgelaufener Leases (`reclaimExpiredLeases`).
-- **Atomisches Claiming ohne `UPDATE ... LIMIT`** (SELECT-Kandidaten + UPDATE
-  pro PRIMARY KEY unter RESERVED-Sperre).
-- **Autoritativer ACK erst nach erfolgreichem Commit**; HTTP-200-allein ist
-  kein Persistenznachweis (`OutboxDispatcher` + `OutboxTransport`-Protokoll;
-  `EVENT_LOG_V2.md` §ACK-Vertrag).
-- **Deterministische Konflikte** bei konkurrierender Aggregate-Revision
-  (`optimisticConcurrencyConflict`).
-- **Fehler-Injektion** für Rollback/Retry, Reopen nach Commit (Crash/Reopen),
-  parallele Duplikate, abgelaufene Lease, doppelten ACK und
-  Payload-Schema-Replay — alles als ausführbare Tests.
-- **35 aussagekräftige Tests, keine sleeps als Synchronisationslogik.**
-  `FakeClock` steuert die Zeit explizit.
+Gewählt: **Option B — PostgreSQL `SECURITY DEFINER` RPC** statt Edge Function.
+Begründung detailliert in `docs/architecture/guest-web/ORDER_GATE.md` §2: gesamte
+Logik in der additiven SQL-Migration (mein exklusiver Schreibbereich), kein
+zweiter Laufzeit-Typ, keine clientseitige Service-Role-Secret-Handhabung,
+Idempotenz nativ über Unique-Constraint + Hash, „Persistierung erst bei Erfolg"
+in einer Transaktion. Die komplexere Ablaufsteuerung bleibt in getestetem
+TypeScript.
 
-## Dateien (exklusiver Schreibbereich)
+## Umgesetzte Dateien (alle im exklusiven Schreibbereich)
 
-Neu in dieser Session:
+- `supabase/migrations/20260717120000_guest_web_order_gate.sql` (neu, additiv;
+  `20260318011000_kitchenlink_core_schema.sql` unangetastet):
+  - Sandbox-Seed deckungsgleich mit `guest-web/src/lib/venue-data.ts`
+    (1 Venue, 1 Menü, 2 Kategorien, 8 `menu_items` mit identischen Preisen;
+    feste UUIDs, `on conflict` idempotent).
+  - `orders.idempotency_key` + `unique(venue_id, idempotency_key)` +
+    `orders.idempotency_payload_hash` + `orders.created_by`; `menu_items.slug`.
+  - **RLS aktiviert** auf venues, menus, menu_categories, menu_items, orders,
+    order_items (vorher: keine). Menü öffentlich lesbar (anon + authenticated);
+    orders/order_items ohne direkte Schreib-Policies; orders Eigen-Lese-Policy
+    `created_by = auth.uid()`.
+  - RPC `public.guest_web_submit_order` (`SECURITY DEFINER`, fixierter
+    `search_path`): Anonymous-Identitäts-Check (`auth.uid()`, JWT
+    `is_anonymous`), Venue-Lookup über Slug, `FOR UPDATE` auf menu_items,
+    serverseitige Neubepreisung aus `price_cents`, Ablehnung fremder/inaktiver
+    Items, Idempotenz-Prüfung (gleich+gleich=Replay; gleich+anders=Konflikt),
+    atomarer INSERT orders+order_items, ACK-Rückgabe. `revoke` von public/anon,
+    `grant execute` nur an authenticated.
+- `guest-web/src/lib/order-ack.ts` (neu): reine ACK-Logik, `toOrderAck`,
+  `SubmitUiState`. Status ausschließlich aus Serverantwort, nie optimistisch.
+- `guest-web/src/lib/order-submit.ts` (neu): `submitOrder` orchestriert
+  Anonymous Sign-in + RPC; deterministischer Idempotenz-Key;
+  Fehler-→Ergebnis-Mapping; `OrderBackend`-Schnittstelle (injizierbar für Tests).
+- `guest-web/src/lib/order-backend-supabase.ts` (neu): Produktions-Backend mit
+  echten `signInAnonymously()`- und `supabase.rpc('guest_web_submit_order')`-
+  Aufrufen.
+- `guest-web/src/lib/supabase-client.ts` (neu): Browser-Client aus
+  `NEXT_PUBLIC_SUPABASE_*`.
+- `guest-web/src/components/GuestMenuCard.tsx` (Datenverdrahtung, **Design
+  unangetastet**): Bestellaktion im Sheet ruft `submitOrder`, Statuszeile zeigt
+  ACK/Fehler/waiting aus Serverantwort. Sandbox-Banner + Kein-Echtgeld-Regel
+  bleiben.
+- `guest-web/src/app/globals.css`: zwei neue Klassen (`kl-sheet-actions`,
+  `kl-primary-button`) im Sheet; Tokens/Layout/Controls unverändert.
+- `guest-web/__tests__/order-ack.test.ts` (neu, 10 Tests),
+  `guest-web/__tests__/order-submit.test.ts` (neu, 12 Tests).
+- `guest-web/.env.example` (neu, keine Secrets) + `.gitignore`-Ausnahme
+  `!.env.example`.
+- `guest-web/package.json`/`package-lock.json`: `@supabase/supabase-js`.
+- `docs/architecture/guest-web/ORDER_GATE.md` (neu): D6, RLS-Modell,
+  Idempotenzvertrag, Simulationen, Teststand.
 
-- `prototypes/KitchenLinkEventLog/Package.swift`
-- `prototypes/KitchenLinkEventLog/Sources/KitchenLinkEventLog/SQLiteConnection.swift`
-  (Low-level-Wrapper, WAL/Durability, `transaction { tx in }`)
-- `prototypes/KitchenLinkEventLog/Sources/KitchenLinkEventLog/EventLogSchema.swift`
-  (Schema v1 + Migrationen)
-- `prototypes/KitchenLinkEventLog/Sources/KitchenLinkEventLog/Types.swift`
-  (EventRecord, OutboxEntry, Fingerprint, Clock)
-- `prototypes/KitchenLinkEventLog/Sources/KitchenLinkEventLog/EventStore.swift`
-  (Append, Idempotenz, Optimistic Concurrency, Reads)
-- `prototypes/KitchenLinkEventLog/Sources/KitchenLinkEventLog/Outbox.swift`
-  (Claim, NACK, ACK, Lease-Recovery)
-- `prototypes/KitchenLinkEventLog/Sources/KitchenLinkEventLog/Transport.swift`
-  (OutboxTransport-Protokoll, OutboxDispatcher, InMemoryTransport)
-- `prototypes/KitchenLinkEventLog/Tests/KitchenLinkEventLogTests/CoreTests.swift` (20)
-- `prototypes/KitchenLinkEventLog/Tests/KitchenLinkEventLogTests/OutboxTests.swift` (15)
-- `docs/architecture/offline/EVENT_LOG_V2.md` (Spezifikation)
-- `docs/collaboration/handoffs/GLM.md` (dieses Update)
+## Verifikation (in `guest-web/`)
 
-Keine Datei außerhalb des Schreibbereichs wurde berührt. Insbesondere wurden
-keine App-Targets, keine `MenuImport/`-, keine Guest-Web-Dateien, keine
-`DECISIONS.md` und keine `CURRENT.md` geändert.
+- `npm run typecheck`: ✓ sauber.
+- `npm run lint`: ✓ sauber (0 Probleme).
+- `npm test` (Vitest): ✓ 40/40 Tests grün (5 Dateien; die 22 neuen Submit-/ACK-
+  Tests plus die 18 bestehenden).
+- `npm run build`: ✓ SSG erfolgreich, `/alte-muehle/menu` wird weiterhin statisch
+  vorgerendert (Fixture erhalten).
 
-## Verification
+## Menü-Fetch: Fixture bleibt (dokumentiert)
 
-Befehl (aus `prototypes/KitchenLinkEventLog/`):
+Die lokale Fixture `venue-data.ts` bleibt für Menüanzeige/SSG bestehen
+(bewusste Naht aus KL-WEB-001, kein Redesign, kein Risiko). Der Supabase-Seed
+existiert parallel, damit die RPC aus DB-Preisen rechnet. Ein späteres Ticket
+tauscht nur `getVenueBySlug` gegen einen Supabase-Fetch. In ORDER_GATE.md §1
+explizit festgehalten.
 
-```bash
-swift test
-```
+## Bewusst simulierte Teile
 
-Ergebnis (aktuelles Toolchain: Swift 6.3.3, Xcode 26.6, SQLite 3.51.0):
+Öffnungszeit = „immer offen", Bestellkapazität = „unbegrenzt"; beide als
+ausdrückliche Annahmen in der RPC kommentiert und in ORDER_GATE.md §5
+dokumentiert. Generelle Sandbox-Regel: keine echten Zahlungen, keine
+steuerlich gültigen Belege; Sandbox-Banner und Kein-Echtgeld-Regel bleiben.
 
-```
-Executed 35 tests, with 0 failures (0 unexpected) in 0.041 (0.041) seconds
-```
+## Restrisiken / Offenpunkte (ehrlich)
 
-- CoreTests: 20/20 (Schema/Migration, monotone Seq, Aggregate-Revision,
-  Optimistic-Concurrency-Konflikt, Idempotenz-Replay, Idempotenz-Konflikt,
-  Venue-Namespacing, Fingerprint-Determinismus, Outbox-Erzeugung,
-  Metadaten-Erhaltung, Duplikat-Event-ID, CHECK-Constraint, WAL-Modus,
-  Payload-Erhaltung, nil-expectedRevision).
-- OutboxTests: 15/15 (Claim/Exklusivität, ACK-Übergang, Double-ACK-No-Op,
-  ACK-mit-falschem-Lease, Lease-Recovery, NACK+Backoff+Retry,
-  NACK-stale-No-Op, Dispatcher-Happy-Path, Dispatcher-Transient-Failure,
-  Payload-Replay-Dedup, Crash/Reopen, parallele Duplikate, Backoff-Policy,
-  Multi-Target-Unabhängigkeit).
-
-Keine sleeps als Synchronisation; `FakeClock` advance/setNow steuert die Zeit.
-Der Crash/Reopen-Test nutzt eine Datei-DB, schließt die Verbindung und öffnet
-sie neu; Event und in_flight-Lease überdauern den Neustart.
-
-SQLite/Swift-Aussagen wurden gegen Primärquellen geprüft (in
-`EVENT_LOG_V2.md` §Quellen verlinkt): `BEGIN IMMEDIATE`/Isolation, WAL,
-`PRAGMA synchronous`/`fullfsync`, `UPDATE...LIMIT`-Nicht-Standardität,
-`WITHOUT ROWID`, Threadsafety, Bind-DESTRUCTOR, Upsert, CryptoKit-SHA256.
-
-## Verbleibendes Risiko / Offenpunkte
-
-- **Kein echter Stromausfallbeweis:** Der Prototyp nutzt
-  `synchronous=FULL`+`fullfsync`, was SQLite-Dokumentation als sicherste
-  Standardstufe ausweist, aber gegen harten Power-Loss bei verlogenen
-  Schreib-Caches keine absolute Garantie ist. Der Prototyp behauptet diese
-  Garantie nicht (§Durability). Ein echter Crash-Inject auf Storage-Ebene
-  erfordert Kernel-/Hardware-Support und ist bewusst nicht Teil des Prototyps.
-- **Single-Handle-Serialisierung:** Die Connection serialisiert über eine
-  `DispatchQueue`. echter Multi-Writer-Multi-Thread-Parallelismus über mehrere
-  Handles wird nicht multi-threaded getestet (WAL erlaubt es prinzipiell).
-- **`Outbox.failed` ist nicht terminal:** Es gibt noch keine
-  max-retries-Schranke mit Dead-Letter-Quarantäne. Eine spätere Policy sollte
-  definieren, wann `failed` in ein unumkehrbares `dead` übergeht.
-- **Keine Event-Kompaktion:** Das Protokoll wächst unbegrenzt;
-  Snapshots/Tombstoning sind eine spätere Aufgabe.
-- **UUID v4 statt v7:** `EventID()` generiert v4-UUIDs (universell in
-  Foundation). UUIDv7 (time-ordered) wäre für Indexlokalität besser, ist aber
-  in Foundation nicht direkt verfügbar und für die Prototyp-Invarianten nicht
-  erforderlich.
-- **iOS-Integration nicht freigegeben:** Das Package aktiviert nichts
-  Produktives in der App. Die Integrationsnaht ist in `EVENT_LOG_V2.md` §12
-  dokumentiert und bedarf einer separaten Nutzerfreigabe.
+- **Keine echte RPC-Ausführung / kein RLS-Integrationstest.** In dieser
+  Umgebung ist keine Supabase-Instanz verfügbar. Die Unit-Tests (mit Mock-
+  Backend) beweisen die Verarbeitungslogik (Idempotenz-Key-Normierung,
+  Fehler-Mapping, „kein falsches ACK"), **nicht** die PL/pgSQL-RPC, die
+  `FOR UPDATE`-Sperre, die `raise exception`-Pfade, den Hash-Abgleich und
+  **nicht** die RLS-Durchsetzung gegen echtes PostgreSQL. ORDER_GATE.md §7
+  grenzt das explizit ab.
+- **`signInAnonymously()` und der `is_anonymous`-JWT-Pfad sind verdrahtet,
+  aber nicht gegen Supabase Auth gelaufen.**
+- **Laufzeit ohne Instanz:** ohne `NEXT_PUBLIC_SUPABASE_*` liefert
+  `submitOrder` strukturiert `no_backend` (kein falsches ACK); Menü/SSG laufen
+  weiter. Ende-zu-Ende-Test braucht ein Sandbox-Supabase-Projekt mit
+  angewendeter Migration + Anonymous-Sign-in.
+- **Cleanup orphaned anonymous users** (DECISIONS.md Guest Web) noch nicht
+  umgesetzt; betrifft das Supabase-Projekt, nicht diesen Code-Scope.
+- **`npm audit`:** zwei moderate Findings in Dev-/Transitiv-Abhängigkeiten des
+  Scaffolds (bereits aus KL-WEB-001 bekannt); Sandbox-unkritisch.
+- **Annahme-Status `pending`:** erfolgreich persistierte Sandbox-Bestellungen
+  erhalten `pending`; eine automatische `accepted`-Logik (Blueprint §6.3) ist
+  nicht Teil dieses Tickets.
 
 ## Schreibbereich & Kollisionsfreiheit
 
-- Nur Dateien unter `prototypes/KitchenLinkEventLog/`,
-  `docs/architecture/offline/EVENT_LOG_V2.md` und dieses Handoff.
-- Kein Produktions-/Domain-Code der App berührt.
-- Keine `DECISIONS.md`- oder `CURRENT.md`-Änderung.
-- Branch `glm/offline-event-log-v2` war sauber und wird fokussiert committet.
+Nur `guest-web/`, die neue additive Migration
+`supabase/migrations/20260717120000_guest_web_order_gate.sql` (`20260318011000_…`
+unangetastet), `docs/architecture/guest-web/ORDER_GATE.md` und diese Handoff-
+Datei. Keine Berührung von PR-#7-/#8-Scopes, nichts außerhalb. `.zcode/` im
+Repo-Wurzel liegt außerhalb meines Bereichs und wurde bewusst nicht committet.
+Keine `DECISIONS.md`/`CURRENT.md`-Edits (keine neue Nutzerentscheidung; D6 ist
+Implementierungsdetail, in ORDER_GATE.md begründet).
 
 ## Empfohlener nächster Schritt
 
-Unabhängiges Review des Prototyps gegen die Acceptance-Gate-Kriterien der
-Mission (`swift test` aus dem Package; keine App-/Domain-Datei geändert).
-Danach kann die iOS-Integrationsnaht (`EVENT_LOG_V2.md` §12) als separater,
-nutzerfreizugebender Milestone entworfen werden.
+Review von KL-WEB-002 (Peer oder Nutzer). Danach in getrennten Scopes:
+Integrationstests gegen eine echte Supabase-Instanz, Menü-Fetch via Supabase,
+Öffnungszeit-/Kapazitäts-Prüfungen, Vercel-Sandbox-Deployment.

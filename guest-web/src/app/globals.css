@@ -340,6 +340,35 @@ button {
   color: var(--kl-text-primary);
 }
 
+/* Aktionsblock im Bestell-Sheet: Primaeraktion (Zitrone+Traube-Text, §5,§9)
+   ueber dem umrandeten Sekundaer-Button. Die Zitronenregel bleibt gewahrt:
+   hier im Sheet ist die Uebermittlung die Primaeraktion, die fixierte
+   Bestellleiste ist beim offenen Sheet disabled. */
+.kl-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kl-space-2);
+}
+
+.kl-primary-button {
+  min-height: 3rem;
+  width: 100%;
+  border: none;
+  border-radius: var(--kl-radius-control);
+  background: var(--kl-brand-lemon);
+  color: var(--kl-brand-grape);
+}
+
+.kl-primary-button:active {
+  background: var(--kl-brand-lemon-pressed);
+}
+
+.kl-primary-button:disabled {
+  background: var(--kl-surface-recessed);
+  color: var(--kl-text-muted);
+  cursor: not-allowed;
+}
+
 /* Kleine Vertrauenssignatur: KitchenLink fuehrt im Gast-Web nicht (§2) */
 .kl-trust-signature {
   margin: var(--kl-space-5) 0 var(--kl-space-4);
