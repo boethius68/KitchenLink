@@ -57,7 +57,11 @@ export function mapVenueRowToGuestVenue(row: VenueWithMenuRow): GuestVenue | nul
     return null;
   }
 
-  const items: GuestMenuItem[] = [];
+  const sortableItems: Array<{
+    item: GuestMenuItem;
+    categorySortOrder: number;
+    itemSortOrder: number;
+  }> = [];
   for (const menu of row.menus ?? []) {
     if (menu.active === false) {
       continue;
@@ -74,27 +78,39 @@ export function mapVenueRowToGuestVenue(row: VenueWithMenuRow): GuestVenue | nul
           continue;
         }
         const kind = normalizeKind(mi.kind ?? category.kind);
-        items.push({
-          id: mi.slug, // INVARIANTE: id == slug, nicht die UUID
-          name: mi.name,
-          tag: mi.tag ?? undefined,
-          description: mi.description ?? "",
-          priceCents: mi.price_cents,
-          kind,
+        sortableItems.push({
+          item: {
+            id: mi.slug, // INVARIANTE: id == slug, nicht die UUID
+            name: mi.name,
+            tag: mi.tag ?? undefined,
+            description: mi.description ?? "",
+            priceCents: mi.price_cents,
+            kind,
+          },
+          categorySortOrder: category.sort_order ?? Number.MAX_SAFE_INTEGER,
+          itemSortOrder: mi.sort_order ?? Number.MAX_SAFE_INTEGER,
         });
       }
     }
   }
 
-  // Stabile Reihenfolge: erst nach Art (food vor drink), dann DB-sort_order,
-  // dann Slug als Tie-Breaker. Ergibt die "Küche" vor "Getränke"-Section, die
-  // GuestMenuCard per kind-Filter ohnehin gruppiert.
-  items.sort((a, b) => {
-    if (a.kind !== b.kind) {
-      return a.kind === "food" ? -1 : 1;
+  // Stabile Reihenfolge: erst nach Art (food vor drink), dann nach der
+  // DB-Reihenfolge von Kategorie und Item, zuletzt Slug als Tie-Breaker.
+  // GuestMenuCard gruppiert anschliessend per kind.
+  sortableItems.sort((a, b) => {
+    if (a.item.kind !== b.item.kind) {
+      return a.item.kind === "food" ? -1 : 1;
     }
-    return a.id.localeCompare(b.id);
+    if (a.categorySortOrder !== b.categorySortOrder) {
+      return a.categorySortOrder - b.categorySortOrder;
+    }
+    if (a.itemSortOrder !== b.itemSortOrder) {
+      return a.itemSortOrder - b.itemSortOrder;
+    }
+    return a.item.id.localeCompare(b.item.id);
   });
+
+  const items = sortableItems.map(({ item }) => item);
 
   return {
     slug: row.slug,
