@@ -80,3 +80,54 @@ public struct APIErrorDocument: Codable, Equatable, Sendable {
     public let error: String
     public let message: String
 }
+
+public enum LocalOperatorOrderStatus: String, Codable, Equatable, Sendable {
+    case preparing
+    case ready
+    case served
+
+    public func canTransition(to target: LocalOperatorOrderStatus) -> Bool {
+        switch (self, target) {
+        case (.preparing, .ready), (.ready, .served):
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+public struct LocalOperatorOrder: Codable, Equatable, Sendable {
+    public let id: String
+    public let localSequence: Int64
+    public let createdAtMs: Int64
+    public let venueID: String
+    public let currency: String
+    public let totalMinor: Int
+    public let lines: [AcceptedOrderLine]
+    public let status: LocalOperatorOrderStatus
+}
+
+public struct LocalOrderStatusRequest: Codable, Equatable, Sendable {
+    public let targetStatus: LocalOperatorOrderStatus
+    public let idempotencyKey: String
+
+    public init(targetStatus: LocalOperatorOrderStatus, idempotencyKey: String) {
+        self.targetStatus = targetStatus
+        self.idempotencyKey = idempotencyKey
+    }
+}
+
+public struct LocalOrderStatusReceipt: Codable, Equatable, Sendable {
+    public let status: String
+    public let orderID: String
+    public let orderStatus: LocalOperatorOrderStatus
+    public let eventID: String
+    public let localSequence: Int64
+    public let replayed: Bool
+    public let persistence: String
+}
+
+struct LocalOrderStatusEventPayload: Codable, Equatable, Sendable {
+    let orderID: String
+    let targetStatus: LocalOperatorOrderStatus
+}

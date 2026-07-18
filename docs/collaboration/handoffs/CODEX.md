@@ -1,9 +1,55 @@
 # Codex Handoff
 
 **Updated:** 18 July 2026
-**Branch:** `codex/fix-lan-order-uuid`
-**Status:** Ersten iPhone-LAN-Blocker reproduziert und behoben; erneuter
-iPhone-Lauf und Android-Nachweis bleiben abnahmepflichtig
+**Branch:** `codex/local-operator-workflow`
+**Status:** Lokalen Kueche-zu-Kellner-Workflow implementiert, auf dem iPhone
+installiert; visuelle Geraeteabnahme, Review und Integration bleiben offen
+
+## Latest Continuation (18. Juli 2026, KL-OFFLINE-005)
+
+- PR #22 (`codex/fix-lan-order-uuid`) vor Beginn als Merge-Commit `e93393f`
+  nach `main` integriert und den neuen Branch exakt davon erstellt.
+- Der lokale Hostsurrogat bietet jetzt `GET /operator/orders` und
+  `POST /operator/orders/{id}/status`. Neue Gastbestellungen starten in der
+  Operatorprojektion als `preparing`; nur `ready` und danach `served` sind
+  erlaubt. Jeder Schritt ist ein eigenes Event mit optimistischer Revision und
+  Cloud-Outbox. Auch ein erst nach `served` eintreffender `ready`-Retry liefert
+  die urspruengliche Receipt statt einen falschen Konflikt.
+- Neue V2-Ansicht `Lokaler Service` auf dem iPhone: editierbare, gespeicherte
+  Hub-Adresse, 1-Sekunden-Polling, Kueche/Kellner-Umschaltung,
+  `Bestellung zubereitet` und `Bestellung serviert`. Die Ansicht mappt auf die
+  bestehende `LiveOrderMessage`-/`OrderLifecycleStatus`-Domaene.
+- Statische App-Info-Plist ergaenzt, damit die iOS-Berechtigungsbeschreibung
+  und `NSAllowsLocalNetworking` tatsaechlich im Produkt landen. Der zuvor
+  versuchte flache generierte Build-Key erzeugte den verschachtelten ATS-Wert
+  nicht und wurde vor Abschluss ersetzt.
+
+## Verification (KL-OFFLINE-005)
+
+- Hostsurrogat: **9/9 Swift-Tests bestanden**.
+- iOS: fokussierte Local-Operations-Tests **3/3 bestanden**; komplettes
+  `kitchenlinkTests`-Target **167 bestanden, 1 bewusst uebersprungen, 0
+  fehlgeschlagen**.
+- Echter HTTP-Ablauf: Bestellung 201/`preparing`, Status 201/`ready`, danach
+  201/`served`; Projektion nach jedem Schritt geprueft. Verzoegerter Ready-
+  Retry nach Served: 200 mit der urspruenglichen Event-ID und `replayed=true`.
+- App fuer Simulator, generisches iOS und das gekoppelte echte iPhone gebaut.
+  Signierter Build erfolgreich auf `Philipps iPhone XR` installiert. Der
+  automatische Start wurde nur durch den gesperrten Geraetezustand abgewiesen.
+- Gebautes Info.plist kontrolliert: lokale Netzwerkbeschreibung und
+  `NSAppTransportSecurity.NSAllowsLocalNetworking = true` vorhanden.
+
+## Remaining Risk (KL-OFFLINE-005)
+
+- Der Nutzer muss die installierte Ansicht auf dem entsperrten iPhone visuell
+  und interaktiv abnehmen. Eine frische Bestellung `lokal #4` liegt dafuer im
+  laufenden Referenzhub bereit.
+- Polling und feste/editierbare IP sind eine Sandbox-Naht. Bonjour/Discovery,
+  IP-Wechsel, Hintergrundbetrieb, Push, Mehrgeraetekonkurrenz, AP-Isolation,
+  Android und TLS/Trust sind nicht geloest.
+- Der macOS-Hostsurrogat bleibt sequentiell und nicht fuer Produktion oder ein
+  feindliches LAN gehaertet. Keine Zahlung oder Cloud-Synchronisation wurde
+  aktiviert; Sandboxkennzeichnung und bestehende Demos bleiben erhalten.
 
 ## Latest Continuation (18. Juli 2026, iPhone-LAN-Fund)
 

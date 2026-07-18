@@ -4,11 +4,13 @@
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Latest material integration:** PR #20
-(`codex/local-guest-ordering-poc` -> `main`) adds the isolated, reviewed local
-guest-ordering host surrogate with commit-before-ACK, idempotency and a mobile
-same-origin guest page. PR #19 records local guest ordering during cloud failure
-as a required Sandbox-Beta capability. The guest web remains deployed from
+**Latest material integration:** PR #22
+(`codex/fix-lan-order-uuid` -> `main`) fixes the first real iPhone-LAN blocker:
+the local HTTP guest page no longer depends on secure-context Web Crypto and a
+retry preserves its original order snapshot and idempotency key. PR #20 adds
+the isolated local guest-ordering host surrogate with commit-before-ACK. PR #19
+records local guest ordering during cloud failure as a required Sandbox-Beta
+capability. The guest web remains deployed from
 `main` to Hostinger PaaS at
 **`https://kitchenlink.luneq.eu`** and anonymous sandbox ordering has been
 verified end-to-end against the EU-Frankfurt Supabase instance.
@@ -153,6 +155,14 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   PR #20 integrated the prototype after an additional review pass required
   `application/json` for order writes and replaced menu HTML interpolation with
   DOM-safe text rendering. The merge commit is `be54d60`.
+- On `codex/local-operator-workflow`, the same host surrogate now projects
+  committed orders through `GET /operator/orders` and accepts the narrow,
+  append-only lifecycle `preparing -> ready -> served`. The iPhone V2 business
+  home exposes `Lokaler Service`: Kitchen mode receives placed local orders,
+  `Bestellung zubereitet` hands them to Waiter mode, and `Bestellung serviert`
+  completes them. It reuses `LiveOrderMessage` and `OrderLifecycleStatus`
+  rather than creating another app order domain. This remains a sandbox
+  polling client for the macOS surrogate, not a production hub architecture.
 - `kitchenlink/Features/Workforce/` (KL-WORKFORCE-001) is an isolated Swift
   domain foundation for shift planning, time tracking and staffing
   (Blueprint §9): `VenueShift`, `WorkforcePlannedShift` and time-entry
@@ -288,13 +298,12 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   visual review. A future location-specific assortment contract would be
   needed to display a planned article at `0` before its first ledger movement;
   this is a known model boundary, not an active implementation ticket.
-- **Offline venue hub:** the local-network side remains blocked on the P0
-  architecture and verification risks in
-  `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4. The product
-  direction is now explicit: local guest ordering during a cloud outage is a
-  required Sandbox-Beta capability. The remaining work must prove a locally
-  delivered guest surface, network reachability, TLS/trust and failover without
-  making a cloud HTTPS page fetch an untrusted local HTTP hub.
+- **Offline venue hub:** iPhone Safari can now reach the local top-level guest
+  page and commit an order over the reference WLAN. The app-side
+  Kitchen-to-Waiter vertical slice exists against the macOS host surrogate.
+  Android Chrome, AP isolation, DHCP/IP changes, discovery, Hub lifecycle,
+  TLS/trust and failover remain unproven; no production hub architecture follows
+  from this sandbox result.
 - **Guest web:** production-grade hosting, PWA/offline behavior and retention
   for orphaned anonymous users remain open. Hostinger is selected only for the
   current sandbox; Supabase menu loading and authoritative sandbox ordering are

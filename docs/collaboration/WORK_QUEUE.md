@@ -478,6 +478,29 @@ sequentieller macOS-Entwickler-Surrogat ohne Zahlung, Cloud-Sync, Bonjour oder
 QR-Erzeugung. Der Stage-2-Gate aus `LOCAL_NETWORK_POC.md` bleibt bis zu Tests
 auf iOS Safari und Android Chrome im Referenz-WLAN offen.
 
+### KL-OFFLINE-005 - Lokaler Kuechen-/Kellner-Workflow auf dem iPhone
+
+**Status:** Implementiert auf `codex/local-operator-workflow`; Review und
+Integration ausstehend
+**Abhaengigkeit:** KL-OFFLINE-004, PR #22
+**Schreibbereich:** `prototypes/KitchenLinkLocalGuestPOC/`,
+`kitchenlink/Features/LocalOperations/`, additive V2-Navigation,
+gezielte Tests und Statusdokumente
+
+Der lokale Hostsurrogat projiziert Gastbestellungen aus dem autoritativen
+Event-Log und akzeptiert die enge Statusfolge `preparing -> ready -> served`.
+Die iPhone-App pollt diese Projektion einmal pro Sekunde. Im Kuechen-Modus
+markiert `Bestellung zubereitet` den Auftrag als `ready`; er erscheint dann im
+Kellner-Modus und wird dort mit `Bestellung serviert` abgeschlossen. Status-
+Retries sind auch nach einem spaeteren Folgestatus idempotent.
+
+Die App verwendet die bestehende `LiveOrderMessage`-/`OrderLifecycleStatus`-
+Domaene und behaelt alle Demoablaeufe. Lokales HTTP ist fuer das gemeinsame
+WLAN explizit im App-Info-Plist erlaubt und erklaert. Keine Zahlung, kein
+Cloud-Sync, keine produktive Aktivierung, kein Bonjour und keine neue Hub-
+Architektur. Der aktuelle Referenzhost ist editierbar vorbelegt; Discovery und
+IP-Wechsel bleiben Folgearbeit.
+
 ## Abgeschlossene Web-Straenge
 
 ### KL-WEB-003 - Gast-Web-Sandbox in Betrieb nehmen (Deploy + echte Tests)
@@ -632,6 +655,9 @@ Designentscheidung; `DECISIONS.md` unberührt.
     technischer und visueller Abnahme, Review-Fixes und vollstaendiger
     Verifikation mit PR #15 am 18. Juli 2026 integriert.
 12. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
-13. KL-OFFLINE-004 reviewen; danach den lokalen Top-Level-Pfad mit QR-Ziel auf
-    iOS Safari und Android Chrome im Referenz-WLAN messen. Erst dieser Lauf darf
-    eine konkrete Hub-/Bootstrap-Technik fuer die App-Integration auswaehlen.
+13. ~~KL-OFFLINE-004 reviewen und den lokalen Top-Level-Pfad auf iOS Safari
+    messen.~~ Review und iPhone-Bestellung erledigt; PR #22 behebt den dabei
+    gefundenen Plain-HTTP/Web-Crypto-Fehler.
+14. KL-OFFLINE-005 reviewen und den Kueche-zu-Kellner-Ablauf auf dem echten
+    iPhone abnehmen. Android Chrome, AP-Isolation und Discovery bleiben danach
+    die naechsten Netzwerk-Gates.

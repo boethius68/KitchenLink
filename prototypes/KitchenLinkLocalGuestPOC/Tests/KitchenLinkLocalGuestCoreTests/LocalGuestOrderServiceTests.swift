@@ -90,4 +90,92 @@ struct LocalGuestOrderServiceTests {
         let changed = request(key: order.idempotencyKey, items: [OrderLineRequest(itemID: "lemonade", quantity: 1)])
         #expect(router.route(HTTPRequest(method: "POST", path: "/orders", headers: jsonHeaders, body: try encoder.encode(changed))).status == 409)
     }
+
+    @Test func operatorProjectionMovesFromKitchenToWaiterAndServed() throws {
+        let (service, _) = try fixture()
+        let order = request(items: [OrderLineRequest(itemID: "fries", quantity: 2)])
+        _ = try service.placeOrder(order)
+
+        let kitchenOrder = try #require(service.operatorOrders().first)
+        #expect(kitchenOrder.id == order.orderID)
+        #expect(kitchenOrder.status == .preparing)
+        #expect(kitchenOrder.totalMinor == 900)
+
+        let readyRequest = LocalOrderStatusRequest(
+            targetStatus: .ready,
+            idempotencyKey: "status:\(order.orderID):ready"
+        )
+        let ready = try service.updateOperatorOrderStatus(orderID: order.orderID, request: readyRequest)
+        let readyReplay = try service.updateOperatorOrderStatus(orderID: order.orderID, request: readyRequest)
+        #expect(ready.orderStatus == .ready)
+        #expect(!ready.replayed)
+        #expect(readyReplay.replayed)
+        #expect(readyReplay.eventID == ready.eventID)
+        #expect(try service.operatorOrders().first?.status == .ready)
+
+        let served = try service.updateOperatorOrderStatus(
+            orderID: order.orderID,
+            request: LocalOrderStatusRequest(
+                targetStatus: .served,
+                idempotencyKey: "status:\(order.orderID):served"
+            )
+        )
+        #expect(served.orderStatus == .served)
+        #expect(try service.operatorOrders().first?.status == .served)
+
+        let delayedReadyReplay = try service.updateOperatorOrderStatus(
+            orderID: order.orderID,
+            request: readyRequest
+        )
+        #expect(delayedReadyReplay.replayed)
+        #expect(delayedReadyReplay.eventID == ready.eventID)
+        #expect(delayedReadyReplay.orderStatus == .ready)
+        #expect(try service.persistedEvents().count == 3)
+    }
+
+    @Test func operatorStatusRejectsSkippedTransition() throws {
+        let (service, _) = try fixture()
+        let order = request()
+        _ = try service.placeOrder(order)
+
+        #expect(throws: LocalGuestOrderService.ServiceError.self) {
+            try service.updateOperatorOrderStatus(
+                orderID: order.orderID,
+                request: LocalOrderStatusRequest(
+                    targetStatus: .served,
+                    idempotencyKey: "status:\(order.orderID):served"
+                )
+            )
+        }
+        #expect(try service.operatorOrders().first?.status == .preparing)
+    }
+
+    @Test func operatorHTTPRoutesExposeCommittedLifecycle() throws {
+        let (service, _) = try fixture()
+        let router = HTTPRouter(service: service, indexHTML: Data())
+        let encoder = JSONEncoder()
+        let jsonHeaders = ["Content-Type": "application/json"]
+        let order = request()
+        _ = try service.placeOrder(order)
+
+        let feed = router.route(HTTPRequest(method: "GET", path: "/operator/orders"))
+        #expect(feed.status == 200)
+        let feedOrders = try JSONDecoder().decode([LocalOperatorOrder].self, from: feed.body)
+        #expect(feedOrders.first?.status == .preparing)
+
+        let statusBody = try encoder.encode(
+            LocalOrderStatusRequest(
+                targetStatus: .ready,
+                idempotencyKey: "status:\(order.orderID):ready"
+            )
+        )
+        let statusPath = "/operator/orders/\(order.orderID)/status"
+        let updated = router.route(
+            HTTPRequest(method: "POST", path: statusPath, headers: jsonHeaders, body: statusBody)
+        )
+        #expect(updated.status == 201)
+        let updatedFeed = router.route(HTTPRequest(method: "GET", path: "/operator/orders"))
+        let updatedOrders = try JSONDecoder().decode([LocalOperatorOrder].self, from: updatedFeed.body)
+        #expect(updatedOrders.first?.status == .ready)
+    }
 }

@@ -57,6 +57,10 @@ public final class HTTPRouter: @unchecked Sendable {
 
     public func route(_ request: HTTPRequest) -> HTTPResponse {
         let path = request.path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? request.path
+        if request.method.uppercased() == "POST",
+           let orderID = operatorStatusOrderID(from: path) {
+            return updateOperatorStatus(request, orderID: orderID)
+        }
         switch (request.method.uppercased(), path) {
         case ("GET", "/"), ("GET", "/menu"):
             return HTTPResponse(status: 200, reason: "OK", contentType: "text/html; charset=utf-8", body: indexHTML)
@@ -64,6 +68,12 @@ public final class HTTPRouter: @unchecked Sendable {
             return json(status: 200, reason: "OK", value: ["status": "ok", "mode": "sandbox-local"])
         case ("GET", "/bootstrap"):
             return json(status: 200, reason: "OK", value: service.bootstrap())
+        case ("GET", "/operator/orders"):
+            do {
+                return json(status: 200, reason: "OK", value: try service.operatorOrders())
+            } catch {
+                return self.error(status: 503, reason: "Service Unavailable", code: "projection_failed", message: "Bestellungen konnten nicht geladen werden.")
+            }
         case ("POST", "/orders"):
             return placeOrder(request)
         default:
@@ -98,12 +108,62 @@ public final class HTTPRouter: @unchecked Sendable {
                 return error(status: 422, reason: "Unprocessable Content", code: "invalid_order", message: message)
             case .idempotencyConflict:
                 return error(status: 409, reason: "Conflict", code: "idempotency_conflict", message: "Dieser Wiederholungsschlüssel gehört zu einer anderen Bestellung.")
+            case .orderNotFound:
+                return error(status: 404, reason: "Not Found", code: "order_not_found", message: "Bestellung wurde nicht gefunden.")
+            case .invalidStatusTransition:
+                return error(status: 409, reason: "Conflict", code: "invalid_status_transition", message: "Dieser Statuswechsel ist nicht erlaubt.")
             case .persistence:
                 return error(status: 503, reason: "Service Unavailable", code: "not_persisted", message: "Die Bestellung wurde nicht bestätigt. Bitte erneut versuchen.")
             }
         } catch {
             return self.error(status: 400, reason: "Bad Request", code: "invalid_json", message: "Ungültige Bestelldaten.")
         }
+    }
+
+    private func updateOperatorStatus(_ request: HTTPRequest, orderID: String) -> HTTPResponse {
+        guard request.body.count <= 16 * 1024 else {
+            return error(status: 413, reason: "Payload Too Large", code: "payload_too_large", message: "Statusanfrage ist zu groß.")
+        }
+        let contentType = request.headers.first { key, _ in
+            key.lowercased() == "content-type"
+        }?.value.split(separator: ";", maxSplits: 1).first?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard contentType == "application/json" else {
+            return error(status: 415, reason: "Unsupported Media Type", code: "unsupported_media_type", message: "Statusanfragen müssen als application/json gesendet werden.")
+        }
+
+        do {
+            let statusRequest = try decoder.decode(LocalOrderStatusRequest.self, from: request.body)
+            let receipt = try service.updateOperatorOrderStatus(orderID: orderID, request: statusRequest)
+            return json(status: receipt.replayed ? 200 : 201, reason: receipt.replayed ? "OK" : "Created", value: receipt)
+        } catch let serviceError as LocalGuestOrderService.ServiceError {
+            switch serviceError {
+            case .invalidRequest(let message):
+                return error(status: 422, reason: "Unprocessable Content", code: "invalid_status_request", message: message)
+            case .idempotencyConflict:
+                return error(status: 409, reason: "Conflict", code: "idempotency_conflict", message: "Dieser Wiederholungsschlüssel gehört zu einer anderen Änderung.")
+            case .orderNotFound:
+                return error(status: 404, reason: "Not Found", code: "order_not_found", message: "Bestellung wurde nicht gefunden.")
+            case .invalidStatusTransition:
+                return error(status: 409, reason: "Conflict", code: "invalid_status_transition", message: "Dieser Statuswechsel ist nicht erlaubt.")
+            case .persistence:
+                return error(status: 503, reason: "Service Unavailable", code: "not_persisted", message: "Status wurde nicht bestätigt. Bitte erneut versuchen.")
+            }
+        } catch {
+            return self.error(status: 400, reason: "Bad Request", code: "invalid_json", message: "Ungültige Statusdaten.")
+        }
+    }
+
+    private func operatorStatusOrderID(from path: String) -> String? {
+        let components = path.split(separator: "/").map(String.init)
+        guard components.count == 4,
+              components[0] == "operator",
+              components[1] == "orders",
+              components[3] == "status" else {
+            return nil
+        }
+        return components[2].removingPercentEncoding ?? components[2]
     }
 
     private func json<T: Encodable>(status: Int, reason: String, value: T) -> HTTPResponse {

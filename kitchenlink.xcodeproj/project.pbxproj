@@ -29,9 +29,22 @@
 		170D46732D83A426008406B5 /* kitchenlinkUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = kitchenlinkUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A8E5510F2F1C010000000001 /* Exceptions for "kitchenlink" folder in "kitchenlink" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 170D46582D83A423008406B5 /* kitchenlink */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		170D465B2D83A423008406B5 /* kitchenlink */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A8E5510F2F1C010000000001 /* Exceptions for "kitchenlink" folder in "kitchenlink" target */,
+			);
 			path = kitchenlink;
 			sourceTree = "<group>";
 		};
@@ -400,15 +413,8 @@
 				DEVELOPMENT_ASSET_PATHS = "\"kitchenlink/Preview Content\"";
 				DEVELOPMENT_TEAM = 5PB6PP494U;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = KitchenLink;
-				INFOPLIST_KEY_CFBundleName = KitchenLink;
-				INFOPLIST_KEY_NSCameraUsageDescription = "KitchenLink benoetigt Kamera-Zugriff, um QR-Codes am Tisch zu scannen.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = kitchenlink/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -433,15 +439,8 @@
 				DEVELOPMENT_ASSET_PATHS = "\"kitchenlink/Preview Content\"";
 				DEVELOPMENT_TEAM = 5PB6PP494U;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = KitchenLink;
-				INFOPLIST_KEY_CFBundleName = KitchenLink;
-				INFOPLIST_KEY_NSCameraUsageDescription = "KitchenLink benoetigt Kamera-Zugriff, um QR-Codes am Tisch zu scannen.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = kitchenlink/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
