@@ -225,6 +225,24 @@ recorded that merge.
   `NEXT_PUBLIC_SUPABASE_URL` was initially set to `supabase.com` instead of
   `supabase.co`, producing a misleading "Load failed"; the correct TLD is
   `.co` and `SANDBOX_SETUP.md` should call this out explicitly.
+- KL-WEB-004 (GLM, in progress on `glm/web-menu-from-supabase`) closes the
+  menu-source inconsistency left by KL-WEB-002/003: the guest card's menu was
+  still served from the local fixture `guest-web/src/lib/venue-data.ts` while
+  the order was validated against Supabase, so DB-side menu edits would never
+  reach the live product. This ticket switches the menu display to a Supabase
+  fetch via a new read layer `guest-web/src/lib/menu-loader.ts`, rendered as
+  **ISR (`revalidate = 60s`)** — the page stays CDN-cacheable but DB changes
+  show up within a minute. Additive migration `20260719000000_menu_items_tag`
+  adds a nullable `menu_items.tag` column (seeded for the 8 sandbox items to
+  match the fixture) so the "beliebt"/"vegetarisch" pills survive the switch.
+  **Load-bearing invariant documented in `menu-loader.ts`:
+  `GuestMenuItem.id = menu_items.slug` (not the UUID)** — `order-submit.ts`
+  sends `item.id` as the order slug to the RPC, which resolves via
+  `menu_items.slug`. The local fixture stays as a **build fallback** (so a
+  Hostinger rebuild during a Supabase outage does not fail). Verified: 50/50
+  unit + 8/8 integration tests green against the real instance; `next build`
+  reports `Revalidate 1m` on `/[venueSlug]/menu`. No visual change, no token
+  change, no order-path change.
 - `kitchenlink/Features/Inventory/` (KL-INVENTORY-001) is an isolated Swift
   domain foundation for the stock core required by Blueprint §11:
   dimension-safe quantities (mass/volume/count), an append-only ledger with
@@ -333,5 +351,6 @@ Remaining:
 - Still open in the guest-web scope: a production-grade hosting decision
   (Hostinger PaaS is the current sandbox host; the ADR-001 §8 Vercel-vs-
   Cloudflare PoC is superseded for sandbox use), the PWA/offline stage (D5),
-  the menü-fetch switch from the local fixture to Supabase, and the cleanup
-  policy for orphaned anonymous users.
+  and the cleanup policy for orphaned anonymous users. (The menü-fetch switch
+  from the local fixture to Supabase is done — KL-WEB-004, ISR 60s, fixture
+  retained as build fallback.)
