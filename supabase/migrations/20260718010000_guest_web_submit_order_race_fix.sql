@@ -16,6 +16,19 @@
 -- Additiv: redefiniert nur die Funktion guest_web_submit_order. Keine Tabellen-
 -- oder Policy-Änderung. Die Basisschema-Datei und die Migration
 -- 20260717120000_guest_web_order_gate.sql bleiben unangetastet.
+--
+-- ZWEI weitere echte Fixes (durch die Integrationstests von KL-WEB-003 gegen
+-- eine echte Supabase-Instanz aufgedeckt; die KL-WEB-002-Unit-Tests konnten
+-- sie nicht finden, weil sie nie gegen echtes PostgreSQL liefen):
+--   1. digest() liegt bei Supabase im Schema "extensions", nicht public; der
+--      search_path der Funktion (public,pg_temp) schließt extensions nicht
+--      ein. Schema-qualifizierter Aufruf extensions.digest() statt search_path
+--      zu erweitern (sicherer gegen Schema-Spoofing). Sonst: SQLSTATE 42883.
+--   2. Die SELECT-INTO-Blöcke referenzieren status/total_cents/currency
+--      ohne Tabellen-Alias; da dies auch RETURN-Spalten der Funktion sind,
+--      ist die Spaltenreferenz mehrdeutig (SQLSTATE 42702). Alias o. fest.
+-- Beide Bugs verhinderten jede reale Bestellung; die Race-Fix-Migration muss
+-- sie enthalten, damit frische Instanzen sofort laufen.
 
 begin;
 
@@ -110,8 +123,12 @@ begin
     raise exception 'guest_web_empty_order: keine Positionen';
   end if;
 
+  -- digest()/encode() liegen in Supabase im Schema "extensions" (nicht public);
+  -- der search_path der Funktion ist public,pg_temp. Daher schema-qualifiziert
+  -- aufrufen, statt dem search_path "extensions" hinzuzufügen (sicherer gegen
+  -- Schema-Spoofing). encode() ist pg-intern (pg_catalog), immer sichtbar.
   select encode(
-    digest(
+    extensions.digest(
       v_venue.id::text || '|' || p_idempotency_key || '|' ||
       coalesce(p_service_mode, '') || '|' ||
       coalesce(p_customer_note, '') || '|' ||
@@ -123,11 +140,13 @@ begin
 
   -- 5) Idempotenz (erwarteter Fall): gleicher Key + gleicher Payload ->
   -- gespeicherte Order als Replay. Vor dem INSERT als schnellem Pfad.
-  select id, status, total_cents, currency, idempotency_payload_hash
+  -- Alias o. enteignet: status/total_cents/currency sind auch RETURN-Spalten
+  -- der Funktion; ohne Alias waere die Spaltenreferenz mehrdeutig (SQLSTATE 42702).
+  select o.id, o.status, o.total_cents, o.currency, o.idempotency_payload_hash
     into v_existing
-  from public.orders
-  where venue_id = v_venue.id
-    and idempotency_key = p_idempotency_key;
+  from public.orders o
+  where o.venue_id = v_venue.id
+    and o.idempotency_key = p_idempotency_key;
 
   if found then
     if v_existing.idempotency_payload_hash is distinct from v_payload_hash then
@@ -194,11 +213,11 @@ begin
   exception
     when unique_violation then
       -- Concurrent-Race: ein anderer Request hat denselben Key zuerst committet.
-      select id, status, total_cents, currency, idempotency_payload_hash
+      select o.id, o.status, o.total_cents, o.currency, o.idempotency_payload_hash
         into v_existing
-      from public.orders
-      where venue_id = v_venue.id
-        and idempotency_key = p_idempotency_key;
+      from public.orders o
+      where o.venue_id = v_venue.id
+        and o.idempotency_key = p_idempotency_key;
 
       if not found then
         -- Sollte nicht vorkommen (Constraint verletzte sich gerade); defensiv.

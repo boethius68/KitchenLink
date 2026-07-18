@@ -80,16 +80,52 @@ verbinden mit `NEXT_PUBLIC_SUPABASE_*` als Env-Variablen. Ist die Instanz
 konfiguriert, laufen `KL_INTEGRATION=1 npm run test:integration` echte Aussagen
 (siehe `ORDER_GATE.md` §7 Abgrenzung).
 
+## Update 18.07. (Abend): Echte Instanz steht — zwei RPC-Bugs gefunden und behoben
+
+Der Nutzer hat ein Supabase-Sandbox-Projekt (Ref `rjxlzqtaxqstctrrlqre`,
+EU-Region) angelegt, Anonymous Sign-in aktiviert und die drei Migrationen per
+`supabase db push` angewendet. `.env.local` (gitignore-geschützt) liegt vor.
+Erstmaliger Lauf `KL_INTEGRATION=1 npm run test:integration` gegen die echte
+Instanz — und die Tests **fanden zwei echte Bugs in der gemergten KL-WEB-002-
+RPC** `guest_web_submit_order`, die die Unit-Tests nicht finden konnten, weil
+diese nie gegen echtes PostgreSQL liefen (genau die Abgrenzung aus
+`ORDER_GATE.md` §7, jetzt mit Leben gefüllt):
+
+1. **`digest()` nicht gefunden (SQLSTATE 42883).** Supabase installiert
+   `pgcrypto` im Schema `extensions`, nicht `public`; der `search_path` der
+   Funktion (`public, pg_temp`) schließt `extensions` nicht ein. Fix:
+   schema-qualifizierter Aufruf `extensions.digest(...)` statt den `search_path`
+   zu erweitern (sicherer gegen Schema-Spoofing).
+2. **Mehrdeutige Spaltenreferenz `status`/`total_cents`/`currency` (SQLSTATE
+   42702).** Die `SELECT ... INTO v_existing`-Blöcke referenzierten diese Namen
+   ohne Tabellen-Alias, aber sie sind auch `RETURNS TABLE`-Spaltennamen der
+   Funktion. Fix: Alias `o.` und `from public.orders o`.
+
+Beide Fixes sind in die `20260718010000_…_race_fix.sql` eingeflossen (Header-
+Kommentar dokumentiert sie) und wurden direkt auf die Remote-Instanz angewendet.
+Danach: **4/4 Integrationstests grün** gegen die echte Instanz
+(Anonymous Sign-in → Bestellung → ACK mit korrektem DB-Preis 690 → Idempotenz-
+Replay → Konflikt bei geändertem Payload → RLS-Anon-Ablehnung).
+
+**Konsequenz für `main`:** die dort gemergte KL-WEB-002-RPC (`20260717120000`)
+enthält beide Bugs — ohne die Race-Fix-Migration `20260718010000` ist eine echte
+Bestellung auf einer frischen Supabase-Instanz **nicht möglich**. Das ist kein
+Merge-Blocker für KL-WEB-003 (die Race-Fix-Migration ist ja gerade Teil dieses
+Strangs), aber `CURRENT.md`/`ORDER_GATE.md` sollten nach Integration darauf
+hinweisen, dass die drei Migrationen nur zusammen lauffähig sind.
+
 ## Restrisiken / Offenpunkte (ehrlich)
 
-- **Integrationstests sind code-seitig vorbereitet, aber nicht gelaufen** —
-  dafür fehlt die echte Instanz (vom Nutzer anzulegen). Die Tests beweisen
-  erst etwas, wenn `KL_INTEGRATION=1` gegen ein echtes Projekt läuft.
-- **Race-Fix ist SQL, nicht gegen echtes PostgreSQL verifiziert.** Die
-  `EXCEPTION WHEN unique_violation`-Logik ist Standard-PL/pgSQL und
-  sorgfältig geschrieben, aber in dieser Umgebung nicht laufend geprüft. Der
-  Integrationstest „Replay" deckt den seriellen Fall ab; die echte
-  Concurrent-Race wäre ein eigenes Last-Test-Szenario.
+- **Integrationstests laufen jetzt echt (4/4 grün)** gegen die
+  Nutzer-Instanz. Was sie beweisen: RPC-Ausführung, serverseitige Neubepreisung,
+  Idempotenz (seriell), Konflikt, RLS-Durchsetzung, Anonymous-Sign-in-Pfad. Was
+  sie **nicht** beweisen: die echte *Concurrent*-Race (zwei gleichzeitige
+  Requests mit demselben Key) — das wäre ein eigenes Last-Test-Szenario. Der
+  serielle Replay- und der Konflikt-Test decken die Logik ab; die
+  Unique-Constraint-Durchsetzung selbst ist Postgres-Standard.
+- **Instanz ist ein echtes Cloud-Projekt des Nutzers** (kein Test-Fixture im
+  Repo). Die Integrationstests sind nur mit dessen `.env.local` + `KL_INTEGRATION=1`
+  reproduzierbar; CI würde sie ohne Secrets skippen. Das ist bewusst so.
 - **`npm audit`:** unverändert zwei moderate Findings in Dev-/Transitiv-
   Abhängigkeiten des Scaffolds (KL-WEB-001 notiert); Sandbox-unkritisch.
 - **Cleanup orphaned anonymous users** (DECISIONS.md Guest Web) noch nicht
