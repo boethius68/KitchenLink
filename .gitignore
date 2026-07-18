@@ -10,3 +10,9 @@ docs/design/claude-design/inbox/*.zip
 xcuserdata/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+
+# Supabase CLI local cache (contains project ref + pooler URL; never commit).
+supabase/.temp/
+
+# ZCode agent session state (transient, agent-specific).
+.zcode/
