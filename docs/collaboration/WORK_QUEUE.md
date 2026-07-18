@@ -480,8 +480,8 @@ auf iOS Safari und Android Chrome im Referenz-WLAN offen.
 
 ### KL-OFFLINE-005 - Lokaler Kuechen-/Kellner-Workflow auf dem iPhone
 
-**Status:** Implementiert und auf zwei echten Geraeten abgenommen; Review und
-Integration ausstehend
+**Status:** Erledigt; auf zwei echten Geraeten abgenommen und mit PR #23 in
+`main` integriert
 **Abhaengigkeit:** KL-OFFLINE-004, PR #22
 **Schreibbereich:** `prototypes/KitchenLinkLocalGuestPOC/`,
 `kitchenlink/Features/LocalOperations/`, additive V2-Navigation,
@@ -666,6 +666,6 @@ Designentscheidung; `DECISIONS.md` unberührt.
     messen.~~ Review und iPhone-Bestellung erledigt; PR #22 behebt den dabei
     gefundenen Plain-HTTP/Web-Crypto-Fehler.
 14. ~~KL-OFFLINE-005 auf dem echten iPhone mit einem zweiten Bestellgeraet
-    abnehmen.~~ Erfolgreich am 19. Juli 2026. Review und Integration von PR #23
-    abschliessen; Android Chrome, AP-Isolation und Discovery bleiben die
-    naechsten Netzwerk-Gates.
+    abnehmen und integrieren.~~ Erfolgreich am 19. Juli 2026 und mit PR #23
+    in `main` integriert. Android Chrome, AP-Isolation und Discovery bleiben
+    die naechsten Netzwerk-Gates.
