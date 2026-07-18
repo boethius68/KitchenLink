@@ -111,6 +111,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<dein-anon-public-key>
 
 Die Vorlage dafür steht in `guest-web/.env.example`.
 
+> **Wichtig seit KL-WEB-004:** das Menü wird aus Supabase geladen (ISR,
+> `revalidate = 60s`). Die `NEXT_PUBLIC_SUPABASE_*`-Env-Variablen werden daher
+> auch **zur Build-Zeit** gebraucht (Hostinger-PaaS-Env setzt sie für beide
+> Phasen). Fällt Supabase während eines Rebuilds aus, greift der
+> Fixture-Fallback (`venue-data.ts`) — der Build rotiert nicht, und DB-Änderungen
+> sind nach max. 60 Sekunden sichtbar.
+
 Dann lokal starten:
 
 ```bash

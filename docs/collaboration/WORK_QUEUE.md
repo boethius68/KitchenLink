@@ -495,6 +495,36 @@ setzen, Repo in Vercel verbinden. Der Leitfaden `SANDBOX_SETUP.md` fuehrt
 Schritt fuer Schritt. Ist die Instanz konfiguriert, laufen die
 Integrationstests echte Aussagen (siehe `ORDER_GATE.md` §7 Abgrenzung).
 
+### KL-WEB-004 - Menue-Anzeige aus Supabase (ISR) statt lokaler Fixture
+
+**Status:** Implementiert auf `glm/web-menu-from-supabase`; bereit fuer Review
+**Abhaengigkeit:** KL-WEB-002, KL-WEB-003 (beide erledigt, gemergt)
+**Schreibbereich:** `guest-web/`, neue additive Migration unter
+`supabase/migrations/`, `docs/architecture/guest-web/`,
+`docs/collaboration/handoffs/GLM.md`, dieser Eintrag
+
+Schließt die Menü-Quell-Inkonsistenz aus KL-WEB-002/003: die Gastkarte holte
+ihr Menü bisher aus der lokalen Fixture `venue-data.ts`, während die Bestellung
+serverseitig aus der DB validiert wurde. Ab jetzt holt `guest-web/src/lib/
+menu-loader.ts` die Venue mit Menü aus Supabase, gerendert als **ISR
+(`revalidate = 60s`)**: Seite bleibt CDN-cachebar, DB-Änderungen sind nach max.
+einer Minute sichtbar. Additive Migration `20260719000000_menu_items_tag`
+ergänzt die nullable `menu_items.tag`-Spalte (ge seedet für die 8 Sandbox-
+Items, deckungsgleich mit der Fixture), damit die „beliebt"/„vegetarisch"-
+Pills beim Supabase-Fetch erhalten bleiben.
+
+**Lastende Invariante (für andere Agenten wichtig):** in `menu-loader.ts` ist
+`GuestMenuItem.id = menu_items.slug` (NICHT die UUID), weil `order-submit.ts`
+`item.id` als Bestell-Slug an die RPC schickt, die über `menu_items.slug`
+auflöst. Wer den Lese-Pfad ändert, darf diese Zuordnung nicht brechen.
+
+Die lokale Fixture bleibt als **Build-Fallback** erhalten (Hostinger-Rebuild
+bei Supabase-Ausfall fällt nicht rot). Verifikation: typecheck/lint sauber,
+50/50 Unit-Tests, 8/8 Integrationstests gegen die echte Instanz, `next build`
+meldet `Revalidate 1m` auf `/[venueSlug]/menu`. Kein visuelles Delta, kein
+Bestellpfad-Change, keine neuen Tokens. Offen: Live-Smoke-Test durch den
+Nutzer nach Merge + Hostinger-Redeploy.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

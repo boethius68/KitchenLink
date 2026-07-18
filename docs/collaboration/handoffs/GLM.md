@@ -1,11 +1,113 @@
-# Handoff — GLM (KL-WEB-003 Gast-Web-Sandbox in Betrieb)
+# Handoff — GLM (KL-WEB-004 Menü aus Supabase)
+
+**Datum:** 18. Juli 2026
+**Agent:** GLM-5.2 via ZCode
+**Branch:** `glm/web-menu-from-supabase` (von `origin/main`, `b0cb443`)
+**Ticket:** KL-WEB-004 — Menü-Anzeige aus Supabase (ISR) statt lokaler Fixture
+**Status:** Vollständig umgesetzt und verifiziert (typecheck/lint/test/build +
+8/8 Integrationstests gegen echte Instanz); bereit für Review und Merge.
+
+## Was dieser Strang tut
+
+Schließt die Menü-Quell-Inkonsistenz aus KL-WEB-002/003: die Gastkarte holte
+ihr Menü bisher aus der lokalen Fixture `guest-web/src/lib/venue-data.ts`,
+während die Bestellung serverseitig aus der DB validiert wurde — DB-seitige
+Menü-Änderungen wären im Live-Produkt unsichtbar gewesen. Die Fixture war in
+KL-WEB-001 explizit als Naht für genau diesen Wechsel dokumentiert.
+
+**Entscheidungen (mit Nutzer geklärt):** Rendering = **ISR `revalidate=60s`**
+(minimalinvasive Abweichung von ADR-001 §3 „SSG+CDN"; Seite bleibt cachebar,
+DB-Änderungen nach max. 1 min sichtbar). Tag-Pills = **additive
+`menu_items.tag`-Spalte**, Seed gepflegt, damit das Round-04-visuelle Ergebnis
+(„beliebt"/„vegetarisch") beim Supabase-Fetch erhalten bleibt.
+
+## Umgesetzte Dateien (alle im exklusiven Schreibbereich)
+
+- `supabase/migrations/20260719000000_menu_items_tag.sql` (neu, additiv):
+  nullable `menu_items.tag`-Spalte + idempotente Updates für die 8 Sandbox-
+  Items (deckungsgleich mit `venue-data.ts`). Angewendet auf die Remote-Instanz.
+- `guest-web/src/lib/menu-loader.ts` (neu): Supabase-Lese-Schicht.
+  `mapVenueRowToGuestVenue` (reiner Mapper, testbar) + `fetchVenueBySlugFromSupabase`.
+  **Lastende Invariante: `GuestMenuItem.id = menu_items.slug` (nicht die UUID)** —
+  `order-submit.ts:cartToSubmitItems` schickt `item.id` an die RPC, die über
+  `menu_items.slug` auflöst. Filter: nur aktive Menüs, nur `available=true`.
+- `guest-web/src/app/[venueSlug]/menu/page.tsx` (umgestellt): `revalidate = 60`,
+  `dynamicParams = true`, `generateStaticParams` holt Slugs aus Supabase mit
+  **Fallback auf Fixture** (Hostinger-Rebuild bei DB-Ausfall fällt nicht rot).
+  `resolveVenue` probiert Supabase, fällt auf `getVenueBySlug` zurück.
+- `guest-web/__tests__/menu-loader.test.ts` (neu, 10 Tests): reiner Mapper
+  gegen Mock — beweist id=slug-Invariante, Tag-Übernahme, available-Filter,
+  defensives Verwerfen ungültiger Items, Sortierung.
+- `guest-web/__tests__/integration/menu-loader.integration.test.ts` (neu,
+  4 Tests): echter Lese-Pfad gegen die Nutzer-Instanz — 8 Items ohne SignIn,
+  korrekte DB-Preise, Tag-Pills, null bei unbekannter Venue. Skippt ohne
+  `KL_INTEGRATION=1`.
+- `docs/architecture/guest-web/ORDER_GATE.md`: §1 „Wird die Gastkarte auf
+  Supabase-Fetch umgestellt?" aktualisiert (Ja, ab KL-WEB-004); offene Punkte
+  korrigiert.
+- `docs/collaboration/CURRENT.md`, `WORK_QUEUE.md`, dieses Handoff: KL-WEB-004
+  eingetragen.
+
+## Verifikation
+
+- `npm run typecheck`, `npm run lint`: sauber.
+- `npm test` (Unit): ✓ 50/50 (10 neue menu-loader + 40 bestehende).
+- `KL_INTEGRATION=1 npm run test:integration`: ✓ 8/8 gegen die echte Instanz.
+- `npm run build`: ✓ `next build` meldet `Revalidate 1m, Expire 1y` auf
+  `/[venueSlug]/menu`, `/alte-muehle/menu` vorab generiert.
+
+## Was bewusst NICHT getan wurde
+
+- Kein SSR pro Request (ADR-001 §3 hält am SSG/CDN-Modell; ISR ist die
+  minimalinvasive Variante).
+- `venue-data.ts` wird **nicht gelöscht** — bleibt als Build-Fallback und für
+  bestehende Unit-Tests (`cart.test.ts`, `order-submit.test.ts`,
+  `venue-data.test.ts`), die alle weiterhin grün sind.
+- Keine Menü-Editor-UI (operatorseitige `tag`-Pflege = eigenes Ticket).
+- Keine Änderung an `order-submit.ts`/RPC (Bestellseite bleibt autoritativ).
+- Keine neuen Tokens / kein visuelles Delta.
+
+## Restrisiken / Offenpunkte
+
+- **Build-Zeit-Abhängigkeit auf Supabase:** `generateStaticParams` versucht
+  zur Bauzeit einen Supabase-Fetch; schlägt er fehl, fällt er auf die Fixture
+  („alte-muehle") zurück. Der Build rotiert also nicht, aber bei DB-Ausfall
+  werden zur Bauzeit nur die Fixture-Slugs vorab generiert (andere Slugs per
+  ISR zur Runtime). Auf Hostinger sind die Env-Vars laut `SANDBOX_SETUP.md`
+  gesetzt; kein akutes Risiko.
+- **Tag-Spalte ist optional** — die meisten Artikel haben `NULL`. Das ist
+  beabsichtigt (nur „beliebt"/„vegetarisch"); die Pflege erfolgt heute über
+  Migrationen, eine UI fehlt noch.
+- **Visuelle Identität nur per Test, nicht per Screenshot bewiesen** — die
+  ISR-Seite sieht identisch aus (gleiche `GuestVenue`-Form), aber ein echter
+  visueller Side-by-Side-Vergleich lokal-vs-DB steht noch aus. Der Nutzer
+  macht den Live-Smoke-Test nach Merge.
+
+## Schreibbereich & Kollisionsfreiheit
+
+`guest-web/`, die neue additive Migration (`20260719000000_…`; die übrigen
+Migrationen unangetastet), `docs/architecture/guest-web/ORDER_GATE.md`,
+`docs/collaboration/CURRENT.md`, `WORK_QUEUE.md` und diese Handoff-Datei. Keine
+Berührung von iOS-Code/PR-#7-#8-Scopen; nichts außerhalb. Keine
+`DECISIONS.md`-Änderung (ISR-vs-SSG und tag-Spalte sind Implementierungsdetails
+innerhalb der vom Nutzer freigegebenen ADR-001-Richtung).
+
+## Empfohlener nächster Schritt
+
+Review + Merge nach `main` → Hostinger auto-deploy → Live-Smoke-Test durch den
+Nutzer (`kitchenlink.luneq.eu/alte-muehle/menu`: visuell identisch, aber nun
+DB-gebunden; nach einer Menü-Änderung im Supabase-Dashboard max. 60s warten und
+die Änderung live sehen).
+
+---
+
+# Vorheriger Strang: KL-WEB-003 (Gast-Web-Sandbox in Betrieb)
 
 **Datum:** 18. Juli 2026
 **Agent:** GLM-5.2 via ZCode
 **Branch:** `glm/web-next` (von aktuellem `main`, `4f65ac2`)
 **Ticket:** KL-WEB-003 — Gast-Web zur laufenden Sandbox (Deploy + echte Tests)
-**Status:** Vollständig umgesetzt und verifiziert (typecheck/lint/test/build
-grün); committet und gepusht. Bereit für Review.
+**Status:** Vollständig umgesetzt, gemergt (PR #10/#12/#13) und live.
 
 > KL-WEB-002 (autoritative Bestellgrenze) ist zuvor gemergt worden
 > (`1cfd253`, inkl. Claude-Review-Fix). Dieser Strang macht jene Logik

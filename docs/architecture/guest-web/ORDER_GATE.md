@@ -44,19 +44,26 @@ Eingriff.
   Layout, Controls) ist unangetastet — es ist eine Datenverdrahtung, kein
   Redesign.
 
-### Wird die Gastkarte in diesem Ticket auf Supabase-Fetch umgestellt?
+### Wird die Gastkarte auf Supabase-Fetch umgestellt?
 
-**Nein.** Die lokale Fixture `guest-web/src/lib/venue-data.ts` bleibt für die
-Menüanzeige und die statische Generierung (SSG) der Route `/[venueSlug]/menu`
-bestehen. Das ist die dokumentierte Naht aus KL-WEB-001; ein Supabase-Fetch
-für die Menüanzeige ist ein eigenes, späteres Ticket und berührt nur
-`getVenueBySlug`, nicht das Bestell-Pfad oder das visuelle Design.
+**Ja, ab KL-WEB-004.** Die Menüanzeige holt die Venue mit ihrem Menü aus
+Supabase (`guest-web/src/lib/menu-loader.ts`), gerendert via ISR
+(`revalidate = 60s`): die Seite bleibt statisch cachebar (CDN), aber
+DB-Änderungen sind nach max. einer Minute sichtbar. Die lokale Fixture
+`guest-web/src/lib/venue-data.ts` bleibt als **Build-Fallback** erhalten —
+falls Supabase bei einem Hostinger-Rebuild nicht erreichbar ist, fällt die
+Route auf die Fixture zurück, statt den Build rot werden zu lassen.
 
-Der Supabase-Seed existiert **parallel** zur Fixture, damit die RPC
-**ausschließlich aus DB-Preisen** rechnet (`menu_items.price_cents`) und der
-Client-Preis nicht vertraut wird (ADR-001 §6.1). Solange Fixture und Seed
-deckungsgleich sind, ist das konsistent; der Seed ist sogar die autoritative
-Preisquelle für die Bestellung.
+Die Bestellseite bleibt autoritativ: die RPC `guest_web_submit_order` rechnet
+weiterhin **ausschließlich aus DB-Preisen** (`menu_items.price_cents`) und
+vertraut dem Client nicht (ADR-001 §6.1). Damit Anzeige und Bestellung
+konsistent sind, gilt in `menu-loader.ts` die Invariante
+`GuestMenuItem.id = menu_items.slug` (nicht die UUID) — nur so findet
+`order-submit.ts:cartToSubmitItems` denselben Slug, den die RPC auflöst.
+
+Die Tag-Pills („beliebt", „vegetarisch") kamen ursprünglich nur aus der Fixture;
+KL-WEB-004 ergänzt die `menu_items.tag`-Spalte, sodass sie auch aus der DB
+kommen und beim Supabase-Fetch erhalten bleiben (Round-04-Visual-Review).
 
 ---
 
@@ -260,9 +267,8 @@ bzw. lokaler Supabase-Stack).
   Test-Bereich; siehe Abgrenzung oben.
 - **Öffnungszeit/Kapazität** sind simulierte Felder (§5); echte Prüfungen sind
   ein Folgeticket.
-- **Menü-Fetch via Supabase** statt lokaler Fixture ist ein eigenes Ticket
-  (betrifft nur `getVenueBySlug`, nicht den Bestellpfad).
-- **Cleanup orphaned anonymous users** (DECISIONS.md Guest Web) ist noch nicht
+- **Menü-Fetch via Supabase** ist mit KL-WEB-004 umgesetzt (ISR 60s, Fixture
+  als Build-Fallback, `menu_items.tag` für die Pills). Cleanup orphaned anonymous users (DECISIONS.md Guest Web) ist noch nicht
   umgesetzt; betrifft das Supabase-Projekt, nicht diesen Code-Scope.
 - **`npm audit`** meldet zwei moderate Findings in Dev-/Transitiv-Abhängigkeiten
   des Scaffolds; für die Sandbox unkritisch, vor Produktion zu prüfen
