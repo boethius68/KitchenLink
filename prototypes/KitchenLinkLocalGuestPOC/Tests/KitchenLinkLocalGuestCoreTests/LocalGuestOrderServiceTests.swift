@@ -82,10 +82,12 @@ struct LocalGuestOrderServiceTests {
 
         #expect(router.route(HTTPRequest(method: "GET", path: "/")).status == 200)
         #expect(router.route(HTTPRequest(method: "GET", path: "/bootstrap")).status == 200)
-        #expect(router.route(HTTPRequest(method: "POST", path: "/orders", body: body)).status == 201)
-        #expect(router.route(HTTPRequest(method: "POST", path: "/orders", body: body)).status == 200)
+        #expect(router.route(HTTPRequest(method: "POST", path: "/orders", body: body)).status == 415)
+        let jsonHeaders = ["Content-Type": "application/json; charset=utf-8"]
+        #expect(router.route(HTTPRequest(method: "POST", path: "/orders", headers: jsonHeaders, body: body)).status == 201)
+        #expect(router.route(HTTPRequest(method: "POST", path: "/orders", headers: jsonHeaders, body: body)).status == 200)
 
         let changed = request(key: order.idempotencyKey, items: [OrderLineRequest(itemID: "lemonade", quantity: 1)])
-        #expect(router.route(HTTPRequest(method: "POST", path: "/orders", body: try encoder.encode(changed))).status == 409)
+        #expect(router.route(HTTPRequest(method: "POST", path: "/orders", headers: jsonHeaders, body: try encoder.encode(changed))).status == 409)
     }
 }

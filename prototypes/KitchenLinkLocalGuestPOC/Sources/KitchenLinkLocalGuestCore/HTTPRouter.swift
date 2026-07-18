@@ -75,6 +75,19 @@ public final class HTTPRouter: @unchecked Sendable {
         guard request.body.count <= 64 * 1024 else {
             return error(status: 413, reason: "Payload Too Large", code: "payload_too_large", message: "Bestellung ist zu groß.")
         }
+        let contentType = request.headers.first { key, _ in
+            key.lowercased() == "content-type"
+        }?.value.split(separator: ";", maxSplits: 1).first?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard contentType == "application/json" else {
+            return error(
+                status: 415,
+                reason: "Unsupported Media Type",
+                code: "unsupported_media_type",
+                message: "Bestellungen müssen als application/json gesendet werden."
+            )
+        }
         do {
             let order = try decoder.decode(LocalOrderRequest.self, from: request.body)
             let receipt = try service.placeOrder(order)

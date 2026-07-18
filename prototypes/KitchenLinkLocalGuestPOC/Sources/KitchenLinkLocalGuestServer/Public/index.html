@@ -46,7 +46,21 @@
     const money = cents => new Intl.NumberFormat('de-DE', {style:'currency', currency:'EUR'}).format(cents / 100);
     function total() { return state.menu.reduce((sum, item) => sum + item.priceMinor * (state.quantities[item.id] || 0), 0); }
     function render() {
-      document.querySelector('#menu').innerHTML = state.menu.map(item => `<article class="item"><div><h2>${item.name}</h2><p>${item.description}</p><span class="price">${money(item.priceMinor)}</span></div><div class="stepper"><button data-id="${item.id}" data-delta="-1" aria-label="${item.name} entfernen">−</button><strong>${state.quantities[item.id] || 0}</strong><button data-id="${item.id}" data-delta="1" aria-label="${item.name} hinzufügen">+</button></div></article>`).join('');
+      const menu = document.querySelector('#menu');
+      menu.replaceChildren();
+      state.menu.forEach(item => {
+        const article = document.createElement('article'); article.className = 'item';
+        const details = document.createElement('div');
+        const heading = document.createElement('h2'); heading.textContent = item.name;
+        const description = document.createElement('p'); description.textContent = item.description;
+        const price = document.createElement('span'); price.className = 'price'; price.textContent = money(item.priceMinor);
+        details.append(heading, description, price);
+        const stepper = document.createElement('div'); stepper.className = 'stepper';
+        const remove = document.createElement('button'); remove.dataset.id = item.id; remove.dataset.delta = '-1'; remove.setAttribute('aria-label', `${item.name} entfernen`); remove.textContent = '−';
+        const quantity = document.createElement('strong'); quantity.textContent = state.quantities[item.id] || 0;
+        const add = document.createElement('button'); add.dataset.id = item.id; add.dataset.delta = '1'; add.setAttribute('aria-label', `${item.name} hinzufügen`); add.textContent = '+';
+        stepper.append(remove, quantity, add); article.append(details, stepper); menu.append(article);
+      });
       document.querySelector('#total').textContent = money(total());
       document.querySelector('#submit').disabled = total() === 0;
     }

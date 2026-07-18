@@ -36,6 +36,17 @@ echter Geraete-/Netzwerknachweis bleibt abnahmepflichtig
   zurueckgesetzt; keine Browser-Warnungen oder -Fehler.
 - `git diff --check`: bestanden.
 
+## Integration Review (PR #20)
+
+- PR gegen den exakten `main`-Stand geprueft: mergebar, keine offenen Reviews,
+  Kommentare oder CI-Fehler.
+- Vor Integration zwei Härtungen eingearbeitet: `POST /orders` akzeptiert nur
+  noch `application/json`, sodass einfache Cross-Origin-Form-/Text-Requests
+  keine lokale Bestellung ausloesen koennen; Menüdaten werden mit DOM-
+  `textContent` statt HTML-Interpolation gerendert.
+- Danach erneut 6/6 Swift-Tests und eine echte mobile Browserbestellung bei
+  390 x 844: `lokal #1`, keine Browser-Warnungen oder -Fehler.
+
 ## Remaining Risk (KL-OFFLINE-004)
 
 - Der Server ist bewusst ein sequentieller macOS-Entwickler-Surrogat. Er ist
