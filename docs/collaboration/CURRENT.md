@@ -4,13 +4,12 @@
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Latest material integration:** PR #19
-(`codex/approve-local-guest-ordering` -> `main`) records local guest ordering
-during cloud failure as a required Sandbox-Beta capability. PR #17 previously
-aligned the repository with the live sandbox, preserved Supabase menu ordering
-and cleared the dependency audit; PR #15 added the reviewed read-only V2
-inventory operator surface. The guest web remains deployed from `main` to
-Hostinger PaaS at
+**Latest material integration:** PR #20
+(`codex/local-guest-ordering-poc` -> `main`) adds the isolated, reviewed local
+guest-ordering host surrogate with commit-before-ACK, idempotency and a mobile
+same-origin guest page. PR #19 records local guest ordering during cloud failure
+as a required Sandbox-Beta capability. The guest web remains deployed from
+`main` to Hostinger PaaS at
 **`https://kitchenlink.luneq.eu`** and anonymous sandbox ordering has been
 verified end-to-end against the EU-Frankfurt Supabase instance.
 
@@ -151,6 +150,9 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   conflict. This proves the software seam locally, not the Stage-2 network
   gate: QR generation, iOS/Android devices, AP isolation, Hub lifecycle,
   Bonjour and TLS/trust remain open and no production path is activated.
+  PR #20 integrated the prototype after an additional review pass required
+  `application/json` for order writes and replaced menu HTML interpolation with
+  DOM-safe text rendering. The merge commit is `be54d60`.
 - `kitchenlink/Features/Workforce/` (KL-WORKFORCE-001) is an isolated Swift
   domain foundation for shift planning, time tracking and staffing
   (Blueprint §9): `VenueShift`, `WorkforcePlannedShift` and time-entry

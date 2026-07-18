@@ -1,9 +1,21 @@
 # Codex Handoff
 
 **Updated:** 18 July 2026
-**Branch:** `codex/local-guest-ordering-poc`
-**Status:** Lokaler Gastbestell-Hostsurrogat umgesetzt und verifiziert;
-echter Geraete-/Netzwerknachweis bleibt abnahmepflichtig
+**Branch:** `codex/post-merge-state-pr20`
+**Status:** KL-OFFLINE-004 mit PR #20 integriert; echter
+Geraete-/Netzwerknachweis bleibt abnahmepflichtig
+
+## Latest Continuation (18. Juli 2026, PR #20 Integration)
+
+- PR #20 nach dem Integrationsreview aus dem Draft genommen und als Merge-
+  Commit `be54d60` nach `main` integriert.
+- `origin/main` auf den Merge-Commit aktualisiert und diesen CURRENT-/Queue-
+  Nachtrag von der exakten Integrationsbasis angelegt.
+- Vor dem Merge wurden zwei Review-Härtungen ergänzt: JSON-Inhaltstyp-Pflicht
+  für Order-Writes und DOM-sicheres Menü-Rendering. Danach erneut 6/6 Tests und
+  eine mobile Browserbestellung ohne Warnungen oder Fehler.
+- Der nächste Gate bleibt unverändert: iOS Safari und Android Chrome müssen den
+  lokalen Top-Level-Pfad im Referenz-WLAN tatsächlich erreichen und bestellen.
 
 ## Latest Continuation (18. Juli 2026, KL-OFFLINE-004)
 
