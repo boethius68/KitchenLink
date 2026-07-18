@@ -78,6 +78,25 @@ append-only; superseded decisions are marked rather than deleted.
   shell stage (D5). The sandbox order gate currently uses the PostgreSQL RPC
   variant; a production architecture may revisit that implementation detail.
 
+## Local Guest Ordering (approved 18 July 2026)
+
+- **Required sandbox capability:** Guests must be able to order locally when
+  the cloud connection is unavailable. Dropping local guest access in favor of
+  cloud-only guest ordering is not an acceptable fallback for the Sandbox Beta.
+- **Local eligibility:** The guest device must be connected to the restaurant's
+  local network and must reach a locally served guest surface. KitchenLink does
+  not promise local ordering to a device that can reach neither the restaurant
+  network nor the cloud.
+- **Authoritative acknowledgement:** The guest UI may confirm arrival only
+  after at least one authoritative venue node has durably stored the order.
+- **Architecture boundary:** This approves the product requirement, not a
+  transport shortcut. A cloud HTTPS page must not be designed to fetch an
+  untrusted local HTTP endpoint in conflict with browser security. Local page
+  delivery/bootstrap, AP isolation, TLS/trust, device identity, failover and
+  recovery require measured architecture proof before network implementation.
+- **Sandbox boundary:** This decision activates no live payment, production
+  infrastructure or certified fiscal behavior.
+
 ## Collaboration Governance
 
 - **Agent parity:** Claude Code and Codex work as equal technical collaborators.
@@ -85,9 +104,9 @@ append-only; superseded decisions are marked rather than deleted.
   other's work.
 - **Active agents (approved 18 July 2026):** Until the user changes this
   decision, new project work is assigned only to Claude Code and Codex. Work
-  and handoffs from GLM, DeepSeek, Kimi and MiniMax remain historical context;
-  the already-open GLM PR #15 may still be reviewed and integrated by Claude or
-  Codex.
+  and handoffs from GLM, DeepSeek, Kimi and MiniMax remain historical context.
+  The temporary exception for the already-started GLM PR #15 is fulfilled; it
+  was reviewed and integrated and does not authorize further GLM work.
 - **Shared integration:** `main` is a neutral shared integration branch. Every
   agent works in its own branch and worktree and may propose, implement, review
   or integrate work under the same rules.
