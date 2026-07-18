@@ -4,13 +4,11 @@
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Last merge:** PR #14 (`glm/web-menu-from-supabase` -> `main`, KL-WEB-004)
-switched the live menu read path to Supabase with 60-second ISR and a local
-fixture fallback. The guest web is deployed from `main` to Hostinger PaaS at
+**Last merge:** PR #15 (`glm/inventory-operator-ui` -> `main`,
+KL-INVENTORY-002) added the reviewed read-only V2 inventory operator surface.
+The guest web remains deployed from `main` to Hostinger PaaS at
 **`https://kitchenlink.luneq.eu`** and anonymous sandbox ordering has been
-verified end-to-end against the EU-Frankfurt Supabase instance. PR #15
-(`glm/inventory-operator-ui`, KL-INVENTORY-002) is open and not part of
-`main` yet.
+verified end-to-end against the EU-Frankfurt Supabase instance.
 
 ## Product
 
@@ -232,15 +230,16 @@ verified end-to-end against the EU-Frankfurt Supabase instance. PR #15
   unit + 8/8 integration tests green against the real instance; `next build`
   reports `Revalidate 1m` on `/[venueSlug]/menu`. No visual change, no token
   change, no order-path change.
-- `kitchenlink/Features/Inventory/` (KL-INVENTORY-001) is an isolated Swift
-  domain foundation for the stock core required by Blueprint §11:
+- `kitchenlink/Features/Inventory/` contains the Swift stock foundation from
+  KL-INVENTORY-001 and the read-only operator surface from KL-INVENTORY-002:
   dimension-safe quantities (mass/volume/count), an append-only ledger with
   idempotency keys, reversal and balanced-transfer protection, a
   fresh-computed physical/reserved/available projection, a recipe resolver
-  and a replenishment advisor. No UI, persistence, cloud sync or valuation
-  logic, as scoped.
-- The completed ticket history and the currently open PR #15 scope are recorded
-  in `docs/collaboration/WORK_QUEUE.md`.
+  and a replenishment advisor. The UI shows only location pairs with actual
+  ledger activity, avoiding false zero-stock alarms where no assortment model
+  exists. Persistence, cloud sync and valuation logic remain out of scope.
+- The completed ticket history is recorded in
+  `docs/collaboration/WORK_QUEUE.md`.
 - The shared collaboration and design state must be present on `origin/main`
   before Claude Code and Codex start parallel worktrees from it.
 - No production deployment, live payment activation or final fiscal integration
@@ -254,8 +253,8 @@ verified end-to-end against the EU-Frankfurt Supabase instance. PR #15
   process is `docs/collaboration/PEER_WORKFLOW.md`.
 - New work is assigned only to Claude Code or Codex until the user changes that
   decision. Earlier GLM, DeepSeek, Kimi and MiniMax handoffs remain historical
-  context. The already-open GLM PR #15 may be reviewed and integrated by Claude
-  or Codex.
+  context. The last already-started GLM strand, PR #15, has been reviewed and
+  integrated.
 - Claude Code `2.1.150` is installed locally.
 - The two-phase Claude audit and design implementation mission is recorded in
   `docs/collaboration/CLAUDE_MISSION.md`; Claude works in an isolated worktree.
@@ -270,11 +269,10 @@ verified end-to-end against the EU-Frankfurt Supabase instance. PR #15
 
 ## Current Focus and Open Decisions
 
-- **PR #15 / KL-INVENTORY-002:** open and mergeable. It adds a read-only V2
-  inventory surface on top of the existing inventory projection and advisor.
-  Local build, unit and UI suites are reported green; visual inspection and
-  review of the severity-to-urgency presentation remain open. Claude or Codex
-  performs the review; no new GLM work follows.
+- **Inventory:** PR #15 / KL-INVENTORY-002 is integrated after technical and
+  visual review. A future location-specific assortment contract would be
+  needed to display a planned article at `0` before its first ledger movement;
+  this is a known model boundary, not an active implementation ticket.
 - **Offline venue hub:** the local-network side remains blocked on the P0
   product and architecture decisions in
   `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4. In particular,

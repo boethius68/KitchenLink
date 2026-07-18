@@ -8,9 +8,10 @@ Arbeitspakete. Neue Tickets werden bis auf Weiteres nur von Claude Code oder
 Codex in einem eigenen Branch oder Worktree uebernommen. Bestehende Demo-,
 Offline- und Simulationspfade duerfen nicht entfernt werden.
 
-Aktuell offen ist PR #15 (`glm/inventory-operator-ui`, KL-INVENTORY-002). Er ist
-der letzte bereits begonnene GLM-Strang und wird von Claude oder Codex reviewt;
-sein Schreibbereich bleibt bis zur Review-/Integrationsentscheidung exklusiv.
+Der letzte bereits begonnene GLM-Strang, PR #15 (`KL-INVENTORY-002`), wurde am
+18. Juli 2026 von Codex reviewt, korrigiert und integriert. Neue Tickets werden
+nur noch von Claude Code oder Codex uebernommen, bis der Nutzer diese Vorgabe
+aendert.
 
 ## Arbeitsregeln
 
@@ -529,15 +530,14 @@ Nutzer nach Merge + Hostinger-Redeploy.
 
 ### KL-INVENTORY-002 — Read-only Inventory-Operator-UI (V2-Bestand)
 
-**Status:** Implementiert auf `glm/inventory-operator-ui`; bereit für Review
+**Status:** Erledigt; von Codex reviewt und mit PR #15 in `main` integriert
 **Abhängigkeit:** KL-INVENTORY-001 (erledigt, gemergt), KL-OPS-001
 (Heute/Küche als Referenzmuster, erledigt)
-**Schreibbereich:** neue Dateien unter `kitchenlink/Features/Inventory/Views/`,
-neue Testdatei `kitchenlinkTests/KitchenLinkV2InventoryStockProjectionTests.swift`,
-rein additive Edits in `kitchenlink/App/KitchenLinkV2BusinessHomeView.swift`
-(neuer NavigationLink), `kitchenlink/App/KitchenLinkDesignPreviewConfiguration.swift`
-(neue Launch-Arg-Konstante), `kitchenlinkUITests/kitchenlinkV2ScreenshotTests.swift`
-(neuer Branch), `docs/collaboration/handoffs/GLM.md`, dieser Eintrag
+**Historischer Schreibbereich:** neue Dateien unter
+`kitchenlink/Features/Inventory/Views/`, neue Testdatei
+`kitchenlinkTests/KitchenLinkV2InventoryStockProjectionTests.swift`, additive
+Navigation/Launch-Arg-/Screenshot-Harness-Edits sowie Review-Korrekturen an der
+Sandbox-Anzeige, diesem Eintrag und `docs/collaboration/handoffs/CODEX.md`
 
 Schließt die mit KL-INVENTORY-001 bewusst vertagte UI-Sicht: eine read-only
 Bestandsansicht für Betreiber:innen, die ihren Zustand ausschließlich aus
@@ -556,12 +556,10 @@ Case (`.stock`) erfunden und `KitchenLinkDesignSystemV2.swift` nicht angetastet
 eigenes Form-Muster über Farbe und Klartext sichtbar bleibt. Ein späterer
 `.stock`-Glyph ist eine separate Designfreigabe.
 
-**MiniMax-Scope-Ehre:** keine der 8 Inventory-Core-Dateien (Quantity/Models/
-Movement/Ledger/Projection/Replenishment/RecipeResolution/SandboxFixture)
-oder `INVENTORY_MODEL.md` wird angefasst. Die UI liegt im neuen Unterverzeichnis
-`Features/Inventory/Views/`; Dateinamen mit `KitchenLinkV2`-Präfix, um nicht
-mit MiniMax' `Inventory*Tests.swift` zu kollidieren und konsistent mit
-`KitchenLinkV2TodayEvents` zu sein.
+**Domain-Grenze:** Quantity, Models, Movement, Ledger, Projection,
+Replenishment, RecipeResolution und `INVENTORY_MODEL.md` blieben unveraendert.
+Im Review wurde lediglich der sichtbare Fixture-Name `Kueche` auf `Küche`
+korrigiert. Die UI liegt im Unterverzeichnis `Features/Inventory/Views/`.
 
 Review-Follow-up: Die erste visuelle Abnahme zeigte falsche lagerortfremde
 Warnungen aus dem vollständigen Zutaten×Lagerort-Kreuzprodukt sowie
@@ -570,11 +568,11 @@ tatsächlicher Ledger-Aktivität; physisch, reserviert und verfügbar sind jetzt
 explizit sichtbar, und Accessibility-Schriftgrößen stapeln die Zeile ohne
 Abschneiden.
 
-Verifikation: `xcodebuild build` grün; komplette Unit-Suite (`TEST SUCCEEDED`,
-inkl. MiniMax' 53 Inventory-Tests + 13 Stock-Projektion-Tests); UI-Suite grün;
-Screenshot-Capture Light+Dark grün (Assertions `inventory.title`,
-„Positionen"). Keine neue Produkt- oder Designentscheidung; `DECISIONS.md`
-unberührt.
+Verifikation: 13/13 Stock-Projektion-Tests und die komplette Unit-Suite grün;
+Screenshot-Capture Light+Dark grün und visuell geprüft. Nach einem
+Simulator-Runner-Flake liefen die drei betroffenen Navigations-UI-Tests im
+isolierten Wiederholungslauf vollständig grün. Keine neue Produkt- oder
+Designentscheidung; `DECISIONS.md` unberührt.
 
 ## Integrationsreihenfolge
 
