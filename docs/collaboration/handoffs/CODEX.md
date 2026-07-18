@@ -1,9 +1,22 @@
 # Codex Handoff
 
 **Updated:** 19 July 2026
-**Branch:** `codex/local-operator-workflow`
-**Status:** Lokalen Kueche-zu-Kellner-Workflow implementiert und auf zwei
-echten Geraeten abgenommen; Review und Integration bleiben offen
+**Branch:** `codex/post-merge-state-pr23`
+**Status:** Lokalen Kueche-zu-Kellner-Workflow implementiert, auf zwei echten
+Geraeten abgenommen und mit PR #23 in `main` integriert
+
+## Latest Continuation (19. Juli 2026, PR #23 Integration)
+
+- PR #23 nach der positiven Nutzerabnahme aus dem Draft genommen und als
+  Merge-Commit `7376f5a` nach `main` integriert.
+- `origin/main` auf den exakten Merge-Stand aktualisiert und diesen reinen
+  Statusnachtrag davon abgezweigt.
+- Keine GitHub-Actions-Checks waren fuer den PR konfiguriert; Mergebarkeit,
+  kompletter lokaler Testnachweis und die reale Zwei-Geraete-Abnahme waren vor
+  der Integration gruen.
+- Naechste Netzwerk-Gates bleiben Android Chrome, AP-Isolation,
+  Bonjour/Discovery, IP-Wechsel und Hub-Lifecycle. Daraus folgt weiterhin
+  keine Produktionsfreigabe.
 
 ## Latest Continuation (19. Juli 2026, echte Zwei-Geraete-Abnahme)
 
