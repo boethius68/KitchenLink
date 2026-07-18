@@ -561,12 +561,18 @@ oder `INVENTORY_MODEL.md` wird angefasst. Die UI liegt im neuen Unterverzeichnis
 mit MiniMax' `Inventory*Tests.swift` zu kollidieren und konsistent mit
 `KitchenLinkV2TodayEvents` zu sein.
 
+Review-Follow-up: Die erste visuelle Abnahme zeigte falsche lagerortfremde
+Warnungen aus dem vollständigen Zutaten×Lagerort-Kreuzprodukt sowie
+abgeschnittene Pflichttexte. Die UI-Projektion zeigt deshalb nur Paare mit
+tatsächlicher Ledger-Aktivität; physisch, reserviert und verfügbar sind jetzt
+explizit sichtbar, und Accessibility-Schriftgrößen stapeln die Zeile ohne
+Abschneiden.
+
 Verifikation: `xcodebuild build` grün; komplette Unit-Suite (`TEST SUCCEEDED`,
-inkl. MiniMax' 53 Inventory-Tests + 12 neuer Stock-Projektion-Tests); UI-Suite
-grün; Screenshot-Capture Light+Dark grün (Assertions `inventory.title`,
+inkl. MiniMax' 53 Inventory-Tests + 13 Stock-Projektion-Tests); UI-Suite grün;
+Screenshot-Capture Light+Dark grün (Assertions `inventory.title`,
 „Positionen"). Keine neue Produkt- oder Designentscheidung; `DECISIONS.md`
-unberührt. Offen: menschliche visuelle Prüfung durch den Reviewer (idb fehlt
-in GLMs Umgebung, daher keine Live-Inspektion durch den Autor).
+unberührt.
 
 ## Integrationsreihenfolge
 

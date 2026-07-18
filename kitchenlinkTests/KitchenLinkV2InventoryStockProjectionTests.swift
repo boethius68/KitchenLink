@@ -74,14 +74,42 @@ struct KitchenLinkV2InventoryStockProjectionTests {
     }
 
     @Test
-    func fixtureRowTotalMatchesCrossProduct() throws {
-        // 12 Zutaten × 2 Lagerorte = 24 Projektionszeilen.
+    func fixtureIncludesOnlyPairsWithLedgerActivity() throws {
         let (catalog, ledger) = try InventorySandboxFixture.makePopulatedLedger()
         let rows = try KitchenLinkV2InventoryStockProjection.rows(
             catalog: catalog,
             ledger: ledger
         )
-        #expect(rows.count == 24)
+        #expect(rows.count == 10)
+        for row in rows {
+            #expect(
+                ledger.movements(
+                    ingredientID: row.ingredientID,
+                    locationID: row.locationID
+                ).isEmpty == false
+            )
+        }
+    }
+
+    @Test
+    func fixtureDoesNotRaiseCrossLocationFalseWarnings() throws {
+        let (catalog, ledger) = try InventorySandboxFixture.makePopulatedLedger()
+        let groups = try KitchenLinkV2InventoryStockProjection.groups(
+            catalog: catalog,
+            ledger: ledger
+        )
+
+        let kitchen = try #require(groups.first { $0.id == InventorySandboxFixture.locationKitchen })
+        let bar = try #require(groups.first { $0.id == InventorySandboxFixture.locationBar })
+
+        #expect(kitchen.locationName == "Küche")
+        #expect(kitchen.rows.contains { $0.ingredientID == InventorySandboxFixture.ingredientRedWine } == false)
+        #expect(kitchen.rows.contains { $0.ingredientID == InventorySandboxFixture.ingredientWhiteWine } == false)
+        #expect(bar.rows.map(\.ingredientID).sorted() == [
+            InventorySandboxFixture.ingredientFlour,
+            InventorySandboxFixture.ingredientRedWine,
+            InventorySandboxFixture.ingredientWhiteWine,
+        ].sorted())
     }
 
     @Test
@@ -165,14 +193,16 @@ struct KitchenLinkV2InventoryStockProjectionTests {
     }
 
     @Test
-    func rowExposesExplanation() throws {
+    func rowExposesReadableDetailAndThresholds() throws {
         let (catalog, ledger) = try InventorySandboxFixture.makePopulatedLedger()
         let rows = try KitchenLinkV2InventoryStockProjection.rows(
             catalog: catalog,
             ledger: ledger
         )
         for row in rows {
-            #expect(row.explanation.isEmpty == false)
+            #expect(row.detail.isEmpty == false)
+            #expect(row.minimum.unit.isCompatible(with: row.available.unit))
+            #expect(row.target.unit.isCompatible(with: row.available.unit))
         }
     }
 }

@@ -24,9 +24,11 @@ struct KitchenLinkV2InventoryStockRow: Identifiable, Equatable {
     let physical: InventoryQuantity
     let reserved: InventoryQuantity
     let available: InventoryQuantity
+    let minimum: InventoryQuantity
+    let target: InventoryQuantity
     let urgency: KitchenLinkV2Urgency
     let verb: String
-    let explanation: String
+    let detail: String
 }
 
 /// Lagerort-Sektion in der Bestandsansicht. Bündelt alle Zeilen eines
@@ -48,7 +50,17 @@ enum KitchenLinkV2InventoryStockProjection {
     ) throws -> [KitchenLinkV2InventoryLocationGroup] {
         let projection = InventoryProjection(catalog: catalog, ledger: ledger)
         let advisor = InventoryReplenishmentAdvisor(catalog: catalog, projection: projection)
-        let snapshot = try projection.snapshot()
+        // `snapshot()` intentionally yields the complete cross product of all
+        // ingredients and locations. Without a location-specific assortment
+        // model, a pair with no ledger history does not mean "zero stock"; it
+        // means "not known to be stocked here". Showing it as a shortage would
+        // produce false operator alarms (for example wine in the kitchen).
+        let snapshot = try projection.snapshot().filter { entry in
+            !ledger.movements(
+                ingredientID: entry.ingredientID,
+                locationID: entry.locationID
+            ).isEmpty
+        }
 
         // Paare je Lagerort sammeln, Reihenfolge im Snapshot ist nicht
         // garantiert (Dictionary-Iteration), daher explizit gruppieren.
@@ -76,9 +88,11 @@ enum KitchenLinkV2InventoryStockProjection {
                         physical: entry.physical,
                         reserved: entry.reserved,
                         available: entry.available,
+                        minimum: evaluation.ingredient.minimumStock,
+                        target: evaluation.ingredient.targetStock,
                         urgency: urgency(for: severity),
                         verb: verb(for: severity),
-                        explanation: evaluation.explanation
+                        detail: detail(for: evaluation)
                     )
                 }
                 .sorted { lhs, rhs in
@@ -134,6 +148,20 @@ enum KitchenLinkV2InventoryStockProjection {
         case .ok: return "verfügbar"
         case .warning: return "knapp"
         case .critical: return "kritisch"
+        }
+    }
+
+    /// Kompakte, UI-taugliche Begruendung. Die vollstaendige Domain-Erklaerung
+    /// bleibt am Advisor; hier vermeiden wir doppelte Zahlenkolonnen und zeigen
+    /// den naechsten sinnvollen Kontext ohne Abschneiden.
+    static func detail(for evaluation: ReplenishmentEvaluation) -> String {
+        switch evaluation.severity {
+        case .ok:
+            return "Über Minimum \(evaluation.ingredient.minimumStock.displayString())"
+        case .warning:
+            return "Unter Minimum \(evaluation.ingredient.minimumStock.displayString()) · Ziel \(evaluation.ingredient.targetStock.displayString())"
+        case .critical:
+            return "Negativer Bestand · Buchungen prüfen"
         }
     }
 

@@ -58,8 +58,9 @@ final class kitchenlinkV2ScreenshotTests: XCTestCase {
         attachScreenshot(of: app, named: "kitchen-\(appearance)")
 
         // Inventory surface: read-only Bestand. Seeded independently from
-        // the order demo path so the fixture (12 ingredients × 2 locations
-        // = 24 rows) is visible without affecting Heute/Küche state.
+        // the order demo path. The 12-ingredient catalog shows only the
+        // location pairs with actual ledger activity, so an unstocked item is
+        // not misreported as a shortage at every location.
         app.terminate()
         app.launchArguments = [
             "--kitchenlink-design-v2",

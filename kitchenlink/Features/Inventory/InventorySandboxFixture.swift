@@ -159,7 +159,7 @@ enum InventorySandboxFixture {
                 )
             ],
             locations: [
-                StockLocation(id: locationKitchen, name: "Kueche", kind: .kitchen),
+                StockLocation(id: locationKitchen, name: "Küche", kind: .kitchen),
                 StockLocation(id: locationBar, name: "Bar", kind: .bar)
             ],
             suppliers: [
