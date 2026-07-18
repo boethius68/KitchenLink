@@ -21,6 +21,8 @@ echter Geraete-/Netzwerknachweis bleibt abnahmepflichtig
   ist nicht vertrauenswuerdig und beeinflusst weder Payload noch ACK.
 - Der Browser oeffnet die Gastseite direkt lokal. Es gibt absichtlich keinen
   Cross-Origin-Fetch von der HTTPS-Cloudseite zum HTTP-Hub.
+- Commit `ee8c62e` ist auf `codex/local-guest-ordering-poc` gepusht; Draft PR
+  #20 zielt auf `main`.
 
 ## Verification (KL-OFFLINE-004)
 
