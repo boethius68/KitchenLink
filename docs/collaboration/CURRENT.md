@@ -4,9 +4,12 @@
 **Integration branch:** `main`
 **Phase:** Design-system implementation
 **Release status:** Internal sandbox, not production
-**Last merge:** `minimax/inventory-domain` -> `main` (KL-INVENTORY-001), the
-isolated Swift inventory/stock domain foundation under
-`kitchenlink/Features/Inventory/`. Before that, the same day:
+**Last merge:** PR #10 `glm/web-next` -> `main` (KL-WEB-003), bringing the
+guest-web sandbox into real operation for the first time: an additive
+`20260718010000` migration that fixes two genuine bugs found by the first
+real-instance integration run (the merged KL-WEB-002 RPC was not runnable as
+shipped), plus an integration-test harness, Supabase CLI init and a setup
+guide. Before that, the same day: `minimax/inventory-domain` (KL-INVENTORY-001),
 `glm/guest-web-order-gate` (KL-WEB-002, the authoritative guest order gate and
 Supabase Anonymous Sign-in), PR #8 (KL-WORKFORCE-001 workforce domain), PR #7
 (KL-OFFLINE-003 event-log/outbox prototype), `claude/guest-web-foundation`
@@ -181,6 +184,27 @@ recorded that merge.
   database's unique constraint but not remapped to a clean conflict/replay
   result client-side — documented as a follow-up, not a merge blocker, since
   the core "never two orders for one key" guarantee still holds.
+- KL-WEB-003 (GLM, PR #10) closes that follow-up and proves the whole guest-web
+  stack against a real Supabase instance for the first time. Additive migration
+  `20260718010000` redefines `guest_web_submit_order` with an
+  `EXCEPTION WHEN unique_violation` block so the concurrent-race loser gets a
+  clean replay/conflict result instead of a generic `rpc_error`. The first real-
+  instance integration run (4/4 tests green against the user's EU-Frankfurt
+  sandbox project) also surfaced **two genuine bugs in the as-merged KL-WEB-002
+  RPC that the unit tests could not find**: `digest()` lives in Supabase's
+  `extensions` schema (not in the function's `search_path`) and the
+  `status`/`total_cents`/`currency` column references were ambiguous against the
+  function's own `RETURNS TABLE` columns. Both are fixed in `20260718010000`.
+  **Important: the three guest-web migrations (`20260318011000`,
+  `20260717120000`, `20260718010000`) are only runnable together** — the
+  original KL-WEB-002 RPC does not execute on a fresh Supabase instance without
+  the KL-WEB-003 fix migration. Also added: an integration-test harness under
+  `guest-web/__tests__/integration/` (skips cleanly without a configured
+  instance, `KL_INTEGRATION=1` to run), a Supabase CLI `config.toml` (no
+  secrets), and `docs/architecture/guest-web/SANDBOX_SETUP.md` (step-by-step:
+  Supabase EU-Frankfurt, enable Anonymous Sign-in, apply migrations, `.env.local`,
+  Vercel deploy). The user's sandbox instance is configured and live; the gate
+  runs. Hosting decision D4 (Vercel vs Cloudflare Workers) remains open.
 - `kitchenlink/Features/Inventory/` (KL-INVENTORY-001) is an isolated Swift
   domain foundation for the stock core required by Blueprint §11:
   dimension-safe quantities (mass/volume/count), an append-only ledger with
@@ -282,5 +306,11 @@ Remaining:
 - The network-side venue hub (local HTTP server, guest-to-hub reach,
   leader election/failover) is blocked on the user P0 decisions recorded in
   `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4.
-- The KL-WEB-002 idempotency-race follow-up and the Vercel sandbox
-  deployment / PWA stage for the guest web remain open in their own scopes.
+- The KL-WEB-002 idempotency-race follow-up is now closed (KL-WEB-003). The
+  user's real Supabase sandbox instance is configured and live; the guest-web
+  gate runs against it end-to-end.
+- Still open in the guest-web scope: the Vercel sandbox deployment (first
+  deploy, not a D4 hosting decision — the Vercel-vs-Cloudflare-Workers PoC from
+  ADR-001 §8 stays open), the PWA/offline stage (D5), the menü-fetch switch
+  from the local fixture to Supabase, and the cleanup policy for orphaned
+  anonymous users.
