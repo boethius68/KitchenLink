@@ -4,9 +4,11 @@
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Last merge:** PR #15 (`glm/inventory-operator-ui` -> `main`,
-KL-INVENTORY-002) added the reviewed read-only V2 inventory operator surface.
-The guest web remains deployed from `main` to Hostinger PaaS at
+**Latest material integration:** PR #17
+(`codex/project-cleanup-20260718` -> `main`) aligned the repository with the
+live sandbox, preserved Supabase menu ordering and cleared the dependency
+audit. PR #15 previously added the reviewed read-only V2 inventory operator
+surface. The guest web remains deployed from `main` to Hostinger PaaS at
 **`https://kitchenlink.luneq.eu`** and anonymous sandbox ordering has been
 verified end-to-end against the EU-Frankfurt Supabase instance.
 

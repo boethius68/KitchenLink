@@ -1,9 +1,19 @@
 # Codex Handoff
 
 **Updated:** 18 July 2026
-**Branch:** `codex/project-cleanup-20260718`
-**Status:** PR #15 integriert; Projekt-Cleanup auf aktuellem `main` bereit fuer
-Review
+**Branch:** `codex/post-merge-state-pr17`
+**Status:** PR #15 und Projekt-Cleanup PR #17 integriert; Post-Merge-Status
+abgeglichen
+
+## Latest Continuation (18. Juli 2026, PR #17 Integration)
+
+- Cleanup-PR #17 aus dem Draft genommen und als Merge-Commit `a743723` nach
+  `main` integriert.
+- `origin/main` und den gemergten `CURRENT.md`-Stand verifiziert.
+- Oeffentlicher Read-only-Smoke auf
+  `https://kitchenlink.luneq.eu/alte-muehle/menu`: HTTP 200.
+- Diesen reinen Doku-Follow-up angelegt, weil die bisherige Ueberschrift
+  unmittelbar nach dem Merge noch PR #15 als letzten Merge bezeichnete.
 
 ## Latest Continuation (18. Juli 2026, PR #15 Review)
 
@@ -97,6 +107,5 @@ From `guest-web/` after a clean dependency install:
 
 ## Remaining / Recommended Next Step
 
-1. Review and merge this cleanup branch.
-2. Product decisions for the network-side venue hub, PWA/offline behavior,
+1. Product decisions for the network-side venue hub, PWA/offline behavior,
    anonymous-user retention and production hosting remain open.
