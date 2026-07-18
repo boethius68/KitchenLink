@@ -163,6 +163,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 )
             }
             .accessibilityIdentifier("business.openKitchen")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
+                InventoryOperatorView()
+            } label: {
+                operationsRow(
+                    title: "Bestand",
+                    subtitle: "Verfügbarer Bestand je Lagerort · Sandbox",
+                    systemImage: "archivebox"
+                )
+            }
+            .accessibilityIdentifier("business.openInventory")
         }
         .padding(.horizontal, KitchenLinkV2Spacing.large)
         .background(
