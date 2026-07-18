@@ -1,7 +1,7 @@
 # KitchenLink Gast-Web
 
-Sandbox-Fundament für das Gast-Web (KL-WEB-001). Grundlage sind die vom
-Nutzer am 17. Juli 2026 freigegebenen Entscheidungen
+Sandbox-Fundament für das Gast-Web. Grundlage sind die vom Nutzer am
+17. Juli 2026 freigegebenen Entscheidungen
 (`docs/collaboration/DECISIONS.md`, Abschnitt „Guest Web") und
 `docs/architecture/guest-web/ADR-001_GUEST_WEB_STACK.md`:
 
@@ -9,9 +9,9 @@ Nutzer am 17. Juli 2026 freigegebenen Entscheidungen
 - **Vercel** ist das Sandbox-Deployment-Ziel; der Vercel-vs.-Cloudflare-PoC
   ist ein verbindliches Gate vor jeder Produktionsaktivierung.
 - **Pfadbasierte Venue-Routen** (`/<venue>/menu`) in der Sandbox.
-- **Supabase Anonymous Sign-in** ist für die spätere Bestellgrenze gesetzt;
-  in diesem Fundament gibt es noch keine Supabase-Anbindung und keine
-  Bestellübermittlung.
+- **Supabase Anonymous Sign-in** + autoritative Bestellgrenze
+  (`guest_web_submit_order`-RPC, KL-WEB-002) sind umgesetzt; Status kommt
+  ausschließlich aus der Serverantwort.
 
 ## Stand dieses Fundaments
 
@@ -55,13 +55,24 @@ npm run dev        # Dev-Server
 npm run build      # Produktions-Build (SSG)
 npm run lint       # ESLint
 npm run typecheck  # tsc --noEmit
-npm test           # Vitest (Cart-Logik, Fixture-Invarianten, Token-Abgleich)
+npm test           # Vitest Unit (Cart-, Submit-/ACK-Logik, Fixture, Tokens)
+npm run test:integration  # gegen echte Supabase-Instanz (skippt ohne Konfig)
 ```
+
+## In Betrieb nehmen (Sandbox)
+
+Die Schritt-für-Schritt-Anleitung für Supabase-Projekt (EU-Frankfurt),
+Anonymous-Sign-in, Migrationen, `.env.local` und Vercel-Deployment steht in
+[`docs/architecture/guest-web/SANDBOX_SETUP.md`](../docs/architecture/guest-web/SANDBOX_SETUP.md).
+Ohne konfigurierte Supabase-Instanz läuft die Menüanzeige weiter über die
+lokale Fixture; Bestellungen schlagen dann kontrolliert fehl (kein falsches
+ACK).
 
 ## Bewusst noch nicht enthalten
 
-- Autoritative Bestellgrenze (Edge Function oder RPC, ADR-001 §6) und
-  jede Form der Bestellübermittlung.
-- Supabase-Client, generierte Typen, Auth.
-- PWA-/Offline-Shell (eigene spätere Stufe, ADR-001 §5).
+- Hosting-Entscheidung D4 (Vercel vs. Cloudflare Workers) — offen, siehe
+  ADR-001 §8 PoC-Matrix.
+- Menü-Fetch via Supabase statt lokaler Fixture (`src/lib/venue-data.ts`).
+- PWA-/Offline-Shell (eigene spätere Stufe, ADR-001 §5, Entscheidung D5).
 - Venue-eigene Logos/Bilder; der Kopf nutzt den Traube-Fallback.
+- Keine echten Zahlungen, keine produktive Freigabe (Blueprint §20).
