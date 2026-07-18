@@ -1,9 +1,25 @@
 # Codex Handoff
 
 **Updated:** 18 July 2026
-**Branch:** `codex/post-merge-state-pr20`
-**Status:** KL-OFFLINE-004 mit PR #20 integriert; echter
-Geraete-/Netzwerknachweis bleibt abnahmepflichtig
+**Branch:** `codex/fix-lan-order-uuid`
+**Status:** Ersten iPhone-LAN-Blocker reproduziert und behoben; erneuter
+iPhone-Lauf und Android-Nachweis bleiben abnahmepflichtig
+
+## Latest Continuation (18. Juli 2026, iPhone-LAN-Fund)
+
+- Der erste echte iPhone-Safari-Lauf erreichte die Gastseite im WLAN, blieb
+  nach dem Absenden aber bei „Bestellung wird lokal gespeichert …“ stehen.
+- LAN-Endpunkt separat mit HTTP 201 und lokalem Commit verifiziert. Im Browser
+  gegen die LAN-IP reproduziert: Plain-HTTP ist kein sicherer Kontext und
+  `window.crypto`/`crypto.randomUUID()` war nicht verfügbar. Die Exception lag
+  vor dem `try/catch`, daher blieb der Zwischenzustand sichtbar.
+- Fix auf `codex/fix-lan-order-uuid`: LAN-taugliche UUID-Fallback-Erzeugung,
+  gesamter Sendeaufbau innerhalb der Fehlerbehandlung und ein stabiler
+  `pendingOrder`-Snapshot. Ein Retry derselben Bestellung behält dadurch den
+  Idempotenzschlüssel statt eine mögliche Doppelbestellung zu erzeugen.
+- Verifikation: 6/6 Swift-Tests; mobile Bestellung über
+  `http://192.168.178.110:8080` trotz nicht verfügbarem Web Crypto erfolgreich
+  als `lokal #1`, keine Browser-Warnungen oder -Fehler.
 
 ## Latest Continuation (18. Juli 2026, PR #20 Integration)
 
