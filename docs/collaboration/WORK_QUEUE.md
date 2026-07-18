@@ -431,7 +431,8 @@ erledigter Abschnitt weiter oben.
 ## Discovery: Offline Venue Hub (Blueprint §16)
 
 **Status:** Discovery reviewt; lokale Gastbestellung am 18. Juli 2026 als
-Produktrichtung bestaetigt, Netzwerkimplementierung noch nicht freigegeben
+Produktrichtung bestaetigt; lokaler Hostsurrogat umgesetzt, echter
+Geraete-/Netzwerknachweis noch offen
 
 Die beiden zuvor ungereviewten Branches `deepseek/offline-venue-hub-review`
 (Superset) und `glm/offline-venue-hub` wurden von Claude Code gelesen. Die
@@ -456,6 +457,26 @@ Kernbefunde der Lesart:
 - `DECISIONS.md` und Blueprint §16.2 halten das Produktziel fest. Discovery
   bleibt die technische Erkenntnisgrundlage; keine Netzwerkimplementierung ist
   allein dadurch freigegeben.
+
+### KL-OFFLINE-004 - Lokale Gastbestellung, Hostsurrogat
+
+**Status:** Umgesetzt auf `codex/local-guest-ordering-poc`; Review ausstehend
+**Abhaengigkeit:** KL-OFFLINE-003, bestaetigte Blueprint-§16.2-Anforderung
+**Schreibbereich:** `prototypes/KitchenLinkLocalGuestPOC/`, Offline-Discovery-
+Status, `CURRENT.md`, `handoffs/CODEX.md`
+
+Der isolierte macOS-Prozess liefert die Gastseite und `/bootstrap` aus derselben
+lokalen Origin aus, nimmt `POST /orders` an und verwendet das gemergte
+`KitchenLinkEventLog` als autoritative SQLite-Persistenz. Artikel, Mengen und
+Preise werden serverseitig normalisiert; ein ACK entsteht erst nach dem
+atomaren Event-/Outbox-Commit. Retry und Same-Key-Konflikt sind explizit
+abgedeckt. Sechs Swift-Tests, ein HTTP-Smoke und eine mobile Browserbestellung
+sind gruen.
+
+Der Scope waehlt noch keine Produktionsarchitektur: Der Server ist ein
+sequentieller macOS-Entwickler-Surrogat ohne Zahlung, Cloud-Sync, Bonjour oder
+QR-Erzeugung. Der Stage-2-Gate aus `LOCAL_NETWORK_POC.md` bleibt bis zu Tests
+auf iOS Safari und Android Chrome im Referenz-WLAN offen.
 
 ## Abgeschlossene Web-Straenge
 
@@ -611,3 +632,6 @@ Designentscheidung; `DECISIONS.md` unberührt.
     technischer und visueller Abnahme, Review-Fixes und vollstaendiger
     Verifikation mit PR #15 am 18. Juli 2026 integriert.
 12. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
+13. KL-OFFLINE-004 reviewen; danach den lokalen Top-Level-Pfad mit QR-Ziel auf
+    iOS Safari und Android Chrome im Referenz-WLAN messen. Erst dieser Lauf darf
+    eine konkrete Hub-/Bootstrap-Technik fuer die App-Integration auswaehlen.

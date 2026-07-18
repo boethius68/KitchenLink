@@ -141,12 +141,13 @@ Abnahme, nicht einer unbelegten Agentenannahme:
    `KitchenLinkRepository` einziehen und `LocalDemoRepository` schrittweise
    ablösen, Demo-Pfade erhalten (Blueprint §18.1, §20). Das ist Domain-/
    Persistenzarbeit ohne die ungelösten Netzwerk-P0s.
-2. **Der netzwerkseitige Hub-Teil (Stage 2+) bleibt technisch blockiert.** Die
-   Grundsatzfrage ist entschieden: lokaler Gastzugriff gehoert zur Sandbox.
-   Als naechstes folgt ein messbarer Architektur-Proof auf echten Gast- und
-   Business-Geraeten: lokale Top-Level-Seite/Bootstrap, QR-Wechsel zwischen
-   Cloud und lokal, AP-Isolation, TLS/Trust und ACK-nach-Commit. Erst ein
-   bestandener Proof waehlt die Implementierung.
+2. **KL-OFFLINE-004 belegt die Software-Naht, nicht den Stage-2-Netzwerkgate.**
+   Der isolierte macOS-Hostsurrogat liefert eine lokale Top-Level-Seite samt
+   Bootstrap aus und bestaetigt erst nach Event-/Outbox-Commit. Damit koennen
+   Browserfluss, serverseitige Preispruefung und Idempotenz reproduzierbar
+   getestet werden. Auf echten Gast- und Business-Geraeten bleiben QR-Wechsel,
+   AP-Isolation, iOS-/Android-Erreichbarkeit, Hub-Lifecycle sowie TLS/Trust zu
+   messen. Erst ein bestandener Geraeteproof waehlt die App-Implementierung.
 3. **Freigegeben ist die Produktrichtung, nicht eine konkrete Technik.** Die
    Entscheidung steht in `DECISIONS.md`; die Discovery-Artefakte bleiben
    Erkenntnisgrundlage und duerfen nicht als Produktionsfreigabe gelesen
