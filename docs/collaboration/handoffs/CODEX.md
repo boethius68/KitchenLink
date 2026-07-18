@@ -1,9 +1,49 @@
 # Codex Handoff
 
-**Updated:** 17 July 2026
-**Branch:** `codex/sync-collaboration-state` (Doku-Sync), `codex/kitchen-hardening-fix` (PR #5)
-**Status:** Projektstand-Audit und Sync der Kollaborationsdokumente auf den echten
-Repository-Stand
+**Updated:** 18 July 2026
+**Branch:** `codex/review-pr15` (Review-Fixes fuer PR #15)
+**Status:** PR #15 technisch und visuell abgenommen; Merge-Blocker im
+Bestandsbild behoben
+
+## Latest Continuation (18. Juli 2026, PR #15 Review)
+
+- PR #15 (`KL-INVENTORY-002`) gegen die Inventory-Domain, den aktuellen
+  Designvertrag und die echte Simulatoransicht geprueft.
+- Der erste Screenshot zeigte einen fachlichen Merge-Blocker: Die vollstaendige
+  Zutaten-mal-Lagerorte-Projektion meldete nicht gefuehrte Artikel als Bestand
+  `0` und erzeugte dadurch falsche Warnungen, etwa Wein in der Kueche. Die
+  Operator-Ansicht zeigt jetzt nur Paare mit Ledger-Aktivitaet. Ein einmal auf
+  `0` gefallener, zuvor gefuehrter Artikel bleibt sichtbar.
+- Pflichtinformationen werden nicht mehr abgeschnitten. Physisch, reserviert
+  und verfuegbar sind explizit sichtbar; Minimum/Ziel bzw. der kritische
+  Buchungshinweis bleiben in Klartext erhalten. Header und Zahlenblock stapeln
+  sich bei Accessibility-Dynamic-Type-Groessen.
+- Den im Dunkelmodus unsichtbaren Text des primaeren Demo-Buttons durch eine
+  robuste explizite Symbol-Text-Komposition korrigiert.
+- Die Sandbox-Bezeichnung `Kueche` auf `Küche` korrigiert und die
+  Projektionsabdeckung auf 13 Tests erweitert, einschliesslich eines Guards
+  gegen lagerortuebergreifende Fehlalarme.
+
+## Verification (PR #15 Review)
+
+- Alle 13 `KitchenLinkV2InventoryStockProjectionTests`: **bestanden**.
+- Vollstaendiges `kitchenlinkTests`-Target: **bestanden**; der absichtlich
+  gegatete OCR-Benchmark wurde uebersprungen.
+- Screenshot-UI-Test im Hell- und Dunkelmodus: **bestanden**; beide
+  Bestandsansichten visuell geprueft.
+- Der erste komplette UI-Lauf hatte nach einem vom Simulator abgewiesenen
+  XCTest-Runner-Start drei Navigationsfehler. Genau diese drei Tests wurden auf
+  einem frischen Lauf wiederholt und sind **alle bestanden**.
+- `git diff --check`: keine Whitespace-Fehler.
+
+## Remaining Risk (PR #15 Review)
+
+- Bis ein eigener lagerortspezifischer Sortimentsvertrag existiert, dient
+  Ledger-Aktivitaet als konservativer Sichtbarkeitsnachweis. Das verhindert
+  Fehlalarme, kann aber einen neu geplanten Artikel ohne erste Buchung noch
+  nicht als `0` anzeigen. Die Domain-Projektion selbst bleibt unveraendert.
+- Die Ansicht bleibt bewusst read-only und sandbox-lokal; keine produktive
+  Persistenz oder Bestellautomatik wurde aktiviert.
 
 ## Latest Continuation (17. Juli 2026)
 

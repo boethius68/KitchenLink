@@ -525,6 +525,55 @@ meldet `Revalidate 1m` auf `/[venueSlug]/menu`. Kein visuelles Delta, kein
 Bestellpfad-Change, keine neuen Tokens. Offen: Live-Smoke-Test durch den
 Nutzer nach Merge + Hostinger-Redeploy.
 
+### KL-INVENTORY-002 — Read-only Inventory-Operator-UI (V2-Bestand)
+
+**Status:** Implementiert auf `glm/inventory-operator-ui`; bereit für Review
+**Abhängigkeit:** KL-INVENTORY-001 (erledigt, gemergt), KL-OPS-001
+(Heute/Küche als Referenzmuster, erledigt)
+**Schreibbereich:** neue Dateien unter `kitchenlink/Features/Inventory/Views/`,
+neue Testdatei `kitchenlinkTests/KitchenLinkV2InventoryStockProjectionTests.swift`,
+rein additive Edits in `kitchenlink/App/KitchenLinkV2BusinessHomeView.swift`
+(neuer NavigationLink), `kitchenlink/App/KitchenLinkDesignPreviewConfiguration.swift`
+(neue Launch-Arg-Konstante), `kitchenlinkUITests/kitchenlinkV2ScreenshotTests.swift`
+(neuer Branch), `docs/collaboration/handoffs/GLM.md`, dieser Eintrag
+
+Schließt die mit KL-INVENTORY-001 bewusst vertagte UI-Sicht: eine read-only
+Bestandsansicht für Betreiber:innen, die ihren Zustand ausschließlich aus
+der echten `InventoryProjection` und `InventoryReplenishmentAdvisor` ableitet
+— kein zweites Bestandsmodell, keine Mockwerte. Die Ansicht gruppiert je
+Lagerort (Küche vor Bar vor Keller/Lager/Eingang), zeigt physisch/reserviert/
+verfügbar und eine Schwere-Bewertung (`ok`/`warning`/`critical`) als Klartext-
+Verb plus Urgency-Farbe. Buchen, Persistenz und Cloud-Sync bleiben vertagt.
+
+**Design-Entscheidung (im Rahmen bereits genehmigter Specs):** Schwere wird
+auf die 4-stufige Dringlichkeit abgebildet (`ok`→neutral, `warning`→waiting,
+`critical`→critical). Zitrone ausschließlich in der einzelnen Demo-Aktion,
+nie in einer Statusfarbe. Es wird **kein** neuer `KitchenLinkV2Operation`-
+Case (`.stock`) erfunden und `KitchenLinkDesignSystemV2.swift` nicht angetastet
+— `DESIGN_SYSTEM.md` §6 erlaubt explizit den Interim, dass eine Operation ohne
+eigenes Form-Muster über Farbe und Klartext sichtbar bleibt. Ein späterer
+`.stock`-Glyph ist eine separate Designfreigabe.
+
+**MiniMax-Scope-Ehre:** keine der 8 Inventory-Core-Dateien (Quantity/Models/
+Movement/Ledger/Projection/Replenishment/RecipeResolution/SandboxFixture)
+oder `INVENTORY_MODEL.md` wird angefasst. Die UI liegt im neuen Unterverzeichnis
+`Features/Inventory/Views/`; Dateinamen mit `KitchenLinkV2`-Präfix, um nicht
+mit MiniMax' `Inventory*Tests.swift` zu kollidieren und konsistent mit
+`KitchenLinkV2TodayEvents` zu sein.
+
+Review-Follow-up: Die erste visuelle Abnahme zeigte falsche lagerortfremde
+Warnungen aus dem vollständigen Zutaten×Lagerort-Kreuzprodukt sowie
+abgeschnittene Pflichttexte. Die UI-Projektion zeigt deshalb nur Paare mit
+tatsächlicher Ledger-Aktivität; physisch, reserviert und verfügbar sind jetzt
+explizit sichtbar, und Accessibility-Schriftgrößen stapeln die Zeile ohne
+Abschneiden.
+
+Verifikation: `xcodebuild build` grün; komplette Unit-Suite (`TEST SUCCEEDED`,
+inkl. MiniMax' 53 Inventory-Tests + 13 Stock-Projektion-Tests); UI-Suite grün;
+Screenshot-Capture Light+Dark grün (Assertions `inventory.title`,
+„Positionen"). Keine neue Produkt- oder Designentscheidung; `DECISIONS.md`
+unberührt.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,
@@ -556,4 +605,10 @@ Nutzer nach Merge + Hostinger-Redeploy.
     `glm/web-next`; Race-Follow-up behoben, Integrationstest-Geruest und
     Setup-Leitfaden angelegt. Wartet auf Nutzer-Account-Schritte (Supabase-
     Projekt, Vercel) laut `SANDBOX_SETUP.md`.
-11. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.
+11. ~~Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.~~
+    Mit KL-INVENTORY-002 beginnt die iOS-Domänenvertiefung (siehe eigener
+    Abschnitt oben): eine read-only Bestandsansicht auf Basis der bereits
+    gemergten KL-INVENTORY-001-Domain, ohne neue Produkt- oder Design-
+    entscheidung. Implementiert auf `glm/inventory-operator-ui`, bereit
+    für Review.
+12. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.

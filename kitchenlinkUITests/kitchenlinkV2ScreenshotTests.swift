@@ -56,6 +56,33 @@ final class kitchenlinkV2ScreenshotTests: XCTestCase {
                 ).firstMatch.waitForExistence(timeout: 5)
         )
         attachScreenshot(of: app, named: "kitchen-\(appearance)")
+
+        // Inventory surface: read-only Bestand. Seeded independently from
+        // the order demo path. The 12-ingredient catalog shows only the
+        // location pairs with actual ledger activity, so an unstocked item is
+        // not misreported as a shortage at every location.
+        app.terminate()
+        app.launchArguments = [
+            "--kitchenlink-design-v2",
+            "--kitchenlink-demo-inventory",
+            appearance == "dark"
+                ? "--kitchenlink-appearance-dark"
+                : "--kitchenlink-appearance-light"
+        ]
+        app.launch()
+
+        let inventoryLink = app.buttons["business.openInventory"]
+        XCTAssertTrue(inventoryLink.waitForExistence(timeout: 5))
+        scrollUntilHittable(inventoryLink, in: app)
+        inventoryLink.tap()
+
+        XCTAssertTrue(app.staticTexts["inventory.title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts.matching(
+                NSPredicate(format: "label ENDSWITH 'Positionen'")
+            ).firstMatch.waitForExistence(timeout: 10)
+        )
+        attachScreenshot(of: app, named: "inventory-\(appearance)")
     }
 
     @MainActor
