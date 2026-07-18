@@ -143,25 +143,44 @@ zufällig gesetzte Produktiv-Variablen versehentlich eine echte Instanz triggern
 
 ---
 
-## 5. Vercel-Deployment (erster Sandbox-Deploy)
+## 5. Deployment (Git-basierte PaaS)
 
-> Dies ist **keine** Hosting-Entscheidung (D4). Vercel wird als erster Sandbox-
-> Deploy verwendet; die Cloudflare-Workers-Variante aus ADR-001 §8 bleibt als
-> PoC offen. Der Code ist hosting-neutral gehalten (keine `vercel.json`-Lock-in-
-> Konfiguration im Repo).
+Der Gast-Web-Code ist hosting-neutral (keine `vercel.json`/`wrangler.toml`-
+Lock-in-Datei im Repo). Für die Sandbox haben wir uns für ein **Git-basiertes
+PaaS** entschieden, das automatisch aus `main` baut und deployed.
 
-1. Vercel-Dashboard → **Add New… → Project** → das GitHub-Repo verbinden.
-2. **Root Directory** auf `guest-web/` setzen (Vercel fragt danach, weil dort
-   die `package.json` liegt).
-3. Framework-Preset: **Next.js** (automatisch erkannt).
-4. **Environment Variables** setzen:
-   - `NEXT_PUBLIC_SUPABASE_URL` = `<dein-projekt>.supabase.co` URL
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = anon public key
-5. **Deploy**.
+### Gewählter Sandbox-Host: Hostinger PaaS
 
-Nach dem Deploy: die Vercel-URL öffnen, Route `/<venue-slug>/menu` anhängen
-(z. B. `https://<preview>.vercel.app/alte-muehle/menu`) und den Smoke-Check
-aus Abschnitt 3 wiederholen.
+Der aktuelle Sandbox-Deploy läuft auf **Hostinger PaaS** (Git-Auto-Deploy aus
+`main`) unter **`https://kitchenlink.luneq.eu`**. Das ersetzt den in ADR-001
+§8 skizzierten Vercel-vs-Cloudflare-PoC für Sandbox-Zwecke; eine spätere
+produktionsreife Hosting-Entscheidung bleibt offen.
+
+Schritte (die der Nutzer im Hostinger-Dashboard gemacht hat):
+
+1. Hostinger → neues PaaS-Projekt, **GitHub-Repo** verbinden, Branch `main`.
+2. **Root Directory** auf `guest-web/` setzen.
+3. Framework: **Next.js**, Node 22.x (automatisch erkannt).
+4. **Environment Variables** setzen (siehe Warnung unten):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+5. Domain `kitchenlink.luneq.eu` angebunden; Hostinger besorgt SSL automatisch.
+6. **Deploy**. Jeder Push auf `main` löst anschließend einen Neubau aus.
+
+> **Bekannter Tippfehler, der teuer war:** die Supabase-URL endet auf **`.co`**,
+> nicht `.com`. `https://<ref>.supabase.com` ist die Marketingseite und erzeugt
+> im Browser das irreführende „Load failed". Immer `.supabase.co` verwenden.
+
+Andere Git-basierte PaaS-Hosts (Vercel, Cloudflare Pages, Render, Railway)
+folgen demselben Muster: Repo/`main` verbinden, Root Directory `guest-web/`,
+die zwei `NEXT_PUBLIC_SUPABASE_*`-Env-Variablen setzen, deployen. Der Code
+erfordert keine host-spezifische Anpassung.
+
+### Nach dem Deploy
+
+Die URL öffnen, Route `/<venue-slug>/menu` anhängen
+(z. B. `https://kitchenlink.luneq.eu/alte-muehle/menu`) und den Smoke-Check
+aus Abschnitt 6 wiederholen.
 
 ---
 
