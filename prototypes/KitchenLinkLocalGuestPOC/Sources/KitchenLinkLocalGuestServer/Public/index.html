@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>KitchenLink – Lokal bestellen</title>
+  <style>
+    :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #17332d; background: #f5f2e9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    header { padding: 1rem; color: white; background: #17332d; }
+    header div { max-width: 48rem; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    h1 { margin: 0; font-size: 1.2rem; }
+    .badge { padding: .35rem .6rem; border-radius: 999px; background: #f6c85f; color: #17332d; font-size: .75rem; font-weight: 800; }
+    main { max-width: 48rem; margin: auto; padding: 1.2rem 1rem 8rem; }
+    .local { border-left: 4px solid #de7d46; padding: .8rem 1rem; margin-bottom: 1.4rem; background: #fff8e8; border-radius: .4rem; }
+    .local strong, .local span { display: block; }
+    .local span { margin-top: .25rem; color: #5e635f; font-size: .9rem; }
+    #menu { display: grid; gap: .8rem; }
+    .item { display: grid; grid-template-columns: 1fr auto; gap: 1rem; padding: 1rem; background: white; border-radius: .8rem; box-shadow: 0 2px 12px #17332d12; }
+    .item h2 { margin: 0 0 .25rem; font-size: 1rem; }
+    .item p { margin: 0; color: #68706c; font-size: .88rem; }
+    .price { display: block; margin-top: .55rem; font-weight: 800; }
+    .stepper { display: flex; align-items: center; gap: .65rem; }
+    button { border: 0; border-radius: .55rem; font: inherit; font-weight: 800; cursor: pointer; }
+    .stepper button { width: 2.5rem; height: 2.5rem; background: #e7eee9; color: #17332d; font-size: 1.2rem; }
+    footer { position: fixed; inset: auto 0 0; padding: .8rem 1rem max(.8rem, env(safe-area-inset-bottom)); background: #fff; box-shadow: 0 -4px 18px #17332d20; }
+    footer div { max-width: 48rem; margin: auto; display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center; }
+    #submit { padding: .9rem 1.2rem; color: white; background: #de5f37; }
+    #submit:disabled { opacity: .45; cursor: default; }
+    #message { min-height: 1.4rem; margin: 1rem 0; font-weight: 700; }
+    .success { color: #15734c; } .error { color: #a32d2d; }
+  </style>
+</head>
+<body>
+  <header><div><h1 id="venue">KitchenLink</h1><span class="badge">SANDBOX · LOKAL</span></div></header>
+  <main>
+    <section class="local"><strong>Direkt mit der Küche verbunden</strong><span>Diese Seite und deine Bestellung laufen im lokalen Netzwerk. Keine Online-Zahlung.</span></section>
+    <div id="menu" aria-live="polite">Speisekarte wird geladen …</div>
+    <p id="message" role="status"></p>
+  </main>
+  <footer><div><strong id="total">0,00 €</strong><button id="submit" disabled>Verbindlich lokal bestellen</button></div></footer>
+  <script>
+    const state = { menu: [], quantities: {} };
+    const money = cents => new Intl.NumberFormat('de-DE', {style:'currency', currency:'EUR'}).format(cents / 100);
+    function total() { return state.menu.reduce((sum, item) => sum + item.priceMinor * (state.quantities[item.id] || 0), 0); }
+    function render() {
+      const menu = document.querySelector('#menu');
+      menu.replaceChildren();
+      state.menu.forEach(item => {
+        const article = document.createElement('article'); article.className = 'item';
+        const details = document.createElement('div');
+        const heading = document.createElement('h2'); heading.textContent = item.name;
+        const description = document.createElement('p'); description.textContent = item.description;
+        const price = document.createElement('span'); price.className = 'price'; price.textContent = money(item.priceMinor);
+        details.append(heading, description, price);
+        const stepper = document.createElement('div'); stepper.className = 'stepper';
+        const remove = document.createElement('button'); remove.dataset.id = item.id; remove.dataset.delta = '-1'; remove.setAttribute('aria-label', `${item.name} entfernen`); remove.textContent = '−';
+        const quantity = document.createElement('strong'); quantity.textContent = state.quantities[item.id] || 0;
+        const add = document.createElement('button'); add.dataset.id = item.id; add.dataset.delta = '1'; add.setAttribute('aria-label', `${item.name} hinzufügen`); add.textContent = '+';
+        stepper.append(remove, quantity, add); article.append(details, stepper); menu.append(article);
+      });
+      document.querySelector('#total').textContent = money(total());
+      document.querySelector('#submit').disabled = total() === 0;
+    }
+    document.addEventListener('click', event => {
+      const button = event.target.closest('[data-id]'); if (!button) return;
+      const id = button.dataset.id; const next = Math.max(0, Math.min(20, (state.quantities[id] || 0) + Number(button.dataset.delta)));
+      state.quantities[id] = next; render();
+    });
+    document.querySelector('#submit').addEventListener('click', async () => {
+      const submit = document.querySelector('#submit'); const message = document.querySelector('#message');
+      submit.disabled = true; message.className = ''; message.textContent = 'Bestellung wird lokal gespeichert …';
+      const orderID = crypto.randomUUID();
+      const body = { orderID, idempotencyKey: orderID, clientTotalMinor: total(), items: Object.entries(state.quantities).filter(([, quantity]) => quantity > 0).map(([itemID, quantity]) => ({itemID, quantity})) };
+      try {
+        const response = await fetch('/orders', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        const result = await response.json(); if (!response.ok) throw new Error(result.message || 'Bestellung nicht bestätigt.');
+        message.className = 'success'; message.textContent = `Bestellung bestätigt · lokal #${result.localSequence}`;
+        state.quantities = {}; render();
+      } catch (error) {
+        message.className = 'error'; message.textContent = `${error.message} Bitte erneut versuchen.`; submit.disabled = false;
+      }
+    });
+    fetch('/bootstrap').then(response => response.json()).then(data => { state.menu = data.menu; document.querySelector('#venue').textContent = data.venueName; render(); }).catch(() => { document.querySelector('#menu').textContent = 'Lokale Speisekarte ist nicht erreichbar.'; });
+  </script>
+</body>
+</html>

@@ -4,11 +4,13 @@
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Latest material integration:** PR #17
-(`codex/project-cleanup-20260718` -> `main`) aligned the repository with the
-live sandbox, preserved Supabase menu ordering and cleared the dependency
-audit. PR #15 previously added the reviewed read-only V2 inventory operator
-surface. The guest web remains deployed from `main` to Hostinger PaaS at
+**Latest material integration:** PR #19
+(`codex/approve-local-guest-ordering` -> `main`) records local guest ordering
+during cloud failure as a required Sandbox-Beta capability. PR #17 previously
+aligned the repository with the live sandbox, preserved Supabase menu ordering
+and cleared the dependency audit; PR #15 added the reviewed read-only V2
+inventory operator surface. The guest web remains deployed from `main` to
+Hostinger PaaS at
 **`https://kitchenlink.luneq.eu`** and anonymous sandbox ordering has been
 verified end-to-end against the EU-Frankfurt Supabase instance.
 
@@ -140,6 +142,15 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   claims). It has no app dependency and activates nothing productive; the
   later iOS integration seam is documented but deliberately out of scope
   (`docs/architecture/offline/EVENT_LOG_V2.md` §12).
+- `prototypes/KitchenLinkLocalGuestPOC/` (KL-OFFLINE-004) is an isolated
+  macOS host surrogate for the next local-ordering proof: it serves a
+  same-origin mobile guest page and bootstrap document over LAN HTTP, validates
+  menu lines and prices server-side, and returns an accepted receipt only after
+  the existing event log has atomically committed the event plus cloud outbox.
+  Retries return the original receipt; same-key/different-payload requests
+  conflict. This proves the software seam locally, not the Stage-2 network
+  gate: QR generation, iOS/Android devices, AP isolation, Hub lifecycle,
+  Bonjour and TLS/trust remain open and no production path is activated.
 - `kitchenlink/Features/Workforce/` (KL-WORKFORCE-001) is an isolated Swift
   domain foundation for shift planning, time tracking and staffing
   (Blueprint §9): `VenueShift`, `WorkforcePlannedShift` and time-entry

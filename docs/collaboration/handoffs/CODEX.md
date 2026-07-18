@@ -1,9 +1,61 @@
 # Codex Handoff
 
 **Updated:** 18 July 2026
-**Branch:** `codex/approve-local-guest-ordering`
-**Status:** Nutzerentscheidung zur lokalen Gastbestellung dokumentiert;
-Netzwerkarchitektur bleibt mess- und abnahmepflichtig
+**Branch:** `codex/local-guest-ordering-poc`
+**Status:** Lokaler Gastbestell-Hostsurrogat umgesetzt und verifiziert;
+echter Geraete-/Netzwerknachweis bleibt abnahmepflichtig
+
+## Latest Continuation (18. Juli 2026, KL-OFFLINE-004)
+
+- PR #19 mit der bestaetigten Anforderung zur lokalen Gastbestellung nach
+  `main` gemergt (`f6c8821`) und den Implementierungsbranch davon erstellt.
+- Neues isoliertes Swift Package `prototypes/KitchenLinkLocalGuestPOC/`:
+  macOS-LAN-Server, same-origin Gastseite, `/bootstrap`, `/health` und
+  `POST /orders`.
+- Das bestehende `KitchenLinkEventLog` ist die einzige Annahmenaht. Ein
+  `accepted`-Receipt wird erst gebaut, nachdem Event und Cloud-Outbox atomar
+  committed sind. Replay liefert Event-ID/Sequenz des Originals; ein gleicher
+  Key mit anderem kanonischen Payload ergibt HTTP 409.
+- Artikel und Mengen werden gegen die lokale Sandbox-Karte geprueft; Preise und
+  Gesamtbetrag entstehen serverseitig. Ein vom Browser gesendeter Gesamtbetrag
+  ist nicht vertrauenswuerdig und beeinflusst weder Payload noch ACK.
+- Der Browser oeffnet die Gastseite direkt lokal. Es gibt absichtlich keinen
+  Cross-Origin-Fetch von der HTTPS-Cloudseite zum HTTP-Hub.
+- Commit `ee8c62e` ist auf `codex/local-guest-ordering-poc` gepusht; Draft PR
+  #20 zielt auf `main`.
+
+## Verification (KL-OFFLINE-004)
+
+- `swift test`: **6/6 bestanden**.
+- HTTP-Smoke mit echtem Server: `/health` 200, Gastseite 200, erste Bestellung
+  201 nach Commit, identischer Retry 200 mit gleicher Event-ID/Sequenz,
+  Same-Key/Different-Payload 409. Serverpreis 900 Cent statt manipuliertem
+  Clientwert 1 Cent.
+- Mobile Browserpruefung bei 390 x 844: Karte vollstaendig gerendert,
+  Warenkorb bedienbar, lokale Bestellung mit `lokal #1` bestaetigt und danach
+  zurueckgesetzt; keine Browser-Warnungen oder -Fehler.
+- `git diff --check`: bestanden.
+
+## Integration Review (PR #20)
+
+- PR gegen den exakten `main`-Stand geprueft: mergebar, keine offenen Reviews,
+  Kommentare oder CI-Fehler.
+- Vor Integration zwei Härtungen eingearbeitet: `POST /orders` akzeptiert nur
+  noch `application/json`, sodass einfache Cross-Origin-Form-/Text-Requests
+  keine lokale Bestellung ausloesen koennen; Menüdaten werden mit DOM-
+  `textContent` statt HTML-Interpolation gerendert.
+- Danach erneut 6/6 Swift-Tests und eine echte mobile Browserbestellung bei
+  390 x 844: `lokal #1`, keine Browser-Warnungen oder -Fehler.
+
+## Remaining Risk (KL-OFFLINE-004)
+
+- Der Server ist bewusst ein sequentieller macOS-Entwickler-Surrogat. Er ist
+  kein iOS-Hub und nicht fuer Produktion, Last oder ein feindliches LAN
+  gehaertet.
+- QR-Erzeugung, Bonjour, DHCP/IP-Wechsel, AP-Isolation, iOS Safari, Android
+  Chrome, Hub-App-Lifecycle, TLS/Trust und Failover sind nicht bewiesen.
+- Keine Zahlung und keine Cloud-Synchronisation; der `.cloud`-Outboxeintrag
+  bleibt lokal `pending`. Das Sandbox- und Produktionslabeling bleibt erhalten.
 
 ## Latest Continuation (18. Juli 2026, lokale Gastbestellung)
 
