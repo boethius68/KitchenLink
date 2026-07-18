@@ -1,78 +1,67 @@
 # KitchenLink Gast-Web
 
-Sandbox-Fundament für das Gast-Web. Grundlage sind die vom Nutzer am
-17. Juli 2026 freigegebenen Entscheidungen
-(`docs/collaboration/DECISIONS.md`, Abschnitt „Guest Web") und
-`docs/architecture/guest-web/ADR-001_GUEST_WEB_STACK.md`:
+Das Gast-Web ist eine responsive Next.js-Sandbox fuer anonyme
+Restaurantbestellungen. Der aktuelle Stand laeuft unter
+<https://kitchenlink.luneq.eu/alte-muehle/menu> auf Hostinger PaaS und verwendet
+die Supabase-Sandbox in EU-Frankfurt.
 
-- **Next.js App Router (TypeScript)**, hosting-neutral gehalten.
-- **Vercel** ist das Sandbox-Deployment-Ziel; der Vercel-vs.-Cloudflare-PoC
-  ist ein verbindliches Gate vor jeder Produktionsaktivierung.
-- **Pfadbasierte Venue-Routen** (`/<venue>/menu`) in der Sandbox.
-- **Supabase Anonymous Sign-in** + autoritative Bestellgrenze
-  (`guest_web_submit_order`-RPC, KL-WEB-002) sind umgesetzt; Status kommt
-  ausschließlich aus der Serverantwort.
+## Implementierter Stand
 
-## Stand dieses Fundaments
+- Next.js App Router mit TypeScript und pfadbasierten Venue-Routen
+  (`/[venueSlug]/menu`).
+- Menue-Leseweg aus Supabase, als ISR mit 60 Sekunden Revalidierung. Die lokale
+  Fixture bleibt als bewusster Build-/Ausfall-Fallback erhalten.
+- Supabase Anonymous Sign-in fuer Gastidentitaeten.
+- Autoritative Sandbox-Bestellgrenze ueber
+  `guest_web_submit_order`: Der Server prueft Verfuegbarkeit und Preise und
+  liefert erst danach das ACK.
+- Idempotente Bestellungen inklusive sauberer Replay-/Konfliktbehandlung.
+- Sandbox-Banner, keine Live-Zahlung und keine fiskalische Wirkung.
+- Semantische Design-Tokens aus `docs/design/DESIGN_SYSTEM.md`, ohne externe
+  Font-Abhaengigkeit zur Laufzeit.
+- Git-basiertes Auto-Deployment aus `main`; der Code bleibt hosting-neutral.
 
-Die Komponente wurde gegen den visuellen Referenzscreen aus
-`docs/design/claude-design/round-04/export/territories.html` (Abschnitt 6c,
-Screen 2 "Gast-Web · 390 px · dichte Karte") abgeglichen und entlang davon
-korrigiert:
-
-- Statisch generierte Menüroute (`/[venueSlug]/menu`) aus lokalen
-  Sandbox-Venue-Daten (`src/lib/venue-data.ts`, bewusste Naht für den
-  späteren Supabase-Pfad).
-- Mobile Gastkarte mit acht Gerichten, randlosem venue-geführtem Kopf
-  (Traube-Fallback) mit "geöffnet"/"geschlossen"-Badge, umrandeten
-  (`border-control`) traubenbasierten Mengensteuerungen (≥ 44 px), kleinen
-  Tag-Pills ("beliebt", "vegetarisch") neben dem Namen und einer
-  durchgehenden Zitronen-Bestellleiste als einziger dauerhafter
-  Zitronenfläche (die gesamte Leiste ist die eine Primäraktion, nicht nur
-  ein Button darin).
-- Die Preiszeile bleibt bewusst als eigene, fett hervorgehobene Zeile unter
-  der Beschreibung (Nutzerentscheidung; die Referenz zeigt Preis/Allergene
-  inline in der Sekundärzeile).
-- Kein automatischer Seitenwechsel auf Dunkel: Jeder verifizierte
-  Referenzscreen zeigt das Gast-Web hell mit Traube-Kopf; nur die Küche ist
-  laut Designsystem "immer Tief". Nutzer-Dunkelmodus verändert daher nicht
-  die Seitenflächen, nur was ohnehin token-basiert ist.
-- Design-Tokens aus `docs/design/DESIGN_SYSTEM.md` als CSS-Variablen
-  (`src/styles/tokens.css`) mit identischen semantischen Namen wie in
-  SwiftUI; `src/lib/design-tokens.ts` + Vitest halten beide konsistent.
-- Sandbox-Banner auf jeder Seite; keine Zahlung, keine echte Bestellung.
-- Schrift: System-Fallbacks. Bricolage Grotesque / Source Sans 3 folgen
-  erst nach Lizenz-/Bundle-Prüfung als lokale Assets (keine
-  Google-Fonts-Laufzeitabhängigkeit).
-- Die Kontextzeile "Speisekarte" im Kopf ist ein Platzhalter für eine
-  spätere echte Tisch-/Kanal-Session (kein QR-/Tisch-Fluss existiert noch;
-  eine erfundene Tischnummer wäre irreführend gewesen).
-
-## Kommandos
+## Lokal starten
 
 ```bash
-npm run dev        # Dev-Server
-npm run build      # Produktions-Build (SSG)
-npm run lint       # ESLint
-npm run typecheck  # tsc --noEmit
-npm test           # Vitest Unit (Cart-, Submit-/ACK-Logik, Fixture, Tokens)
-npm run test:integration  # gegen echte Supabase-Instanz (skippt ohne Konfig)
+npm install
+cp .env.example .env.local
+npm run dev
 ```
 
-## In Betrieb nehmen (Sandbox)
+In `.env.local` muessen diese Werte der Supabase-Sandbox stehen:
 
-Die Schritt-für-Schritt-Anleitung für Supabase-Projekt (EU-Frankfurt),
-Anonymous-Sign-in, Migrationen, `.env.local` und Vercel-Deployment steht in
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://<projekt-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-public-key>
+```
+
+Ohne gueltige Konfiguration rendert die bekannte Demo-Venue aus der lokalen
+Fixture; eine Bestellung scheitert dann kontrolliert und erzeugt kein falsches
+ACK.
+
+## Pruefkommandos
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run test:integration
+```
+
+Die Integrationstests laufen nur mit `KL_INTEGRATION=1` und gesetzten
+Supabase-Variablen gegen die echte Sandbox-Instanz. Ohne Opt-in werden sie
+sauber uebersprungen.
+
+## Betrieb und Grenzen
+
+Der vollstaendige Setup-, Migrations-, Deployment- und Smoke-Test-Ablauf steht
+in
 [`docs/architecture/guest-web/SANDBOX_SETUP.md`](../docs/architecture/guest-web/SANDBOX_SETUP.md).
-Ohne konfigurierte Supabase-Instanz läuft die Menüanzeige weiter über die
-lokale Fixture; Bestellungen schlagen dann kontrolliert fehl (kein falsches
-ACK).
 
-## Bewusst noch nicht enthalten
-
-- Hosting-Entscheidung D4 (Vercel vs. Cloudflare Workers) — offen, siehe
-  ADR-001 §8 PoC-Matrix.
-- Menü-Fetch via Supabase statt lokaler Fixture (`src/lib/venue-data.ts`).
-- PWA-/Offline-Shell (eigene spätere Stufe, ADR-001 §5, Entscheidung D5).
-- Venue-eigene Logos/Bilder; der Kopf nutzt den Traube-Fallback.
-- Keine echten Zahlungen, keine produktive Freigabe (Blueprint §20).
+Bewusst noch offen sind eine produktionsreife Hosting-Entscheidung, die
+PWA-/Offline-Stufe, eine Retention-Regel fuer verwaiste anonyme Nutzer,
+venue-eigene Domains sowie echte Zahlungen und Fiskalisierung. Die aktuelle
+oeffentliche URL bleibt bis zu einer ausdruecklichen Produktionsfreigabe eine
+Sandbox.

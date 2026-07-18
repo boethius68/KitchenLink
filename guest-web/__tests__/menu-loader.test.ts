@@ -150,11 +150,17 @@ describe("mapVenueRowToGuestVenue", () => {
     expect(venue?.menu.find((i) => i.id === "kuerbissuppe")?.kind).toBe("food");
   });
 
-  it("sortiert food vor drink, dann nach slug (stabile Sections)", () => {
+  it("sortiert food vor drink und respektiert danach DB-sort_order", () => {
     const venue = mapVenueRowToGuestVenue(row());
     const kinds = venue?.menu.map((i) => i.kind);
-    // food-Items kommen zuerst, drink danach
     expect(kinds).toEqual(["food", "food", "drink"]);
+    // Die Slugs wären alphabetisch umgekehrt. Diese Assertion schützt daher
+    // explizit die vom Betreiber gepflegte Reihenfolge.
+    expect(venue?.menu.map((i) => i.id)).toEqual([
+      "kuerbissuppe",
+      "flammkuchen",
+      "hauslimonade",
+    ]);
   });
 
   it("lehnt eine Venue ohne slug/name ab", () => {
