@@ -460,7 +460,7 @@ Kernbefunde der Lesart:
 
 ### KL-OFFLINE-004 - Lokale Gastbestellung, Hostsurrogat
 
-**Status:** Umgesetzt; Draft PR #20, Review ausstehend
+**Status:** Erledigt; mit PR #20 reviewt und in `main` integriert
 **Abhaengigkeit:** KL-OFFLINE-003, bestaetigte Blueprint-§16.2-Anforderung
 **Schreibbereich:** `prototypes/KitchenLinkLocalGuestPOC/`, Offline-Discovery-
 Status, `CURRENT.md`, `handoffs/CODEX.md`
