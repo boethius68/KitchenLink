@@ -376,6 +376,54 @@ button {
   color: var(--kl-text-muted);
 }
 
+/* Prominente Erfolgsbestaetigung nach einer angenommenen Bestellung. Bewusst
+   Traube-Flaeche (wie der Venue-Kopf), keine Zitrone (die bleibt dem CTA
+   vorbehalten, §5/§9). Ein ruhiger, sichtbarer Abschluss statt kleiner Text. */
+.kl-confirmation {
+  display: flex;
+  align-items: center;
+  gap: var(--kl-space-3);
+  background: var(--kl-brand-grape);
+  color: var(--kl-content-light);
+  border-radius: var(--kl-radius-card);
+  padding: var(--kl-space-4);
+  margin: 0 0 var(--kl-space-4);
+}
+
+.kl-confirmation-check {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--kl-surface-dark-raised);
+  color: var(--kl-content-light);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.kl-confirmation-body {
+  min-width: 0;
+}
+
+.kl-confirmation-title {
+  margin: 0;
+  color: var(--kl-content-light);
+}
+
+.kl-confirmation-meta {
+  margin: var(--kl-space-1) 0 0;
+  color: var(--kl-text-secondary-inverse);
+  word-break: break-word;
+}
+
+.kl-confirmation-status {
+  margin: var(--kl-space-1) 0 0;
+  color: var(--kl-text-secondary-inverse);
+}
+
 /* Startseite (interner Sandbox-Index) */
 .kl-index-list {
   list-style: none;

@@ -230,6 +230,10 @@ function OrderSummarySheet({
 }: OrderSummarySheetProps) {
   const lines = venue.menu.filter((item) => (cart[item.id] ?? 0) > 0);
   const isSubmitting = submitState.kind === "submitting";
+  // Nach einer bestätigten Bestellung ist der Warenkorb geleert; ein erneuter
+  // Klick würde "leerer Warenkorb" melden. Die Bestellung ist bereits raus —
+  // der Submit-Button hat nichts mehr zu tun und wird deaktiviert.
+  const isAccepted = submitState.kind === "accepted";
 
   return (
     <div
@@ -280,18 +284,22 @@ function OrderSummarySheet({
             type="button"
             className="kl-primary-button kl-type-button"
             onClick={onSubmit}
-            disabled={isSubmitting || lines.length === 0}
+            disabled={isSubmitting || isAccepted || lines.length === 0}
           >
-            {isSubmitting ? "Übermitteln…" : "Sandbox-Bestellung senden"}
+            {isSubmitting
+              ? "Übermitteln…"
+              : isAccepted
+                ? "Bestellung eingegangen ✓"
+                : "Sandbox-Bestellung senden"}
           </button>
           <button
             type="button"
             className="kl-secondary-button kl-type-button"
             onClick={onClose}
             disabled={isSubmitting}
-            autoFocus
+            autoFocus={isAccepted}
           >
-            {submitState.kind === "accepted" ? "Schließen" : "Zurück zur Karte"}
+            {isAccepted ? "Fertig" : "Zurück zur Karte"}
           </button>
         </div>
       </div>
@@ -303,12 +311,22 @@ function SubmitStatusRow({ submitState }: { submitState: SubmitUiState }) {
   if (submitState.kind === "accepted") {
     const ack = submitState.ack;
     return (
-      <p className="kl-sheet-note kl-type-secondary" role="status">
-        Bestätigt (Sandbox, kein Echtgeld). Bestellung {ack.orderId.slice(0, 8)}{" "}
-        als {ack.status} eingegangen
-        {ack.idempotentReplay ? " (idempotente Wiederholung)" : ""}. Status aus
-        der Serverantwort.
-      </p>
+      // Prominente Erfolgsbestaetigung (eigene Flaeche, nicht die graue Notiz).
+      // Bewusst KEINE Zitrone (die bleibt dem CTA vorbehalten, §5/§9): die
+      // Bestaetigung ist eine ruhige Erfolgsflaeche mit großem Status-Symbol.
+      <div className="kl-confirmation" role="status" aria-live="polite">
+        <div className="kl-confirmation-check" aria-hidden="true">✓</div>
+        <div className="kl-confirmation-body">
+          <p className="kl-confirmation-title kl-type-section">Bestellung eingegangen</p>
+          <p className="kl-confirmation-meta kl-type-secondary">
+            Bestellnummer: <span className="kl-tabular">{ack.orderId.slice(0, 8)}</span>
+            {ack.idempotentReplay ? " · idempotente Wiederholung" : ""}
+          </p>
+          <p className="kl-confirmation-status kl-type-meta">
+            Status: {ack.status} · {formatEuro(ack.totalCents)} · Sandbox, kein Echtgeld
+          </p>
+        </div>
+      </div>
     );
   }
   if (submitState.kind === "error") {
