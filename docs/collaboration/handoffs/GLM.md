@@ -7,6 +7,15 @@
 **Status:** Vollständig umgesetzt und verifiziert (typecheck/lint/test/build
 grün); committet und gepusht. Bereit für Review.
 
+> **Update 18.07., spät:** Der Strang ist **live abgeschlossen**. Nach PR #10
+> (Race-Fix + 2 echte RPC-Bug-Fixes) und PR #12 (UX-Follow-ups aus dem manuellen
+> Browser-Smoke-Test) hat der Nutzer das Gast-Web via **Hostinger PaaS** live
+> deployed: **`https://kitchenlink.luneq.eu`**, Git-Auto-Deploy aus `main`.
+> End-to-end-Bestellung im Browser bestätigt (Anonym → ACK → Erfolgs-Karte).
+> D4 (Vercel vs Cloudflare) damit faktisch für die Sandbox erledigt; PR #13
+> dokumentiert das in CURRENT.md / SANDBOX_SETUP.md. Bekannter Stolperstein:
+> `NEXT_PUBLIC_SUPABASE_URL` endet auf `.co`, nicht `.com` — sonst „Load failed".
+
 > KL-WEB-002 (autoritative Bestellgrenze) ist zuvor gemergt worden
 > (`1cfd253`, inkl. Claude-Review-Fix). Dieser Strang macht jene Logik
 > lauffähig. Der alte `glm/guest-web-order-gate`-Branch war nach dem Merge
