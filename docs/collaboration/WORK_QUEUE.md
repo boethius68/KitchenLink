@@ -1,6 +1,6 @@
 # KitchenLink Work Queue
 
-**Stand:** 18. Juli 2026
+**Stand:** 19. Juli 2026
 **Phase:** Integrierte Sandbox mit oeffentlichem Gast-Web
 
 Diese Queue enthaelt sowohl die abgeschlossene Aufbauhistorie als auch aktuelle
@@ -507,6 +507,42 @@ lokale Gastseite bestellte. Der Auftrag erschien live auf dem iPhone, wechselte
 nach `Bestellung zubereitet` in den Kellner-Modus und wurde dort mit
 `Bestellung serviert` abgeschlossen. Der Nutzer bestaetigte den gesamten Lauf
 als erfolgreich.
+
+### KL-OFFLINE-006 - iPhone als Foreground-Venue-Hub
+
+**Status:** Implementiert; echte Zwei-Geraete-Abnahme steht aus
+**Abhaengigkeit:** KL-OFFLINE-003 bis KL-OFFLINE-005
+**Branch:** `codex/iphone-venue-hub-poc`
+**Schreibbereich:** `prototypes/KitchenLinkLocalGuestPOC/`,
+`kitchenlink/Features/LocalOperations/`, App-Konfiguration, gezielte Tests und
+Codex-Statusdokumente
+
+Die in Blueprint §16 beschriebene iPhone-Hub-Naht ist als enger Foreground-PoC
+umgesetzt: Solange `Lokaler Service` geoeffnet bleibt, betreibt das iPhone einen
+lokalen `NWListener`, liefert die bestehende Gastseite im WLAN aus und nimmt
+Bestellungen ueber denselben `LocalGuestOrderService` und dasselbe dauerhafte
+SQLite-Event-Log an wie der bisherige macOS-Hostsurrogat. Die App verbindet
+Kuechen- und Kellnermodus intern ueber Loopback mit diesem Hub. Ein QR-Code,
+die sichtbare Gast-URL und Teilen erleichtern den Aufruf vom zweiten Geraet.
+
+Der macOS-Hub bleibt als aufklappbarer Fallback mit seiner gespeicherten Adresse
+erhalten. Die App stoppt den iPhone-Hub beim Verlassen der Ansicht oder im
+Hintergrund und weist sichtbar auf Vordergrund-, WLAN- und Strombedarf hin.
+Bonjour wird nur angekuendigt; automatische Client-Discovery ist noch nicht
+Teil dieser Scheibe.
+
+Verifiziert sind die neun Kern-/Event-Log-Tests, ein echter iOS-Loopback-Lauf
+von Health ueber Order-POST mit `local-event-log-committed` bis zur
+Kuechenprojektion, Parser-/Lifecycle-/Fallback-Tests, Simulator-Build sowie ein
+signierter Build fuer `Philipps iPhone XR`. Der finale Build ist auf dem Geraet
+installiert; der automatisierte Start wurde vom gesperrten iPhone abgewiesen.
+Offen bleibt daher die reale Abnahme:
+App manuell oeffnen, `Lokaler Service` waehlen, QR-Code mit einem zweiten Geraet
+im selben WLAN oeffnen, bestellen und `Kueche -> Kellner -> serviert` pruefen.
+
+Keine Hintergrundfreigabe, Produktionshaertung, Zahlung oder aktive
+Cloud-Synchronisation. LAN-Authentisierung, Mehrgeraetekonkurrenz, DHCP-
+Adresswechsel, AP-Isolation, Android Chrome und TLS/Trust bleiben Folge-Gates.
 
 ## Abgeschlossene Web-Straenge
 

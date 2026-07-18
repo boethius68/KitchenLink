@@ -1,9 +1,57 @@
 # Codex Handoff
 
 **Updated:** 19 July 2026
-**Branch:** `codex/post-merge-state-pr23`
-**Status:** Lokalen Kueche-zu-Kellner-Workflow implementiert, auf zwei echten
-Geraeten abgenommen und mit PR #23 in `main` integriert
+**Branch:** `codex/iphone-venue-hub-poc`
+**Status:** Foreground-iPhone-Hub implementiert und auf dem Test-iPhone
+installiert; reale Zwei-Geraete-Abnahme steht aus
+
+## Latest Continuation (19. Juli 2026, KL-OFFLINE-006)
+
+- Der iPhone-Hub verwendet den bestehenden `KitchenLinkLocalGuestCore` und das
+  bestehende `KitchenLinkEventLog` direkt als lokales Swift Package. Die
+  Gastseite wurde deshalb in den Core-Ressourcen gebuendelt; der macOS-Server
+  verwendet weiterhin exakt dieselbe Seite.
+- Neuer Foreground-HTTP-Server auf Apples `NWListener`: lokale WLAN-Adresse,
+  dynamischer Port, Bonjour-Ankuendigung, begrenzter HTTP-Parser und
+  one-request-per-connection. Bestell-ACKs kommen unveraendert erst nach dem
+  atomaren Event-/Outbox-Commit.
+- `Lokaler Service` startet standardmaessig dieses iPhone als Hub, zeigt
+  QR-Code, URL und Teilen-Aktion und verbindet die Operatorprojektion intern
+  ueber `127.0.0.1`. Der gespeicherte macOS-Hub bleibt als bewusster Fallback
+  erhalten und wird durch Loopback nicht ueberschrieben.
+- Der Hub stoppt im Hintergrund und beim Verlassen der Ansicht. Die Oberflaeche
+  kennzeichnet den PoC daher sichtbar als Foreground-Sandbox mit gemeinsamem
+  WLAN und empfohlenem Stromanschluss.
+
+## Verification (KL-OFFLINE-006)
+
+- `KitchenLinkLocalGuestPOC`: **9/9 Swift-Tests bestanden**.
+- Neue iOS-Hub-Suite: **4/4 bestanden** (HTTP-Parser, Groessenlimit,
+  Model-Lifecycle und echter `NWListener`-Loopback mit Health, Order-POST,
+  `local-event-log-committed` und anschliessender Kuechenprojektion).
+- Local-Operations-Suite: **4/4 bestanden**, einschliesslich Schutz der
+  gespeicherten Mac-Fallback-Adresse.
+- Komplettes `kitchenlinkTests`-Target: **172 bestanden, 1 bewusst
+  uebersprungen, 0 fehlgeschlagen**.
+- iPhone-17-Simulator-Build und signierter arm64-Build fuer
+  `Philipps iPhone XR`: **bestanden**.
+- Finaler signierter Build erfolgreich auf dem iPhone XR installiert.
+  Automatischer Start wurde nur vom gesperrten Geraetezustand abgewiesen; das
+  ist kein Build- oder Installationsfehler.
+- `git diff --check`: bestanden.
+
+## Remaining Risk (KL-OFFLINE-006)
+
+- Reale Zwei-Geraete-Abnahme des iPhone-gehosteten Pfads steht aus. Der
+  Referenztest ist: iPhone in `Lokaler Service`, QR/URL auf zweitem Geraet,
+  Bestellung, Kueche `zubereitet`, Kellner `serviert`.
+- Der Hub ist absichtlich nur im Vordergrund aktiv. Kein Background-Mode,
+  Failover oder produktiver Dauerbetrieb ist behauptet.
+- Bonjour wird angekuendigt, aber automatische Discovery/Adresswechsel sind
+  noch nicht implementiert. LAN-Authentisierung, feindliches WLAN,
+  Mehrgeraetekonkurrenz, AP-Isolation, Android und TLS/Trust bleiben offen.
+- Keine Zahlung und keine aktive Cloud-Synchronisation; Sandbox- und
+  Demoablaeufe bleiben erhalten.
 
 ## Latest Continuation (19. Juli 2026, PR #23 Integration)
 

@@ -3,7 +3,10 @@ import PackageDescription
 
 let package = Package(
     name: "KitchenLinkLocalGuestPOC",
-    platforms: [.macOS(.v14)],
+    platforms: [
+        .iOS(.v17),
+        .macOS(.v14)
+    ],
     products: [
         .library(name: "KitchenLinkLocalGuestCore", targets: ["KitchenLinkLocalGuestCore"]),
         .executable(name: "kitchenlink-local-guest", targets: ["KitchenLinkLocalGuestServer"])
@@ -14,12 +17,12 @@ let package = Package(
     targets: [
         .target(
             name: "KitchenLinkLocalGuestCore",
-            dependencies: ["KitchenLinkEventLog"]
+            dependencies: ["KitchenLinkEventLog"],
+            resources: [.process("Resources")]
         ),
         .executableTarget(
             name: "KitchenLinkLocalGuestServer",
-            dependencies: ["KitchenLinkLocalGuestCore"],
-            resources: [.process("Public")]
+            dependencies: ["KitchenLinkLocalGuestCore"]
         ),
         .testTarget(
             name: "KitchenLinkLocalGuestCoreTests",

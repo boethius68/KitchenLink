@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A8E551102F1C020000000001 /* KitchenLinkLocalGuestCore in Frameworks */ = {isa = PBXBuildFile; productRef = A8E551122F1C020000000001 /* KitchenLinkLocalGuestCore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		170D466A2D83A426008406B5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A8E551102F1C020000000001 /* KitchenLinkLocalGuestCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +130,7 @@
 			);
 			name = kitchenlink;
 			packageProductDependencies = (
+				A8E551122F1C020000000001 /* KitchenLinkLocalGuestCore */,
 			);
 			productName = kitchenlink;
 			productReference = 170D46592D83A423008406B5 /* kitchenlink.app */;
@@ -208,6 +214,9 @@
 			);
 			mainGroup = 170D46502D83A423008406B5;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A8E551112F1C020000000001 /* XCLocalSwiftPackageReference "prototypes/KitchenLinkLocalGuestPOC" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 170D465A2D83A423008406B5 /* Products */;
 			projectDirPath = "";
@@ -563,6 +572,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A8E551112F1C020000000001 /* XCLocalSwiftPackageReference "prototypes/KitchenLinkLocalGuestPOC" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = prototypes/KitchenLinkLocalGuestPOC;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A8E551122F1C020000000001 /* KitchenLinkLocalGuestCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A8E551112F1C020000000001 /* XCLocalSwiftPackageReference "prototypes/KitchenLinkLocalGuestPOC" */;
+			productName = KitchenLinkLocalGuestCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 170D46512D83A423008406B5 /* Project object */;
 }

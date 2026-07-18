@@ -150,6 +150,7 @@ final class KitchenLinkLocalOperationsModel: ObservableObject {
     private let transport: any KitchenLinkLocalOperatorTransport
     private let defaults: UserDefaults
     private var pollingTask: Task<Void, Never>?
+    private var activeBaseURL: URL?
 
     init(
         transport: any KitchenLinkLocalOperatorTransport = URLSessionKitchenLinkLocalOperatorTransport(),
@@ -190,7 +191,6 @@ final class KitchenLinkLocalOperationsModel: ObservableObject {
     }
 
     func connect() {
-        pollingTask?.cancel()
         guard let baseURL = normalizedHubURL() else {
             connectionState = .failed("Bitte eine gültige lokale HTTP-Adresse eingeben.")
             return
@@ -198,6 +198,12 @@ final class KitchenLinkLocalOperationsModel: ObservableObject {
 
         hubAddress = baseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         defaults.set(hubAddress, forKey: Self.addressDefaultsKey)
+        connect(to: baseURL)
+    }
+
+    func connect(to baseURL: URL) {
+        pollingTask?.cancel()
+        activeBaseURL = baseURL
         connectionState = .connecting
         pollingTask = Task { [weak self] in
             guard let self else { return }
@@ -215,11 +221,12 @@ final class KitchenLinkLocalOperationsModel: ObservableObject {
     func disconnect() {
         pollingTask?.cancel()
         pollingTask = nil
+        activeBaseURL = nil
         connectionState = .disconnected
     }
 
     func refresh() async {
-        guard let baseURL = normalizedHubURL() else {
+        guard let baseURL = activeBaseURL ?? normalizedHubURL() else {
             connectionState = .failed("Bitte eine gültige lokale HTTP-Adresse eingeben.")
             return
         }
@@ -227,7 +234,8 @@ final class KitchenLinkLocalOperationsModel: ObservableObject {
     }
 
     func update(order: LiveOrderMessage, to targetStatus: OrderLifecycleStatus) async -> Bool {
-        guard let baseURL = normalizedHubURL(), order.status.canTransition(to: targetStatus) else {
+        guard let baseURL = activeBaseURL ?? normalizedHubURL(),
+              order.status.canTransition(to: targetStatus) else {
             return false
         }
         isUpdatingOrder = true

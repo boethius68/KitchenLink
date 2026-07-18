@@ -29,8 +29,12 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>KitchenLink benötigt Kamera-Zugriff, um QR-Codes am Tisch zu scannen.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_kitchenlink-hub._tcp</string>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>KitchenLink verbindet sich im Restaurant-WLAN mit dem lokalen Venue-Hub, um Bestellungen in Küche und Service live zu empfangen.</string>
+	<string>KitchenLink stellt im Restaurant-WLAN den lokalen Venue-Hub bereit und empfängt Bestellungen live in Küche und Service.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

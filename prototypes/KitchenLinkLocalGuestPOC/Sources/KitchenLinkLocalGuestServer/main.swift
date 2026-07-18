@@ -178,10 +178,7 @@ final class LocalHTTPServer {
 
 do {
     let configuration = try Configuration.parse(CommandLine.arguments)
-    guard let htmlURL = Bundle.module.url(forResource: "index", withExtension: "html") else {
-        throw CLIError.invalid("Gastseite fehlt im Bundle.")
-    }
-    let html = try Data(contentsOf: htmlURL)
+    let html = try LocalGuestResources.indexHTML()
     let service = try LocalGuestOrderService(databasePath: configuration.databasePath)
     let router = HTTPRouter(service: service, indexHTML: html)
     let url = "http://\(configuration.publicHost):\(configuration.port)/"

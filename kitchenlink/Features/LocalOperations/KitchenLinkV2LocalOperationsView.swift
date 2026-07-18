@@ -1,4 +1,7 @@
+import CoreImage
+import CoreImage.CIFilterBuiltins
 import SwiftUI
+import UIKit
 
 struct KitchenLinkV2LocalOperationsView: View {
     enum Mode: String, CaseIterable, Identifiable {
@@ -8,9 +11,13 @@ struct KitchenLinkV2LocalOperationsView: View {
         var id: String { rawValue }
     }
 
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = KitchenLinkLocalOperationsModel()
+    @StateObject private var venueHub = KitchenLinkVenueHubModel()
     @State private var mode: Mode = .kitchen
     @State private var successFeedback = 0
+    @State private var showsExternalHub = false
+    @State private var usesExternalHub = false
 
     var body: some View {
         ZStack {
@@ -21,7 +28,8 @@ struct KitchenLinkV2LocalOperationsView: View {
                 VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.large) {
                     header
                     modePicker
-                    connectionCard
+                    venueHubCard
+                    externalHubCard
                     orderSection
                 }
                 .frame(maxWidth: 680)
@@ -36,9 +44,27 @@ struct KitchenLinkV2LocalOperationsView: View {
         .tint(KitchenLinkV2Palette.Brand.grape)
         .sensoryFeedback(.success, trigger: successFeedback)
         .task {
-            model.connect()
+            await startVenueHub()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                if usesExternalHub {
+                    model.connect()
+                } else {
+                    Task { await startVenueHub() }
+                }
+            case .background:
+                venueHub.stop()
+                model.disconnect()
+            case .inactive:
+                break
+            @unknown default:
+                break
+            }
         }
         .onDisappear {
+            venueHub.stop()
             model.disconnect()
         }
     }
@@ -93,7 +119,104 @@ struct KitchenLinkV2LocalOperationsView: View {
         .accessibilityIdentifier("localOperations.mode")
     }
 
-    private var connectionCard: some View {
+    private var venueHubCard: some View {
+        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+            HStack(alignment: .top, spacing: KitchenLinkV2Spacing.medium) {
+                VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
+                    Text("DIESES IPHONE IST DER VENUE-HUB")
+                        .font(KitchenLinkV2Typography.meta)
+                        .tracking(1.1)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    Text(venueHub.statusDetail)
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(hubStatusColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                ProgressView()
+                    .opacity(venueHub.state == .starting ? 1 : 0)
+            }
+
+            if let endpoint = venueHub.endpoint {
+                HStack(alignment: .center, spacing: KitchenLinkV2Spacing.large) {
+                    if let image = qrCode(for: endpoint.guestURL) {
+                        image
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 116, height: 116)
+                            .padding(KitchenLinkV2Spacing.small)
+                            .background(.white, in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control))
+                            .accessibilityLabel("QR-Code zur lokalen Gastbestellung")
+                    }
+
+                    VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
+                        Text("Gastseite im selben WLAN")
+                            .font(KitchenLinkV2Typography.primaryLine)
+                            .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                        Text(endpoint.guestURL.absoluteString)
+                            .font(KitchenLinkV2Typography.meta)
+                            .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                            .textSelection(.enabled)
+
+                        ShareLink(item: endpoint.guestURL) {
+                            Label("Link teilen", systemImage: "square.and.arrow.up")
+                        }
+                        .font(KitchenLinkV2Typography.meta)
+                        .accessibilityIdentifier("localOperations.shareGuestURL")
+                    }
+                }
+                .accessibilityIdentifier("localOperations.guestEndpoint")
+            } else if venueHub.state != .starting {
+                Button("iPhone-Hub starten") {
+                    usesExternalHub = false
+                    Task { await startVenueHub() }
+                }
+                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                .accessibilityIdentifier("localOperations.startVenueHub")
+            }
+
+            Label(
+                "Sandbox: Diese Ansicht muss geöffnet bleiben. Beide Geräte brauchen dasselbe WLAN; das iPhone am besten am Strom lassen.",
+                systemImage: "exclamationmark.triangle"
+            )
+            .font(KitchenLinkV2Typography.meta)
+            .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(KitchenLinkV2Spacing.large)
+        .background(
+            KitchenLinkV2Palette.Surface.raised,
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+        }
+        .accessibilityIdentifier("localOperations.venueHub")
+    }
+
+    private var externalHubCard: some View {
+        DisclosureGroup("Mac-Hub als Fallback", isExpanded: $showsExternalHub) {
+            externalHubControls
+                .padding(.top, KitchenLinkV2Spacing.medium)
+        }
+        .font(KitchenLinkV2Typography.primaryLine)
+        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+        .padding(KitchenLinkV2Spacing.large)
+        .background(
+            KitchenLinkV2Palette.Surface.raised,
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+        }
+    }
+
+    private var externalHubControls: some View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
             TextField("http://192.168.1.20:8080", text: $model.hubAddress)
                 .textInputAutocapitalization(.never)
@@ -123,7 +246,9 @@ struct KitchenLinkV2LocalOperationsView: View {
 
                 Spacer(minLength: 0)
 
-                Button(model.isConnected ? "Neu verbinden" : "Verbinden") {
+                Button("Mac-Hub verbinden") {
+                    usesExternalHub = true
+                    venueHub.stop()
                     model.connect()
                 }
                 .font(KitchenLinkV2Typography.meta)
@@ -131,15 +256,6 @@ struct KitchenLinkV2LocalOperationsView: View {
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("localOperations.connect")
             }
-        }
-        .padding(KitchenLinkV2Spacing.large)
-        .background(
-            KitchenLinkV2Palette.Surface.raised,
-            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
-                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
         }
     }
 
@@ -255,6 +371,34 @@ struct KitchenLinkV2LocalOperationsView: View {
                 successFeedback += 1
             }
         }
+    }
+
+    private var hubStatusColor: Color {
+        if case .failed = venueHub.state {
+            return KitchenLinkV2Palette.Urgency.waitingText
+        }
+        return KitchenLinkV2Palette.Content.secondary
+    }
+
+    @MainActor
+    private func startVenueHub() async {
+        guard scenePhase == .active,
+              venueHub.state != .starting,
+              !venueHub.isRunning else { return }
+        guard let endpoint = await venueHub.start() else { return }
+        model.connect(to: endpoint.operatorURL)
+    }
+
+    private func qrCode(for url: URL) -> Image? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(url.absoluteString.utf8)
+        filter.correctionLevel = "M"
+        let context = CIContext()
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)),
+              let cgImage = context.createCGImage(output, from: output.extent) else {
+            return nil
+        }
+        return Image(uiImage: UIImage(cgImage: cgImage))
     }
 }
 
