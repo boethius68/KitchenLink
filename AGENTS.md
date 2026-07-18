@@ -1,6 +1,8 @@
 # KitchenLink Agent Instructions
 
-Codex, Claude Code and other coding agents use the same project context.
+Codex and Claude Code use the same project context. Earlier work from other
+models remains part of the project history, but no new tasks are assigned to
+them until the user changes this decision.
 
 Before changing code or product documents, read in this order:
 
@@ -21,8 +23,8 @@ Before changing code or product documents, read in this order:
 
 ## Collaboration
 
-- Claude Code, Codex and other coding agents are equal technical collaborators.
-  No agent is the permanent lead, gatekeeper or owner of integration.
+- Claude Code and Codex are equal technical collaborators. Neither is the
+  permanent lead, gatekeeper or owner of integration.
 - The user is the product and design authority. Only the user can approve new
   product scope, visual direction, production activation or other decisions
   reserved in `DECISIONS.md`.

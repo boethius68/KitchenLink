@@ -1,13 +1,14 @@
 # KitchenLink Peer Workflow
 
-**Stand:** 16. Juli 2026
-**Status:** Verbindlicher Ablauf fuer Claude Code, Codex und weitere Agenten
+**Stand:** 18. Juli 2026
+**Status:** Verbindlicher Ablauf fuer Claude Code und Codex
 
 ## Rollen
 
 - Der Nutzer entscheidet Produktumfang, Designfreigaben und Produktionsgrenzen.
-- Claude Code, Codex und weitere Coding-Agenten arbeiten technisch auf
-  Augenhoehe.
+- Claude Code und Codex arbeiten technisch auf Augenhoehe. Fruehere Beitraege
+  anderer Modelle bleiben historische Projektarbeit; neue Tickets werden bis
+  auf Weiteres nur von Claude oder Codex uebernommen.
 - Kein Agent besitzt `main`, die Work Queue oder die Arbeit eines anderen
   Agenten.
 - Es gibt keinen dauerhaften Chef, Integrator oder Freigabe-Gatekeeper.

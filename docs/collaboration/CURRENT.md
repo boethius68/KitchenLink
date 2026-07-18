@@ -2,26 +2,15 @@
 
 **Updated:** 18 July 2026
 **Integration branch:** `main`
-**Phase:** Design-system implementation
-**Release status:** Internal sandbox, not production
-**Last merge:** PR #10 `glm/web-next` -> `main` (KL-WEB-003), bringing the
-guest-web sandbox into real operation for the first time: an additive
-`20260718010000` migration that fixes two genuine bugs found by the first
-real-instance integration run (the merged KL-WEB-002 RPC was not runnable as
-shipped), plus an integration-test harness, Supabase CLI init and a setup
-guide. PR #12 then merged the manual-smoke-test follow-ups (success
-confirmation card, second-submit block). The same day the user deployed the
-guest web live to **`https://kitchenlink.luneq.eu`** via Hostinger PaaS
-(Git auto-deploy from `main`); end-to-end anonymous ordering verified against
-the real EU-Frankfurt Supabase instance. Before that, the same day: `minimax/inventory-domain` (KL-INVENTORY-001),
-`glm/guest-web-order-gate` (KL-WEB-002, the authoritative guest order gate and
-Supabase Anonymous Sign-in), PR #8 (KL-WORKFORCE-001 workforce domain), PR #7
-(KL-OFFLINE-003 event-log/outbox prototype), `claude/guest-web-foundation`
-(KL-WEB-001 guest-web foundation), PR #9 (KL-QA-002 offline order smoke), PR #6
-(collaboration-state sync) and PR #5 (kitchen hardening). Earlier: PR #1
-delivered the Claude audit and the `Heute`/`Kueche` reference areas, PR #2/#3
-completed `KL-MENU-004`, PR #4
-recorded that merge.
+**Phase:** Integrated sandbox; guest web live, iOS domain expansion
+**Release status:** Publicly reachable sandbox, not production
+**Last merge:** PR #14 (`glm/web-menu-from-supabase` -> `main`, KL-WEB-004)
+switched the live menu read path to Supabase with 60-second ISR and a local
+fixture fallback. The guest web is deployed from `main` to Hostinger PaaS at
+**`https://kitchenlink.luneq.eu`** and anonymous sandbox ordering has been
+verified end-to-end against the EU-Frankfurt Supabase instance. PR #15
+(`glm/inventory-operator-ui`, KL-INVENTORY-002) is open and not part of
+`main` yet.
 
 ## Product
 
@@ -225,7 +214,7 @@ recorded that merge.
   `NEXT_PUBLIC_SUPABASE_URL` was initially set to `supabase.com` instead of
   `supabase.co`, producing a misleading "Load failed"; the correct TLD is
   `.co` and `SANDBOX_SETUP.md` should call this out explicitly.
-- KL-WEB-004 (GLM, in progress on `glm/web-menu-from-supabase`) closes the
+- KL-WEB-004 (GLM, merged with PR #14) closes the
   menu-source inconsistency left by KL-WEB-002/003: the guest card's menu was
   still served from the local fixture `guest-web/src/lib/venue-data.ts` while
   the order was validated against Supabase, so DB-side menu edits would never
@@ -250,8 +239,8 @@ recorded that merge.
   fresh-computed physical/reserved/available projection, a recipe resolver
   and a replenishment advisor. No UI, persistence, cloud sync or valuation
   logic, as scoped.
-- The active parallel queue and disjoint agent scopes are recorded in
-  `docs/collaboration/WORK_QUEUE.md`.
+- The completed ticket history and the currently open PR #15 scope are recorded
+  in `docs/collaboration/WORK_QUEUE.md`.
 - The shared collaboration and design state must be present on `origin/main`
   before Claude Code and Codex start parallel worktrees from it.
 - No production deployment, live payment activation or final fiscal integration
@@ -263,6 +252,10 @@ recorded that merge.
 - Claude Code and Codex are equal technical collaborators. `main` is neutral;
   the user remains the product and design authority. The binding integration
   process is `docs/collaboration/PEER_WORKFLOW.md`.
+- New work is assigned only to Claude Code or Codex until the user changes that
+  decision. Earlier GLM, DeepSeek, Kimi and MiniMax handoffs remain historical
+  context. The already-open GLM PR #15 may be reviewed and integrated by Claude
+  or Codex.
 - Claude Code `2.1.150` is installed locally.
 - The two-phase Claude audit and design implementation mission is recorded in
   `docs/collaboration/CLAUDE_MISSION.md`; Claude works in an isolated worktree.
@@ -275,82 +268,20 @@ recorded that merge.
 - New Claude Design ZIP files can be imported with
   `scripts/import-claude-design.sh`.
 
-## Next Decision
+## Current Focus and Open Decisions
 
-PR #6 (collaboration-state sync), PR #5 (kitchen hardening) and PR #9
-(KL-QA-002 offline order smoke) were reviewed by Claude Code and integrated on
-17 July 2026. The Round-2 rebase warning from PR #6 became obsolete before
-integration: the remaining mission branches were rebased onto the PR #4 merge
-base and all merges applied conflict-free. The KL-INVENTORY-001 mission that
-never got a `minimax/inventory-domain` branch the first time around was
-reassigned and delivered the same day (see below).
-
-The KL-WEB-001 guest-web foundation merged the same day, reviewed visually by
-the user against the Round-04 Claude Design export rather than only the
-derived `DESIGN_SYSTEM.md` spec (see `guest-web/README.md` and the Claude
-handoff for the six divergences found and corrected).
-
-PR #7 (`glm/offline-event-log-v2`, KL-OFFLINE-003) was reviewed by Claude Code
-and integrated the same day: 35/35 tests pass, no P0/P1 findings. Three minor
-observations (a stale AUTOINCREMENT comment, two sequentially-run tests whose
-names imply real multi-threading, an unescaped fingerprint delimiter) are
-non-blocking and already self-disclosed in `EVENT_LOG_V2.md` and the GLM
-handoff.
-
-PR #8 (`kimi/workforce-domain`, KL-WORKFORCE-001) was reviewed by Claude Code
-and integrated the same day. One real bug was found and fixed during
-integration: `finalizeSwap(accepted: false)` left a stale `acceptedAt` after
-a rejected swap on a previously-accepted shift, contradicting the
-`.published` status; fixed with a regression test covering the previously
-untested path. 38/38 workforce tests and the complete unit suite are green
-on the merged state.
-
-Two missions were assigned the same day (documented as copy-ready prompts in
-`docs/collaboration/PARALLEL_MISSIONS_2026-07-17.md`) and both were delivered
-and integrated the same day too:
-
-- **KL-WEB-002** (GLM 5.2, `glm/guest-web-order-gate`): reviewed by Claude
-  Code and merged. One real bug was found and fixed during integration — the
-  order summary sheet showed a stale "Summe: 0,00 €" right next to the
-  confirmed-order message, because the cart was cleared before the sheet's
-  live total recomputed. Fixed by snapshotting the cart and showing the
-  server-confirmed total once accepted. A narrow, documented (not fixed)
-  risk remains: a concurrent double-submit race with the same idempotency
-  key surfaces as a generic error instead of a clean conflict/replay result
-  for the losing request; the core "never two orders for one key" guarantee
-  is unaffected.
-- **KL-INVENTORY-001** (MiniMax, `minimax/inventory-domain`): reviewed by
-  Claude Code and merged, no code changes needed. One design choice was
-  investigated in depth rather than assumed to be a bug — reversal
-  protection intentionally runs before the idempotency check, guaranteeing
-  "exactly once" for a Storno rather than silently replaying a second click.
-  MiniMax's own handoff already documents this exact tradeoff.
-
-The offline-venue-hub discovery (both branches) was reviewed on 18 July 2026.
-The five discovery documents plus an integration reading now live under
-`docs/discovery/offline-venue-hub/`. Key reading: the Stage-1 event-log
-contract — the only part the red-team gave a conditional go — is effectively
-already covered by the merged KL-OFFLINE-003 prototype, so the next low-risk
-step there would be the iOS integration seam (event store behind
-`KitchenLinkRepository`). The network side of the hub stays blocked on
-unresolved P0 decisions, most notably a collision with the just-merged
-cloud-first guest web: an HTTPS-served guest page cannot reach a local HTTP
-hub (Mixed Content + Chrome Local Network Access), so Blueprint §16.2's
-offline guest ordering is a genuine product/architecture fork for the user.
-No `DECISIONS.md` change follows — discovery stays discovery.
-
-Remaining:
-
-- The network-side venue hub (local HTTP server, guest-to-hub reach,
-  leader election/failover) is blocked on the user P0 decisions recorded in
-  `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4.
-- The KL-WEB-002 idempotency-race follow-up is closed (KL-WEB-003). The user's
-  real Supabase sandbox instance is live and the guest web is publicly deployed
-  at `https://kitchenlink.luneq.eu` (Hostinger PaaS); anonymous ordering runs
-  end-to-end.
-- Still open in the guest-web scope: a production-grade hosting decision
-  (Hostinger PaaS is the current sandbox host; the ADR-001 §8 Vercel-vs-
-  Cloudflare PoC is superseded for sandbox use), the PWA/offline stage (D5),
-  and the cleanup policy for orphaned anonymous users. (The menü-fetch switch
-  from the local fixture to Supabase is done — KL-WEB-004, ISR 60s, fixture
-  retained as build fallback.)
+- **PR #15 / KL-INVENTORY-002:** open and mergeable. It adds a read-only V2
+  inventory surface on top of the existing inventory projection and advisor.
+  Local build, unit and UI suites are reported green; visual inspection and
+  review of the severity-to-urgency presentation remain open. Claude or Codex
+  performs the review; no new GLM work follows.
+- **Offline venue hub:** the local-network side remains blocked on the P0
+  product and architecture decisions in
+  `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4. In particular,
+  an HTTPS guest web cannot directly rely on an untrusted local HTTP hub.
+- **Guest web:** production-grade hosting, PWA/offline behavior and retention
+  for orphaned anonymous users remain open. Hostinger is selected only for the
+  current sandbox; Supabase menu loading and authoritative sandbox ordering are
+  already live.
+- **Production boundary:** no live payment, fiscal activation or removal of
+  sandbox labeling is approved.

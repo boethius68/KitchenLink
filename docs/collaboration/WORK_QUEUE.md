@@ -1,11 +1,16 @@
 # KitchenLink Work Queue
 
 **Stand:** 18. Juli 2026
-**Phase:** Designsystem-Implementierung im internen Sandbox-Build
+**Phase:** Integrierte Sandbox mit oeffentlichem Gast-Web
 
-Diese Queue zerlegt die naechste Ausbaustufe in konfliktfreie Arbeitspakete. Ein
-Agent uebernimmt immer genau ein Ticket in einem eigenen Branch oder Worktree.
-Bestehende Demo-, Offline- und Simulationspfade duerfen nicht entfernt werden.
+Diese Queue enthaelt sowohl die abgeschlossene Aufbauhistorie als auch aktuelle
+Arbeitspakete. Neue Tickets werden bis auf Weiteres nur von Claude Code oder
+Codex in einem eigenen Branch oder Worktree uebernommen. Bestehende Demo-,
+Offline- und Simulationspfade duerfen nicht entfernt werden.
+
+Aktuell offen ist PR #15 (`glm/inventory-operator-ui`, KL-INVENTORY-002). Er ist
+der letzte bereits begonnene GLM-Strang und wird von Claude oder Codex reviewt;
+sein Schreibbereich bleibt bis zur Review-/Integrationsentscheidung exklusiv.
 
 ## Arbeitsregeln
 
@@ -15,8 +20,8 @@ Bestehende Demo-, Offline- und Simulationspfade duerfen nicht entfernt werden.
 - Der im Ticket genannte Schreibbereich ist exklusiv. Aenderungen ausserhalb
   dieses Bereichs werden vorher mit dem anderen aktiven Agenten oder dem Nutzer
   abgestimmt.
-- Claude Code, Codex und weitere Agenten arbeiten nach
-  `docs/collaboration/PEER_WORKFLOW.md` auf Augenhoehe.
+- Claude Code und Codex arbeiten nach `docs/collaboration/PEER_WORKFLOW.md` auf
+  Augenhoehe. Handoffs anderer Modelle werden nur noch als Historie gelesen.
 - Keine neuen Produktentscheidungen aus Designs ableiten.
 - Keine Runtime-Abhaengigkeit von extern geladenen Schriften oder Farbdiensten.
 - Jedes Ticket endet mit Build-/Testnachweis und einer kurzen Risikonotiz.
@@ -288,10 +293,10 @@ Browser erneut visuell geprueft. Bestellgrenze, Supabase-Anbindung und
 PWA-Stufe folgen weiterhin als eigene Tickets.
 
 Der Nutzer hat entschieden (siehe `DECISIONS.md`, Guest Web): Next.js App
-Router auf Basis von ADR-001 (`glm/guest-web-architecture`), Sandbox-Deployment
-auf Vercel bei hosting-neutralem Code (Cloudflare-PoC als Gate vor Produktion),
-Supabase Anonymous Sign-in fuer Gastbestellungen und pfadbasierte Venue-Routen
-in der Sandbox.
+Router auf Basis von ADR-001 (`glm/guest-web-architecture`), hosting-neutraler
+Code, Supabase Anonymous Sign-in fuer Gastbestellungen und pfadbasierte
+Venue-Routen in der Sandbox. Der damalige Vercel-Plan wurde am 18. Juli durch
+den realen Hostinger-PaaS-Deploy fuer die Sandbox abgeloest.
 
 ### KL-WEB-002 - Autoritative Bestellgrenze und Anonyme Identitaet
 
@@ -448,11 +453,11 @@ Kernbefunde der Lesart:
   fuer den Nutzer.
 - Keine `DECISIONS.md`-Aenderung; Discovery bleibt Discovery.
 
-## Naechster aktiver Strang
+## Abgeschlossene Web-Straenge
 
 ### KL-WEB-003 - Gast-Web-Sandbox in Betrieb nehmen (Deploy + echte Tests)
 
-**Status:** Implementiert auf `glm/web-next`; bereit fuer Review
+**Status:** Erledigt; mit PR #10/#12 integriert und auf Hostinger deployt
 **Abhaengigkeit:** KL-WEB-002 (erledigt, gemergt)
 **Schreibbereich:** `guest-web/`, `supabase/` (nur additive/neue Config,
 Migrationen unangetastet), `docs/architecture/guest-web/`,
@@ -479,9 +484,8 @@ Agent Cloud-Ressourcen anlegt oder Secrets committet:
   via `npm run test:integration`.
 - **Setup-Leitfaden:** `docs/architecture/guest-web/SANDBOX_SETUP.md` fuehrt den
   Nutzer Schritt fuer Schritt durch Supabase-Projekt (EU-Frankfurt), Anonymous-
-  Sign-in-Aktivierung, Migrationen, `.env.local` und Vercel-Deployment.
-  Explizit: Vercel ist der erste Sandbox-Deploy, **keine** Hosting-Entscheidung
-  (D4) — die PoC-Matrix aus ADR-001 §8 bleibt offen.
+  Sign-in-Aktivierung, Migrationen, `.env.local` und das aktuelle
+  Hostinger-PaaS-Deployment.
 - `guest-web/README.md` auf den aktuellen Stand gebracht (Kommandos +
   In-Betrieb-nehmen-Verweis).
 
@@ -489,15 +493,13 @@ Verifikation in `guest-web/`: typecheck + lint sauber, 40/40 Unit-Tests,
 Integrationstests skippen sauber ohne Instanz, SSG-Build mit
 `/alte-muehle/menu` intakt.
 
-**Offen fuer den Nutzer (nicht fuer den Agent):** Supabase-Projekt anlegen,
-Anonymous Sign-in aktivieren, Migrationen anwenden, `.env.local`/Vercel-Env
-setzen, Repo in Vercel verbinden. Der Leitfaden `SANDBOX_SETUP.md` fuehrt
-Schritt fuer Schritt. Ist die Instanz konfiguriert, laufen die
-Integrationstests echte Aussagen (siehe `ORDER_GATE.md` §7 Abgrenzung).
+Der Nutzer hat Supabase, Anonymous Sign-in, Migrationen und Hostinger-Env
+konfiguriert. Der oeffentliche Sandbox-Smoke-Test inklusive Server-ACK ist
+erfolgt; Produktionsfreigabe und echte Zahlungen folgen daraus nicht.
 
 ### KL-WEB-004 - Menue-Anzeige aus Supabase (ISR) statt lokaler Fixture
 
-**Status:** Implementiert auf `glm/web-menu-from-supabase`; bereit fuer Review
+**Status:** Erledigt; mit PR #14 in `main` integriert
 **Abhaengigkeit:** KL-WEB-002, KL-WEB-003 (beide erledigt, gemergt)
 **Schreibbereich:** `guest-web/`, neue additive Migration unter
 `supabase/migrations/`, `docs/architecture/guest-web/`,
@@ -601,14 +603,10 @@ unberührt.
    Discovery-Dokumente und Integrationslesart nach `main` gebracht, siehe
    Discovery-Abschnitt oben. Netzwerkseitiger Hub-Teil bleibt bis zu
    Nutzerentscheidungen blockiert.
-10. ~~Gast-Web zur laufenden Sandbox bringen (KL-WEB-003).~~ Implementiert auf
-    `glm/web-next`; Race-Follow-up behoben, Integrationstest-Geruest und
-    Setup-Leitfaden angelegt. Wartet auf Nutzer-Account-Schritte (Supabase-
-    Projekt, Vercel) laut `SANDBOX_SETUP.md`.
-11. ~~Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.~~
-    Mit KL-INVENTORY-002 beginnt die iOS-Domänenvertiefung (siehe eigener
-    Abschnitt oben): eine read-only Bestandsansicht auf Basis der bereits
-    gemergten KL-INVENTORY-001-Domain, ohne neue Produkt- oder Design-
-    entscheidung. Implementiert auf `glm/inventory-operator-ui`, bereit
-    für Review.
+10. ~~Gast-Web zur laufenden Sandbox bringen (KL-WEB-003).~~ Erledigt und mit
+    PR #10/#12 integriert; Supabase und Hostinger sind konfiguriert, die
+    oeffentliche Sandbox-Bestellung wurde Ende-zu-Ende verifiziert.
+11. ~~Read-only Bestandsansicht integrieren (KL-INVENTORY-002).~~ Nach
+    technischer und visueller Abnahme, Review-Fixes und vollstaendiger
+    Verifikation mit PR #15 am 18. Juli 2026 integriert.
 12. Erst nach stabilen Referenzscreens weitere Produktmodule migrieren.

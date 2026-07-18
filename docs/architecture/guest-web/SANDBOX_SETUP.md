@@ -6,21 +6,23 @@
 DECISIONS.md). Keine echten Zahlungen.
 
 Dieser Leitfaden führt Schritt für Schritt durch das In-Betrieb-nehmen der
-Gast-Web-Sandbox gegen eine echte Supabase-Instanz und ein Vercel-Deployment.
+Gast-Web-Sandbox gegen eine echte Supabase-Instanz und ein Git-basiertes
+PaaS-Deployment. Der aktuelle Deploy läuft auf Hostinger PaaS.
 Er ist für den Nutzer (Account-Inhaber) geschrieben; die Agenten legen keine
 Cloud-Ressourcen an und committen keine Secrets.
 
 > **Vorgaben:** [`ADR-001_GUEST_WEB_STACK.md`](./ADR-001_GUEST_WEB_STACK.md)
-> (§6 Bestellgrenze, §6.3 Anonymous Sign-in, §8 Hosting-PoC). Das Vercel-
-> Deployment hier ist der **erste Sandbox-Deploy**, **keine** Hosting-Entscheidung
-> (D4) — die PoC-Matrix aus ADR-001 §8 bleibt offen.
+> (§6 Bestellgrenze, §6.3 Anonymous Sign-in). ADR-001 §8 ist für die Sandbox
+> durch den realen Hostinger-Deploy überholt; eine produktionsreife
+> Hosting-Entscheidung bleibt offen.
 
 ---
 
 ## 0. Voraussetzungen
 
 - Supabase-Account (kostenloser Tier reicht für die Sandbox).
-- Vercel-Account (kostenloser Tier reicht).
+- Für eine Reproduktion des aktuellen Deploys: Hostinger-PaaS-Zugang. Ein
+  anderer Next.js-fähiger Git-Host funktioniert ebenfalls.
 - Lokal: Node 20+, `npm`. Optional die Supabase-CLI (`npm i -g supabase`).
 - Dieses Repository ausgecheckt; `guest-web/` und `supabase/migrations/`
   vorhanden.
@@ -54,13 +56,14 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **drei** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **vier** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
 | `supabase/migrations/20260318011000_kitchenlink_core_schema.sql` | Basis-Schema (venues, menu_items, orders, …) |
 | `supabase/migrations/20260717120000_guest_web_order_gate.sql` | RLS, Idempotenz, Seed, RPC (KL-WEB-002) |
 | `supabase/migrations/20260718010000_guest_web_submit_order_race_fix.sql` | Race-safe RPC (KL-WEB-003) |
+| `supabase/migrations/20260719000000_menu_items_tag.sql` | Menü-Tag-Feld und Seed für den Supabase-Leseweg (KL-WEB-004) |
 
 ### Weg A — über die CLI (empfohlen)
 
@@ -80,7 +83,7 @@ supabase db push
 
 ### Weg B — über den SQL-Editor
 
-Dashboard → **SQL Editor** → nacheinander die drei Dateien aus
+Dashboard → **SQL Editor** → nacheinander die vier Dateien aus
 `supabase/migrations/` einfügen und **Run**. Reihenfolge einhalten.
 
 ### Verifikation des Schemas
@@ -206,11 +209,9 @@ aus Abschnitt 6 wiederholen.
 
 ## 7. Was bewusst NICHT hier gelöst ist
 
-- **Hosting-Entscheidung D4** (Vercel vs. Cloudflare Workers) bleibt offen
-  (ADR-001 §8 PoC).
+- **Produktionsreifes Hosting:** Hostinger ist für die Sandbox gewählt; eine
+  spätere Produktionsentscheidung bleibt offen.
 - **PWA/Offline-Shell** ist Stage 2, eigene Entscheidung (ADR-001 §5, D5).
-- **Menü-Fetch via Supabase** statt lokaler Fixture ist ein Folgeticket; die
-  Menüanzeige/SSG läuft weiter über `guest-web/src/lib/venue-data.ts`.
 - **Cleanup orphaned anonymous users** (DECISIONS.md Guest Web) muss im
   Supabase-Projekt konfiguriert werden (Cron/Retention), ist kein Code-Scope.
 - Keine echten Zahlungen, keine produktive Freigabe.
@@ -225,4 +226,4 @@ aus Abschnitt 6 wiederholen.
 | Bestellung schlägt mit `unauthenticated` fehl | Anonymous Sign-in im Dashboard nicht aktiviert (Abschnitt 1.1) |
 | RPC-Fehler `unknown_venue` | Migrationen nicht (vollständig) angewendet; Seed fehlt |
 | `permission denied` auf RPC | Migration 20260717… nicht angewendet (grants fehlen) |
-| Bestellung klappt lokal, nicht auf Vercel | Env-Variablen in Vercel nicht gesetzt (Abschnitt 5.4) |
+| Bestellung klappt lokal, nicht auf Hostinger | Env-Variablen im Hostinger-Projekt fehlen oder die URL endet fälschlich auf `.supabase.com` statt `.supabase.co` (Abschnitt 5) |

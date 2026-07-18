@@ -60,9 +60,13 @@ append-only; superseded decisions are marked rather than deleted.
 
 - **Framework:** Next.js (App Router, TypeScript) per ADR-001 on
   `glm/guest-web-architecture` is the working basis for the guest web.
-- **Hosting path:** The sandbox beta deploys to Vercel. The code stays
-  hosting-neutral; the Vercel-versus-Cloudflare-Workers PoC from ADR-001 §8
-  becomes a mandatory gate before any production activation.
+- **Hosting path (superseded for the sandbox on 18 July 2026):** The original
+  plan targeted Vercel while keeping the code hosting-neutral and requiring the
+  ADR-001 §8 PoC before production.
+- **Current sandbox hosting (approved by deployment on 18 July 2026):** The
+  public sandbox deploys from `main` to Hostinger PaaS at
+  `https://kitchenlink.luneq.eu`. This settles sandbox hosting only; the code
+  remains hosting-neutral and production-grade hosting stays open.
 - **Anonymous identity:** Guest ordering uses Supabase Anonymous Sign-in
   (`authenticated` role with `is_anonymous` claim) combined with the
   authoritative order gate; a cleanup policy for orphaned anonymous users is
@@ -70,15 +74,20 @@ append-only; superseded decisions are marked rather than deleted.
 - **URL structure:** The sandbox uses path-based venue routes (`…/<venue>`).
   Per-venue subdomains and custom domains remain open product decisions to
   revisit before production.
-- Still open by design: custom domains per restaurant (D3), the PWA/offline
-  shell stage (D5) and the order-gate implementation variant Edge Function
-  versus PostgreSQL RPC (D6, implementation detail).
+- Still open by design: custom domains per restaurant (D3) and the PWA/offline
+  shell stage (D5). The sandbox order gate currently uses the PostgreSQL RPC
+  variant; a production architecture may revisit that implementation detail.
 
 ## Collaboration Governance
 
-- **Agent parity:** Claude Code, Codex and future coding agents work as equal
-  technical collaborators. No agent is the boss, permanent integrator or
-  mandatory gatekeeper for another agent's work.
+- **Agent parity:** Claude Code and Codex work as equal technical collaborators.
+  Neither is the boss, permanent integrator or mandatory gatekeeper for the
+  other's work.
+- **Active agents (approved 18 July 2026):** Until the user changes this
+  decision, new project work is assigned only to Claude Code and Codex. Work
+  and handoffs from GLM, DeepSeek, Kimi and MiniMax remain historical context;
+  the already-open GLM PR #15 may still be reviewed and integrated by Claude or
+  Codex.
 - **Shared integration:** `main` is a neutral shared integration branch. Every
   agent works in its own branch and worktree and may propose, implement, review
   or integrate work under the same rules.

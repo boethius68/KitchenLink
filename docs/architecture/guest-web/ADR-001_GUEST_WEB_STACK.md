@@ -1,6 +1,6 @@
 # ADR-001: KitchenLink Gast-Web-Stack und Hosting
 
-**Status:** Proposed
+**Status:** Accepted as sandbox foundation; §8 superseded for sandbox hosting
 **Datum:** 2026-07-16 (Revision 2 nach Review)
 **Agent:** GLM-5.2 via ZCode
 **Ticket:** KL-WEB-001A
@@ -20,6 +20,12 @@ Quellenverweise `[Sxx]` verweisen auf [`SOURCES.md`](./SOURCES.md).
 > wird zwischen `anon` (unauthenticated) und Supabase Anonymous Sign-in
 > (`authenticated` + `is_anonymous`) unterschieden. Responsive Beta und
 > PWA-/Offline-Shell sind getrennt. Unbelegte kommerzielle Aussagen sind entfernt.
+
+> **Betriebsnotiz vom 18. Juli 2026:** Das Gast-Web läuft für die Sandbox auf
+> Hostinger PaaS unter `https://kitchenlink.luneq.eu`. Die Vergleichsmatrix in
+> §8 bleibt als historische Entscheidungsgrundlage erhalten, ist aber kein
+> offenes Sandbox-Gate mehr. Produktionshosting bleibt eine spätere
+> Entscheidung.
 
 ---
 
