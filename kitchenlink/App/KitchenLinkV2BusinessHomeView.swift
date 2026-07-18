@@ -140,6 +140,20 @@ struct KitchenLinkV2BusinessHomeView: View {
     private var operationsAccess: some View {
         VStack(alignment: .leading, spacing: 0) {
             NavigationLink {
+                KitchenLinkV2LocalOperationsView()
+            } label: {
+                operationsRow(
+                    title: "Lokaler Service",
+                    subtitle: "Gastbestellungen live in Küche und Kellner-Modus",
+                    systemImage: "wifi"
+                )
+            }
+            .accessibilityIdentifier("business.openLocalOperations")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 KitchenLinkV2TodayView()
             } label: {
                 operationsRow(

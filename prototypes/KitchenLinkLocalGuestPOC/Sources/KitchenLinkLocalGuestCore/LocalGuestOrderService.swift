@@ -5,6 +5,8 @@ public final class LocalGuestOrderService: @unchecked Sendable {
     public enum ServiceError: Error, Equatable {
         case invalidRequest(String)
         case idempotencyConflict(existingEventID: String)
+        case orderNotFound
+        case invalidStatusTransition(from: LocalOperatorOrderStatus, to: LocalOperatorOrderStatus)
         case persistence(String)
     }
 
@@ -159,5 +161,155 @@ public final class LocalGuestOrderService: @unchecked Sendable {
 
     public func persistedEvents() throws -> [EventRecord] {
         try store.events(forVenue: VenueID(rawValue: venueID))
+    }
+
+    public func operatorOrders() throws -> [LocalOperatorOrder] {
+        let events = try persistedEvents()
+        let grouped = Dictionary(grouping: events, by: { $0.aggregateID.rawValue })
+        return try grouped.values.compactMap { aggregateEvents in
+            try projectOrder(from: aggregateEvents)
+        }
+        .sorted { lhs, rhs in
+            if lhs.createdAtMs != rhs.createdAtMs { return lhs.createdAtMs < rhs.createdAtMs }
+            return lhs.localSequence < rhs.localSequence
+        }
+    }
+
+    public func updateOperatorOrderStatus(
+        orderID: String,
+        request: LocalOrderStatusRequest
+    ) throws -> LocalOrderStatusReceipt {
+        guard UUID(uuidString: orderID) != nil else {
+            throw ServiceError.invalidRequest("orderID muss eine UUID sein.")
+        }
+        guard !request.idempotencyKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              request.idempotencyKey.utf8.count <= 128 else {
+            throw ServiceError.invalidRequest("idempotencyKey fehlt oder ist zu lang.")
+        }
+
+        let aggregateID = AggregateID(rawValue: orderID)
+        let aggregateEvents = try store.events(forAggregate: aggregateID)
+        guard let currentOrder = try projectOrder(from: aggregateEvents) else {
+            throw ServiceError.orderNotFound
+        }
+
+        if let previousEvent = aggregateEvents.first(where: {
+            $0.idempotencyKey.rawValue == request.idempotencyKey
+        }) {
+            guard previousEvent.eventType == "operator_order_status_changed",
+                  let previousPayload = try? JSONDecoder().decode(
+                    LocalOrderStatusEventPayload.self,
+                    from: previousEvent.payload
+                  ),
+                  previousPayload.targetStatus == request.targetStatus else {
+                throw ServiceError.idempotencyConflict(existingEventID: previousEvent.eventID.rawValue)
+            }
+            return LocalOrderStatusReceipt(
+                status: "accepted",
+                orderID: orderID,
+                orderStatus: request.targetStatus,
+                eventID: previousEvent.eventID.rawValue,
+                localSequence: previousEvent.localSeq,
+                replayed: true,
+                persistence: "local-event-log-committed"
+            )
+        }
+
+        if !currentOrder.status.canTransition(to: request.targetStatus) {
+            throw ServiceError.invalidStatusTransition(from: currentOrder.status, to: request.targetStatus)
+        }
+
+        let payload = LocalOrderStatusEventPayload(orderID: orderID, targetStatus: request.targetStatus)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let payloadData: Data
+        do {
+            payloadData = try encoder.encode(payload)
+        } catch {
+            throw ServiceError.persistence("Statuspayload konnte nicht serialisiert werden: \(error)")
+        }
+
+        let eventVenueID = VenueID(rawValue: venueID)
+        let fingerprint = Fingerprint.canonical(
+            venueID: eventVenueID,
+            aggregateType: "order",
+            aggregateID: aggregateID,
+            eventType: "operator_order_status_changed",
+            payloadVersion: 1,
+            payload: payloadData
+        )
+        let appendRequest = AppendEventRequest(
+            eventID: EventID(),
+            venueID: eventVenueID,
+            aggregateID: aggregateID,
+            aggregateType: "order",
+            eventType: "operator_order_status_changed",
+            payloadVersion: 1,
+            payload: payloadData,
+            requestFingerprint: fingerprint,
+            idempotencyKey: IdempotencyKey(rawValue: request.idempotencyKey),
+            deviceID: deviceID,
+            outboxTargets: [.cloud]
+        )
+
+        do {
+            let currentRevision = try store.currentRevision(forAggregate: aggregateID)
+            let result = try store.append(appendRequest, expectedRevision: currentRevision)
+            return LocalOrderStatusReceipt(
+                status: "accepted",
+                orderID: orderID,
+                orderStatus: request.targetStatus,
+                eventID: result.event.eventID.rawValue,
+                localSequence: result.event.localSeq,
+                replayed: result.wasReplay,
+                persistence: "local-event-log-committed"
+            )
+        } catch let error as EventStore.AppendError {
+            switch error {
+            case .idempotencyConflict(_, _, let existingEventID):
+                throw ServiceError.idempotencyConflict(existingEventID: existingEventID.rawValue)
+            default:
+                throw ServiceError.persistence(String(describing: error))
+            }
+        } catch let error as ServiceError {
+            throw error
+        } catch {
+            throw ServiceError.persistence(String(describing: error))
+        }
+    }
+
+    private func projectOrder(from events: [EventRecord]) throws -> LocalOperatorOrder? {
+        let sortedEvents = events.sorted { $0.localSeq < $1.localSeq }
+        guard let placed = sortedEvents.first(where: { $0.eventType == "guest_order_placed" }) else {
+            return nil
+        }
+
+        let decoder = JSONDecoder()
+        let payload: AcceptedOrderPayload
+        do {
+            payload = try decoder.decode(AcceptedOrderPayload.self, from: placed.payload)
+        } catch {
+            throw ServiceError.persistence("Gespeicherte Bestellung konnte nicht gelesen werden: \(error)")
+        }
+
+        var status: LocalOperatorOrderStatus = .preparing
+        for event in sortedEvents where event.eventType == "operator_order_status_changed" {
+            do {
+                status = try decoder.decode(LocalOrderStatusEventPayload.self, from: event.payload).targetStatus
+            } catch {
+                throw ServiceError.persistence("Gespeicherter Status konnte nicht gelesen werden: \(error)")
+            }
+        }
+
+        return LocalOperatorOrder(
+            id: payload.orderID,
+            localSequence: placed.localSeq,
+            createdAtMs: placed.occurredAtMs,
+            venueID: payload.venueID,
+            currency: payload.currency,
+            totalMinor: payload.totalMinor,
+            lines: payload.lines,
+            status: status
+        )
     }
 }
