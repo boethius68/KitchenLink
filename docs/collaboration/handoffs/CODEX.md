@@ -1,9 +1,21 @@
 # Codex Handoff
 
-**Updated:** 18 July 2026
+**Updated:** 19 July 2026
 **Branch:** `codex/local-operator-workflow`
-**Status:** Lokalen Kueche-zu-Kellner-Workflow implementiert, auf dem iPhone
-installiert; visuelle Geraeteabnahme, Review und Integration bleiben offen
+**Status:** Lokalen Kueche-zu-Kellner-Workflow implementiert und auf zwei
+echten Geraeten abgenommen; Review und Integration bleiben offen
+
+## Latest Continuation (19. Juli 2026, echte Zwei-Geraete-Abnahme)
+
+- KitchenLink auf dem iPhone im Kuechen-Modus geoeffnet und mit dem lokalen
+  macOS-Hub im gemeinsamen WLAN verbunden.
+- Eine neue Bestellung live von einem zweiten Geraet ueber die lokale Gastseite
+  abgegeben.
+- Auftrag erschien live im Kuechen-Modus, wechselte nach
+  `Bestellung zubereitet` in den Kellner-Modus und liess sich dort mit
+  `Bestellung serviert` abschliessen.
+- Nutzer bestaetigte den gesamten Lauf als erfolgreich. Damit ist die bisher
+  offene interaktive Geraeteabnahme fuer PR #23 bestanden.
 
 ## Latest Continuation (18. Juli 2026, KL-OFFLINE-005)
 
@@ -38,12 +50,12 @@ installiert; visuelle Geraeteabnahme, Review und Integration bleiben offen
   automatische Start wurde nur durch den gesperrten Geraetezustand abgewiesen.
 - Gebautes Info.plist kontrolliert: lokale Netzwerkbeschreibung und
   `NSAppTransportSecurity.NSAllowsLocalNetworking = true` vorhanden.
+- Echter Zwei-Geraete-Lauf im Referenz-WLAN: zweites Geraet bestellt lokal,
+  iPhone empfaengt in Kueche, reicht an Kellner weiter und schliesst als
+  serviert ab: **vom Nutzer bestanden bestaetigt**.
 
 ## Remaining Risk (KL-OFFLINE-005)
 
-- Der Nutzer muss die installierte Ansicht auf dem entsperrten iPhone visuell
-  und interaktiv abnehmen. Eine frische Bestellung `lokal #4` liegt dafuer im
-  laufenden Referenzhub bereit.
 - Polling und feste/editierbare IP sind eine Sandbox-Naht. Bonjour/Discovery,
   IP-Wechsel, Hintergrundbetrieb, Push, Mehrgeraetekonkurrenz, AP-Isolation,
   Android und TLS/Trust sind nicht geloest.

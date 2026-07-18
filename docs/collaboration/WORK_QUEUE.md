@@ -480,7 +480,7 @@ auf iOS Safari und Android Chrome im Referenz-WLAN offen.
 
 ### KL-OFFLINE-005 - Lokaler Kuechen-/Kellner-Workflow auf dem iPhone
 
-**Status:** Implementiert auf `codex/local-operator-workflow`; Review und
+**Status:** Implementiert und auf zwei echten Geraeten abgenommen; Review und
 Integration ausstehend
 **Abhaengigkeit:** KL-OFFLINE-004, PR #22
 **Schreibbereich:** `prototypes/KitchenLinkLocalGuestPOC/`,
@@ -500,6 +500,13 @@ WLAN explizit im App-Info-Plist erlaubt und erklaert. Keine Zahlung, kein
 Cloud-Sync, keine produktive Aktivierung, kein Bonjour und keine neue Hub-
 Architektur. Der aktuelle Referenzhost ist editierbar vorbelegt; Discovery und
 IP-Wechsel bleiben Folgearbeit.
+
+**Geraeteabnahme, 19. Juli 2026:** KitchenLink blieb auf dem iPhone im
+Kuechen-Modus geoeffnet, waehrend ein zweites Geraet im selben WLAN ueber die
+lokale Gastseite bestellte. Der Auftrag erschien live auf dem iPhone, wechselte
+nach `Bestellung zubereitet` in den Kellner-Modus und wurde dort mit
+`Bestellung serviert` abgeschlossen. Der Nutzer bestaetigte den gesamten Lauf
+als erfolgreich.
 
 ## Abgeschlossene Web-Straenge
 
@@ -658,6 +665,7 @@ Designentscheidung; `DECISIONS.md` unberührt.
 13. ~~KL-OFFLINE-004 reviewen und den lokalen Top-Level-Pfad auf iOS Safari
     messen.~~ Review und iPhone-Bestellung erledigt; PR #22 behebt den dabei
     gefundenen Plain-HTTP/Web-Crypto-Fehler.
-14. KL-OFFLINE-005 reviewen und den Kueche-zu-Kellner-Ablauf auf dem echten
-    iPhone abnehmen. Android Chrome, AP-Isolation und Discovery bleiben danach
-    die naechsten Netzwerk-Gates.
+14. ~~KL-OFFLINE-005 auf dem echten iPhone mit einem zweiten Bestellgeraet
+    abnehmen.~~ Erfolgreich am 19. Juli 2026. Review und Integration von PR #23
+    abschliessen; Android Chrome, AP-Isolation und Discovery bleiben die
+    naechsten Netzwerk-Gates.

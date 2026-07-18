@@ -1,6 +1,6 @@
 # KitchenLink Current State
 
-**Updated:** 18 July 2026
+**Updated:** 19 July 2026
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
@@ -163,6 +163,10 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   completes them. It reuses `LiveOrderMessage` and `OrderLifecycleStatus`
   rather than creating another app order domain. This remains a sandbox
   polling client for the macOS surrogate, not a production hub architecture.
+  The user has completed the intended real two-device acceptance: the iPhone
+  stayed open in Kitchen mode while a second device submitted through the local
+  guest page; the order appeared live, moved to Waiter mode after preparation,
+  and was completed there as served.
 - `kitchenlink/Features/Workforce/` (KL-WORKFORCE-001) is an isolated Swift
   domain foundation for shift planning, time tracking and staffing
   (Blueprint §9): `VenueShift`, `WorkforcePlannedShift` and time-entry
