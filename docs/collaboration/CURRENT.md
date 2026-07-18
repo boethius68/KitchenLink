@@ -276,9 +276,12 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   needed to display a planned article at `0` before its first ledger movement;
   this is a known model boundary, not an active implementation ticket.
 - **Offline venue hub:** the local-network side remains blocked on the P0
-  product and architecture decisions in
-  `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4. In particular,
-  an HTTPS guest web cannot directly rely on an untrusted local HTTP hub.
+  architecture and verification risks in
+  `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4. The product
+  direction is now explicit: local guest ordering during a cloud outage is a
+  required Sandbox-Beta capability. The remaining work must prove a locally
+  delivered guest surface, network reachability, TLS/trust and failover without
+  making a cloud HTTPS page fetch an untrusted local HTTP hub.
 - **Guest web:** production-grade hosting, PWA/offline behavior and retention
   for orphaned anonymous users remain open. Hostinger is selected only for the
   current sandbox; Supabase menu loading and authoritative sandbox ordering are

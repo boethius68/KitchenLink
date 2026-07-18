@@ -441,9 +441,11 @@ Echter lokaler Mehrgerätebetrieb ist Pflichtbestandteil der Sandbox-Beta.
 
 ### 16.2 Gastbestellung bei Ausfall
 
-- Bei Cloud-Ausfall kann ein Gast nur dann lokal bestellen, wenn er mit dem Restaurant-WLAN verbunden ist und die lokale Gastoberfläche erreicht.
+- Lokale Gastbestellung bei Cloud-Ausfall ist ein verbindlicher Bestandteil der Sandbox-Beta.
+- Ein Gast kann lokal bestellen, wenn er mit dem Restaurant-WLAN verbunden ist und die lokal bereitgestellte Gastoberfläche erreicht.
 - Ohne Restaurant-WLAN oder Mobilfunk kann ein Gastgerät das Restaurant nicht erreichen.
 - Die App darf nie eine Bestellung als angekommen bestätigen, bevor mindestens ein autoritativer Venue-Knoten sie dauerhaft gespeichert hat.
+- Die technische Lösung darf Browser-Sicherheitsgrenzen nicht umgehen; lokale Zustellung, Vertrauensaufbau und Netzwerkzugang müssen vor der Umsetzung auf echten Geräten und im Referenz-WLAN nachgewiesen werden.
 
 ### 16.3 Synchronisationsprinzipien
 

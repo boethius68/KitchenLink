@@ -5,8 +5,11 @@
 **Geprüftes Material:** `GLM_ARCHITECTURE.md`, `GLM_SOURCES.md`,
 `DEEPSEEK_REVIEW.md`, `STAGE1_EVENT_LOG_CONTRACT.md`, `LOCAL_NETWORK_POC.md`
 (alle in diesem Verzeichnis, aus `deepseek/offline-venue-hub-review` extrahiert)
-**Status:** Discovery. Keine Produkt- oder Designfreigabe. Diese Datei ist die
-verbindliche Lesart, wie das Material zu verwenden ist — analog zu
+**Status:** Discovery mit genehmigter Produktrichtung. Der Nutzer hat am
+18. Juli 2026 lokale Gastbestellung bei Cloud-Ausfall als Pflicht der
+Sandbox-Beta bestaetigt. Eine konkrete Netzwerkimplementierung ist damit noch
+nicht freigegeben. Diese Datei ist die verbindliche Lesart, wie das Material zu
+verwenden ist — analog zu
 `docs/discovery/taxonomy-research/INTEGRATION_REVIEW.md`.
 
 ---
@@ -92,11 +95,13 @@ den bereits gemergten Arbeiten. Sie dürfen als Arbeitsgrundlage dienen:
 
 ## 4. Offene Entscheidungen und ungelöste Risiken (Nutzer/Verifikation)
 
-Diese Punkte **blockieren** eine Umsetzung des netzwerkseitigen Hub-Teils und
-sind bewusst nicht entschieden. Sie gehören dem Nutzer bzw. einer echten
-Gerätemessung, nicht einem Agenten:
+Diese Punkte **blockieren** weiterhin eine Umsetzung des netzwerkseitigen
+Hub-Teils. Die Produktrichtung ist entschieden; Transport, Netzwerkbetrieb und
+Failover gehoeren weiterhin einer echten Geraetemessung und technischen
+Abnahme, nicht einer unbelegten Agentenannahme:
 
-- **P0 — Gast-Browser erreicht lokalen Hub nicht (kollidiert mit KL-WEB-002).**
+- **P0 — Lokaler Gastzugriff ist gefordert, der Browser erreicht den Hub aber
+  noch nicht belastbar (kollidiert mit KL-WEB-002).**
   Das ist der schwerwiegendste Befund und für dieses Projekt besonders
   relevant, weil KL-WEB-002 das Gast-Web gerade **cloud-first über HTTPS**
   verdrahtet hat. DeepSeek zeigt quellengestützt: eine per HTTPS ausgelieferte
@@ -107,11 +112,14 @@ Gerätemessung, nicht einem Agenten:
   Hub-Hotspot) — ein grundlegend anderer Ansatz als das aktuelle Cloud-Gast-Web.
   Das heißt: Die Offline-Gastbestellung aus Blueprint §16.2 ist mit der
   jetzigen Cloud-Gast-Web-Architektur **nicht** ohne Weiteres erreichbar. Das
-  ist eine Produkt-/Architekturentscheidung, keine Implementierungslücke.
+  ist nach der Nutzerentscheidung keine optionale Produktfrage mehr, sondern
+  die zentrale zu loesende Architektur- und Verifikationsluecke.
 - **P0 — AP-/Client-Isolation.** Viele Restaurant-WLANs (besonders Gast-SSIDs)
   verbieten Gerät-zu-Gerät-Traffic standardmäßig. Ohne Lösung (eigene
-  Staff-SSID, Hub-Hotspot, oder Verzicht auf lokalen Gastzugriff) ist der
-  lokale Betrieb nicht erreichbar. Muss am Referenz-Venue gemessen werden.
+  Venue-Gast-SSID ohne Client-Isolation, Hub-Hotspot oder eine technisch
+  gleichwertige Topologie) ist der lokale Betrieb nicht erreichbar. Ein
+  Verzicht auf lokalen Gastzugriff ist nach der Nutzerentscheidung keine
+  Loesung; die gewaehlte Topologie muss am Referenz-Venue gemessen werden.
 - **P0 — Transportsicherheit im LAN.** Unverschlüsseltes TCP erlaubt Sniffing,
   Fälschung und Bonjour-Spoofing. TLS/mTLS setzt Zertifikate voraus, die
   Browser akzeptieren — was wieder am HTTPS-Problem hängt.
@@ -133,10 +141,13 @@ Gerätemessung, nicht einem Agenten:
    `KitchenLinkRepository` einziehen und `LocalDemoRepository` schrittweise
    ablösen, Demo-Pfade erhalten (Blueprint §18.1, §20). Das ist Domain-/
    Persistenzarbeit ohne die ungelösten Netzwerk-P0s.
-2. **Der netzwerkseitige Hub-Teil (Stage 2+) bleibt blockiert**, bis der Nutzer
-   die P0-Entscheidungen aus §4 trifft — insbesondere die Grundsatzfrage, ob
-   lokaler Gastzugriff überhaupt Teil der Sandbox sein soll oder ob
-   Cloud-Gast-Web plus lokaler Staff-Betrieb ausreicht. Angesichts der
-   KL-WEB-002-Kollision ist das eine echte Weggabelung.
-3. **Nichts hiervon ist freigegeben.** Keine `DECISIONS.md`-Änderung folgt aus
-   dieser Lesart. Die Discovery-Artefakte bleiben Discovery.
+2. **Der netzwerkseitige Hub-Teil (Stage 2+) bleibt technisch blockiert.** Die
+   Grundsatzfrage ist entschieden: lokaler Gastzugriff gehoert zur Sandbox.
+   Als naechstes folgt ein messbarer Architektur-Proof auf echten Gast- und
+   Business-Geraeten: lokale Top-Level-Seite/Bootstrap, QR-Wechsel zwischen
+   Cloud und lokal, AP-Isolation, TLS/Trust und ACK-nach-Commit. Erst ein
+   bestandener Proof waehlt die Implementierung.
+3. **Freigegeben ist die Produktrichtung, nicht eine konkrete Technik.** Die
+   Entscheidung steht in `DECISIONS.md`; die Discovery-Artefakte bleiben
+   Erkenntnisgrundlage und duerfen nicht als Produktionsfreigabe gelesen
+   werden.

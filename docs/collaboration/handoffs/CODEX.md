@@ -1,9 +1,22 @@
 # Codex Handoff
 
 **Updated:** 18 July 2026
-**Branch:** `codex/post-merge-state-pr17`
-**Status:** PR #15 und Projekt-Cleanup PR #17 integriert; Post-Merge-Status
-abgeglichen
+**Branch:** `codex/approve-local-guest-ordering`
+**Status:** Nutzerentscheidung zur lokalen Gastbestellung dokumentiert;
+Netzwerkarchitektur bleibt mess- und abnahmepflichtig
+
+## Latest Continuation (18. Juli 2026, lokale Gastbestellung)
+
+- Der Nutzer hat explizit entschieden, dass Gaeste bei Cloud-Ausfall lokal
+  bestellen koennen muessen.
+- Entscheidung in `DECISIONS.md` und Blueprint §16.2 als verbindliche
+  Sandbox-Beta-Anforderung festgehalten: Restaurant-WLAN/lokale Oberflaeche,
+  ACK erst nach dauerhafter Speicherung auf einem autoritativen Venue-Knoten.
+- `CURRENT.md`, `WORK_QUEUE.md` und die Offline-Hub-Integrationslesart
+  nachgezogen. Der Verzicht auf lokalen Gastzugriff ist keine Option mehr.
+- Keine konkrete Transporttechnik freigegeben. Lokale Top-Level-Zustellung,
+  QR-/Bootstrap-Wechsel, AP-Isolation, TLS/Trust und Failover muessen vor
+  Netzwerkcode auf echten Geraeten nachgewiesen werden.
 
 ## Latest Continuation (18. Juli 2026, PR #17 Integration)
 

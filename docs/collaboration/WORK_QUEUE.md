@@ -430,7 +430,8 @@ erledigter Abschnitt weiter oben.
 
 ## Discovery: Offline Venue Hub (Blueprint §16)
 
-**Status:** Discovery reviewt (18. Juli 2026); keine Umsetzungsfreigabe
+**Status:** Discovery reviewt; lokale Gastbestellung am 18. Juli 2026 als
+Produktrichtung bestaetigt, Netzwerkimplementierung noch nicht freigegeben
 
 Die beiden zuvor ungereviewten Branches `deepseek/offline-venue-hub-review`
 (Superset) und `glm/offline-venue-hub` wurden von Claude Code gelesen. Die
@@ -446,13 +447,15 @@ Kernbefunde der Lesart:
   Entwuerfe konvergieren im Prinzip, divergieren in der Umsetzung (eigenes
   SQLite vs. GRDB). Naechster risikoarmer Schritt waere die iOS-
   Integrationsnaht (Event-Store hinter `KitchenLinkRepository`).
-- Der netzwerkseitige Hub-Teil bleibt blockiert durch ungeloeste P0-Risiken,
-  besonders die Kollision mit KL-WEB-002: Ein cloud-first per HTTPS
-  ausgeliefertes Gast-Web kann einen lokalen HTTP-Hub nicht erreichen
-  (Mixed Content + Chrome Local Network Access). Die Offline-Gastbestellung
-  aus Blueprint §16.2 ist damit eine echte Produkt-/Architekturweggabelung
-  fuer den Nutzer.
-- Keine `DECISIONS.md`-Aenderung; Discovery bleibt Discovery.
+- Der Nutzer hat die Produktweggabelung entschieden: Lokale Gastbestellung bei
+  Cloud-Ausfall ist Pflicht der Sandbox-Beta. Ein cloud-first per HTTPS
+  ausgeliefertes Gast-Web kann einen lokalen HTTP-Hub dennoch nicht direkt
+  erreichen (Mixed Content + Chrome Local Network Access). Zu pruefen sind
+  deshalb lokale Top-Level-Zustellung/Bootstrap, QR-Wechsel, AP-Isolation,
+  TLS/Trust und ACK-nach-Commit auf echten Geraeten.
+- `DECISIONS.md` und Blueprint §16.2 halten das Produktziel fest. Discovery
+  bleibt die technische Erkenntnisgrundlage; keine Netzwerkimplementierung ist
+  allein dadurch freigegeben.
 
 ## Abgeschlossene Web-Straenge
 
