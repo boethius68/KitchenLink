@@ -9,7 +9,11 @@ guest-web sandbox into real operation for the first time: an additive
 `20260718010000` migration that fixes two genuine bugs found by the first
 real-instance integration run (the merged KL-WEB-002 RPC was not runnable as
 shipped), plus an integration-test harness, Supabase CLI init and a setup
-guide. Before that, the same day: `minimax/inventory-domain` (KL-INVENTORY-001),
+guide. PR #12 then merged the manual-smoke-test follow-ups (success
+confirmation card, second-submit block). The same day the user deployed the
+guest web live to **`https://kitchenlink.luneq.eu`** via Hostinger PaaS
+(Git auto-deploy from `main`); end-to-end anonymous ordering verified against
+the real EU-Frankfurt Supabase instance. Before that, the same day: `minimax/inventory-domain` (KL-INVENTORY-001),
 `glm/guest-web-order-gate` (KL-WEB-002, the authoritative guest order gate and
 Supabase Anonymous Sign-in), PR #8 (KL-WORKFORCE-001 workforce domain), PR #7
 (KL-OFFLINE-003 event-log/outbox prototype), `claude/guest-web-foundation`
@@ -203,8 +207,24 @@ recorded that merge.
   instance, `KL_INTEGRATION=1` to run), a Supabase CLI `config.toml` (no
   secrets), and `docs/architecture/guest-web/SANDBOX_SETUP.md` (step-by-step:
   Supabase EU-Frankfurt, enable Anonymous Sign-in, apply migrations, `.env.local`,
-  Vercel deploy). The user's sandbox instance is configured and live; the gate
-  runs. Hosting decision D4 (Vercel vs Cloudflare Workers) remains open.
+  deploy).
+- KL-WEB-003 went live the same day: the user deployed the guest web via
+  **Hostinger PaaS** (Git-based auto-deploy from `main`, not a Vercel or
+  Cloudflare setup as ADR-001 §8 anticipated) to
+  **`https://kitchenlink.luneq.eu`**, with `NEXT_PUBLIC_SUPABASE_*` set as
+  Hostinger environment variables. End-to-end verified: menu renders, an
+  anonymous order goes through and returns the ACK, against the real EU-
+  Frankfurt Supabase instance. A manual smoke test also surfaced and fixed two
+  follow-ups: the order-summary sheet offered a second submit on an already-
+  emptied cart (now disabled after `accepted`) and the success confirmation was
+  a small grey note (now a prominent grape confirmation card, no new tokens).
+  **D4 (Vercel vs Cloudflare Workers) is effectively resolved for the sandbox:
+  Hostinger PaaS was chosen by the user.** ADR-001's Vercel-vs-Cloudflare PoC
+  is therefore superseded for sandbox use; a later production-grade hosting
+  decision remains open but is no longer blocking. Lesson recorded: the
+  `NEXT_PUBLIC_SUPABASE_URL` was initially set to `supabase.com` instead of
+  `supabase.co`, producing a misleading "Load failed"; the correct TLD is
+  `.co` and `SANDBOX_SETUP.md` should call this out explicitly.
 - `kitchenlink/Features/Inventory/` (KL-INVENTORY-001) is an isolated Swift
   domain foundation for the stock core required by Blueprint §11:
   dimension-safe quantities (mass/volume/count), an append-only ledger with
@@ -306,11 +326,12 @@ Remaining:
 - The network-side venue hub (local HTTP server, guest-to-hub reach,
   leader election/failover) is blocked on the user P0 decisions recorded in
   `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4.
-- The KL-WEB-002 idempotency-race follow-up is now closed (KL-WEB-003). The
-  user's real Supabase sandbox instance is configured and live; the guest-web
-  gate runs against it end-to-end.
-- Still open in the guest-web scope: the Vercel sandbox deployment (first
-  deploy, not a D4 hosting decision — the Vercel-vs-Cloudflare-Workers PoC from
-  ADR-001 §8 stays open), the PWA/offline stage (D5), the menü-fetch switch
-  from the local fixture to Supabase, and the cleanup policy for orphaned
-  anonymous users.
+- The KL-WEB-002 idempotency-race follow-up is closed (KL-WEB-003). The user's
+  real Supabase sandbox instance is live and the guest web is publicly deployed
+  at `https://kitchenlink.luneq.eu` (Hostinger PaaS); anonymous ordering runs
+  end-to-end.
+- Still open in the guest-web scope: a production-grade hosting decision
+  (Hostinger PaaS is the current sandbox host; the ADR-001 §8 Vercel-vs-
+  Cloudflare PoC is superseded for sandbox use), the PWA/offline stage (D5),
+  the menü-fetch switch from the local fixture to Supabase, and the cleanup
+  policy for orphaned anonymous users.
