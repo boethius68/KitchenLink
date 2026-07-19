@@ -551,8 +551,8 @@ Adresswechsel, AP-Isolation, Android Chrome und TLS/Trust bleiben Folge-Gates.
 
 ### KL-OFFLINE-007 - Foreground-Hub bei WLAN-/IP-Wechsel stabilisieren
 
-**Status:** Umgesetzt in Draft-PR #27 auf
-`codex/iphone-hub-network-recovery`; reale WLAN-Recovery-Abnahme offen
+**Status:** Erledigt; reale WLAN-Recovery-Abnahme bestanden und mit PR #27 in
+`main` integriert
 **Abhaengigkeit:** KL-OFFLINE-006, bestandene Mac-zu-iPhone-Geraeteabnahme
 **Schreibbereich:** `kitchenlink/Features/LocalOperations/`, gezielte Tests in
 `kitchenlinkTests/`, dieser Queue-Eintrag und
@@ -570,6 +570,11 @@ echter lokaler HTTP-Bestelllauf sind automatisiert getestet; der Port bleibt
 ueber den simulierten Wechsel stabil. Hintergrundbetrieb, automatische
 Client-Discovery, Authentisierung, AP-Isolation, Android und TLS bleiben
 ausdruecklich ausserhalb dieser Scheibe.
+
+**Geraeteabnahme, 19. Juli 2026:** Der Nutzer fuehrte den vorbereiteten
+WLAN-aus/an-Test mit dem signierten iPhone-Build durch und bestaetigte die
+Recovery als vollstaendig funktionsfaehig. PR #27 wurde danach aus dem Draft
+genommen und als Merge-Commit `dc67ecc` nach `main` integriert.
 
 ## Abgeschlossene Web-Straenge
 
@@ -737,3 +742,7 @@ Designentscheidung; `DECISIONS.md` unberührt.
     Gastadresse; Kueche-zu-Kellner-Ablauf bestanden und mit PR #25 in `main`
     integriert. Hintergrundbetrieb und die verbleibenden Netzwerk-Gates bleiben
     offen.
+16. ~~KL-OFFLINE-007 mit echtem WLAN-Verlust und Recovery auf dem iPhone
+    abnehmen und integrieren.~~ Nutzerabnahme bestanden und mit PR #27 in
+    `main` integriert. Background-Lifecycle, Discovery, AP-Isolation, Android
+    und TLS/Trust bleiben getrennte Folge-Gates.

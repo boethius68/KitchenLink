@@ -1,15 +1,29 @@
 # Codex Handoff
 
 **Updated:** 19 July 2026
-**Branch:** `codex/iphone-hub-network-recovery`
-**Status:** WLAN-/IP-Recovery fuer den Foreground-iPhone-Hub implementiert,
-automatisiert verifiziert und als Draft-PR #27 veroeffentlicht
+**Branch:** `codex/post-merge-state-pr27`
+**Status:** WLAN-/IP-Recovery real abgenommen und mit PR #27 in `main`
+integriert
+
+## Latest Continuation (19. Juli 2026, PR #27 Integration)
+
+- Der Nutzer bestaetigte den vorbereiteten realen WLAN-aus/an-Test auf dem
+  iPhone als vollstaendig funktionsfaehig. Damit ist die offene interaktive
+  Recovery-Abnahme bestanden.
+- PR #27 war unveraendert, konfliktfrei und mergebar; es gab keine Reviews,
+  Kommentare oder konfigurierten GitHub-Actions-Checks. Die lokale Suite, der
+  signierte Geraetebuild und die reale Abnahme bildeten den Freigabenachweis.
+- PR #27 nach der Nutzerabnahme aus dem Draft genommen und als Merge-Commit
+  `dc67ecc` nach `main` integriert. `origin/main` enthaelt den vollstaendigen
+  Feature-Stand `4554607`.
+- Diesen reinen CURRENT-/Queue-/Handoff-Nachtrag direkt vom gemergten
+  `origin/main` abgezweigt; lokales `main` blieb unangetastet, weil es im
+  separaten Claude-Worktree ausgecheckt ist.
 
 ## Latest Continuation (19. Juli 2026, KL-OFFLINE-007)
 
-- Commit `63cfebc` ist auf `codex/iphone-hub-network-recovery` gepusht;
-  Draft-PR #27 zielt auf `main` und bleibt bis zur realen WLAN-Recovery-
-  Abnahme bewusst im Draft.
+- Der Implementierungsstand wurde auf `codex/iphone-hub-network-recovery`
+  veroeffentlicht und mit PR #27 nach `main` integriert.
 - Der `NWListener` bleibt bei fehlender oder geaenderter WLAN-Adresse aktiv.
   Ein leichter Zwei-Sekunden-Monitor prueft ausschliesslich die iOS-WLAN-
   Schnittstelle `en0`; Tunnel-, Mobilfunk- und Peer-to-Peer-Adressen werden
@@ -38,9 +52,6 @@ automatisiert verifiziert und als Draft-PR #27 veroeffentlicht
 
 ## Remaining Risk (KL-OFFLINE-007)
 
-- Die reale WLAN-Unterbrechung/IP-Aenderung auf dem iPhone ist noch nicht
-  interaktiv abgenommen; die Netzwerkzustandsfolge ist mit echtem Listener und
-  kontrolliertem Adressprovider automatisiert geprueft.
 - Bereits auf einem Gastgeraet geoeffnete Seiten unter der alten IP koennen
   nach einem Netzwechsel naturgemaess nicht umgeleitet werden; der sichtbare
   Link und QR-Code auf dem Hub zeigen danach die neue Adresse.

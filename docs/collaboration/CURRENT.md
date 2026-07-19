@@ -4,13 +4,14 @@
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Latest material integration:** PR #25
-(`codex/iphone-venue-hub-poc` -> `main`) removes the Mac dependency from the
-foreground proof: while `Lokaler Service` stays open, the iPhone itself serves
-the guest page in the WLAN, durably accepts orders into the existing SQLite
-event log and drives the Kitchen-to-Waiter workflow. The real Mac-to-iPhone
-acceptance passed on 19 July 2026. PR #23 remains the underlying operator
-vertical slice, PR #22 fixed the first iPhone-LAN blocker and PR #20 introduced
+**Latest material integration:** PR #27
+(`codex/iphone-hub-network-recovery` -> `main`) stabilizes the foreground
+iPhone Hub across WLAN loss and local IPv4 changes. Listener, port, loopback
+operator path and SQLite event log stay active while the guest URL and QR code
+disappear into an explicit waiting state and return automatically with the
+current WLAN address. The real WLAN-off/on acceptance passed on 19 July 2026.
+PR #25 remains the underlying iPhone-hosted vertical slice, PR #23 the operator
+workflow, PR #22 fixed the first iPhone-LAN blocker and PR #20 introduced
 commit-before-ACK. Local guest ordering during cloud failure remains a required
 Sandbox-Beta capability. The guest web remains deployed from
 `main` to Hostinger PaaS at
@@ -177,9 +178,14 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   or the app backgrounds; the macOS address remains available as a deliberate
   fallback. The signed build was installed on the test iPhone and the user
   passed the real Mac-to-iPhone flow: guest page from the iPhone URL, durable
-  order receipt, live Kitchen arrival and handoff into Waiter mode. Automatic
-  discovery, background operation, LAN authentication, Android, AP isolation,
-  IP-change handling and TLS/trust remain open; no production path is enabled.
+  order receipt, live Kitchen arrival and handoff into Waiter mode.
+  PR #27 adds KL-OFFLINE-007: a foreground monitor tracks only the iOS WLAN
+  interface, keeps listener/port/event log stable without an address and
+  publishes guest URL plus QR code again after WLAN recovery or an IPv4
+  change. Start without WLAN, loss/recovery and stable-port behavior are
+  automated; the user also passed the real WLAN-off/on device flow. Automatic
+  client discovery, background operation, LAN authentication, Android, AP
+  isolation and TLS/trust remain open; no production path is enabled.
 - `kitchenlink/Features/Workforce/` (KL-WORKFORCE-001) is an isolated Swift
   domain foundation for shift planning, time tracking and staffing
   (Blueprint §9): `VenueShift`, `WorkforcePlannedShift` and time-entry
@@ -316,11 +322,12 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   needed to display a planned article at `0` before its first ledger movement;
   this is a known model boundary, not an active implementation ticket.
 - **Offline venue hub:** iPhone Safari can now reach the local top-level guest
-  page and commit an order over the reference WLAN. The app-side
-  Kitchen-to-Waiter vertical slice exists against the macOS host surrogate.
-  Android Chrome, AP isolation, DHCP/IP changes, discovery, Hub lifecycle,
-  TLS/trust and failover remain unproven; no production hub architecture follows
-  from this sandbox result.
+  page and commit an order over the reference WLAN. The iPhone itself can host
+  the page and the app-side Kitchen-to-Waiter slice; foreground WLAN loss and
+  recovery sind nun auch real abgenommen. Android Chrome, AP isolation,
+  automatic client discovery, background Hub lifecycle, TLS/trust and failover
+  remain unproven; no production hub architecture follows from this sandbox
+  result.
 - **Guest web:** production-grade hosting, PWA/offline behavior and retention
   for orphaned anonymous users remain open. Hostinger is selected only for the
   current sandbox; Supabase menu loading and authoritative sandbox ordering are
