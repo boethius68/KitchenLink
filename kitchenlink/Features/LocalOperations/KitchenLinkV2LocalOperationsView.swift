@@ -25,10 +25,6 @@ struct KitchenLinkV2LocalOperationsView: View {
     @State private var successFeedback = 0
     @State private var showsExternalHub = false
     @State private var usesExternalHub = false
-    @State private var showsCloudSetup = false
-    @State private var cloudURLField = ""
-    @State private var cloudAnonKeyField = ""
-    @State private var cloudVenueField = KitchenLinkCloudCredentialStore.defaultVenueSlug
     @State private var cloudEmailField = ""
     @State private var cloudPasswordField = ""
     @State private var isCloudSigningIn = false
@@ -239,75 +235,64 @@ struct KitchenLinkV2LocalOperationsView: View {
     }
 
     private var cloudSetupControls: some View {
-        DisclosureGroup("Einmalig verbinden", isExpanded: $showsCloudSetup) {
-            VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
-                cloudField("Supabase-URL", text: $cloudURLField, placeholder: "https://xxxx.supabase.co")
-                cloudField("Anon-Key", text: $cloudAnonKeyField, placeholder: "eyJ…")
-                cloudField("Venue-Slug", text: $cloudVenueField, placeholder: "alte-muehle")
-                cloudField("E-Mail", text: $cloudEmailField, placeholder: "operator@example.com")
-
-                SecureField("Passwort", text: $cloudPasswordField)
-                    .textInputAutocapitalization(.never)
-                    .font(KitchenLinkV2Typography.primaryLine)
-                    .padding(.horizontal, KitchenLinkV2Spacing.medium)
-                    .frame(minHeight: 48)
-                    .background(
-                        KitchenLinkV2Palette.Surface.recessed,
-                        in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
-                            .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1)
-                    }
-                    .accessibilityIdentifier("localOperations.cloudPassword")
-
-                Button {
-                    Task { await signInToCloud() }
-                } label: {
-                    if isCloudSigningIn {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text("Verbinden")
-                            .frame(maxWidth: .infinity)
-                    }
+        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+            TextField("E-Mail", text: $cloudEmailField, prompt: Text("betreiber@restaurant.de"))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.emailAddress)
+                .textContentType(.username)
+                .font(KitchenLinkV2Typography.primaryLine)
+                .padding(.horizontal, KitchenLinkV2Spacing.medium)
+                .frame(minHeight: 48)
+                .background(
+                    KitchenLinkV2Palette.Surface.recessed,
+                    in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                        .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1)
                 }
-                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
-                .disabled(isCloudSigningIn)
-                .accessibilityIdentifier("localOperations.cloudSignIn")
+                .accessibilityLabel("E-Mail")
+                .accessibilityIdentifier("localOperations.cloudEmail")
 
-                Text("Sandbox: Zugangsdaten des Betreiber-Kontos aus dem Supabase-Projekt (SANDBOX_SETUP.md). Das Passwort wird nicht gespeichert.")
-                    .font(KitchenLinkV2Typography.meta)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+            SecureField("Passwort", text: $cloudPasswordField)
+                .textContentType(.password)
+                .font(KitchenLinkV2Typography.primaryLine)
+                .padding(.horizontal, KitchenLinkV2Spacing.medium)
+                .frame(minHeight: 48)
+                .background(
+                    KitchenLinkV2Palette.Surface.recessed,
+                    in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                        .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1)
+                }
+                .accessibilityIdentifier("localOperations.cloudPassword")
+
+            Button {
+                Task { await signInToCloud() }
+            } label: {
+                if isCloudSigningIn {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Text("Online-Service aktivieren")
+                        .frame(maxWidth: .infinity)
+                }
             }
-            .padding(.top, KitchenLinkV2Spacing.medium)
+            .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+            .disabled(isCloudSigningIn
+                      || cloudEmailField.isEmpty
+                      || cloudPasswordField.isEmpty)
+            .accessibilityIdentifier("localOperations.cloudSignIn")
+
+            Text("Einmal mit dem Betreiber-Konto anmelden. Danach bleibt dieses iPhone verbunden; das Passwort wird nicht gespeichert.")
+                .font(KitchenLinkV2Typography.meta)
+                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .font(KitchenLinkV2Typography.primaryLine)
-        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
         .accessibilityIdentifier("localOperations.cloudSetup")
-    }
-
-    private func cloudField(
-        _ label: String,
-        text: Binding<String>,
-        placeholder: String
-    ) -> some View {
-        TextField(label, text: text, prompt: Text(placeholder))
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-            .font(KitchenLinkV2Typography.primaryLine)
-            .padding(.horizontal, KitchenLinkV2Spacing.medium)
-            .frame(minHeight: 48)
-            .background(
-                KitchenLinkV2Palette.Surface.recessed,
-                in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
-                    .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1)
-            }
-            .accessibilityLabel(label)
     }
 
     @MainActor
@@ -315,15 +300,11 @@ struct KitchenLinkV2LocalOperationsView: View {
         isCloudSigningIn = true
         defer { isCloudSigningIn = false }
         let success = await cloud.signIn(
-            supabaseURLString: cloudURLField,
-            anonKey: cloudAnonKeyField,
-            venueSlug: cloudVenueField,
             email: cloudEmailField,
             password: cloudPasswordField
         )
         if success {
             cloudPasswordField = ""
-            showsCloudSetup = false
             cloud.setLocalGuestURL(venueHub.endpoint?.guestURL)
         }
     }

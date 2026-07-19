@@ -35,7 +35,11 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
 
     private let transport: any KitchenLinkCloudTransport
     private let store: KitchenLinkCloudCredentialStore
-    private var config: KitchenLinkCloudConfig?
+    /// Verbindungsdaten (URL/Anon-Key/Venue) sind in der Sandbox fest
+    /// eingebacken (`KitchenLinkCloudConfig.sandboxDefault`); es gibt kein
+    /// technisches Einrichtungsformular mehr. Nur die Anmeldung (E-Mail +
+    /// Passwort → Sitzung) wird zur Laufzeit hergestellt und gespeichert.
+    private let config: KitchenLinkCloudConfig
     private var session: KitchenLinkCloudSession?
     private var venue: KitchenLinkCloudVenue?
     private var localGuestURL: String?
@@ -44,11 +48,12 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
 
     init(
         transport: any KitchenLinkCloudTransport = URLSessionKitchenLinkCloudTransport(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        config: KitchenLinkCloudConfig = .sandboxDefault
     ) {
         self.transport = transport
         self.store = KitchenLinkCloudCredentialStore(defaults: defaults)
-        self.config = store.loadConfig()
+        self.config = config
         self.session = store.loadSession()
     }
 
@@ -57,17 +62,13 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
     }
 
     var hasStoredSession: Bool {
-        session != nil && (config?.isComplete ?? false)
-    }
-
-    var storedConfig: KitchenLinkCloudConfig? {
-        config
+        session != nil && config.isComplete
     }
 
     var stateDetail: String {
         switch connectionState {
         case .signedOut:
-            return "Online-Service nicht verbunden. Einmal anmelden, danach verbindet sich dieses iPhone automatisch."
+            return "Online-Service nicht verbunden. Einmal mit dem Betreiber-Konto anmelden — danach verbindet sich dieses iPhone von selbst."
         case .connecting:
             return "Online-Service wird verbunden …"
         case .connected:
@@ -87,7 +88,7 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
     /// einmalige Einrichtung.
     func connectIfPossible() {
         guard pollingTask == nil else { return }
-        guard let config, config.isComplete, session != nil else {
+        guard config.isComplete, session != nil else {
             connectionState = .signedOut
             return
         }
@@ -96,22 +97,13 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
         startHeartbeat(config: config)
     }
 
-    func signIn(
-        supabaseURLString: String,
-        anonKey: String,
-        venueSlug: String,
-        email: String,
-        password: String
-    ) async -> Bool {
-        let candidate = KitchenLinkCloudConfig(
-            supabaseURLString: supabaseURLString.trimmingCharacters(in: .whitespacesAndNewlines),
-            anonKey: anonKey.trimmingCharacters(in: .whitespacesAndNewlines),
-            venueSlug: venueSlug.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        guard candidate.isComplete else {
-            connectionState = .unreachable(
-                KitchenLinkCloudServiceError.invalidConfiguration.localizedDescription
-            )
+    /// Einmalige Anmeldung mit dem Betreiber-Konto. URL, Anon-Key und Venue
+    /// stammen aus dem eingebackenen Standard; hier braucht es nur noch die
+    /// zwei Felder, die jede App-Anmeldung hat.
+    func signIn(email: String, password: String) async -> Bool {
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedEmail.isEmpty, !password.isEmpty else {
+            connectionState = .unreachable("Bitte E-Mail und Passwort eingeben.")
             return false
         }
 
@@ -119,16 +111,14 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
         connectionState = .connecting
         do {
             let freshSession = try await transport.signIn(
-                config: candidate,
-                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                config: config,
+                email: trimmedEmail,
                 password: password
             )
-            config = candidate
             session = freshSession
-            store.save(config: candidate)
             store.save(session: freshSession)
-            startPolling(config: candidate)
-            startHeartbeat(config: candidate)
+            startPolling(config: config)
+            startHeartbeat(config: config)
             return true
         } catch {
             connectionState = .unreachable(Self.message(for: error))
@@ -177,7 +167,7 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
     // MARK: Bestellungen
 
     func update(order: LiveOrderMessage, to targetStatus: OrderLifecycleStatus) async -> Bool {
-        guard let config, config.isComplete else { return false }
+        guard config.isComplete else { return false }
         isUpdatingOrder = true
         defer { isUpdatingOrder = false }
         do {
@@ -199,7 +189,7 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
     }
 
     func refreshOrders() async {
-        guard let config, config.isComplete else { return }
+        guard config.isComplete else { return }
         do {
             let venue = try await resolvedVenue(config: config)
             let wireOrders = try await withSessionRetry(config: config) { session in
@@ -271,7 +261,7 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
     /// Intern statt privat, damit Tests den Heartbeat deterministisch
     /// auslösen können (der Timer-Loop bleibt privat).
     func sendHeartbeat() async {
-        guard let config, config.isComplete, session != nil else { return }
+        guard config.isComplete, session != nil else { return }
         // Heartbeat-Fehler ändern den sichtbaren Zustand nicht: der Poll-Loop
         // ist die maßgebliche Verbindungsdiagnose. Ein stiller Fehlschlag hier
         // lässt den Cloud-Eintrag veralten — das gewollte Offline-Signal.
@@ -287,8 +277,9 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
     }
 
     private func clearPresenceBestEffort() {
-        guard let config, config.isComplete, let session else { return }
+        guard config.isComplete, let session else { return }
         let transport = self.transport
+        let config = self.config
         let deviceID = store.deviceID()
         let slug = config.venueSlug
         localGuestURL = nil

@@ -231,10 +231,16 @@ bewusst nur über das Dashboard/Service Role geschrieben.
    on conflict do nothing;
    ```
 
-4. In der iPhone-App: **Service → Online-Bestellungen → Einmalig verbinden**
-   und Supabase-URL, Anon-Key (derselbe wie im Gast-Web), Venue-Slug
-   (`alte-muehle`), E-Mail und Passwort eingeben. Die Sitzung wird über das
-   Refresh-Token erneuert; das Passwort wird nicht gespeichert.
+4. In der iPhone-App: **Service** öffnen und in der Karte „Online-Bestellungen
+   (Gast-Web)" nur **E-Mail + Passwort** des Betreiber-Kontos aus Schritt 2
+   eingeben, dann **Online-Service aktivieren**. Supabase-URL, Anon-Key und
+   Venue sind fest eingebacken (`KitchenLinkCloudConfig.sandboxDefault`) — sie
+   werden nicht mehr eingetippt. Die Sitzung wird über das Refresh-Token
+   erneuert; das Passwort wird nicht gespeichert. Danach verbindet sich das
+   iPhone bei jedem Öffnen von selbst.
+
+   > Zeigt der Menüpunkt noch „Lokaler Service" statt „Service", läuft ein
+   > alter Build — dann erst `claude/cloud-order-loop` neu aufs Gerät bauen.
 
 Smoke-Check der geschlossenen Schleife: auf `https://kitchenlink.luneq.eu/alte-muehle/menu`
 bestellen → die Bestellung erscheint in der App unter **Service → Küche**,

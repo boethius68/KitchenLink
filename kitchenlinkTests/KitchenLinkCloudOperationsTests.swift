@@ -132,13 +132,10 @@ struct KitchenLinkCloudOperationsTests {
         return defaults
     }
 
+    /// Nur eine gespeicherte Sitzung wird geseedet — die Verbindungsdaten
+    /// (URL/Anon-Key/Venue) kommen aus dem eingebackenen Sandbox-Standard.
     private func seedCredentials(into defaults: UserDefaults) {
         let store = KitchenLinkCloudCredentialStore(defaults: defaults)
-        store.save(config: KitchenLinkCloudConfig(
-            supabaseURLString: "https://example.supabase.co",
-            anonKey: "anon-key",
-            venueSlug: "alte-muehle"
-        ))
         store.save(session: KitchenLinkCloudSession(
             accessToken: "at1",
             refreshToken: "rt1",
@@ -313,24 +310,31 @@ struct KitchenLinkCloudOperationsTests {
         #expect(message.contains("alte-muehle"))
     }
 
-    @Test func signInRejectsIncompleteConfiguration() async {
+    @Test func signInRejectsEmptyCredentials() async {
         let defaults = makeDefaults()
         let spy = KitchenLinkCloudTransportSpy()
         let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
 
-        let success = await model.signIn(
-            supabaseURLString: "https://example.supabase.co",
-            anonKey: "   ",
-            venueSlug: "alte-muehle",
-            email: "op@example.com",
-            password: "geheim"
-        )
+        let success = await model.signIn(email: "  ", password: "")
 
         #expect(!success)
         guard case .unreachable = model.connectionState else {
             Issue.record("erwartet unreachable, war \(model.connectionState)")
             return
         }
+    }
+
+    @Test func signInStoresSessionAndConnects() async {
+        let defaults = makeDefaults()
+        let spy = KitchenLinkCloudTransportSpy(wireOrders: [wireOrder()])
+        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
+
+        let success = await model.signIn(email: "op@example.com", password: "geheim")
+
+        #expect(success)
+        // Ohne technische Felder: eine gespeicherte Sitzung reicht, damit sich
+        // die App beim nächsten Start von selbst wieder verbindet.
+        #expect(KitchenLinkCloudCredentialStore(defaults: defaults).loadSession() != nil)
     }
 
     @Test func heartbeatPublishesAndClearsLocalGuestURL() async {

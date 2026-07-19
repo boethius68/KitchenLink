@@ -52,11 +52,20 @@ sich aus auf die lokale Bestellseite verweisen („kindergartenleicht").
   Navigation jetzt `Service` (Home-Zeile angepasst, Accessibility-IDs
   unveraendert): eine Kuechen-/Kellner-Liste fuer Online- und lokale
   Bestellungen (aelteste zuerst; online startet `pending`, lokal
-  `preparing`), Verbindungsbadge ONLINE/LOKAL/OFFLINE, Cloud-Karte mit
-  einmaliger Anmeldung (URL/Anon-Key/Venue/E-Mail/Passwort; Passwort wird
-  nie persistiert, Sitzung via Refresh-Token), lokaler Hub laeuft
+  `preparing`), Verbindungsbadge ONLINE/LOKAL/OFFLINE, lokaler Hub laeuft
   unveraendert immer mit und traegt den Titel „Lokaler Fallback". Der
   Mac-Hub-Fallback und alle bisherigen Ablaeufe bleiben erhalten.
+- **Vereinfachte Anmeldung (Nachtrag nach Nutzerfeedback „kein Nutzer will
+  sich so kompliziert anmelden"):** URL, Anon-Key und Venue sind jetzt fest
+  eingebacken (`KitchenLinkCloudConfig.sandboxDefault` — die oeffentlichen
+  Gast-Web-Werte des Nutzer-Supabase-Projekts `rjxlzqtaxqstctrrlqre`). Das
+  fruehere 5-Felder-DisclosureGroup ist weg; die Cloud-Karte zeigt im
+  abgemeldeten Zustand direkt **nur E-Mail + Passwort** und einen prominenten
+  Knopf „Online-Service aktivieren". `signIn` nimmt nur noch `email/password`;
+  das Model haelt `config` als eingebackene Konstante, der Credential-Store
+  persistiert ausschliesslich die Sitzung. Der Anon-Key ist oeffentlich
+  (wird ohnehin an jeden Browser ausgeliefert), daher unbedenklich im Repo;
+  ein baked-in Passwort/Service-Key wurde bewusst NICHT eingecheckt.
 - **Gast-Web:** `src/lib/hub-presence.ts` (reine, getestete Auswertung:
   frisch ≤45 s → online; veraltet + sanitisierte http(s)-URL →
   `local_fallback`; alles andere → `unknown` = heutiges Verhalten, damit
@@ -103,7 +112,10 @@ sich aus auf die lokale Bestellseite verweisen („kindergartenleicht").
 ### Naechster Schritt (Nutzer)
 
 1. Migration anwenden + Betreiber-Konto anlegen: `SANDBOX_SETUP.md` §6.1.
-2. In der App `Service` oeffnen, einmal verbinden, dann auf dem Handy ueber
+2. Branch `claude/cloud-order-loop` frisch aufs iPhone bauen (der Menuepunkt
+   muss `Service` heissen, nicht mehr `Lokaler Service`). Dort in der
+   Cloud-Karte nur E-Mail + Passwort des Betreiber-Kontos eingeben und
+   „Online-Service aktivieren". Dann auf dem Handy ueber
    `kitchenlink.luneq.eu/alte-muehle/menu` bestellen → Bestellung muss in
    der Kueche erscheinen und bis `serviert` laufen.
 3. Internet des iPhones trennen (WLAN ohne Uplink oder Hotspot aus) →

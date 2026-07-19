@@ -37,6 +37,19 @@ struct KitchenLinkCloudConfig: Codable, Equatable {
             && !anonKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !venueSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
+
+    /// Sandbox-Standard: dieselbe öffentliche Supabase-Instanz, die auch das
+    /// Gast-Web bedient. URL und Anon-Key sind bewusst KEINE Geheimnisse — der
+    /// Anon-Key wird ohnehin an jeden Browser ausgeliefert, der die Website
+    /// öffnet. Sie sind fest eingebacken, damit im Betrieb niemand technische
+    /// Verbindungsdaten eintippt; die Venue ist in der Sandbox `alte-muehle`.
+    /// Für eine spätere Multi-Venue-/Produktionsphase ersetzt eine echte
+    /// Konfigurationsquelle diese Konstante.
+    static let sandboxDefault = KitchenLinkCloudConfig(
+        supabaseURLString: "https://rjxlzqtaxqstctrrlqre.supabase.co",
+        anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqeGx6cXRheHFzdGN0cnJscXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTc5NTksImV4cCI6MjA5OTg5Mzk1OX0.lxml_3ka6lNeXlodO3JH5ExbWRtdbAInC1wpceC0uoQ",
+        venueSlug: "alte-muehle"
+    )
 }
 
 struct KitchenLinkCloudSession: Codable, Equatable {
@@ -495,10 +508,8 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
 /// nie das Passwort. Vor einem Produktionspfad gehört das in die Keychain —
 /// als Sandbox-Grenze im Handoff dokumentiert.
 struct KitchenLinkCloudCredentialStore {
-    static let configKey = "kitchenlink.cloud.config.v1"
     static let sessionKey = "kitchenlink.cloud.session.v1"
     static let deviceKey = "kitchenlink.cloud.deviceID.v1"
-    static let defaultVenueSlug = "alte-muehle"
 
     private let defaults: UserDefaults
     private let encoder = JSONEncoder()
@@ -508,16 +519,6 @@ struct KitchenLinkCloudCredentialStore {
         self.defaults = defaults
         self.encoder.dateEncodingStrategy = .iso8601
         self.decoder.dateDecodingStrategy = .iso8601
-    }
-
-    func loadConfig() -> KitchenLinkCloudConfig? {
-        guard let data = defaults.data(forKey: Self.configKey) else { return nil }
-        return try? decoder.decode(KitchenLinkCloudConfig.self, from: data)
-    }
-
-    func save(config: KitchenLinkCloudConfig) {
-        guard let data = try? encoder.encode(config) else { return }
-        defaults.set(data, forKey: Self.configKey)
     }
 
     func loadSession() -> KitchenLinkCloudSession? {
