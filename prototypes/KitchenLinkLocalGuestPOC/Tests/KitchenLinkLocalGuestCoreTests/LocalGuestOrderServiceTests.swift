@@ -20,6 +20,53 @@ struct LocalGuestOrderServiceTests {
         LocalOrderRequest(orderID: orderID, idempotencyKey: key, items: items, clientTotalMinor: clientTotal)
     }
 
+    @Test func bonjourContractRoundTripsDiscoverableHub() throws {
+        let baseURL = try #require(URL(string: "http://192.168.1.44:8123"))
+        let record = KitchenLinkVenueHubBonjourContract.record(
+            hubID: "ios-hub-test",
+            baseURL: baseURL
+        )
+
+        #expect(
+            KitchenLinkVenueHubBonjourContract.descriptor(
+                serviceName: "KitchenLink Test Hub",
+                record: record
+            ) == KitchenLinkVenueHubBonjourDescriptor(
+                hubID: "ios-hub-test",
+                name: "KitchenLink Test Hub",
+                baseURL: baseURL
+            )
+        )
+    }
+
+    @Test func bonjourContractDoesNotExposeHubWithoutLANAddress() {
+        let record = KitchenLinkVenueHubBonjourContract.record(
+            hubID: "ios-hub-test",
+            baseURL: nil
+        )
+
+        #expect(
+            KitchenLinkVenueHubBonjourContract.descriptor(
+                serviceName: "KitchenLink Test Hub",
+                record: record
+            ) == nil
+        )
+    }
+
+    @Test func bonjourContractRejectsUnsafeOrMalformedBaseURLs() throws {
+        let httpsURL = try #require(URL(string: "https://192.168.1.44:8123"))
+        let pathURL = try #require(URL(string: "http://192.168.1.44:8123/operator/orders"))
+
+        #expect(KitchenLinkVenueHubBonjourContract.record(hubID: "hub", baseURL: httpsURL)["url"] == nil)
+        #expect(KitchenLinkVenueHubBonjourContract.record(hubID: "hub", baseURL: pathURL)["url"] == nil)
+        #expect(
+            KitchenLinkVenueHubBonjourContract.descriptor(
+                serviceName: "Hub",
+                record: ["id": "hub", "v": "2", "url": "http://192.168.1.44:8123"]
+            ) == nil
+        )
+    }
+
     @Test func receiptIsReturnedAfterEventAndOutboxCommit() throws {
         let (service, path) = try fixture()
         let receipt = try service.placeOrder(request())

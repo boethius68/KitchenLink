@@ -1,9 +1,55 @@
 # Codex Handoff
 
 **Updated:** 19 July 2026
-**Branch:** `codex/post-merge-state-pr27`
-**Status:** WLAN-/IP-Recovery real abgenommen und mit PR #27 in `main`
-integriert
+**Branch:** `codex/local-hub-discovery`
+**Status:** Native Hub-Erkennung implementiert und lokal verifiziert; reale
+iPhone-Abnahme vor Integration offen
+
+## Latest Continuation (19. Juli 2026, KL-OFFLINE-008)
+
+- Ein gemeinsamer Bonjour-Vertrag fuer `_kitchenlink-hub._tcp` uebertraegt
+  Schema-Version, stabile Hub-ID, Anzeigename und die konkrete lokale
+  HTTP-Basisadresse. Ungueltige, unvollstaendige oder unerwartet versionierte
+  Datensaetze werden nicht als waehlbarer Hub angeboten.
+- iPhone- und macOS-Hub kuendigen denselben Vertrag an. Das iPhone behaelt eine
+  stabile Geraete-ID, aktualisiert bei WLAN-/IP-Wechsel nur den TXT-Datensatz
+  und entfernt die waehlbare URL, solange keine LAN-Adresse vorhanden ist.
+- Die native Business-App sucht im Vordergrund mit `NWBrowser`, filtert den
+  eigenen iPhone-Hub und zeigt andere Hubs unter `Anderen Hub verwenden` als
+  bewusste Auswahl. Es gibt keine automatische Verbindung; die manuelle
+  Adresse bleibt vollstaendig erhalten.
+- HTTP-Listener und Bonjour-Ankuendigung sind getrennt. Das verhindert die im
+  Wiederholungstest reproduzierte kurze Listener-Unterbrechung, die beim
+  nachtraeglichen Austausch von `NWListener.service` auftrat.
+- Normale Gastbrowser erhalten absichtlich keine automatische Discovery. Sie
+  verwenden weiterhin den sichtbaren QR-Code beziehungsweise die konkrete
+  lokale IP-Adresse.
+
+## Verification (KL-OFFLINE-008)
+
+- `KitchenLinkLocalGuestPOC`: **12/12 Tests bestanden**, darunter drei Tests
+  fuer Bonjour-Roundtrip, fehlende LAN-Adresse und unsichere/ungueltige URLs.
+- Venue-Hub-Testblock nach der Listener-/Bonjour-Trennung **zehnmal
+  hintereinander bestanden**; kein erneuter Loopback-Aussetzer.
+- Komplettes `kitchenlinkTests`-Target auf dem iPhone-17-Pro-Simulator:
+  **176 bestanden, 1 bewusst uebersprungen, 0 fehlgeschlagen**.
+- Echter macOS-Bonjour-Smoke mit `dns-sd`: `KitchenLink Mac Hub` unter
+  `_kitchenlink-hub._tcp.local.` gefunden, auf Port `18080` aufgeloest und
+  TXT-Daten `id`, `name`, `url=http://192.168.178.110:18080`, `v=1`
+  verifiziert.
+- Signierter arm64-Build fuer `Philipps iPhone XR`: **bestanden** und der
+  aktuelle Branch-Stand erfolgreich auf dem gekoppelten Geraet installiert.
+- `git diff --check`: bestanden.
+
+## Remaining Risk (KL-OFFLINE-008)
+
+- Die automatische Anzeige und bewusste Auswahl des Mac-Hubs muss noch mit
+  dem signierten Build auf dem echten iPhone bestaetigt werden. Bis dahin
+  bleibt der PR im Draft.
+- Discovery ist auf aktive native Operator-Clients und dasselbe erreichbare
+  WLAN begrenzt. Hintergrundbetrieb, automatisches Failover, LAN-
+  Authentisierung, AP-Isolation, Android und TLS/Trust bleiben ausserhalb
+  dieser Scheibe.
 
 ## Latest Continuation (19. Juli 2026, PR #27 Integration)
 

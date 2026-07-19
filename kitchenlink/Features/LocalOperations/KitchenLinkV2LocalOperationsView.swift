@@ -1,5 +1,6 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import KitchenLinkLocalGuestCore
 import SwiftUI
 import UIKit
 
@@ -14,6 +15,7 @@ struct KitchenLinkV2LocalOperationsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = KitchenLinkLocalOperationsModel()
     @StateObject private var venueHub = KitchenLinkVenueHubModel()
+    @StateObject private var hubDiscovery = KitchenLinkVenueHubDiscoveryModel()
     @State private var mode: Mode = .kitchen
     @State private var successFeedback = 0
     @State private var showsExternalHub = false
@@ -44,17 +46,20 @@ struct KitchenLinkV2LocalOperationsView: View {
         .tint(KitchenLinkV2Palette.Brand.grape)
         .sensoryFeedback(.success, trigger: successFeedback)
         .task {
+            hubDiscovery.start()
             await startVenueHub()
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
             case .active:
+                hubDiscovery.start()
                 if usesExternalHub {
                     model.connect()
                 } else {
                     Task { await startVenueHub() }
                 }
             case .background:
+                hubDiscovery.stop()
                 venueHub.stop()
                 model.disconnect()
             case .inactive:
@@ -64,6 +69,7 @@ struct KitchenLinkV2LocalOperationsView: View {
             }
         }
         .onDisappear {
+            hubDiscovery.stop()
             venueHub.stop()
             model.disconnect()
         }
@@ -208,7 +214,7 @@ struct KitchenLinkV2LocalOperationsView: View {
     }
 
     private var externalHubCard: some View {
-        DisclosureGroup("Mac-Hub als Fallback", isExpanded: $showsExternalHub) {
+        DisclosureGroup("Anderen Hub verwenden", isExpanded: $showsExternalHub) {
             externalHubControls
                 .padding(.top, KitchenLinkV2Spacing.medium)
         }
@@ -227,6 +233,57 @@ struct KitchenLinkV2LocalOperationsView: View {
 
     private var externalHubControls: some View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+            HStack(spacing: KitchenLinkV2Spacing.small) {
+                Text(hubDiscovery.statusDetail)
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(discoveryStatusColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
+
+                ProgressView()
+                    .opacity(hubDiscovery.isSearching ? 1 : 0)
+            }
+            .accessibilityIdentifier("localOperations.discoveryStatus")
+
+            ForEach(hubDiscovery.hubs) { hub in
+                Button {
+                    connect(to: hub)
+                } label: {
+                    HStack(spacing: KitchenLinkV2Spacing.medium) {
+                        Image(systemName: "network")
+                            .foregroundStyle(KitchenLinkV2Palette.Brand.grape)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(hub.name)
+                                .font(KitchenLinkV2Typography.primaryLine)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                            Text(hub.baseURL.absoluteString)
+                                .font(KitchenLinkV2Typography.meta)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        Image(systemName: "chevron.right")
+                            .font(KitchenLinkV2Typography.meta)
+                            .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    }
+                    .frame(minHeight: 48)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Mit \(hub.name) verbinden")
+                .accessibilityIdentifier("localOperations.discoveredHub.\(hub.hubID)")
+            }
+
+            Divider()
+
+            Text("MANUELLE ADRESSE")
+                .font(KitchenLinkV2Typography.meta)
+                .tracking(1.1)
+                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+
             TextField("http://192.168.1.20:8080", text: $model.hubAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -255,7 +312,7 @@ struct KitchenLinkV2LocalOperationsView: View {
 
                 Spacer(minLength: 0)
 
-                Button("Mac-Hub verbinden") {
+                Button("Adresse verbinden") {
                     usesExternalHub = true
                     venueHub.stop()
                     model.connect()
@@ -390,6 +447,20 @@ struct KitchenLinkV2LocalOperationsView: View {
             return KitchenLinkV2Palette.Urgency.waitingText
         }
         return KitchenLinkV2Palette.Content.secondary
+    }
+
+    private var discoveryStatusColor: Color {
+        if case .failed = hubDiscovery.state {
+            return KitchenLinkV2Palette.Urgency.waitingText
+        }
+        return KitchenLinkV2Palette.Content.secondary
+    }
+
+    private func connect(to hub: KitchenLinkVenueHubBonjourDescriptor) {
+        usesExternalHub = true
+        venueHub.stop()
+        model.hubAddress = hub.baseURL.absoluteString
+        model.connect()
     }
 
     @MainActor

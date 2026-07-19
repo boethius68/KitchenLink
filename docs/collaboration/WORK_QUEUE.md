@@ -576,6 +576,27 @@ WLAN-aus/an-Test mit dem signierten iPhone-Build durch und bestaetigte die
 Recovery als vollstaendig funktionsfaehig. PR #27 wurde danach aus dem Draft
 genommen und als Merge-Commit `dc67ecc` nach `main` integriert.
 
+### KL-OFFLINE-008 - Lokale Hub-Erkennung in der Business-App
+
+**Status:** Implementiert und lokal verifiziert auf
+`codex/local-hub-discovery`; reale Auswahl auf dem iPhone steht noch aus
+**Abhaengigkeit:** KL-OFFLINE-006 und KL-OFFLINE-007
+**Schreibbereich:** `kitchenlink/Features/LocalOperations/`, gezielte Tests in
+`kitchenlinkTests/`, bei Bedarf additive lokale Netzwerkdeklarationen sowie
+dieser Queue-Eintrag und `docs/collaboration/handoffs/CODEX.md`
+
+Die Business-App soll von KitchenLink angekuendigte Venue-Hubs im selben WLAN
+per Bonjour erkennen und im externen Hub-Fallback als direkt waehlbare Ziele
+anzeigen. Manuelles Eintragen einer IP bleibt erhalten. Discovery darf weder
+einen fremden Dienst automatisch verbinden noch die bestehende iPhone-
+Self-Hosting-Voreinstellung verdraengen.
+
+Diese Scheibe gilt nur fuer native Operator-Clients. Normale Gastbrowser
+koennen Bonjour-Dienste nicht selbst durchsuchen und verwenden weiterhin die
+konkrete IP-Gastadresse beziehungsweise QR-Code/Link. Hintergrundbetrieb,
+Failover-Wahl, LAN-Authentisierung, AP-Isolation, Android und TLS bleiben
+ausserhalb des Tickets.
+
 ## Abgeschlossene Web-Straenge
 
 ### KL-WEB-003 - Gast-Web-Sandbox in Betrieb nehmen (Deploy + echte Tests)

@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 import KitchenLinkLocalGuestCore
 
-struct Configuration {
+struct Configuration: Sendable {
     let port: UInt16
     let publicHost: String
     let databasePath: String
@@ -39,6 +39,36 @@ enum CLIError: Error, CustomStringConvertible {
     case invalid(String)
     var description: String {
         switch self { case .invalid(let message): return message }
+    }
+}
+
+private func publishBonjour(configuration: Configuration) {
+    guard let baseURL = URL(string: "http://\(configuration.publicHost):\(configuration.port)"),
+          configuration.publicHost != "127.0.0.1",
+          configuration.publicHost.lowercased() != "localhost" else {
+        print("Bonjour: nicht angekündigt, solange --public-host auf Loopback zeigt.")
+        return
+    }
+
+    let hostID = "mac-hub-\(ProcessInfo.processInfo.hostName.lowercased())"
+    let record = KitchenLinkVenueHubBonjourContract.record(
+        hubID: hostID,
+        baseURL: baseURL,
+        displayName: "KitchenLink Mac Hub"
+    ).mapValues { Data($0.utf8) }
+    Thread.detachNewThread {
+        let service = NetService(
+            domain: "local.",
+            type: KitchenLinkVenueHubBonjourContract.serviceType,
+            name: "KitchenLink Mac Hub",
+            port: Int32(configuration.port)
+        )
+        service.setTXTRecord(NetService.data(fromTXTRecord: record))
+        service.publish()
+        print("Bonjour: KitchenLink Mac Hub wird im lokalen Netz angekündigt.")
+        withExtendedLifetime(service) {
+            RunLoop.current.run()
+        }
     }
 }
 
@@ -187,6 +217,7 @@ do {
     print("Bootstrap: \(url)bootstrap")
     print("Datenbank: \(configuration.databasePath)")
     print("Hinweis: --public-host muss für echte Geräte die LAN-IPv4-Adresse enthalten.")
+    publishBonjour(configuration: configuration)
     try LocalHTTPServer(router: router, port: configuration.port).run()
 } catch {
     FileHandle.standardError.write(Data("Start fehlgeschlagen: \(error)\n".utf8))
