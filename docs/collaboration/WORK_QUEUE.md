@@ -551,7 +551,8 @@ Adresswechsel, AP-Isolation, Android Chrome und TLS/Trust bleiben Folge-Gates.
 
 ### KL-OFFLINE-007 - Foreground-Hub bei WLAN-/IP-Wechsel stabilisieren
 
-**Status:** In Arbeit auf `codex/iphone-hub-network-recovery`
+**Status:** Umgesetzt in Draft-PR #27 auf
+`codex/iphone-hub-network-recovery`; reale WLAN-Recovery-Abnahme offen
 **Abhaengigkeit:** KL-OFFLINE-006, bestandene Mac-zu-iPhone-Geraeteabnahme
 **Schreibbereich:** `kitchenlink/Features/LocalOperations/`, gezielte Tests in
 `kitchenlinkTests/`, dieser Queue-Eintrag und

@@ -2,11 +2,14 @@
 
 **Updated:** 19 July 2026
 **Branch:** `codex/iphone-hub-network-recovery`
-**Status:** WLAN-/IP-Recovery fuer den Foreground-iPhone-Hub implementiert und
-automatisiert verifiziert; Draft-PR folgt
+**Status:** WLAN-/IP-Recovery fuer den Foreground-iPhone-Hub implementiert,
+automatisiert verifiziert und als Draft-PR #27 veroeffentlicht
 
 ## Latest Continuation (19. Juli 2026, KL-OFFLINE-007)
 
+- Commit `63cfebc` ist auf `codex/iphone-hub-network-recovery` gepusht;
+  Draft-PR #27 zielt auf `main` und bleibt bis zur realen WLAN-Recovery-
+  Abnahme bewusst im Draft.
 - Der `NWListener` bleibt bei fehlender oder geaenderter WLAN-Adresse aktiv.
   Ein leichter Zwei-Sekunden-Monitor prueft ausschliesslich die iOS-WLAN-
   Schnittstelle `en0`; Tunnel-, Mobilfunk- und Peer-to-Peer-Adressen werden
