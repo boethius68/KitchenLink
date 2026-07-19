@@ -1,9 +1,48 @@
 # Codex Handoff
 
 **Updated:** 19 July 2026
-**Branch:** `codex/post-merge-state-pr25`
-**Status:** Foreground-iPhone-Hub implementiert, real abgenommen und mit PR #25
-in `main` integriert
+**Branch:** `codex/iphone-hub-network-recovery`
+**Status:** WLAN-/IP-Recovery fuer den Foreground-iPhone-Hub implementiert und
+automatisiert verifiziert; Draft-PR folgt
+
+## Latest Continuation (19. Juli 2026, KL-OFFLINE-007)
+
+- Der `NWListener` bleibt bei fehlender oder geaenderter WLAN-Adresse aktiv.
+  Ein leichter Zwei-Sekunden-Monitor prueft ausschliesslich die iOS-WLAN-
+  Schnittstelle `en0`; Tunnel-, Mobilfunk- und Peer-to-Peer-Adressen werden
+  nicht als Gastadresse ausgegeben.
+- Listener-Port, Loopback-Operatoradresse und SQLite-Event-Log bleiben ueber
+  den Wechsel stabil. Nur die optionale Gastadresse wird als Ereignis an das
+  View-Model weitergegeben; ein Listenerfehler wird ebenfalls sichtbar
+  propagiert.
+- Ohne WLAN-Adresse startet der Hub jetzt in `waitingForWiFi`, statt komplett
+  zu scheitern. Kuechen-/Kellneransicht und gespeicherte Bestellungen bleiben
+  ueber Loopback verfuegbar. Bei Rueckkehr oder IP-Wechsel aktualisieren sich
+  Gast-URL, QR-Code und Teilen-Aktion automatisch.
+- Die Oberflaeche zeigt den Wartezustand mit `wifi.slash` und erklaert, welche
+  lokalen Funktionen weiterlaufen. Foreground-, Sandbox- und WLAN-Hinweise
+  bleiben bestehen.
+
+## Verification (KL-OFFLINE-007)
+
+- Gezielte iOS-Hub-Suite: **6/6 bestanden**, darunter Start ohne WLAN,
+  Adresse kommt/geht, unveraenderter Port/Loopback und echter HTTP-Bestelllauf.
+- Komplettes `kitchenlinkTests`-Target auf iPhone-17-Pro-Simulator:
+  **174 bestanden, 1 bewusst uebersprungen, 0 fehlgeschlagen**.
+- `git diff --check`: bestanden.
+
+## Remaining Risk (KL-OFFLINE-007)
+
+- Die reale WLAN-Unterbrechung/IP-Aenderung auf dem iPhone ist noch nicht
+  interaktiv abgenommen; die Netzwerkzustandsfolge ist mit echtem Listener und
+  kontrolliertem Adressprovider automatisiert geprueft.
+- Bereits auf einem Gastgeraet geoeffnete Seiten unter der alten IP koennen
+  nach einem Netzwechsel naturgemaess nicht umgeleitet werden; der sichtbare
+  Link und QR-Code auf dem Hub zeigen danach die neue Adresse.
+- Der Hub bleibt ein Foreground-Sandbox-PoC. Hintergrundbetrieb, automatische
+  Client-Discovery, LAN-Authentisierung, AP-Isolation, Android und TLS/Trust
+  bleiben offen; Zahlung und aktive Cloud-Synchronisation sind unveraendert
+  nicht freigegeben.
 
 ## Latest Continuation (19. Juli 2026, PR #25 Integration)
 

@@ -139,9 +139,9 @@ struct KitchenLinkV2LocalOperationsView: View {
                     .opacity(venueHub.state == .starting ? 1 : 0)
             }
 
-            if let endpoint = venueHub.endpoint {
+            if let guestURL = venueHub.endpoint?.guestURL {
                 HStack(alignment: .center, spacing: KitchenLinkV2Spacing.large) {
-                    if let image = qrCode(for: endpoint.guestURL) {
+                    if let image = qrCode(for: guestURL) {
                         image
                             .interpolation(.none)
                             .resizable()
@@ -156,12 +156,12 @@ struct KitchenLinkV2LocalOperationsView: View {
                         Text("Gastseite im selben WLAN")
                             .font(KitchenLinkV2Typography.primaryLine)
                             .foregroundStyle(KitchenLinkV2Palette.Content.primary)
-                        Text(endpoint.guestURL.absoluteString)
+                        Text(guestURL.absoluteString)
                             .font(KitchenLinkV2Typography.meta)
                             .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                             .textSelection(.enabled)
 
-                        ShareLink(item: endpoint.guestURL) {
+                        ShareLink(item: guestURL) {
                             Label("Link teilen", systemImage: "square.and.arrow.up")
                         }
                         .font(KitchenLinkV2Typography.meta)
@@ -169,6 +169,15 @@ struct KitchenLinkV2LocalOperationsView: View {
                     }
                 }
                 .accessibilityIdentifier("localOperations.guestEndpoint")
+            } else if venueHub.state == .waitingForWiFi {
+                Label(
+                    "WLAN wird gesucht. Küche, Kellner und bereits gespeicherte Bestellungen bleiben auf diesem iPhone verfügbar.",
+                    systemImage: "wifi.slash"
+                )
+                .font(KitchenLinkV2Typography.secondaryLine)
+                .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("localOperations.waitingForWiFi")
             } else if venueHub.state != .starting {
                 Button("iPhone-Hub starten") {
                     usesExternalHub = false
@@ -374,6 +383,9 @@ struct KitchenLinkV2LocalOperationsView: View {
     }
 
     private var hubStatusColor: Color {
+        if venueHub.state == .waitingForWiFi {
+            return KitchenLinkV2Palette.Urgency.waitingText
+        }
         if case .failed = venueHub.state {
             return KitchenLinkV2Palette.Urgency.waitingText
         }
