@@ -510,7 +510,7 @@ als erfolgreich.
 
 ### KL-OFFLINE-006 - iPhone als Foreground-Venue-Hub
 
-**Status:** Implementiert; echte Zwei-Geraete-Abnahme steht aus
+**Status:** Echte Mac-zu-iPhone-Abnahme bestanden; PR #25 bereit zur Integration
 **Abhaengigkeit:** KL-OFFLINE-003 bis KL-OFFLINE-005
 **Branch:** `codex/iphone-venue-hub-poc`
 **Schreibbereich:** `prototypes/KitchenLinkLocalGuestPOC/`,
@@ -536,9 +536,13 @@ von Health ueber Order-POST mit `local-event-log-committed` bis zur
 Kuechenprojektion, Parser-/Lifecycle-/Fallback-Tests, Simulator-Build sowie ein
 signierter Build fuer `Philipps iPhone XR`. Der finale Build ist auf dem Geraet
 installiert; der automatisierte Start wurde vom gesperrten iPhone abgewiesen.
-Offen bleibt daher die reale Abnahme:
-App manuell oeffnen, `Lokaler Service` waehlen, QR-Code mit einem zweiten Geraet
-im selben WLAN oeffnen, bestellen und `Kueche -> Kellner -> serviert` pruefen.
+
+**Geraeteabnahme, 19. Juli 2026:** KitchenLink blieb auf dem iPhone in
+`Lokaler Service` geoeffnet und zeigte seine dynamische Gastadresse. Der Mac
+oeffnete diese Adresse im selben WLAN und gab eine Bestellung direkt beim
+iPhone-Hub ab. Der Auftrag erschien live im Kuechenmodus, wechselte nach
+`Bestellung zubereitet` in den Kellnermodus und wurde dort erfolgreich
+weiterbearbeitet. Der Nutzer bestaetigte den gesamten Ablauf als bestanden.
 
 Keine Hintergrundfreigabe, Produktionshaertung, Zahlung oder aktive
 Cloud-Synchronisation. LAN-Authentisierung, Mehrgeraetekonkurrenz, DHCP-

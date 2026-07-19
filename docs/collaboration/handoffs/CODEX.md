@@ -2,8 +2,21 @@
 
 **Updated:** 19 July 2026
 **Branch:** `codex/iphone-venue-hub-poc`
-**Status:** Foreground-iPhone-Hub implementiert und auf dem Test-iPhone
-installiert; reale Zwei-Geraete-Abnahme steht aus
+**Status:** Foreground-iPhone-Hub implementiert, installiert und mit einer
+echten Mac-zu-iPhone-Bestellung abgenommen; PR #25 bereit zur Integration
+
+## Latest Continuation (19. Juli 2026, echte iPhone-Hub-Abnahme)
+
+- KitchenLink auf dem iPhone in `Lokaler Service` geoeffnet; der Foreground-Hub
+  zeigte seine dynamische Gastadresse im gemeinsamen WLAN.
+- Die Gastseite auf dem Mac ueber genau diese iPhone-Adresse geoeffnet und dort
+  eine echte Bestellung abgegeben. Der fruehere macOS-Server war dafuer nicht
+  erforderlich.
+- Bestellung erschien live auf demselben iPhone im Kuechenmodus, wechselte nach
+  `Bestellung zubereitet` in den Kellnermodus und liess sich dort erfolgreich
+  weiterbearbeiten.
+- Nutzer bestaetigte den gesamten Mac-zu-iPhone-Ablauf als erfolgreich. Damit
+  ist die offene reale Abnahme fuer PR #25 bestanden.
 
 ## Latest Continuation (19. Juli 2026, KL-OFFLINE-006)
 
@@ -42,9 +55,9 @@ installiert; reale Zwei-Geraete-Abnahme steht aus
 
 ## Remaining Risk (KL-OFFLINE-006)
 
-- Reale Zwei-Geraete-Abnahme des iPhone-gehosteten Pfads steht aus. Der
-  Referenztest ist: iPhone in `Lokaler Service`, QR/URL auf zweitem Geraet,
-  Bestellung, Kueche `zubereitet`, Kellner `serviert`.
+- Der iPhone-gehostete Pfad ist real mit Safari auf dem Mac als Gastgeraet
+  bestanden. Android Chrome, AP-Isolation und ein zweites mobiles Gastgeraet
+  bleiben separate Kompatibilitaets-Gates.
 - Der Hub ist absichtlich nur im Vordergrund aktiv. Kein Background-Mode,
   Failover oder produktiver Dauerbetrieb ist behauptet.
 - Bonjour wird angekuendigt, aber automatische Discovery/Adresswechsel sind
