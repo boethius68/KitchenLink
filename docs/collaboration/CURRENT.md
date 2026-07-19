@@ -278,7 +278,7 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   unit + 8/8 integration tests green against the real instance; `next build`
   reports `Revalidate 1m` on `/[venueSlug]/menu`. No visual change, no token
   change, no order-path change.
-- KL-CLOUD-001 (branch `claude/cloud-order-loop`, not yet merged) closes the
+- KL-CLOUD-001 (merged into `main` on 19 July 2026) closes the
   operator half of the cloud order loop: an additive migration adds
   `venue_staff`, staff read policies, the status RPC
   `operator_update_order_status` and the public-readable
@@ -290,9 +290,16 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   appear in one kitchen/waiter list, the local hub always runs as fallback,
   no mode pre-selection. The guest web evaluates the heartbeat and, when the
   service device loses connectivity (>45 s), blocks the futile cloud submit
-  and points guests to the local hub URL instead. Pending: applying the
-  migration plus operator account on the real instance
-  (`SANDBOX_SETUP.md` §6.1) and the real web-to-iPhone acceptance.
+  and points guests to the local hub URL instead. Operator sign-in is a
+  plain one-time e-mail/password login; the public sandbox connection data
+  (URL, anon key, venue) is baked in. Pending: applying the migration plus
+  operator account on the real instance (`SANDBOX_SETUP.md` §6.1) and the
+  real web-to-iPhone acceptance.
+- KL-OFFLINE-008 (merged into `main` on 19 July 2026): Bonjour discovery of
+  other venue hubs in the external-hub disclosure, a lightweight service
+  startup screen (navigation responds instantly, models mount on the next
+  runloop turn) and async QR rendering — resolved against the unified
+  Service view.
 - `kitchenlink/Features/Inventory/` contains the Swift stock foundation from
   KL-INVENTORY-001 and the read-only operator surface from KL-INVENTORY-002:
   dimension-safe quantities (mass/volume/count), an append-only ledger with
@@ -311,9 +318,17 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
 ## Agent Setup
 
 - Shared instructions are available through `AGENTS.md` and `CLAUDE.md`.
-- Claude Code and Codex are equal technical collaborators. `main` is neutral;
-  the user remains the product and design authority. The binding integration
-  process is `docs/collaboration/PEER_WORKFLOW.md`.
+- **Main-only mode since 19 July 2026** (`DECISIONS.md`): all agents commit
+  directly to `main`; the previous branch/worktree isolation from
+  `PEER_WORKFLOW.md` is superseded. All prior branch work is merged;
+  remaining unique branch tips are preserved as `archive/*` tags. The user's
+  Xcode working copy is `/Users/test/Developments/kitchenlink-claude`.
+- Claude Code and Codex are equal technical collaborators; the user remains
+  the product and design authority.
+- A market/focus assessment underpinning the current priorities is recorded
+  in `docs/strategy/MARKET_ASSESSMENT_2026-07-19.md`; the usability
+  guardrail ("the app stays user-friendly throughout development") is a
+  binding decision in `DECISIONS.md`.
 - New work is assigned only to Claude Code or Codex until the user changes that
   decision. Earlier GLM, DeepSeek, Kimi and MiniMax handoffs remain historical
   context. The last already-started GLM strand, PR #15, has been reviewed and

@@ -1,7 +1,13 @@
 # KitchenLink Peer Workflow
 
-**Stand:** 18. Juli 2026
-**Status:** Verbindlicher Ablauf fuer Claude Code und Codex
+**Stand:** 19. Juli 2026
+**Status:** Teilweise ueberholt — seit dem 19. Juli 2026 gilt der
+**Main-Only-Modus** (`DECISIONS.md`): alle Agenten committen direkt auf
+`main`, die Branch-/Worktree-Isolation und der PR-Integrationsablauf aus
+diesem Dokument sind ausgesetzt, bis der Nutzer das aendert.
+Verifikationspflichten (Tests gruen vor jedem Push, ehrliche Handoffs)
+gelten unveraendert. Die uebrigen Abschnitte bleiben als historischer
+Kontext erhalten.
 
 ## Rollen
 

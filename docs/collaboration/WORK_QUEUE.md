@@ -4,9 +4,10 @@
 **Phase:** Integrierte Sandbox mit oeffentlichem Gast-Web
 
 Diese Queue enthaelt sowohl die abgeschlossene Aufbauhistorie als auch aktuelle
-Arbeitspakete. Neue Tickets werden bis auf Weiteres nur von Claude Code oder
-Codex in einem eigenen Branch oder Worktree uebernommen. Bestehende Demo-,
-Offline- und Simulationspfade duerfen nicht entfernt werden.
+Arbeitspakete. Seit dem 19. Juli 2026 gilt der Main-Only-Modus
+(`DECISIONS.md`): alle Agenten arbeiten direkt auf `main`, es gibt keine
+langlebigen Feature-Branches mehr. Bestehende Demo-, Offline- und
+Simulationspfade duerfen nicht entfernt werden.
 
 Der letzte bereits begonnene GLM-Strang, PR #15 (`KL-INVENTORY-002`), wurde am
 18. Juli 2026 von Codex reviewt, korrigiert und integriert. Neue Tickets werden
@@ -580,8 +581,10 @@ genommen und als Merge-Commit `dc67ecc` nach `main` integriert.
 
 ### KL-CLOUD-001 - Cloud-Bestellschleife schließen + automatischer Lokal-Fallback
 
-**Status:** Umgesetzt auf `claude/cloud-order-loop`; wartet auf
-Migrations-Anwendung durch den Nutzer und reale Abnahme
+**Status:** In `main` integriert (19. Juli 2026, inkl. vereinfachter
+E-Mail/Passwort-Anmeldung mit eingebackenen Sandbox-Verbindungsdaten);
+offen sind nur noch Migrations-Anwendung + Betreiber-Konto auf der echten
+Instanz (SANDBOX_SETUP.md §6.1) und die reale Web-zu-iPhone-Abnahme
 **Abhaengigkeit:** KL-WEB-002/003/004 (Gast-Web live), KL-OFFLINE-006/007
 (iPhone-Hub)
 **Schreibbereich:** `kitchenlink/Features/CloudOperations/` (neu),
@@ -625,9 +628,10 @@ auf der echten Instanz (SANDBOX_SETUP.md §6.1), reale
 Web-zu-iPhone-Abnahme, danach Merge.
 ### KL-OFFLINE-008 - Lokale Hub-Erkennung in der Business-App
 
-**Status:** Discovery auf dem iPhone bestaetigt; Navigation und QR-Warm-up in
-Draft-PR #29 vom Main Thread entkoppelt, vollstaendig verifiziert und signiert
-gebaut; Installation des zweiten Fixes durch Codex-Geraeteaktionslimit offen
+**Status:** In `main` integriert (19. Juli 2026, Merge von
+`codex/local-hub-discovery` mit manueller Aufloesung gegen die
+vereinheitlichte Service-Ansicht aus KL-CLOUD-001); Installation des
+aktuellen Stands auf dem Geraet steht noch aus
 **Abhaengigkeit:** KL-OFFLINE-006 und KL-OFFLINE-007
 **Schreibbereich:** `kitchenlink/Features/LocalOperations/`, gezielte Tests in
 `kitchenlinkTests/`, bei Bedarf additive lokale Netzwerkdeklarationen sowie

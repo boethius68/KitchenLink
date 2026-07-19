@@ -91,10 +91,18 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                 VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.large) {
                     header
                     modePicker
-                    cloudCard
+                    // Beim ersten Öffnen steht die einmalige Anmeldung oben;
+                    // danach kommen die Bestellungen direkt nach dem Modus —
+                    // Verbindungs- und Hub-Details rutschen unter die Arbeit.
+                    if cloud.connectionState == .signedOut {
+                        cloudCard
+                    }
+                    orderSection
+                    if cloud.connectionState != .signedOut {
+                        cloudCard
+                    }
                     venueHubCard
                     externalHubCard
-                    orderSection
                 }
                 .frame(maxWidth: 680)
                 .padding(.horizontal, KitchenLinkV2Spacing.large)

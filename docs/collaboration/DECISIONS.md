@@ -97,6 +97,31 @@ append-only; superseded decisions are marked rather than deleted.
 - **Sandbox boundary:** This decision activates no live payment, production
   infrastructure or certified fiscal behavior.
 
+## Usability Guardrail (approved 19 July 2026)
+
+- The app must stay user-friendly **throughout the entire development
+  process**, not only at release. Concretely: no technical configuration
+  forms inside product paths (connection data is baked in or provisioned,
+  users enter at most familiar credentials), no manual mode pre-selection
+  where the app can decide automatically (e.g. local vs. online service),
+  and development/demo entry points stay visually separated from the
+  product path (collapsed "Entwicklung & Demo" section instead of
+  equal-ranking cards).
+- Every UI-facing ticket is expected to check its result against this
+  guardrail before integration.
+
+## Main-Only Working Mode (approved 19 July 2026)
+
+- All existing branch work was consolidated into `main` on 19 July 2026
+  (KL-CLOUD-001 and KL-OFFLINE-008 merged; remaining branch tips preserved
+  as `archive/*` tags). From now on, agents commit directly to `main` —
+  no long-lived feature branches, no cross-branch handoffs.
+- This supersedes the branch/worktree isolation rules in
+  `PEER_WORKFLOW.md` until the user decides otherwise. Verification duties
+  (tests green before push, honest handoff notes) remain unchanged.
+- The user's Xcode working copy is `/Users/test/Developments/
+  kitchenlink-claude` on `main`.
+
 ## Collaboration Governance
 
 - **Agent parity:** Claude Code and Codex work as equal technical collaborators.

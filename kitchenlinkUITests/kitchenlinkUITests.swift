@@ -30,9 +30,17 @@ final class kitchenlinkUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["business.welcomeTitle"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["business.scanMenu"].exists)
-        XCTAssertTrue(app.buttons["business.openLegacySandbox"].exists)
+
+        // Legacy- und Sandbox-Zugänge liegen eingeklappt hinter
+        // „Entwicklung & Demo" und bleiben dort erreichbar.
+        let devTools = app.buttons["business.devTools"]
+        XCTAssertTrue(devTools.waitForExistence(timeout: 5))
+        scrollTo(devTools, in: app)
+        devTools.tap()
+        XCTAssertTrue(app.buttons["business.openLegacySandbox"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["business.useLegacyDesign"].exists)
 
+        scrollTo(app.buttons["business.choosePhotos"], in: app)
         app.buttons["business.choosePhotos"].tap()
 
         XCTAssertTrue(app.scrollViews["menuImport.entry"].waitForExistence(timeout: 3))
@@ -92,6 +100,12 @@ final class kitchenlinkUITests: XCTestCase {
         XCTAssertTrue(app.buttons["business.useV2Design"].waitForExistence(timeout: 5))
         app.buttons["business.useV2Design"].tap()
 
+        XCTAssertTrue(app.staticTexts["business.welcomeTitle"].waitForExistence(timeout: 3))
+
+        let devTools = app.buttons["business.devTools"]
+        XCTAssertTrue(devTools.waitForExistence(timeout: 5))
+        scrollTo(devTools, in: app)
+        devTools.tap()
         XCTAssertTrue(app.buttons["business.useLegacyDesign"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["business.openLegacySandbox"].exists)
     }

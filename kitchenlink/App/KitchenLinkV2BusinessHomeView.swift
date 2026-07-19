@@ -2,6 +2,7 @@ import SwiftUI
 
 struct KitchenLinkV2BusinessHomeView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var showsDevelopmentTools = false
 
     let menuSectionCount: Int
     let onOpenSandbox: () -> Void
@@ -21,8 +22,7 @@ struct KitchenLinkV2BusinessHomeView: View {
                         introduction
                         scanStage
                         operationsAccess
-                        sandboxAccess
-                        previewSwitch
+                        developmentSection
                     }
                     .frame(maxWidth: 680)
                     .padding(.horizontal, KitchenLinkV2Spacing.large)
@@ -234,6 +234,51 @@ struct KitchenLinkV2BusinessHomeView: View {
         .padding(.vertical, KitchenLinkV2Spacing.medium)
         .frame(minHeight: 52)
         .contentShape(Rectangle())
+    }
+
+    /// Entwicklungs- und Demo-Zugänge, standardmäßig eingeklappt: die
+    /// Startseite zeigt nur die Produktwege (Scan + Betrieb). Die bisherigen
+    /// Sandbox- und Legacy-Pfade bleiben vollständig erreichbar — nur eben
+    /// hinter einem klaren „Entwicklung & Demo"-Aufklapper statt als
+    /// gleichrangige Karten (Usability-Leitplanke, DECISIONS.md). Bewusst
+    /// ein expliziter Button statt DisclosureGroup, damit das Ziel einen
+    /// stabilen Accessibility-Identifier trägt.
+    private var developmentSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation { showsDevelopmentTools.toggle() }
+            } label: {
+                HStack(spacing: KitchenLinkV2Spacing.small) {
+                    Text("Entwicklung & Demo")
+                        .font(KitchenLinkV2Typography.meta)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    Spacer(minLength: 0)
+                    Image(systemName: showsDevelopmentTools ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                        .accessibilityHidden(true)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Entwicklung und Demo ein- oder ausklappen")
+            .accessibilityIdentifier("business.devTools")
+
+            if showsDevelopmentTools {
+                VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.large) {
+                    sandboxAccess
+                    previewSwitch
+                }
+                .padding(.top, KitchenLinkV2Spacing.small)
+            }
+        }
+        .padding(.horizontal, KitchenLinkV2Spacing.large)
+        .padding(.vertical, KitchenLinkV2Spacing.xSmall)
+        .background(
+            KitchenLinkV2Palette.Surface.raised.opacity(0.6),
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+        )
     }
 
     private var sandboxAccess: some View {

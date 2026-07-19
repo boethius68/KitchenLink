@@ -1,13 +1,50 @@
 # Claude Code Handoff
 
-**Updated:** 19 July 2026
-**Branch:** `claude/cloud-order-loop` (KL-CLOUD-001, umgesetzt und lokal
-verifiziert, noch nicht gemergt)
-**Status:** Cloud-Bestellschleife betreiberseitig geschlossen plus
-automatischer Lokal-Fallback im Gast-Web. Wartet auf zwei Nutzerschritte:
-Migration `20260719100000` + Betreiber-Konto auf der echten Instanz
-(`SANDBOX_SETUP.md` §6.1) und die reale Web-zu-iPhone-Abnahme. Details in
-Session-Teil 8.
+**Updated:** 19 July 2026 (Abend)
+**Branch:** `main` (Main-Only-Modus seit 19. Juli 2026, `DECISIONS.md`)
+**Status:** Konsolidierung abgeschlossen. KL-CLOUD-001 und KL-OFFLINE-008
+sind in `main` gemergt (Merge-Konflikt in der Service-Ansicht manuell
+aufgeloest: Codex' Startup-Wrapper/Discovery/async-QR + Cloud-Schleife).
+Nicht gemergte Branch-Staende sind als `archive/*`-Tags gesichert; das
+Loeschen der Remote-Branches wartet auf Nutzerbestaetigung. Neu ausserdem:
+`docs/strategy/MARKET_ASSESSMENT_2026-07-19.md` (Markt-/Fokus-Analyse),
+zwei Entscheidungen in `DECISIONS.md` (Usability-Leitplanke, Main-Only),
+Home entruempelt (Entwicklung & Demo eingeklappt), Service-Ansicht zeigt
+Bestellungen direkt nach dem Moduswechsler. Verifikation: komplette
+Unit-Suite 192/0/1 nach dem Merge, POC-Paket 12/12; nach den UI-Umbauten
+erneut gruen (siehe Session-Teil 9 unten). Offen fuer den Nutzer:
+Migration + Betreiber-Konto (SANDBOX_SETUP.md §6.1), App von `main` neu
+bauen, reale Web-zu-iPhone-Abnahme.
+
+## Session-Teil 9: Konsolidierung auf main + Aufraeumen (19. Juli, Abend)
+
+- **Merge 1:** `claude/cloud-order-loop` → `main` (`f304d30`), auf
+  Nutzeranweisung ohne separate Abnahme vorab; die reale Abnahme bleibt als
+  offener Schritt in der Queue.
+- **Merge 2:** `codex/local-hub-discovery` → `main` (`1f236a0`),
+  KL-OFFLINE-008. Konflikte in `WORK_QUEUE.md` (beide Eintraege behalten)
+  und `KitchenLinkV2LocalOperationsView.swift` manuell aufgeloest: Codex'
+  leichter Startup-Wrapper, Bonjour-Discovery im „Anderen Hub
+  verwenden"-Aufklapper und asynchrone QR-Erzeugung wurden in die
+  vereinheitlichte Service-Ansicht (Cloud + Lokal) eingewoben. Codex' neuer
+  UI-Test wurde auf die gemergten Titel („Service", „LOKALER FALLBACK AUF
+  DIESEM IPHONE") angepasst.
+- **Branch-Hygiene:** alle nicht in `main` enthaltenen Branch-Spitzen als
+  `archive/<branch>`-Tags gepusht (15 Stueck). Remote-Branches wurden noch
+  NICHT geloescht — bewusst erst nach expliziter Nutzerbestaetigung, weil
+  fremde Branches betroffen sind.
+- **Doku:** `docs/strategy/MARKET_ASSESSMENT_2026-07-19.md` neu (Analyse
+  vom Sessionanfang, als Referenz fuer spaetere Priorisierung);
+  `DECISIONS.md` +2 (Usability-Leitplanke, Main-Only-Modus);
+  `PEER_WORKFLOW.md` als teilweise ueberholt markiert; CURRENT/WORK_QUEUE
+  nachgezogen.
+- **UI-Aufraeumen (Usability-Leitplanke):** V2-Home zeigt nur noch die
+  Produktwege; „Bestehende Produktsandbox" und der Legacy-Design-Schalter
+  liegen eingeklappt hinter „Entwicklung & Demo"
+  (`business.devTools`; beide UI-Tests expandieren jetzt zuerst). In der
+  Service-Ansicht stehen die Bestellungen direkt nach dem Moduswechsler;
+  Cloud-/Hub-Statuskarten folgen darunter (nur der einmalige Login bleibt
+  oben, solange abgemeldet).
 
 ## Session-Teil 8: KL-CLOUD-001 — Cloud-Bestellschleife + Lokal-Fallback
 
