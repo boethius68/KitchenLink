@@ -549,6 +549,28 @@ Keine Hintergrundfreigabe, Produktionshaertung, Zahlung oder aktive
 Cloud-Synchronisation. LAN-Authentisierung, Mehrgeraetekonkurrenz, DHCP-
 Adresswechsel, AP-Isolation, Android Chrome und TLS/Trust bleiben Folge-Gates.
 
+### KL-OFFLINE-007 - Foreground-Hub bei WLAN-/IP-Wechsel stabilisieren
+
+**Status:** Umgesetzt in Draft-PR #27 auf
+`codex/iphone-hub-network-recovery`; reale WLAN-Recovery-Abnahme offen
+**Abhaengigkeit:** KL-OFFLINE-006, bestandene Mac-zu-iPhone-Geraeteabnahme
+**Schreibbereich:** `kitchenlink/Features/LocalOperations/`, gezielte Tests in
+`kitchenlinkTests/`, dieser Queue-Eintrag und
+`docs/collaboration/handoffs/CODEX.md`
+
+Der laufende iPhone-Hub soll eine fehlende oder geaenderte WLAN-IPv4-Adresse
+im Vordergrund erkennen, ohne Listener, Port oder lokales Event-Log neu
+anzulegen. Solange keine WLAN-Adresse verfuegbar ist, bleibt die interne
+Kuechen-/Kellner-Verbindung ueber Loopback aktiv und die Ansicht zeigt einen
+eigenen Wartezustand. Nach Rueckkehr ins WLAN werden Gast-URL, QR-Code und
+Teilen-Aktion automatisch mit der neuen Adresse veroeffentlicht.
+
+Abnahme: Start ohne WLAN-Adresse, Verlust und Wiederkehr der Adresse sowie ein
+echter lokaler HTTP-Bestelllauf sind automatisiert getestet; der Port bleibt
+ueber den simulierten Wechsel stabil. Hintergrundbetrieb, automatische
+Client-Discovery, Authentisierung, AP-Isolation, Android und TLS bleiben
+ausdruecklich ausserhalb dieser Scheibe.
+
 ## Abgeschlossene Web-Straenge
 
 ### KL-WEB-003 - Gast-Web-Sandbox in Betrieb nehmen (Deploy + echte Tests)

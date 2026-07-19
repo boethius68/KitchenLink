@@ -4,19 +4,24 @@ import KitchenLinkLocalGuestCore
 import Network
 
 struct KitchenLinkVenueHubEndpoint: Equatable, Sendable {
-    let guestURL: URL
+    let guestURL: URL?
     let operatorURL: URL
     let port: UInt16
 }
 
+enum KitchenLinkVenueHubServerEvent: Equatable, Sendable {
+    case endpointChanged(KitchenLinkVenueHubEndpoint)
+    case failed(String)
+}
+
 protocol KitchenLinkVenueHubServing: AnyObject {
+    var events: AsyncStream<KitchenLinkVenueHubServerEvent> { get }
     func start() async throws -> KitchenLinkVenueHubEndpoint
     func stop()
 }
 
 enum KitchenLinkVenueHubError: LocalizedError {
     case alreadyRunning
-    case noWiFiAddress
     case noListeningPort
     case requestTooLarge
     case malformedRequest
@@ -26,8 +31,6 @@ enum KitchenLinkVenueHubError: LocalizedError {
         switch self {
         case .alreadyRunning:
             return "Der Venue-Hub läuft bereits."
-        case .noWiFiAddress:
-            return "Keine lokale WLAN-Adresse gefunden. Bitte WLAN prüfen."
         case .noListeningPort:
             return "Der lokale Port konnte nicht geöffnet werden."
         case .requestTooLarge:
@@ -103,7 +106,6 @@ struct KitchenLinkSystemLocalAddressProvider: KitchenLinkLocalAddressProviding {
         guard getifaddrs(&firstAddress) == 0, let firstAddress else { return nil }
         defer { freeifaddrs(firstAddress) }
 
-        var fallback: String?
         var interface = firstAddress
         while true {
             let value = interface.pointee
@@ -125,35 +127,47 @@ struct KitchenLinkSystemLocalAddressProvider: KitchenLinkLocalAddressProviding {
                 if result == 0 {
                     let candidate = String(cString: host)
                     if name == "en0" { return candidate }
-                    if !name.hasPrefix("pdp_ip") { fallback = fallback ?? candidate }
                 }
             }
             guard let next = value.ifa_next else { break }
             interface = next
         }
-        return fallback
+        return nil
     }
 }
 
 final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @unchecked Sendable {
     private let router: HTTPRouter
     private let addressProvider: any KitchenLinkLocalAddressProviding
+    private let addressPollInterval: TimeInterval
     private let queue = DispatchQueue(label: "sf.kitchenlink.foreground-venue-hub")
+    private let eventContinuation: AsyncStream<KitchenLinkVenueHubServerEvent>.Continuation
+    let events: AsyncStream<KitchenLinkVenueHubServerEvent>
     private var listener: NWListener?
+    private var addressTimer: DispatchSourceTimer?
+    private var currentEndpoint: KitchenLinkVenueHubEndpoint?
     private var startContinuation: CheckedContinuation<KitchenLinkVenueHubEndpoint, Error>?
 
     init(
         databaseURL: URL,
         indexHTML: Data,
         deviceID: String,
-        addressProvider: any KitchenLinkLocalAddressProviding = KitchenLinkSystemLocalAddressProvider()
+        addressProvider: any KitchenLinkLocalAddressProviding = KitchenLinkSystemLocalAddressProvider(),
+        addressPollInterval: TimeInterval = 2
     ) throws {
+        let eventStream = AsyncStream.makeStream(
+            of: KitchenLinkVenueHubServerEvent.self,
+            bufferingPolicy: .bufferingNewest(1)
+        )
         let service = try LocalGuestOrderService(
             databasePath: databaseURL.path,
             deviceID: deviceID
         )
         self.router = HTTPRouter(service: service, indexHTML: indexHTML)
         self.addressProvider = addressProvider
+        self.addressPollInterval = addressPollInterval
+        self.events = eventStream.stream
+        self.eventContinuation = eventStream.continuation
     }
 
     func start() async throws -> KitchenLinkVenueHubEndpoint {
@@ -197,8 +211,11 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
     func stop() {
         queue.async { [weak self] in
             guard let self else { return }
+            self.stopAddressMonitoring()
             self.listener?.cancel()
             self.listener = nil
+            self.currentEndpoint = nil
+            self.eventContinuation.finish()
             if let continuation = self.startContinuation {
                 self.startContinuation = nil
                 continuation.resume(throwing: CancellationError())
@@ -216,29 +233,31 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
                 stop()
                 return
             }
-            guard let address = addressProvider.wifiIPv4Address(),
-                  let guestURL = URL(string: "http://\(address):\(port)"),
-                  let operatorURL = URL(string: "http://127.0.0.1:\(port)") else {
-                continuation.resume(throwing: KitchenLinkVenueHubError.noWiFiAddress)
+            guard let endpoint = makeEndpoint(port: port) else {
+                continuation.resume(throwing: KitchenLinkVenueHubError.noListeningPort)
                 stop()
                 return
             }
-            continuation.resume(
-                returning: KitchenLinkVenueHubEndpoint(
-                    guestURL: guestURL,
-                    operatorURL: operatorURL,
-                    port: port
-                )
-            )
+            currentEndpoint = endpoint
+            startAddressMonitoring(port: port)
+            continuation.resume(returning: endpoint)
 
         case .failed(let error):
             let continuation = startContinuation
             startContinuation = nil
+            stopAddressMonitoring()
             listener?.cancel()
             listener = nil
-            continuation?.resume(throwing: KitchenLinkVenueHubError.listener(error.localizedDescription))
+            let venueHubError = KitchenLinkVenueHubError.listener(error.localizedDescription)
+            if let continuation {
+                continuation.resume(throwing: venueHubError)
+            } else {
+                eventContinuation.yield(.failed(venueHubError.localizedDescription))
+                eventContinuation.finish()
+            }
 
         case .cancelled:
+            stopAddressMonitoring()
             listener = nil
 
         case .setup, .waiting:
@@ -247,6 +266,41 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
         @unknown default:
             break
         }
+    }
+
+    private func makeEndpoint(port: UInt16) -> KitchenLinkVenueHubEndpoint? {
+        guard let operatorURL = URL(string: "http://127.0.0.1:\(port)") else { return nil }
+        let guestURL = addressProvider.wifiIPv4Address()
+            .flatMap { URL(string: "http://\($0):\(port)") }
+        return KitchenLinkVenueHubEndpoint(
+            guestURL: guestURL,
+            operatorURL: operatorURL,
+            port: port
+        )
+    }
+
+    private func startAddressMonitoring(port: UInt16) {
+        stopAddressMonitoring()
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(
+            deadline: .now() + addressPollInterval,
+            repeating: addressPollInterval
+        )
+        timer.setEventHandler { [weak self] in
+            guard let self,
+                  let endpoint = self.makeEndpoint(port: port),
+                  endpoint != self.currentEndpoint else { return }
+            self.currentEndpoint = endpoint
+            self.eventContinuation.yield(.endpointChanged(endpoint))
+        }
+        addressTimer = timer
+        timer.resume()
+    }
+
+    private func stopAddressMonitoring() {
+        addressTimer?.setEventHandler {}
+        addressTimer?.cancel()
+        addressTimer = nil
     }
 
     private func handle(_ connection: NWConnection) {
@@ -302,6 +356,7 @@ final class KitchenLinkVenueHubModel: ObservableObject {
         case stopped
         case starting
         case running
+        case waitingForWiFi
         case failed(String)
     }
 
@@ -310,6 +365,7 @@ final class KitchenLinkVenueHubModel: ObservableObject {
 
     private let serverFactory: () throws -> any KitchenLinkVenueHubServing
     private var server: (any KitchenLinkVenueHubServing)?
+    private var eventTask: Task<Void, Never>?
 
     init() {
         self.serverFactory = { try KitchenLinkVenueHubModel.makeDefaultServer() }
@@ -319,7 +375,9 @@ final class KitchenLinkVenueHubModel: ObservableObject {
         self.serverFactory = serverFactory
     }
 
-    var isRunning: Bool { state == .running }
+    var isRunning: Bool {
+        state == .running || state == .waitingForWiFi
+    }
 
     var statusDetail: String {
         switch state {
@@ -328,7 +386,9 @@ final class KitchenLinkVenueHubModel: ObservableObject {
         case .starting:
             return "Lokaler Hub und Gastseite werden gestartet …"
         case .running:
-            return "Dieses iPhone nimmt lokale Bestellungen dauerhaft im Event-Log an."
+            return "Gastseite erreichbar. Lokale Bestellungen landen dauerhaft im Event-Log dieses iPhones."
+        case .waitingForWiFi:
+            return "Der Hub läuft, aber dieses iPhone hat gerade keine lokale WLAN-Adresse. Link und QR-Code aktualisieren sich automatisch."
         case .failed(let message):
             return message
         }
@@ -342,8 +402,8 @@ final class KitchenLinkVenueHubModel: ObservableObject {
             self.server = server
             let endpoint = try await server.start()
             guard self.server != nil else { return nil }
-            self.endpoint = endpoint
-            state = .running
+            apply(endpoint)
+            observeEvents(from: server)
             return endpoint
         } catch is CancellationError {
             if state == .starting { state = .stopped }
@@ -358,10 +418,35 @@ final class KitchenLinkVenueHubModel: ObservableObject {
     }
 
     func stop() {
+        eventTask?.cancel()
+        eventTask = nil
         server?.stop()
         server = nil
         endpoint = nil
         state = .stopped
+    }
+
+    private func apply(_ endpoint: KitchenLinkVenueHubEndpoint) {
+        self.endpoint = endpoint
+        state = endpoint.guestURL == nil ? .waitingForWiFi : .running
+    }
+
+    private func observeEvents(from server: any KitchenLinkVenueHubServing) {
+        eventTask?.cancel()
+        eventTask = Task { [weak self] in
+            for await event in server.events {
+                guard !Task.isCancelled, let self else { return }
+                switch event {
+                case .endpointChanged(let endpoint):
+                    self.apply(endpoint)
+                case .failed(let message):
+                    self.server = nil
+                    self.endpoint = nil
+                    self.state = .failed(message)
+                    return
+                }
+            }
+        }
     }
 
     private static func makeDefaultServer() throws -> any KitchenLinkVenueHubServing {

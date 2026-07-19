@@ -8,14 +8,50 @@ private struct LoopbackAddressProvider: KitchenLinkLocalAddressProviding {
 
 private final class VenueHubServerStub: KitchenLinkVenueHubServing {
     let endpoint: KitchenLinkVenueHubEndpoint
+    let events: AsyncStream<KitchenLinkVenueHubServerEvent>
+    private let eventContinuation: AsyncStream<KitchenLinkVenueHubServerEvent>.Continuation
     private(set) var didStop = false
 
     init(endpoint: KitchenLinkVenueHubEndpoint) {
+        let eventStream = AsyncStream.makeStream(
+            of: KitchenLinkVenueHubServerEvent.self,
+            bufferingPolicy: .bufferingNewest(1)
+        )
         self.endpoint = endpoint
+        self.events = eventStream.stream
+        self.eventContinuation = eventStream.continuation
     }
 
     func start() async throws -> KitchenLinkVenueHubEndpoint { endpoint }
-    func stop() { didStop = true }
+    func stop() {
+        didStop = true
+        eventContinuation.finish()
+    }
+
+    func send(_ event: KitchenLinkVenueHubServerEvent) {
+        eventContinuation.yield(event)
+    }
+}
+
+private final class MutableAddressProvider: KitchenLinkLocalAddressProviding, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedAddress: String?
+
+    init(_ address: String?) {
+        storedAddress = address
+    }
+
+    func wifiIPv4Address() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedAddress
+    }
+
+    func setAddress(_ address: String?) {
+        lock.lock()
+        storedAddress = address
+        lock.unlock()
+    }
 }
 
 struct KitchenLinkForegroundVenueHubTests {
@@ -47,7 +83,7 @@ struct KitchenLinkForegroundVenueHubTests {
     @Test @MainActor
     func modelPublishesEndpointAndStopsServer() async throws {
         let endpoint = KitchenLinkVenueHubEndpoint(
-            guestURL: try #require(URL(string: "http://192.168.1.44:8123")),
+            guestURL: URL(string: "http://192.168.1.44:8123"),
             operatorURL: try #require(URL(string: "http://127.0.0.1:8123")),
             port: 8_123
         )
@@ -62,6 +98,66 @@ struct KitchenLinkForegroundVenueHubTests {
         #expect(server.didStop)
         #expect(model.state == .stopped)
         #expect(model.endpoint == nil)
+    }
+
+    @Test @MainActor
+    func modelKeepsHubRunningWhileWiFiIsUnavailableAndAppliesNewAddress() async throws {
+        let waitingEndpoint = KitchenLinkVenueHubEndpoint(
+            guestURL: nil,
+            operatorURL: try #require(URL(string: "http://127.0.0.1:8123")),
+            port: 8_123
+        )
+        let availableEndpoint = KitchenLinkVenueHubEndpoint(
+            guestURL: URL(string: "http://192.168.1.45:8123"),
+            operatorURL: waitingEndpoint.operatorURL,
+            port: waitingEndpoint.port
+        )
+        let server = VenueHubServerStub(endpoint: waitingEndpoint)
+        let model = KitchenLinkVenueHubModel(serverFactory: { server })
+
+        #expect(await model.start() == waitingEndpoint)
+        #expect(model.state == .waitingForWiFi)
+        #expect(model.isRunning)
+
+        server.send(.endpointChanged(availableEndpoint))
+        await waitUntil { model.endpoint == availableEndpoint }
+
+        #expect(model.state == .running)
+        #expect(model.endpoint == availableEndpoint)
+    }
+
+    @Test @MainActor
+    func foregroundServerPublishesWiFiLossAndRecoveryWithoutChangingPort() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("KitchenLinkForegroundVenueHubRecoveryTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let addressProvider = MutableAddressProvider(nil)
+        let server = try KitchenLinkForegroundVenueHubServer(
+            databaseURL: directory.appendingPathComponent("events.sqlite"),
+            indexHTML: Data("<html>KitchenLink</html>".utf8),
+            deviceID: "ios-recovery-test-hub",
+            addressProvider: addressProvider,
+            addressPollInterval: 0.02
+        )
+        let model = KitchenLinkVenueHubModel(serverFactory: { server })
+        let initialEndpoint = try #require(await model.start())
+        defer { model.stop() }
+
+        #expect(initialEndpoint.guestURL == nil)
+        #expect(model.state == .waitingForWiFi)
+
+        addressProvider.setAddress("192.168.1.45")
+        await waitUntil { model.endpoint?.guestURL?.host == "192.168.1.45" }
+        #expect(model.endpoint?.port == initialEndpoint.port)
+        #expect(model.endpoint?.operatorURL == initialEndpoint.operatorURL)
+        #expect(model.state == .running)
+
+        addressProvider.setAddress(nil)
+        await waitUntil { model.state == .waitingForWiFi }
+        #expect(model.endpoint?.guestURL == nil)
+        #expect(model.endpoint?.port == initialEndpoint.port)
     }
 
     @Test
@@ -105,5 +201,17 @@ struct KitchenLinkForegroundVenueHubTests {
         let ordersText = try #require(String(data: ordersData, encoding: .utf8))
         #expect(ordersText.contains(orderID))
         #expect(ordersText.contains("preparing"))
+    }
+
+    @MainActor
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        condition: @escaping @MainActor () -> Bool
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while !condition(), clock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 }
