@@ -32,6 +32,8 @@ automatisiert verifiziert und als Draft-PR #27 veroeffentlicht
   Adresse kommt/geht, unveraenderter Port/Loopback und echter HTTP-Bestelllauf.
 - Komplettes `kitchenlinkTests`-Target auf iPhone-17-Pro-Simulator:
   **174 bestanden, 1 bewusst uebersprungen, 0 fehlgeschlagen**.
+- Signierter arm64-Build fuer `Philipps iPhone XR`: **bestanden**; der aktuelle
+  Draft-PR-Stand wurde erfolgreich auf dem gekoppelten Geraet installiert.
 - `git diff --check`: bestanden.
 
 ## Remaining Risk (KL-OFFLINE-007)
