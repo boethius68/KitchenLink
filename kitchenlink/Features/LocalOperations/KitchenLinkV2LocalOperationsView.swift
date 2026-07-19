@@ -3,6 +3,12 @@ import CoreImage.CIFilterBuiltins
 import SwiftUI
 import UIKit
 
+/// Vereinheitlichter Service-Bereich (KL-CLOUD-001): Online-Bestellungen aus
+/// der Supabase-Sandbox und lokale Hub-Bestellungen erscheinen in derselben
+/// Küchen-/Kellner-Liste. Es gibt keine Vorauswahl „lokal oder online" mehr —
+/// der lokale Foreground-Hub läuft immer mit und übernimmt automatisch, wenn
+/// die Internetverbindung fehlt; der Presence-Heartbeat macht den Ausfall für
+/// das Gast-Web sichtbar.
 struct KitchenLinkV2LocalOperationsView: View {
     enum Mode: String, CaseIterable, Identifiable {
         case kitchen = "Küche"
@@ -14,10 +20,18 @@ struct KitchenLinkV2LocalOperationsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = KitchenLinkLocalOperationsModel()
     @StateObject private var venueHub = KitchenLinkVenueHubModel()
+    @StateObject private var cloud = KitchenLinkCloudOperationsModel()
     @State private var mode: Mode = .kitchen
     @State private var successFeedback = 0
     @State private var showsExternalHub = false
     @State private var usesExternalHub = false
+    @State private var showsCloudSetup = false
+    @State private var cloudURLField = ""
+    @State private var cloudAnonKeyField = ""
+    @State private var cloudVenueField = KitchenLinkCloudCredentialStore.defaultVenueSlug
+    @State private var cloudEmailField = ""
+    @State private var cloudPasswordField = ""
+    @State private var isCloudSigningIn = false
 
     var body: some View {
         ZStack {
@@ -28,6 +42,7 @@ struct KitchenLinkV2LocalOperationsView: View {
                 VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.large) {
                     header
                     modePicker
+                    cloudCard
                     venueHubCard
                     externalHubCard
                     orderSection
@@ -39,16 +54,18 @@ struct KitchenLinkV2LocalOperationsView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle("Lokaler Service")
+        .navigationTitle("Service")
         .navigationBarTitleDisplayMode(.inline)
         .tint(KitchenLinkV2Palette.Brand.grape)
         .sensoryFeedback(.success, trigger: successFeedback)
         .task {
+            cloud.connectIfPossible()
             await startVenueHub()
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
             case .active:
+                cloud.connectIfPossible()
                 if usesExternalHub {
                     model.connect()
                 } else {
@@ -57,24 +74,36 @@ struct KitchenLinkV2LocalOperationsView: View {
             case .background:
                 venueHub.stop()
                 model.disconnect()
+                cloud.stop(clearPresence: true)
             case .inactive:
                 break
             @unknown default:
                 break
             }
         }
+        .onChange(of: venueHub.endpoint) { _, newEndpoint in
+            cloud.setLocalGuestURL(newEndpoint?.guestURL)
+        }
         .onDisappear {
             venueHub.stop()
             model.disconnect()
+            cloud.stop(clearPresence: true)
         }
     }
 
+    /// Online- und lokale Bestellungen in einer Liste, älteste zuerst.
     private var visibleOrders: [LiveOrderMessage] {
         switch mode {
         case .kitchen:
-            return model.orders.filter { $0.status == .preparing }
+            return KitchenLinkServiceOrderMerge.kitchenOrders(
+                local: model.orders,
+                online: cloud.orders
+            )
         case .waiter:
-            return model.orders.filter { $0.status == .ready }
+            return KitchenLinkServiceOrderMerge.waiterOrders(
+                local: model.orders,
+                online: cloud.orders
+            )
         }
     }
 
@@ -85,7 +114,7 @@ struct KitchenLinkV2LocalOperationsView: View {
                     .font(KitchenLinkV2Typography.display)
                     .foregroundStyle(KitchenLinkV2Palette.Content.primary)
                 Text(mode == .kitchen
-                     ? "Neue lokale Bestellungen zubereiten."
+                     ? "Neue Bestellungen zubereiten – online und lokal."
                      : "Fertige Bestellungen am Pass übernehmen.")
                     .font(KitchenLinkV2Typography.secondaryLine)
                     .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
@@ -93,20 +122,40 @@ struct KitchenLinkV2LocalOperationsView: View {
 
             Spacer()
 
-            HStack(spacing: KitchenLinkV2Spacing.xSmall) {
-                Circle()
-                    .fill(model.isConnected
-                          ? KitchenLinkV2Palette.Urgency.freshSymbol
-                          : KitchenLinkV2Palette.Urgency.neutralSymbol)
-                    .frame(width: 8, height: 8)
-                Text(model.isConnected ? "LIVE" : "OFFLINE")
-                    .font(KitchenLinkV2Typography.meta)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(model.isConnected ? "Live verbunden" : "Nicht verbunden")
-            .accessibilityIdentifier("localOperations.connectionBadge")
+            connectionBadge
         }
+    }
+
+    private var connectionBadge: some View {
+        HStack(spacing: KitchenLinkV2Spacing.xSmall) {
+            Circle()
+                .fill(badgeColor)
+                .frame(width: 8, height: 8)
+            Text(badgeTitle)
+                .font(KitchenLinkV2Typography.meta)
+                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(badgeAccessibilityLabel)
+        .accessibilityIdentifier("localOperations.connectionBadge")
+    }
+
+    private var badgeTitle: String {
+        if cloud.isConnected { return "ONLINE" }
+        if model.isConnected { return "LOKAL" }
+        return "OFFLINE"
+    }
+
+    private var badgeColor: Color {
+        if cloud.isConnected { return KitchenLinkV2Palette.Urgency.freshSymbol }
+        if model.isConnected { return KitchenLinkV2Palette.Urgency.waitingSymbol }
+        return KitchenLinkV2Palette.Urgency.neutralSymbol
+    }
+
+    private var badgeAccessibilityLabel: String {
+        if cloud.isConnected { return "Online-Service verbunden" }
+        if model.isConnected { return "Nur lokaler Service verbunden" }
+        return "Nicht verbunden"
     }
 
     private var modePicker: some View {
@@ -119,11 +168,173 @@ struct KitchenLinkV2LocalOperationsView: View {
         .accessibilityIdentifier("localOperations.mode")
     }
 
+    // MARK: Online-Service
+
+    @ViewBuilder
+    private var cloudCard: some View {
+        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+            HStack(alignment: .top, spacing: KitchenLinkV2Spacing.medium) {
+                VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
+                    Text("ONLINE-BESTELLUNGEN (GAST-WEB)")
+                        .font(KitchenLinkV2Typography.meta)
+                        .tracking(1.1)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    Text(cloud.stateDetail)
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(cloudStateColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("localOperations.cloudState")
+                }
+
+                Spacer(minLength: 0)
+
+                if cloud.connectionState == .connecting || isCloudSigningIn {
+                    ProgressView()
+                }
+            }
+
+            if let actionError = cloud.lastActionError {
+                Label(actionError, systemImage: "exclamationmark.triangle")
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            switch cloud.connectionState {
+            case .signedOut:
+                cloudSetupControls
+            case .connected, .unreachable:
+                Button("Online-Service abmelden") {
+                    cloud.signOut()
+                }
+                .font(KitchenLinkV2Typography.meta)
+                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("localOperations.cloudSignOut")
+            case .connecting:
+                EmptyView()
+            }
+        }
+        .padding(KitchenLinkV2Spacing.large)
+        .background(
+            KitchenLinkV2Palette.Surface.raised,
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+        }
+        .accessibilityIdentifier("localOperations.cloudCard")
+    }
+
+    private var cloudStateColor: Color {
+        switch cloud.connectionState {
+        case .connected:
+            return KitchenLinkV2Palette.Content.secondary
+        case .connecting, .signedOut:
+            return KitchenLinkV2Palette.Content.secondary
+        case .unreachable:
+            return KitchenLinkV2Palette.Urgency.waitingText
+        }
+    }
+
+    private var cloudSetupControls: some View {
+        DisclosureGroup("Einmalig verbinden", isExpanded: $showsCloudSetup) {
+            VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+                cloudField("Supabase-URL", text: $cloudURLField, placeholder: "https://xxxx.supabase.co")
+                cloudField("Anon-Key", text: $cloudAnonKeyField, placeholder: "eyJ…")
+                cloudField("Venue-Slug", text: $cloudVenueField, placeholder: "alte-muehle")
+                cloudField("E-Mail", text: $cloudEmailField, placeholder: "operator@example.com")
+
+                SecureField("Passwort", text: $cloudPasswordField)
+                    .textInputAutocapitalization(.never)
+                    .font(KitchenLinkV2Typography.primaryLine)
+                    .padding(.horizontal, KitchenLinkV2Spacing.medium)
+                    .frame(minHeight: 48)
+                    .background(
+                        KitchenLinkV2Palette.Surface.recessed,
+                        in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                            .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1)
+                    }
+                    .accessibilityIdentifier("localOperations.cloudPassword")
+
+                Button {
+                    Task { await signInToCloud() }
+                } label: {
+                    if isCloudSigningIn {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text("Verbinden")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                .disabled(isCloudSigningIn)
+                .accessibilityIdentifier("localOperations.cloudSignIn")
+
+                Text("Sandbox: Zugangsdaten des Betreiber-Kontos aus dem Supabase-Projekt (SANDBOX_SETUP.md). Das Passwort wird nicht gespeichert.")
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, KitchenLinkV2Spacing.medium)
+        }
+        .font(KitchenLinkV2Typography.primaryLine)
+        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+        .accessibilityIdentifier("localOperations.cloudSetup")
+    }
+
+    private func cloudField(
+        _ label: String,
+        text: Binding<String>,
+        placeholder: String
+    ) -> some View {
+        TextField(label, text: text, prompt: Text(placeholder))
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .font(KitchenLinkV2Typography.primaryLine)
+            .padding(.horizontal, KitchenLinkV2Spacing.medium)
+            .frame(minHeight: 48)
+            .background(
+                KitchenLinkV2Palette.Surface.recessed,
+                in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                    .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1)
+            }
+            .accessibilityLabel(label)
+    }
+
+    @MainActor
+    private func signInToCloud() async {
+        isCloudSigningIn = true
+        defer { isCloudSigningIn = false }
+        let success = await cloud.signIn(
+            supabaseURLString: cloudURLField,
+            anonKey: cloudAnonKeyField,
+            venueSlug: cloudVenueField,
+            email: cloudEmailField,
+            password: cloudPasswordField
+        )
+        if success {
+            cloudPasswordField = ""
+            showsCloudSetup = false
+            cloud.setLocalGuestURL(venueHub.endpoint?.guestURL)
+        }
+    }
+
+    // MARK: Lokaler Hub
+
     private var venueHubCard: some View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
             HStack(alignment: .top, spacing: KitchenLinkV2Spacing.medium) {
                 VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
-                    Text("DIESES IPHONE IST DER VENUE-HUB")
+                    Text("LOKALER FALLBACK AUF DIESEM IPHONE")
                         .font(KitchenLinkV2Typography.meta)
                         .tracking(1.1)
                         .foregroundStyle(KitchenLinkV2Palette.Content.muted)
@@ -188,7 +399,7 @@ struct KitchenLinkV2LocalOperationsView: View {
             }
 
             Label(
-                "Sandbox: Diese Ansicht muss geöffnet bleiben. Beide Geräte brauchen dasselbe WLAN; das iPhone am besten am Strom lassen.",
+                "Sandbox: Diese Ansicht muss geöffnet bleiben. Fällt das Internet aus, verweist das Gast-Web Gäste automatisch auf diese lokale Adresse; beide Geräte brauchen dann dasselbe WLAN.",
                 systemImage: "exclamationmark.triangle"
             )
             .font(KitchenLinkV2Typography.meta)
@@ -268,6 +479,8 @@ struct KitchenLinkV2LocalOperationsView: View {
         }
     }
 
+    // MARK: Bestellliste
+
     @ViewBuilder
     private var orderSection: some View {
         if visibleOrders.isEmpty {
@@ -302,22 +515,29 @@ struct KitchenLinkV2LocalOperationsView: View {
     }
 
     private var emptyTitle: String {
-        if !model.isConnected { return "Lokaler Hub nicht verbunden." }
+        if !cloud.isConnected && !model.isConnected {
+            return "Kein Service verbunden."
+        }
         return mode == .kitchen ? "Keine neue Bestellung." : "Nichts zur Abholung bereit."
     }
 
     private var emptyDetail: String {
-        if !model.isConnected { return "Hub-Adresse und gemeinsames WLAN prüfen." }
-        return mode == .kitchen
-            ? "Die nächste lokale Gastbestellung erscheint automatisch."
-            : "Sobald die Küche eine Bestellung als zubereitet markiert, erscheint sie hier."
+        if !cloud.isConnected && !model.isConnected {
+            return "Online-Service verbinden oder den lokalen Hub starten."
+        }
+        if mode == .kitchen {
+            return cloud.isConnected
+                ? "Online- und lokale Gastbestellungen erscheinen hier automatisch."
+                : "Lokale Gastbestellungen erscheinen hier automatisch. Der Online-Service ist gerade nicht verbunden."
+        }
+        return "Sobald die Küche eine Bestellung als zubereitet markiert, erscheint sie hier."
     }
 
     private func orderCard(_ order: LiveOrderMessage) -> some View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(order.sourceDevice.replacingOccurrences(of: "Lokales Gast-WLAN · ", with: "Bestellung "))
+                    Text(order.sourceDevice.replacingOccurrences(of: "Lokales Gast-WLAN · ", with: "Lokal · "))
                         .font(KitchenLinkV2Typography.primaryLine)
                         .foregroundStyle(KitchenLinkV2Palette.Content.primary)
                     Text(order.createdAt.formatted(date: .omitted, time: .shortened))
@@ -341,13 +561,20 @@ struct KitchenLinkV2LocalOperationsView: View {
                 }
             }
 
+            if !order.customerNote.isEmpty {
+                Text(order.customerNote)
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Button(actionTitle) {
                 advance(order)
             }
             .buttonStyle(mode == .kitchen
                          ? AnyKitchenLinkV2ButtonStyle(KitchenLinkV2KitchenBumpButtonStyle())
                          : AnyKitchenLinkV2ButtonStyle(KitchenLinkV2PrimaryButtonStyle()))
-            .disabled(model.isUpdatingOrder)
+            .disabled(model.isUpdatingOrder || cloud.isUpdatingOrder)
             .accessibilityIdentifier("localOperations.advance.\(order.id)")
         }
         .padding(KitchenLinkV2Spacing.large)
@@ -376,7 +603,13 @@ struct KitchenLinkV2LocalOperationsView: View {
     private func advance(_ order: LiveOrderMessage) {
         let target: OrderLifecycleStatus = mode == .kitchen ? .ready : .served
         Task {
-            if await model.update(order: order, to: target) {
+            let success: Bool
+            if cloud.containsOrder(id: order.id) {
+                success = await cloud.update(order: order, to: target)
+            } else {
+                success = await model.update(order: order, to: target)
+            }
+            if success {
                 successFeedback += 1
             }
         }
@@ -399,6 +632,7 @@ struct KitchenLinkV2LocalOperationsView: View {
               !venueHub.isRunning else { return }
         guard let endpoint = await venueHub.start() else { return }
         model.connect(to: endpoint.operatorURL)
+        cloud.setLocalGuestURL(endpoint.guestURL)
     }
 
     private func qrCode(for url: URL) -> Image? {

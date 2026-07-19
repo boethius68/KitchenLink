@@ -56,7 +56,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **vier** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **fünf** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -64,6 +64,7 @@ Es gibt **vier** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260717120000_guest_web_order_gate.sql` | RLS, Idempotenz, Seed, RPC (KL-WEB-002) |
 | `supabase/migrations/20260718010000_guest_web_submit_order_race_fix.sql` | Race-safe RPC (KL-WEB-003) |
 | `supabase/migrations/20260719000000_menu_items_tag.sql` | Menü-Tag-Feld und Seed für den Supabase-Leseweg (KL-WEB-004) |
+| `supabase/migrations/20260719100000_operator_cloud_orders.sql` | Betreiber: venue_staff, Staff-Lese-Policies, Status-RPC, Hub-Presence (KL-CLOUD-001) |
 
 ### Weg A — über die CLI (empfohlen)
 
@@ -83,7 +84,7 @@ supabase db push
 
 ### Weg B — über den SQL-Editor
 
-Dashboard → **SQL Editor** → nacheinander die vier Dateien aus
+Dashboard → **SQL Editor** → nacheinander die fünf Dateien aus
 `supabase/migrations/` einfügen und **Run**. Reihenfolge einhalten.
 
 ### Verifikation des Schemas
@@ -204,6 +205,48 @@ aus Abschnitt 6 wiederholen.
   Bestell-ID.
 - Bestätigung: im Supabase-Dashboard unter **Table Editor → orders** erscheint
   die Bestellung mit `created_by` = Anonymous-User-ID.
+
+---
+
+## 6.1 Betreiber-Konto für den Online-Service (KL-CLOUD-001)
+
+Damit die iPhone-App die Gast-Web-Bestellungen sehen und abarbeiten darf,
+braucht die Sandbox genau ein Betreiber-Konto plus Venue-Zuordnung. RLS gibt
+Bestellungen nur für eingetragenes Personal frei; die Zuordnung selbst wird
+bewusst nur über das Dashboard/Service Role geschrieben.
+
+1. Migration `20260719100000_operator_cloud_orders.sql` anwenden (Abschnitt 2).
+2. Dashboard → **Authentication → Users → Add user**: E-Mail + Passwort für
+   den Sandbox-Operator anlegen (z. B. `operator@kitchenlink.test`),
+   **Auto Confirm** aktivieren.
+3. Die User-UUID aus der Nutzerliste kopieren und im **SQL Editor** der Venue
+   zuordnen:
+
+   ```sql
+   insert into public.venue_staff (user_id, venue_id)
+   values (
+     '<USER-UUID>',
+     (select id from public.venues where slug = 'alte-muehle')
+   )
+   on conflict do nothing;
+   ```
+
+4. In der iPhone-App: **Service → Online-Bestellungen → Einmalig verbinden**
+   und Supabase-URL, Anon-Key (derselbe wie im Gast-Web), Venue-Slug
+   (`alte-muehle`), E-Mail und Passwort eingeben. Die Sitzung wird über das
+   Refresh-Token erneuert; das Passwort wird nicht gespeichert.
+
+Smoke-Check der geschlossenen Schleife: auf `https://kitchenlink.luneq.eu/alte-muehle/menu`
+bestellen → die Bestellung erscheint in der App unter **Service → Küche**,
+`Bestellung zubereitet` verschiebt sie in den Kellner-Modus, `Bestellung
+serviert` schließt sie ab (Status-Spalten in **Table Editor → orders**
+wandern mit).
+
+Hinweis zur Ausfall-Anzeige: solange die Service-Ansicht offen ist, meldet die
+App alle 15 s einen Heartbeat nach `venue_hub_presence` (inklusive der lokalen
+Hub-URL). Bleibt der Heartbeat > 45 s aus, blendet das Gast-Web den Hinweis
+„Online-Bestellung gerade nicht möglich" ein und verweist auf die lokale
+Bestellseite im Restaurant-WLAN.
 
 ---
 

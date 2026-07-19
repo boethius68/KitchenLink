@@ -1,9 +1,122 @@
 # Claude Code Handoff
 
-**Updated:** 18 July 2026
-**Branch:** `main` (Integrationsarbeit); KL-WEB-001 gemergt aus
+**Updated:** 19 July 2026
+**Branch:** `claude/cloud-order-loop` (KL-CLOUD-001, umgesetzt und lokal
+verifiziert, noch nicht gemergt)
+**Status:** Cloud-Bestellschleife betreiberseitig geschlossen plus
+automatischer Lokal-Fallback im Gast-Web. Wartet auf zwei Nutzerschritte:
+Migration `20260719100000` + Betreiber-Konto auf der echten Instanz
+(`SANDBOX_SETUP.md` §6.1) und die reale Web-zu-iPhone-Abnahme. Details in
+Session-Teil 8.
+
+## Session-Teil 8: KL-CLOUD-001 — Cloud-Bestellschleife + Lokal-Fallback
+
+### Anlass und Scope
+
+Der Nutzer bestaetigte den Befund, dass sein erfolgreicher Test auf
+`kitchenlink.luneq.eu` nur die Gast-Haelfte bewies: Bestellungen landeten in
+Supabase, aber keine Betreiberoberflaeche las sie (einzige Lese-Policy war
+`orders_owner_read` fuer den Gast selbst; der einzige Supabase-Code der App
+zeigte auf ein altes hartkodiertes Projekt und haette an RLS scheitern
+muessen). Zusaetzliche Nutzeranforderung: kein manuelles Vorauswaehlen von
+„Lokaler Service" mehr — der lokale Weg soll den Online-Weg automatisch
+ersetzen, wenn die Verbindung fehlt, und das Gast-Web soll Gaeste dann von
+sich aus auf die lokale Bestellseite verweisen („kindergartenleicht").
+
+### Umgesetzt
+
+- **Migration `supabase/migrations/20260719100000_operator_cloud_orders.sql`**
+  (additiv, aendert keine bestehende Policy/Funktion): `venue_staff` mit
+  RLS-Selbstsicht und ohne Client-Schreibpfad; `is_venue_staff()` als
+  SECURITY-DEFINER-Helfer; Staff-Lese-Policies auf `orders`/`order_items`
+  zusaetzlich zu den Owner-Policies; `operator_update_order_status`
+  (Staff-Pflicht, Vorwaertskette `pending→accepted→preparing→ready→served`
+  auch ueber mehrere Stufen — die Kueche hat einen einzigen Bump-Button —,
+  Ziel==Ist und verspaetete Retries als Replay, `served→canceled` und alles
+  ab `canceled` als Fehler, Zeitstempelspalten wandern mit);
+  `venue_hub_presence` (eine Zeile pro Venue, oeffentlich lesbar, Schreiben
+  nur ueber `operator_upsert_hub_presence` mit Staff-Pflicht).
+- **App, neu `kitchenlink/Features/CloudOperations/`:**
+  `KitchenLinkCloudOrderClient.swift` (Config ohne hartkodierte URL/Keys,
+  GoTrue-Passwort-/Refresh-Flow, PostgREST-Reads mit embedded
+  `order_items`, beide RPCs, Fehler-Mapping inkl. 401→unauthorized),
+  `KitchenLinkCloudOperationsModel.swift` (3-s-Polling, genau-einmaliger
+  Refresh-Retry bei 401 — ein totes Refresh-Token meldet GoTrue als 400,
+  wird als Abmeldung behandelt —, 15-s-Heartbeat mit aktueller lokaler
+  Hub-URL, Raeumen der URL beim geordneten Verlassen/Hintergrund),
+  `KitchenLinkServiceOrderMerge.swift` (testbare Zusammenfuehrung).
+  Wire-Zeilen mit unbekanntem Status/Zeitstempel werden verworfen statt
+  geraten; das Mapping fuehrt in die bestehende `LiveOrderMessage`-Domaene,
+  kein zweites Bestellmodell.
+- **App, umgebaut:** `KitchenLinkV2LocalOperationsView.swift` heisst in der
+  Navigation jetzt `Service` (Home-Zeile angepasst, Accessibility-IDs
+  unveraendert): eine Kuechen-/Kellner-Liste fuer Online- und lokale
+  Bestellungen (aelteste zuerst; online startet `pending`, lokal
+  `preparing`), Verbindungsbadge ONLINE/LOKAL/OFFLINE, Cloud-Karte mit
+  einmaliger Anmeldung (URL/Anon-Key/Venue/E-Mail/Passwort; Passwort wird
+  nie persistiert, Sitzung via Refresh-Token), lokaler Hub laeuft
+  unveraendert immer mit und traegt den Titel „Lokaler Fallback". Der
+  Mac-Hub-Fallback und alle bisherigen Ablaeufe bleiben erhalten.
+- **Gast-Web:** `src/lib/hub-presence.ts` (reine, getestete Auswertung:
+  frisch ≤45 s → online; veraltet + sanitisierte http(s)-URL →
+  `local_fallback`; alles andere → `unknown` = heutiges Verhalten, damit
+  Venues ohne Presence-Zeile unveraendert funktionieren) plus Einbindung in
+  `GuestMenuCard.tsx` (20-s-Poll nur im Browser): Warte-Hinweis-Karte,
+  Bestellleiste wird zum Link auf die lokale Bestellseite, Sheet-Submit
+  gesperrt mit Inline-Link. Neue CSS-Klassen in `globals.css` nur aus
+  bestehenden Tokens; Status ohne Zitrone, die Zitronen-Leiste bleibt die
+  Primaeraktion.
+
+### Verifikation
+
+- Gast-Web: `typecheck`, `lint` sauber; **63/63 Vitest** (13 neue
+  Presence-/Sanitizing-Tests); `next build` gruen, `/[venueSlug]/menu`
+  weiter `Revalidate 1m`. Browser mobil 375×812: Normalzustand
+  byte-gleichem Verhalten (kein Banner, Leiste als Button), Fallback-Zustand
+  temporaer erzwungen und visuell geprueft (Banner, Leisten-Link, beide
+  Links auf die lokale URL), danach zurueckgesetzt und erneut 63/63.
+- iOS: Test-Build gruen; **12 neue Tests** in
+  `KitchenLinkCloudOperationsTests` (Wire-Mapping, Zeitstempel-Varianten,
+  401-Refresh-genau-einmal, tote-Session-Abmeldung, Venue-not-found,
+  Heartbeat-Inhalt inkl. Raeumen, Kuechen-/Kellner-Merge); komplettes
+  `kitchenlinkTests`-Target **186 bestanden / 0 fehlgeschlagen / 1 bewusst
+  uebersprungen** (iPhone-17-Pro-Simulator).
+- Nicht verifizierbar ohne Nutzer: Migration und Betreiber-Konto existieren
+  nur als Dateien/Anleitung — es gibt hier keine Instanz-Credentials. Die
+  RPC-SQL lief nicht gegen ein echtes Postgres; dieselbe Grenze wie bei
+  KL-WEB-002, aufzuloesen durch die reale Abnahme.
+
+### Risiken / bewusste Grenzen
+
+- Sitzung (Access-/Refresh-Token) liegt in UserDefaults, nicht Keychain —
+  Sandbox-Grenze, vor Produktion zu ersetzen; das Passwort selbst wird nie
+  gespeichert.
+- Presence kann nicht zwischen „App offline weiterlaufend" und „App
+  waehrend Offline-Phase geschlossen" unterscheiden; der lokale Verweis
+  kann dann ins Leere zeigen (im Code und in SANDBOX_SETUP dokumentiert).
+- Kein Realtime, bewusst Polling (3 s) analog zum lokalen Hub; kein
+  Gast-Status-Web nach dem ACK (Folgeticket); `canceled` ist per RPC
+  moeglich, hat aber noch keine UI.
+- Der Kuechenfilter zeigt auch alte `pending`-Testbestellungen der echten
+  Instanz — gewollt (Backlog sichtbar, per Bump raeumbar).
+
+### Naechster Schritt (Nutzer)
+
+1. Migration anwenden + Betreiber-Konto anlegen: `SANDBOX_SETUP.md` §6.1.
+2. In der App `Service` oeffnen, einmal verbinden, dann auf dem Handy ueber
+   `kitchenlink.luneq.eu/alte-muehle/menu` bestellen → Bestellung muss in
+   der Kueche erscheinen und bis `serviert` laufen.
+3. Internet des iPhones trennen (WLAN ohne Uplink oder Hotspot aus) →
+   Gast-Web muss nach ~1 min den lokalen Hinweis zeigen.
+4. Nach bestandener Abnahme: Branch `claude/cloud-order-loop` mergen.
+
+---
+
+# Historie (bis 18 July 2026)
+
+**Branch damals:** `main` (Integrationsarbeit); KL-WEB-001 gemergt aus
 `claude/guest-web-foundation`
-**Status:** Alle vier Runde-2-Missionen (KL-OFFLINE-003, KL-WORKFORCE-001,
+**Status damals:** Alle vier Runde-2-Missionen (KL-OFFLINE-003, KL-WORKFORCE-001,
 KL-WEB-002, KL-INVENTORY-001) reviewt und in `main` integriert, keine P0/P1.
 Zwei echte Funde waehrend der Integration behoben (KL-WORKFORCE-001,
 KL-WEB-002), eine Design-Frage bei KL-INVENTORY-001 genau nachverfolgt statt
@@ -367,22 +480,10 @@ autoritative Bestellgrenze, Supabase-Anbindung, PWA-Stufe.
 
 ## Recommended Next Step
 
-Alle vier Runde-2-Missionen und die Offline-Venue-Hub-Discovery sind reviewt
-und in `main`. Es liegt jetzt eine Reihe von **Nutzerentscheidungen** an,
-bevor weiterer Code sinnvoll ist:
-
-- **Offline-Gastbestellung (Blueprint §16.2):** Die in
-  `docs/discovery/offline-venue-hub/INTEGRATION_REVIEW.md` §4 dokumentierte
-  Weggabelung — kann/soll der lokale Gastzugriff ueberhaupt Teil der Sandbox
-  sein, angesichts der Mixed-Content-/LNA-Kollision mit dem cloud-first
-  Gast-Web? Das ist die groesste offene Architekturfrage.
-- **KL-WEB-002 haerten:** Vercel-Sandbox-Deployment einrichten (aussenwirksam,
-  braucht Nutzerfreigabe), dann echte Supabase-Integrationstests fuer die RPC
-  und die dokumentierte Idempotenz-Race.
-- **KL-OFFLINE-003 weiterfuehren:** risikoarme iOS-Integrationsnaht (Event-
-  Store hinter `KitchenLinkRepository`, `LocalDemoRepository` ablösen, Demo-
-  Pfade erhalten) — nur auf Nutzerwunsch, da es die erste echte Ablösung eines
-  bestehenden Sandbox-Pfades waere.
-
-Kein reines „weiter coden" ohne Richtungsentscheidung; die naechsten grossen
-Schritte sind produkt-/architekturseitig und gehoeren dem Nutzer.
+Siehe Session-Teil 8 oben: Migration + Betreiber-Konto einrichten
+(`SANDBOX_SETUP.md` §6.1), reale Web-zu-iPhone-Abnahme inklusive
+Offline-Hinweis, dann `claude/cloud-order-loop` integrieren. Danach ist der
+naechste sinnvolle Produktschritt die Scan-zu-Publish-Bruecke (geprüften
+Import-Draft in die Supabase-Venue veroeffentlichen) und ein Tisch-Kontext im
+Gast-Web; als Folgeticket der Schleife bleibt eine Gast-Statusseite nach dem
+ACK offen.

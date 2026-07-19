@@ -576,6 +576,54 @@ WLAN-aus/an-Test mit dem signierten iPhone-Build durch und bestaetigte die
 Recovery als vollstaendig funktionsfaehig. PR #27 wurde danach aus dem Draft
 genommen und als Merge-Commit `dc67ecc` nach `main` integriert.
 
+## Aktive Scheibe: Cloud-Bestellschleife
+
+### KL-CLOUD-001 - Cloud-Bestellschleife schließen + automatischer Lokal-Fallback
+
+**Status:** Umgesetzt auf `claude/cloud-order-loop`; wartet auf
+Migrations-Anwendung durch den Nutzer und reale Abnahme
+**Abhaengigkeit:** KL-WEB-002/003/004 (Gast-Web live), KL-OFFLINE-006/007
+(iPhone-Hub)
+**Schreibbereich:** `kitchenlink/Features/CloudOperations/` (neu),
+`kitchenlink/Features/LocalOperations/KitchenLinkV2LocalOperationsView.swift`,
+`kitchenlink/App/KitchenLinkV2BusinessHomeView.swift` (nur Service-Zeile),
+additive Migration `supabase/migrations/20260719100000_operator_cloud_orders.sql`,
+`guest-web/src/lib/hub-presence.ts`, `guest-web/src/components/GuestMenuCard.tsx`,
+`guest-web/src/app/globals.css`, gezielte Tests, `SANDBOX_SETUP.md`, dieser
+Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+Schließt die Lücke, dass Bestellungen von `kitchenlink.luneq.eu` zwar dauerhaft
+in Supabase landeten, aber keine Betreiberoberfläche sie je anzeigte (die
+einzige Lese-Policy war `orders_owner_read` für den Gast selbst; der einzige
+Supabase-Code der App zeigte auf ein altes, hartkodiertes Projekt).
+
+- **Migration (additiv):** `venue_staff` + `is_venue_staff()`, Staff-Lese-
+  Policies auf `orders`/`order_items`, Status-RPC
+  `operator_update_order_status` (SECURITY DEFINER, Staff-Pflicht,
+  Vorwärtskette mit Replay-Semantik wie beim lokalen Hub) und
+  `venue_hub_presence` (öffentlich lesbarer Heartbeat + lokale Gast-URL,
+  Schreiben nur über Staff-RPC).
+- **App:** Neuer `CloudOperations`-Client/-Model (konfigurierbare URL/Key,
+  E-Mail-Anmeldung, Refresh-Token-Erneuerung, 3-s-Polling, Status über die
+  RPC, 15-s-Presence-Heartbeat). Die bisherige Ansicht `Lokaler Service`
+  heißt jetzt `Service`: Online- und lokale Bestellungen in einer
+  Küchen-/Kellner-Liste (Merge testbar in
+  `KitchenLinkServiceOrderMerge`), der lokale Hub läuft immer als Fallback
+  mit — keine Vorauswahl mehr. Beim geordneten Verlassen wird die lokale URL
+  in der Cloud geräumt.
+- **Gast-Web:** `hub-presence.ts` wertet den Heartbeat aus (frisch → online;
+  >45 s alt + lokale URL → Verweis; sonst unverändertes Verhalten). Bei
+  Ausfall des Service-Geräts erscheint ein Warte-Hinweis, die Bestellleiste
+  wird zum Link auf die lokale Bestellseite, der Sheet-Submit ist gesperrt.
+  URL-Sanitizing lässt nur http(s) zu.
+
+Verifikation: Gast-Web typecheck/lint sauber, 63/63 Vitest, Build mit ISR
+intakt, beide UI-Zustände visuell geprüft (mobil 375×812). iOS: 12 neue
+Cloud-Tests, komplette Unit-Suite 186 bestanden / 0 fehlgeschlagen / 1
+übersprungen auf iPhone-17-Pro-Simulator. Offen: Migration + Betreiber-Konto
+auf der echten Instanz (SANDBOX_SETUP.md §6.1), reale
+Web-zu-iPhone-Abnahme, danach Merge.
+
 ## Abgeschlossene Web-Straenge
 
 ### KL-WEB-003 - Gast-Web-Sandbox in Betrieb nehmen (Deploy + echte Tests)
@@ -746,3 +794,8 @@ Designentscheidung; `DECISIONS.md` unberührt.
     abnehmen und integrieren.~~ Nutzerabnahme bestanden und mit PR #27 in
     `main` integriert. Background-Lifecycle, Discovery, AP-Isolation, Android
     und TLS/Trust bleiben getrennte Folge-Gates.
+17. KL-CLOUD-001 abnehmen: Migration + Betreiber-Konto auf der echten
+    Instanz einrichten (SANDBOX_SETUP.md §6.1), Web-Bestellung auf dem
+    iPhone in `Service` empfangen und abschließen, Offline-Hinweis im
+    Gast-Web bei getrenntem Internet prüfen, dann Branch
+    `claude/cloud-order-loop` integrieren.

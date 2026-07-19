@@ -278,6 +278,21 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   unit + 8/8 integration tests green against the real instance; `next build`
   reports `Revalidate 1m` on `/[venueSlug]/menu`. No visual change, no token
   change, no order-path change.
+- KL-CLOUD-001 (branch `claude/cloud-order-loop`, not yet merged) closes the
+  operator half of the cloud order loop: an additive migration adds
+  `venue_staff`, staff read policies, the status RPC
+  `operator_update_order_status` and the public-readable
+  `venue_hub_presence` heartbeat. The app gains
+  `kitchenlink/Features/CloudOperations/` (configurable Supabase access,
+  e-mail operator sign-in with refresh-token renewal, 3-second polling,
+  status via RPC, 15-second presence heartbeat carrying the local hub URL).
+  `Lokaler Service` became a unified `Service` area: online and local orders
+  appear in one kitchen/waiter list, the local hub always runs as fallback,
+  no mode pre-selection. The guest web evaluates the heartbeat and, when the
+  service device loses connectivity (>45 s), blocks the futile cloud submit
+  and points guests to the local hub URL instead. Pending: applying the
+  migration plus operator account on the real instance
+  (`SANDBOX_SETUP.md` §6.1) and the real web-to-iPhone acceptance.
 - `kitchenlink/Features/Inventory/` contains the Swift stock foundation from
   KL-INVENTORY-001 and the read-only operator surface from KL-INVENTORY-002:
   dimension-safe quantities (mass/volume/count), an append-only ledger with
@@ -332,5 +347,10 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   for orphaned anonymous users remain open. Hostinger is selected only for the
   current sandbox; Supabase menu loading and authoritative sandbox ordering are
   already live.
+- **Cloud order loop (KL-CLOUD-001):** implemented on
+  `claude/cloud-order-loop`, waiting for the user to apply migration
+  `20260719100000` plus the operator account (SANDBOX_SETUP.md §6.1) and to
+  run the real web-to-iPhone acceptance before integration. A guest status
+  page in the web remains a follow-up.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.
