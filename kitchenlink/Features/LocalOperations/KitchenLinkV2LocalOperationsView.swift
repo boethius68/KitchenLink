@@ -2,9 +2,55 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import KitchenLinkLocalGuestCore
 import SwiftUI
-import UIKit
 
 struct KitchenLinkV2LocalOperationsView: View {
+    @State private var showsService = false
+
+    var body: some View {
+        Group {
+            if showsService {
+                KitchenLinkV2LocalOperationsContentView()
+            } else {
+                startupView
+            }
+        }
+        .navigationTitle("Lokaler Service")
+        .navigationBarTitleDisplayMode(.inline)
+        .tint(KitchenLinkV2Palette.Brand.grape)
+        .task {
+            guard !showsService else { return }
+
+            // Return the lightweight destination to NavigationStack first.
+            // Runtime models and local-network work mount on the next turn.
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            showsService = true
+        }
+    }
+
+    private var startupView: some View {
+        ZStack {
+            KitchenLinkV2Palette.Surface.base
+                .ignoresSafeArea()
+
+            VStack(spacing: KitchenLinkV2Spacing.medium) {
+                ProgressView()
+                Text("Lokaler Service wird vorbereitet …")
+                    .font(KitchenLinkV2Typography.primaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                Text("Hub und Gastseite starten gleich hier.")
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+            }
+            .multilineTextAlignment(.center)
+            .padding(KitchenLinkV2Spacing.large)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("localOperations.startup")
+        }
+    }
+}
+
+private struct KitchenLinkV2LocalOperationsContentView: View {
     enum Mode: String, CaseIterable, Identifiable {
         case kitchen = "Küche"
         case waiter = "Kellner"
@@ -16,6 +62,7 @@ struct KitchenLinkV2LocalOperationsView: View {
     @StateObject private var model = KitchenLinkLocalOperationsModel()
     @StateObject private var venueHub = KitchenLinkVenueHubModel()
     @StateObject private var hubDiscovery = KitchenLinkVenueHubDiscoveryModel()
+    @StateObject private var qrCode = KitchenLinkLocalGuestQRCodeModel()
     @State private var mode: Mode = .kitchen
     @State private var successFeedback = 0
     @State private var showsExternalHub = false
@@ -41,13 +88,13 @@ struct KitchenLinkV2LocalOperationsView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle("Lokaler Service")
-        .navigationBarTitleDisplayMode(.inline)
-        .tint(KitchenLinkV2Palette.Brand.grape)
         .sensoryFeedback(.success, trigger: successFeedback)
         .task {
             hubDiscovery.start()
             await startVenueHub()
+        }
+        .task(id: venueHub.endpoint?.guestURL) {
+            await qrCode.render(for: venueHub.endpoint?.guestURL)
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
@@ -147,8 +194,8 @@ struct KitchenLinkV2LocalOperationsView: View {
 
             if let guestURL = venueHub.endpoint?.guestURL {
                 HStack(alignment: .center, spacing: KitchenLinkV2Spacing.large) {
-                    if let image = qrCode(for: guestURL) {
-                        image
+                    if let renderedQRCode = qrCode.renderedQRCode {
+                        Image(decorative: renderedQRCode.cgImage, scale: 1)
                             .interpolation(.none)
                             .resizable()
                             .scaledToFit()
@@ -156,6 +203,12 @@ struct KitchenLinkV2LocalOperationsView: View {
                             .padding(KitchenLinkV2Spacing.small)
                             .background(.white, in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control))
                             .accessibilityLabel("QR-Code zur lokalen Gastbestellung")
+                    } else {
+                        ProgressView()
+                            .frame(width: 116, height: 116)
+                            .padding(KitchenLinkV2Spacing.small)
+                            .background(.white, in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control))
+                            .accessibilityLabel("QR-Code wird erstellt")
                     }
 
                     VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
@@ -471,8 +524,49 @@ struct KitchenLinkV2LocalOperationsView: View {
         guard let endpoint = await venueHub.start() else { return }
         model.connect(to: endpoint.operatorURL)
     }
+}
 
-    private func qrCode(for url: URL) -> Image? {
+struct KitchenLinkRenderedQRCode: @unchecked Sendable {
+    let cgImage: CGImage
+}
+
+@MainActor
+final class KitchenLinkLocalGuestQRCodeModel: ObservableObject {
+    @Published private(set) var renderedQRCode: KitchenLinkRenderedQRCode?
+    @Published private(set) var isRendering = false
+
+    private let renderer: @Sendable (URL) -> KitchenLinkRenderedQRCode?
+    private var renderID: UUID?
+
+    init(
+        renderer: @escaping @Sendable (URL) -> KitchenLinkRenderedQRCode? =
+            KitchenLinkLocalGuestQRCodeModel.renderQRCode
+    ) {
+        self.renderer = renderer
+    }
+
+    func render(for url: URL?) async {
+        renderedQRCode = nil
+        renderID = nil
+        isRendering = false
+        guard let url else { return }
+
+        let renderID = UUID()
+        self.renderID = renderID
+        isRendering = true
+        let renderer = self.renderer
+        let renderedQRCode = await Task.detached(priority: .userInitiated) {
+            renderer(url)
+        }.value
+
+        guard self.renderID == renderID else { return }
+        self.renderID = nil
+        isRendering = false
+        guard !Task.isCancelled else { return }
+        self.renderedQRCode = renderedQRCode
+    }
+
+    nonisolated private static func renderQRCode(for url: URL) -> KitchenLinkRenderedQRCode? {
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(url.absoluteString.utf8)
         filter.correctionLevel = "M"
@@ -481,7 +575,7 @@ struct KitchenLinkV2LocalOperationsView: View {
               let cgImage = context.createCGImage(output, from: output.extent) else {
             return nil
         }
-        return Image(uiImage: UIImage(cgImage: cgImage))
+        return KitchenLinkRenderedQRCode(cgImage: cgImage)
     }
 }
 

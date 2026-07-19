@@ -67,6 +67,23 @@ final class kitchenlinkUITests: XCTestCase {
     }
 
     @MainActor
+    func testLocalServiceNavigationRespondsBeforeHubStartup() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--kitchenlink-design-v2"]
+        app.launch()
+
+        let localServiceLink = app.buttons["business.openLocalOperations"]
+        XCTAssertTrue(localServiceLink.waitForExistence(timeout: 5))
+        scrollTo(localServiceLink, in: app)
+        localServiceLink.tap()
+
+        XCTAssertTrue(app.navigationBars["Lokaler Service"].waitForExistence(timeout: 1))
+        XCTAssertTrue(
+            app.staticTexts["DIESES IPHONE IST DER VENUE-HUB"].waitForExistence(timeout: 5)
+        )
+    }
+
+    @MainActor
     func testLegacyDesignCanReturnToV2Preview() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--kitchenlink-design-legacy"]

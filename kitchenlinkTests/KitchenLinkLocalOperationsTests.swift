@@ -76,6 +76,23 @@ private final class VenueHubDiscoveryStub: KitchenLinkVenueHubDiscovering {
     }
 }
 
+private final class QRCodeRendererThreadObservation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedIsMainThread: Bool?
+
+    func recordCurrentThread() {
+        lock.lock()
+        storedIsMainThread = Thread.isMainThread
+        lock.unlock()
+    }
+
+    var isMainThread: Bool? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedIsMainThread
+    }
+}
+
 struct KitchenLinkLocalOperationsTests {
     private func wireOrder(status: String = "preparing") -> KitchenLinkLocalOperatorWireOrder {
         KitchenLinkLocalOperatorWireOrder(
@@ -174,6 +191,31 @@ struct KitchenLinkLocalOperationsTests {
 
         #expect(model.hubAddress == macHub)
         #expect(defaults.string(forKey: KitchenLinkLocalOperationsModel.addressDefaultsKey) == macHub)
+    }
+
+    @Test @MainActor
+    func qrCodeRenderingDoesNotBlockMainThread() async throws {
+        let observation = QRCodeRendererThreadObservation()
+        let model = KitchenLinkLocalGuestQRCodeModel(renderer: { _ in
+            observation.recordCurrentThread()
+            return nil
+        })
+
+        await model.render(for: try #require(URL(string: "http://192.168.1.10:8123")))
+
+        #expect(observation.isMainThread == false)
+        #expect(!model.isRendering)
+    }
+
+    @Test @MainActor
+    func qrCodeRendererProducesGuestURLImage() async throws {
+        let model = KitchenLinkLocalGuestQRCodeModel()
+
+        await model.render(for: try #require(URL(string: "http://192.168.1.10:8123")))
+
+        let renderedQRCode = try #require(model.renderedQRCode)
+        #expect(renderedQRCode.cgImage.width > 0)
+        #expect(renderedQRCode.cgImage.height > 0)
     }
 
     @Test @MainActor

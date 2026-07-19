@@ -578,8 +578,9 @@ genommen und als Merge-Commit `dc67ecc` nach `main` integriert.
 
 ### KL-OFFLINE-008 - Lokale Hub-Erkennung in der Business-App
 
-**Status:** Discovery auf dem iPhone bestaetigt; Startoptimierung in Draft-PR
-#29 implementiert und fuer einen kurzen Geraetevergleich installiert
+**Status:** Discovery auf dem iPhone bestaetigt; Navigation und QR-Warm-up in
+Draft-PR #29 vom Main Thread entkoppelt, vollstaendig verifiziert und signiert
+gebaut; Installation des zweiten Fixes durch Codex-Geraeteaktionslimit offen
 **Abhaengigkeit:** KL-OFFLINE-006 und KL-OFFLINE-007
 **Schreibbereich:** `kitchenlink/Features/LocalOperations/`, gezielte Tests in
 `kitchenlinkTests/`, bei Bedarf additive lokale Netzwerkdeklarationen sowie

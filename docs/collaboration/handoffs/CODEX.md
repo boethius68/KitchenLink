@@ -2,8 +2,41 @@
 
 **Updated:** 19 July 2026
 **Branch:** `codex/local-hub-discovery`
-**Status:** Native Hub-Erkennung auf dem iPhone bestaetigt; Startoptimierung in
-Draft-PR #29 installiert und kurzer Geschwindigkeitsvergleich offen
+**Status:** Native Hub-Erkennung auf dem iPhone bestaetigt; zweiter
+Navigations-/QR-Performance-Fix in Draft-PR #29 verifiziert, signiert gebaut
+und wegen erschoepftem Codex-Geraeteaktionskontingent noch nicht installiert
+
+## Latest Continuation (19. Juli 2026, sofortige Local-Service-Navigation)
+
+- Der erste Performance-Fix nahm SQLite-/Router-Erzeugung vom Main Actor, der
+  Nutzer beobachtete beim allerersten Tap aber weiterhin eine verzoegerte
+  Navigation. Der verbleibende konkrete Erstlaufpfad lag in der UI: Sobald der
+  Hub seine URL publizierte, erzeugte `venueHubCard` den QR-Code und eine neue
+  `CIContext` synchron im SwiftUI-`body` auf dem Main Thread.
+- Ein gezielter Test machte den typischen Warm-up sichtbar: Die erste
+  QR-Erzeugung dauerte in einem Lauf rund 218 ms, die unmittelbar folgende nur
+  rund 20 ms. Auf einem frischen Simulator wurden rund 399 ms gemessen. Diese
+  einmalige Core-Image-Arbeit lief genau waehrend des ersten Navigationsaufbaus.
+- `KitchenLinkV2LocalOperationsView` ist jetzt eine leichte Ziel-Huelle. Sie
+  liefert Navigationstitel und einen sichtbaren Vorbereitungszustand zuerst an
+  den `NavigationStack`; die drei Runtime-Modelle werden erst im naechsten
+  Scheduler-Turn als Content-View montiert.
+- Der QR-Code wird durch `KitchenLinkLocalGuestQRCodeModel` in einem
+  `userInitiated` Detached Task als unveraenderliches `CGImage` erzeugt. Im
+  Screen bleibt bis dahin ein lokaler Progress-Zustand sichtbar. URL-Wechsel
+  werden mit einer Render-ID gegen spaete Ergebnisse abgesichert.
+- Zwei Unit-Regressionen pruefen echte QR-Erzeugung und explizit, dass der
+  Renderer nicht auf dem Main Thread laeuft. Ein neuer UI-Test fordert den
+  Navigationstitel innerhalb eines kurzen Ein-Sekunden-Gates an und wartet
+  danach getrennt auf den Hub-Inhalt.
+- Vollstaendiges `kitchenlinkTests`-Target auf einem frischen
+  iPhone-17-Pro-Max-Simulator: **179 bestanden, 1 bewusst uebersprungen, 0
+  fehlgeschlagen**. Der neue UI-Test bestand ebenfalls. Signierter Device-Build
+  fuer das verbundene Test-iPhone: **bestanden**.
+- Die anschliessende Installation wurde nicht vom Build oder Geraet abgelehnt,
+  sondern vom Codex-Freigabesystem wegen erschoepftem Kontingent fuer externe
+  Geraeteaktionen. Der gebaute Stand liegt lokal bereit; Installation und
+  subjektiver Ersttap-Vergleich bleiben offen.
 
 ## Latest Continuation (19. Juli 2026, Startoptimierung fuer PR #29)
 
