@@ -14,7 +14,7 @@ enum KitchenLinkVenueHubServerEvent: Equatable, Sendable {
     case failed(String)
 }
 
-protocol KitchenLinkVenueHubServing: AnyObject {
+protocol KitchenLinkVenueHubServing: AnyObject, Sendable {
     var events: AsyncStream<KitchenLinkVenueHubServerEvent> { get }
     func start() async throws -> KitchenLinkVenueHubEndpoint
     func stop()
@@ -422,15 +422,16 @@ final class KitchenLinkVenueHubModel: ObservableObject {
     @Published private(set) var state: State = .stopped
     @Published private(set) var endpoint: KitchenLinkVenueHubEndpoint?
 
-    private let serverFactory: () throws -> any KitchenLinkVenueHubServing
+    private let serverFactory: @Sendable () throws -> any KitchenLinkVenueHubServing
     private var server: (any KitchenLinkVenueHubServing)?
     private var eventTask: Task<Void, Never>?
+    private var startID: UUID?
 
     init() {
         self.serverFactory = { try KitchenLinkVenueHubModel.makeDefaultServer() }
     }
 
-    init(serverFactory: @escaping () throws -> any KitchenLinkVenueHubServing) {
+    init(serverFactory: @escaping @Sendable () throws -> any KitchenLinkVenueHubServing) {
         self.serverFactory = serverFactory
     }
 
@@ -455,12 +456,25 @@ final class KitchenLinkVenueHubModel: ObservableObject {
 
     func start() async -> KitchenLinkVenueHubEndpoint? {
         stop()
+        let startID = UUID()
+        self.startID = startID
         state = .starting
         do {
-            let server = try serverFactory()
+            let serverFactory = self.serverFactory
+            let server = try await Task.detached(priority: .userInitiated) {
+                try serverFactory()
+            }.value
+            guard self.startID == startID, !Task.isCancelled else {
+                server.stop()
+                return nil
+            }
             self.server = server
             let endpoint = try await server.start()
-            guard self.server != nil else { return nil }
+            guard self.startID == startID, self.server != nil, !Task.isCancelled else {
+                server.stop()
+                return nil
+            }
+            self.startID = nil
             apply(endpoint)
             observeEvents(from: server)
             return endpoint
@@ -477,6 +491,7 @@ final class KitchenLinkVenueHubModel: ObservableObject {
     }
 
     func stop() {
+        startID = nil
         eventTask?.cancel()
         eventTask = nil
         server?.stop()
@@ -508,7 +523,7 @@ final class KitchenLinkVenueHubModel: ObservableObject {
         }
     }
 
-    private static func makeDefaultServer() throws -> any KitchenLinkVenueHubServing {
+    nonisolated private static func makeDefaultServer() throws -> any KitchenLinkVenueHubServing {
         let fileManager = FileManager.default
         let baseDirectory = try fileManager.url(
             for: .applicationSupportDirectory,

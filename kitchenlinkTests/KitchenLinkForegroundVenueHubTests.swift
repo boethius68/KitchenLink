@@ -6,7 +6,7 @@ private struct LoopbackAddressProvider: KitchenLinkLocalAddressProviding {
     func wifiIPv4Address() -> String? { "127.0.0.1" }
 }
 
-private final class VenueHubServerStub: KitchenLinkVenueHubServing {
+private final class VenueHubServerStub: KitchenLinkVenueHubServing, @unchecked Sendable {
     let endpoint: KitchenLinkVenueHubEndpoint
     let events: AsyncStream<KitchenLinkVenueHubServerEvent>
     private let eventContinuation: AsyncStream<KitchenLinkVenueHubServerEvent>.Continuation
@@ -30,6 +30,23 @@ private final class VenueHubServerStub: KitchenLinkVenueHubServing {
 
     func send(_ event: KitchenLinkVenueHubServerEvent) {
         eventContinuation.yield(event)
+    }
+}
+
+private final class VenueHubFactoryThreadObservation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedIsMainThread: Bool?
+
+    func recordCurrentThread() {
+        lock.lock()
+        storedIsMainThread = Thread.isMainThread
+        lock.unlock()
+    }
+
+    var isMainThread: Bool? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedIsMainThread
     }
 }
 
@@ -98,6 +115,26 @@ struct KitchenLinkForegroundVenueHubTests {
         #expect(server.didStop)
         #expect(model.state == .stopped)
         #expect(model.endpoint == nil)
+    }
+
+    @Test @MainActor
+    func modelCreatesServerAwayFromMainThread() async throws {
+        let endpoint = KitchenLinkVenueHubEndpoint(
+            guestURL: URL(string: "http://192.168.1.44:8123"),
+            operatorURL: try #require(URL(string: "http://127.0.0.1:8123")),
+            port: 8_123
+        )
+        let server = VenueHubServerStub(endpoint: endpoint)
+        let observation = VenueHubFactoryThreadObservation()
+        let model = KitchenLinkVenueHubModel(serverFactory: {
+            observation.recordCurrentThread()
+            return server
+        })
+
+        #expect(await model.start() == endpoint)
+        #expect(observation.isMainThread == false)
+
+        model.stop()
     }
 
     @Test @MainActor
