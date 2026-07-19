@@ -1,9 +1,107 @@
 # Codex Handoff
 
 **Updated:** 19 July 2026
-**Branch:** `codex/post-merge-state-pr27`
-**Status:** WLAN-/IP-Recovery real abgenommen und mit PR #27 in `main`
-integriert
+**Branch:** `codex/local-hub-discovery`
+**Status:** Native Hub-Erkennung auf dem iPhone bestaetigt; zweiter
+Navigations-/QR-Performance-Fix in Draft-PR #29 verifiziert, signiert gebaut
+und wegen erschoepftem Codex-Geraeteaktionskontingent noch nicht installiert
+
+## Latest Continuation (19. Juli 2026, sofortige Local-Service-Navigation)
+
+- Der erste Performance-Fix nahm SQLite-/Router-Erzeugung vom Main Actor, der
+  Nutzer beobachtete beim allerersten Tap aber weiterhin eine verzoegerte
+  Navigation. Der verbleibende konkrete Erstlaufpfad lag in der UI: Sobald der
+  Hub seine URL publizierte, erzeugte `venueHubCard` den QR-Code und eine neue
+  `CIContext` synchron im SwiftUI-`body` auf dem Main Thread.
+- Ein gezielter Test machte den typischen Warm-up sichtbar: Die erste
+  QR-Erzeugung dauerte in einem Lauf rund 218 ms, die unmittelbar folgende nur
+  rund 20 ms. Auf einem frischen Simulator wurden rund 399 ms gemessen. Diese
+  einmalige Core-Image-Arbeit lief genau waehrend des ersten Navigationsaufbaus.
+- `KitchenLinkV2LocalOperationsView` ist jetzt eine leichte Ziel-Huelle. Sie
+  liefert Navigationstitel und einen sichtbaren Vorbereitungszustand zuerst an
+  den `NavigationStack`; die drei Runtime-Modelle werden erst im naechsten
+  Scheduler-Turn als Content-View montiert.
+- Der QR-Code wird durch `KitchenLinkLocalGuestQRCodeModel` in einem
+  `userInitiated` Detached Task als unveraenderliches `CGImage` erzeugt. Im
+  Screen bleibt bis dahin ein lokaler Progress-Zustand sichtbar. URL-Wechsel
+  werden mit einer Render-ID gegen spaete Ergebnisse abgesichert.
+- Zwei Unit-Regressionen pruefen echte QR-Erzeugung und explizit, dass der
+  Renderer nicht auf dem Main Thread laeuft. Ein neuer UI-Test fordert den
+  Navigationstitel innerhalb eines kurzen Ein-Sekunden-Gates an und wartet
+  danach getrennt auf den Hub-Inhalt.
+- Vollstaendiges `kitchenlinkTests`-Target auf einem frischen
+  iPhone-17-Pro-Max-Simulator: **179 bestanden, 1 bewusst uebersprungen, 0
+  fehlgeschlagen**. Der neue UI-Test bestand ebenfalls. Signierter Device-Build
+  fuer das verbundene Test-iPhone: **bestanden**.
+- Die anschliessende Installation wurde nicht vom Build oder Geraet abgelehnt,
+  sondern vom Codex-Freigabesystem wegen erschoepftem Kontingent fuer externe
+  Geraeteaktionen. Der gebaute Stand liegt lokal bereit; Installation und
+  subjektiver Ersttap-Vergleich bleiben offen.
+
+## Latest Continuation (19. Juli 2026, Startoptimierung fuer PR #29)
+
+- Der Nutzer bestaetigte, dass der automatisch gefundene Mac-Hub auf dem
+  echten iPhone korrekt aussieht. Dabei fiel eine kurze Blockade beim
+  Navigieren in `Lokaler Service` auf.
+- Ursache war die synchrone Erzeugung des Venue-Hubs auf dem `MainActor`:
+  SQLite-Verbindung, WAL-/Durability-Pragmas, Schema-Migration und Router
+  wurden waehrend der Navigationsanimation aufgebaut.
+- Die Servererzeugung laeuft jetzt in einem `userInitiated` Hintergrund-Task;
+  nur der publizierte UI-Zustand bleibt auf dem Main Actor. Eine Start-ID
+  verhindert zugleich, dass ein inzwischen abgebrochener Aufbau nach schnellem
+  Zuruecknavigieren den Hub verspaetet aktiviert.
+- Ein neuer Regressionstest bestaetigt explizit, dass die Server-Factory nicht
+  auf dem Main Thread laeuft. Der optimierte signierte Build wurde auf dem
+  gekoppelten iPhone installiert; der kurze subjektive Geschwindigkeitsvergleich
+  steht noch aus.
+
+## Latest Continuation (19. Juli 2026, KL-OFFLINE-008)
+
+- Ein gemeinsamer Bonjour-Vertrag fuer `_kitchenlink-hub._tcp` uebertraegt
+  Schema-Version, stabile Hub-ID, Anzeigename und die konkrete lokale
+  HTTP-Basisadresse. Ungueltige, unvollstaendige oder unerwartet versionierte
+  Datensaetze werden nicht als waehlbarer Hub angeboten.
+- iPhone- und macOS-Hub kuendigen denselben Vertrag an. Das iPhone behaelt eine
+  stabile Geraete-ID, aktualisiert bei WLAN-/IP-Wechsel nur den TXT-Datensatz
+  und entfernt die waehlbare URL, solange keine LAN-Adresse vorhanden ist.
+- Die native Business-App sucht im Vordergrund mit `NWBrowser`, filtert den
+  eigenen iPhone-Hub und zeigt andere Hubs unter `Anderen Hub verwenden` als
+  bewusste Auswahl. Es gibt keine automatische Verbindung; die manuelle
+  Adresse bleibt vollstaendig erhalten.
+- HTTP-Listener und Bonjour-Ankuendigung sind getrennt. Das verhindert die im
+  Wiederholungstest reproduzierte kurze Listener-Unterbrechung, die beim
+  nachtraeglichen Austausch von `NWListener.service` auftrat.
+- Normale Gastbrowser erhalten absichtlich keine automatische Discovery. Sie
+  verwenden weiterhin den sichtbaren QR-Code beziehungsweise die konkrete
+  lokale IP-Adresse.
+
+## Verification (KL-OFFLINE-008)
+
+- `KitchenLinkLocalGuestPOC`: **12/12 Tests bestanden**, darunter drei Tests
+  fuer Bonjour-Roundtrip, fehlende LAN-Adresse und unsichere/ungueltige URLs.
+- Venue-Hub-Testblock nach der Listener-/Bonjour-Trennung **zehnmal
+  hintereinander bestanden**; kein erneuter Loopback-Aussetzer.
+- Komplettes `kitchenlinkTests`-Target auf dem iPhone-17-Pro-Simulator nach der
+  Startoptimierung: **177 bestanden, 1 bewusst uebersprungen, 0
+  fehlgeschlagen**.
+- Echter macOS-Bonjour-Smoke mit `dns-sd`: `KitchenLink Mac Hub` unter
+  `_kitchenlink-hub._tcp.local.` gefunden, auf Port `18080` aufgeloest und
+  TXT-Daten `id`, `name`, `url=http://192.168.178.110:18080`, `v=1`
+  verifiziert.
+- Signierter arm64-Build fuer `Philipps iPhone XR`: **bestanden** und der
+  aktuelle Branch-Stand erfolgreich auf dem gekoppelten Geraet installiert.
+- `git diff --check`: bestanden.
+
+## Remaining Risk (KL-OFFLINE-008)
+
+- Automatische Anzeige und bewusste Auswahl des Mac-Hubs sind auf dem echten
+  iPhone bestaetigt. Offen ist nur noch der subjektive Vergleich, ob die
+  Navigation mit dem optimierten Build jetzt unmittelbar reagiert; bis dahin
+  bleibt der PR im Draft.
+- Discovery ist auf aktive native Operator-Clients und dasselbe erreichbare
+  WLAN begrenzt. Hintergrundbetrieb, automatisches Failover, LAN-
+  Authentisierung, AP-Isolation, Android und TLS/Trust bleiben ausserhalb
+  dieser Scheibe.
 
 ## Latest Continuation (19. Juli 2026, PR #27 Integration)
 

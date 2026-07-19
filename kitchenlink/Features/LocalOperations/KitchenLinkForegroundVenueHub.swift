@@ -14,7 +14,7 @@ enum KitchenLinkVenueHubServerEvent: Equatable, Sendable {
     case failed(String)
 }
 
-protocol KitchenLinkVenueHubServing: AnyObject {
+protocol KitchenLinkVenueHubServing: AnyObject, Sendable {
     var events: AsyncStream<KitchenLinkVenueHubServerEvent> { get }
     func start() async throws -> KitchenLinkVenueHubEndpoint
     func stop()
@@ -136,8 +136,22 @@ struct KitchenLinkSystemLocalAddressProvider: KitchenLinkLocalAddressProviding {
     }
 }
 
+enum KitchenLinkVenueHubIdentity {
+    static let defaultsKey = "kitchenlink.venueHub.deviceID.v1"
+
+    static func deviceID(defaults: UserDefaults = .standard) -> String {
+        if let saved = defaults.string(forKey: defaultsKey) {
+            return saved
+        }
+        let deviceID = "ios-hub-\(UUID().uuidString.lowercased())"
+        defaults.set(deviceID, forKey: defaultsKey)
+        return deviceID
+    }
+}
+
 final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @unchecked Sendable {
     private let router: HTTPRouter
+    private let deviceID: String
     private let addressProvider: any KitchenLinkLocalAddressProviding
     private let addressPollInterval: TimeInterval
     private let queue = DispatchQueue(label: "sf.kitchenlink.foreground-venue-hub")
@@ -145,6 +159,7 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
     let events: AsyncStream<KitchenLinkVenueHubServerEvent>
     private var listener: NWListener?
     private var addressTimer: DispatchSourceTimer?
+    private var bonjourService: NetService?
     private var currentEndpoint: KitchenLinkVenueHubEndpoint?
     private var startContinuation: CheckedContinuation<KitchenLinkVenueHubEndpoint, Error>?
 
@@ -164,6 +179,7 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
             deviceID: deviceID
         )
         self.router = HTTPRouter(service: service, indexHTML: indexHTML)
+        self.deviceID = deviceID
         self.addressProvider = addressProvider
         self.addressPollInterval = addressPollInterval
         self.events = eventStream.stream
@@ -189,10 +205,6 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
                     let listener = try NWListener(using: parameters, on: .any)
                     self.listener = listener
                     self.startContinuation = continuation
-                    listener.service = NWListener.Service(
-                        name: "KitchenLink Venue Hub",
-                        type: "_kitchenlink-hub._tcp"
-                    )
                     listener.stateUpdateHandler = { [weak self] state in
                         self?.handleListenerState(state)
                     }
@@ -212,6 +224,7 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
         queue.async { [weak self] in
             guard let self else { return }
             self.stopAddressMonitoring()
+            self.stopBonjourAdvertisement()
             self.listener?.cancel()
             self.listener = nil
             self.currentEndpoint = nil
@@ -239,6 +252,7 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
                 return
             }
             currentEndpoint = endpoint
+            publishBonjourAdvertisement(endpoint)
             startAddressMonitoring(port: port)
             continuation.resume(returning: endpoint)
 
@@ -246,6 +260,7 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
             let continuation = startContinuation
             startContinuation = nil
             stopAddressMonitoring()
+            stopBonjourAdvertisement()
             listener?.cancel()
             listener = nil
             let venueHubError = KitchenLinkVenueHubError.listener(error.localizedDescription)
@@ -258,6 +273,7 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
 
         case .cancelled:
             stopAddressMonitoring()
+            stopBonjourAdvertisement()
             listener = nil
 
         case .setup, .waiting:
@@ -291,6 +307,7 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
                   let endpoint = self.makeEndpoint(port: port),
                   endpoint != self.currentEndpoint else { return }
             self.currentEndpoint = endpoint
+            self.updateBonjourAdvertisement(endpoint)
             self.eventContinuation.yield(.endpointChanged(endpoint))
         }
         addressTimer = timer
@@ -301,6 +318,48 @@ final class KitchenLinkForegroundVenueHubServer: KitchenLinkVenueHubServing, @un
         addressTimer?.setEventHandler {}
         addressTimer?.cancel()
         addressTimer = nil
+    }
+
+    private func makeBonjourTXTRecord(baseURL: URL?) -> Data {
+        let record = KitchenLinkVenueHubBonjourContract.record(
+            hubID: deviceID,
+            baseURL: baseURL,
+            displayName: "KitchenLink iPhone Hub"
+        ).mapValues { Data($0.utf8) }
+        return NetService.data(fromTXTRecord: record)
+    }
+
+    private func publishBonjourAdvertisement(_ endpoint: KitchenLinkVenueHubEndpoint) {
+        let name = "KitchenLink Hub \(deviceID.suffix(6).uppercased())"
+        let type = KitchenLinkVenueHubBonjourContract.serviceType
+        let txtRecord = makeBonjourTXTRecord(baseURL: endpoint.guestURL)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.bonjourService?.stop()
+            let service = NetService(
+                domain: "local.",
+                type: type,
+                name: name,
+                port: Int32(endpoint.port)
+            )
+            service.setTXTRecord(txtRecord)
+            service.publish()
+            self.bonjourService = service
+        }
+    }
+
+    private func updateBonjourAdvertisement(_ endpoint: KitchenLinkVenueHubEndpoint) {
+        let txtRecord = makeBonjourTXTRecord(baseURL: endpoint.guestURL)
+        DispatchQueue.main.async { [weak self] in
+            self?.bonjourService?.setTXTRecord(txtRecord)
+        }
+    }
+
+    private func stopBonjourAdvertisement() {
+        DispatchQueue.main.async { [weak self] in
+            self?.bonjourService?.stop()
+            self?.bonjourService = nil
+        }
     }
 
     private func handle(_ connection: NWConnection) {
@@ -363,15 +422,16 @@ final class KitchenLinkVenueHubModel: ObservableObject {
     @Published private(set) var state: State = .stopped
     @Published private(set) var endpoint: KitchenLinkVenueHubEndpoint?
 
-    private let serverFactory: () throws -> any KitchenLinkVenueHubServing
+    private let serverFactory: @Sendable () throws -> any KitchenLinkVenueHubServing
     private var server: (any KitchenLinkVenueHubServing)?
     private var eventTask: Task<Void, Never>?
+    private var startID: UUID?
 
     init() {
         self.serverFactory = { try KitchenLinkVenueHubModel.makeDefaultServer() }
     }
 
-    init(serverFactory: @escaping () throws -> any KitchenLinkVenueHubServing) {
+    init(serverFactory: @escaping @Sendable () throws -> any KitchenLinkVenueHubServing) {
         self.serverFactory = serverFactory
     }
 
@@ -396,12 +456,25 @@ final class KitchenLinkVenueHubModel: ObservableObject {
 
     func start() async -> KitchenLinkVenueHubEndpoint? {
         stop()
+        let startID = UUID()
+        self.startID = startID
         state = .starting
         do {
-            let server = try serverFactory()
+            let serverFactory = self.serverFactory
+            let server = try await Task.detached(priority: .userInitiated) {
+                try serverFactory()
+            }.value
+            guard self.startID == startID, !Task.isCancelled else {
+                server.stop()
+                return nil
+            }
             self.server = server
             let endpoint = try await server.start()
-            guard self.server != nil else { return nil }
+            guard self.startID == startID, self.server != nil, !Task.isCancelled else {
+                server.stop()
+                return nil
+            }
+            self.startID = nil
             apply(endpoint)
             observeEvents(from: server)
             return endpoint
@@ -418,6 +491,7 @@ final class KitchenLinkVenueHubModel: ObservableObject {
     }
 
     func stop() {
+        startID = nil
         eventTask?.cancel()
         eventTask = nil
         server?.stop()
@@ -449,7 +523,7 @@ final class KitchenLinkVenueHubModel: ObservableObject {
         }
     }
 
-    private static func makeDefaultServer() throws -> any KitchenLinkVenueHubServing {
+    nonisolated private static func makeDefaultServer() throws -> any KitchenLinkVenueHubServing {
         let fileManager = FileManager.default
         let baseDirectory = try fileManager.url(
             for: .applicationSupportDirectory,
@@ -460,20 +534,10 @@ final class KitchenLinkVenueHubModel: ObservableObject {
         let directory = baseDirectory.appendingPathComponent("KitchenLinkVenueHub", isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        let defaults = UserDefaults.standard
-        let deviceKey = "kitchenlink.venueHub.deviceID.v1"
-        let deviceID: String
-        if let saved = defaults.string(forKey: deviceKey) {
-            deviceID = saved
-        } else {
-            deviceID = "ios-hub-\(UUID().uuidString.lowercased())"
-            defaults.set(deviceID, forKey: deviceKey)
-        }
-
         return try KitchenLinkForegroundVenueHubServer(
             databaseURL: directory.appendingPathComponent("events.sqlite"),
             indexHTML: LocalGuestResources.indexHTML(),
-            deviceID: deviceID
+            deviceID: KitchenLinkVenueHubIdentity.deviceID()
         )
     }
 }

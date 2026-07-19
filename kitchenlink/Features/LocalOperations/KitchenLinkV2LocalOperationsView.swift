@@ -1,15 +1,66 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import KitchenLinkLocalGuestCore
 import SwiftUI
-import UIKit
 
-/// Vereinheitlichter Service-Bereich (KL-CLOUD-001): Online-Bestellungen aus
-/// der Supabase-Sandbox und lokale Hub-Bestellungen erscheinen in derselben
-/// Küchen-/Kellner-Liste. Es gibt keine Vorauswahl „lokal oder online" mehr —
-/// der lokale Foreground-Hub läuft immer mit und übernimmt automatisch, wenn
-/// die Internetverbindung fehlt; der Presence-Heartbeat macht den Ausfall für
-/// das Gast-Web sichtbar.
+/// Vereinheitlichter Service-Bereich: Online-Bestellungen aus der
+/// Supabase-Sandbox (KL-CLOUD-001) und lokale Hub-Bestellungen erscheinen in
+/// derselben Küchen-/Kellner-Liste. Es gibt keine Vorauswahl „lokal oder
+/// online" mehr — der lokale Foreground-Hub läuft immer mit und übernimmt
+/// automatisch, wenn die Internetverbindung fehlt; der Presence-Heartbeat
+/// macht den Ausfall für das Gast-Web sichtbar.
+///
+/// Der äußere Wrapper liefert der NavigationStack zuerst ein leichtes Ziel
+/// und mountet Laufzeitmodelle und lokale Netzwerkarbeit erst im nächsten
+/// Runloop-Umlauf (KL-OFFLINE-008): die Navigation bleibt dadurch flüssig.
 struct KitchenLinkV2LocalOperationsView: View {
+    @State private var showsService = false
+
+    var body: some View {
+        Group {
+            if showsService {
+                KitchenLinkV2LocalOperationsContentView()
+            } else {
+                startupView
+            }
+        }
+        .navigationTitle("Service")
+        .navigationBarTitleDisplayMode(.inline)
+        .tint(KitchenLinkV2Palette.Brand.grape)
+        .task {
+            guard !showsService else { return }
+
+            // Return the lightweight destination to NavigationStack first.
+            // Runtime models and local-network work mount on the next turn.
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            showsService = true
+        }
+    }
+
+    private var startupView: some View {
+        ZStack {
+            KitchenLinkV2Palette.Surface.base
+                .ignoresSafeArea()
+
+            VStack(spacing: KitchenLinkV2Spacing.medium) {
+                ProgressView()
+                Text("Service wird vorbereitet …")
+                    .font(KitchenLinkV2Typography.primaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                Text("Bestellungen, Hub und Gastseite starten gleich hier.")
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+            }
+            .multilineTextAlignment(.center)
+            .padding(KitchenLinkV2Spacing.large)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("localOperations.startup")
+        }
+    }
+}
+
+private struct KitchenLinkV2LocalOperationsContentView: View {
     enum Mode: String, CaseIterable, Identifiable {
         case kitchen = "Küche"
         case waiter = "Kellner"
@@ -21,6 +72,8 @@ struct KitchenLinkV2LocalOperationsView: View {
     @StateObject private var model = KitchenLinkLocalOperationsModel()
     @StateObject private var venueHub = KitchenLinkVenueHubModel()
     @StateObject private var cloud = KitchenLinkCloudOperationsModel()
+    @StateObject private var hubDiscovery = KitchenLinkVenueHubDiscoveryModel()
+    @StateObject private var qrCode = KitchenLinkLocalGuestQRCodeModel()
     @State private var mode: Mode = .kitchen
     @State private var successFeedback = 0
     @State private var showsExternalHub = false
@@ -50,24 +103,27 @@ struct KitchenLinkV2LocalOperationsView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle("Service")
-        .navigationBarTitleDisplayMode(.inline)
-        .tint(KitchenLinkV2Palette.Brand.grape)
         .sensoryFeedback(.success, trigger: successFeedback)
         .task {
             cloud.connectIfPossible()
+            hubDiscovery.start()
             await startVenueHub()
+        }
+        .task(id: venueHub.endpoint?.guestURL) {
+            await qrCode.render(for: venueHub.endpoint?.guestURL)
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
             case .active:
                 cloud.connectIfPossible()
+                hubDiscovery.start()
                 if usesExternalHub {
                     model.connect()
                 } else {
                     Task { await startVenueHub() }
                 }
             case .background:
+                hubDiscovery.stop()
                 venueHub.stop()
                 model.disconnect()
                 cloud.stop(clearPresence: true)
@@ -81,6 +137,7 @@ struct KitchenLinkV2LocalOperationsView: View {
             cloud.setLocalGuestURL(newEndpoint?.guestURL)
         }
         .onDisappear {
+            hubDiscovery.stop()
             venueHub.stop()
             model.disconnect()
             cloud.stop(clearPresence: true)
@@ -333,8 +390,8 @@ struct KitchenLinkV2LocalOperationsView: View {
 
             if let guestURL = venueHub.endpoint?.guestURL {
                 HStack(alignment: .center, spacing: KitchenLinkV2Spacing.large) {
-                    if let image = qrCode(for: guestURL) {
-                        image
+                    if let renderedQRCode = qrCode.renderedQRCode {
+                        Image(decorative: renderedQRCode.cgImage, scale: 1)
                             .interpolation(.none)
                             .resizable()
                             .scaledToFit()
@@ -342,6 +399,12 @@ struct KitchenLinkV2LocalOperationsView: View {
                             .padding(KitchenLinkV2Spacing.small)
                             .background(.white, in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control))
                             .accessibilityLabel("QR-Code zur lokalen Gastbestellung")
+                    } else {
+                        ProgressView()
+                            .frame(width: 116, height: 116)
+                            .padding(KitchenLinkV2Spacing.small)
+                            .background(.white, in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control))
+                            .accessibilityLabel("QR-Code wird erstellt")
                     }
 
                     VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
@@ -400,7 +463,7 @@ struct KitchenLinkV2LocalOperationsView: View {
     }
 
     private var externalHubCard: some View {
-        DisclosureGroup("Mac-Hub als Fallback", isExpanded: $showsExternalHub) {
+        DisclosureGroup("Anderen Hub verwenden", isExpanded: $showsExternalHub) {
             externalHubControls
                 .padding(.top, KitchenLinkV2Spacing.medium)
         }
@@ -419,6 +482,57 @@ struct KitchenLinkV2LocalOperationsView: View {
 
     private var externalHubControls: some View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+            HStack(spacing: KitchenLinkV2Spacing.small) {
+                Text(hubDiscovery.statusDetail)
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(discoveryStatusColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
+
+                ProgressView()
+                    .opacity(hubDiscovery.isSearching ? 1 : 0)
+            }
+            .accessibilityIdentifier("localOperations.discoveryStatus")
+
+            ForEach(hubDiscovery.hubs) { hub in
+                Button {
+                    connect(to: hub)
+                } label: {
+                    HStack(spacing: KitchenLinkV2Spacing.medium) {
+                        Image(systemName: "network")
+                            .foregroundStyle(KitchenLinkV2Palette.Brand.grape)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(hub.name)
+                                .font(KitchenLinkV2Typography.primaryLine)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                            Text(hub.baseURL.absoluteString)
+                                .font(KitchenLinkV2Typography.meta)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        Image(systemName: "chevron.right")
+                            .font(KitchenLinkV2Typography.meta)
+                            .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    }
+                    .frame(minHeight: 48)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Mit \(hub.name) verbinden")
+                .accessibilityIdentifier("localOperations.discoveredHub.\(hub.hubID)")
+            }
+
+            Divider()
+
+            Text("MANUELLE ADRESSE")
+                .font(KitchenLinkV2Typography.meta)
+                .tracking(1.1)
+                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+
             TextField("http://192.168.1.20:8080", text: $model.hubAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -447,7 +561,7 @@ struct KitchenLinkV2LocalOperationsView: View {
 
                 Spacer(minLength: 0)
 
-                Button("Mac-Hub verbinden") {
+                Button("Adresse verbinden") {
                     usesExternalHub = true
                     venueHub.stop()
                     model.connect()
@@ -606,6 +720,20 @@ struct KitchenLinkV2LocalOperationsView: View {
         return KitchenLinkV2Palette.Content.secondary
     }
 
+    private var discoveryStatusColor: Color {
+        if case .failed = hubDiscovery.state {
+            return KitchenLinkV2Palette.Urgency.waitingText
+        }
+        return KitchenLinkV2Palette.Content.secondary
+    }
+
+    private func connect(to hub: KitchenLinkVenueHubBonjourDescriptor) {
+        usesExternalHub = true
+        venueHub.stop()
+        model.hubAddress = hub.baseURL.absoluteString
+        model.connect()
+    }
+
     @MainActor
     private func startVenueHub() async {
         guard scenePhase == .active,
@@ -615,8 +743,49 @@ struct KitchenLinkV2LocalOperationsView: View {
         model.connect(to: endpoint.operatorURL)
         cloud.setLocalGuestURL(endpoint.guestURL)
     }
+}
 
-    private func qrCode(for url: URL) -> Image? {
+struct KitchenLinkRenderedQRCode: @unchecked Sendable {
+    let cgImage: CGImage
+}
+
+@MainActor
+final class KitchenLinkLocalGuestQRCodeModel: ObservableObject {
+    @Published private(set) var renderedQRCode: KitchenLinkRenderedQRCode?
+    @Published private(set) var isRendering = false
+
+    private let renderer: @Sendable (URL) -> KitchenLinkRenderedQRCode?
+    private var renderID: UUID?
+
+    init(
+        renderer: @escaping @Sendable (URL) -> KitchenLinkRenderedQRCode? =
+            KitchenLinkLocalGuestQRCodeModel.renderQRCode
+    ) {
+        self.renderer = renderer
+    }
+
+    func render(for url: URL?) async {
+        renderedQRCode = nil
+        renderID = nil
+        isRendering = false
+        guard let url else { return }
+
+        let renderID = UUID()
+        self.renderID = renderID
+        isRendering = true
+        let renderer = self.renderer
+        let renderedQRCode = await Task.detached(priority: .userInitiated) {
+            renderer(url)
+        }.value
+
+        guard self.renderID == renderID else { return }
+        self.renderID = nil
+        isRendering = false
+        guard !Task.isCancelled else { return }
+        self.renderedQRCode = renderedQRCode
+    }
+
+    nonisolated private static func renderQRCode(for url: URL) -> KitchenLinkRenderedQRCode? {
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(url.absoluteString.utf8)
         filter.correctionLevel = "M"
@@ -625,7 +794,7 @@ struct KitchenLinkV2LocalOperationsView: View {
               let cgImage = context.createCGImage(output, from: output.extent) else {
             return nil
         }
-        return Image(uiImage: UIImage(cgImage: cgImage))
+        return KitchenLinkRenderedQRCode(cgImage: cgImage)
     }
 }
 
