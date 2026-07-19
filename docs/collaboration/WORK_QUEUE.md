@@ -510,7 +510,8 @@ als erfolgreich.
 
 ### KL-OFFLINE-006 - iPhone als Foreground-Venue-Hub
 
-**Status:** Echte Mac-zu-iPhone-Abnahme bestanden; PR #25 bereit zur Integration
+**Status:** Erledigt; echte Mac-zu-iPhone-Abnahme bestanden und mit PR #25 in
+`main` integriert
 **Abhaengigkeit:** KL-OFFLINE-003 bis KL-OFFLINE-005
 **Branch:** `codex/iphone-venue-hub-poc`
 **Schreibbereich:** `prototypes/KitchenLinkLocalGuestPOC/`,
@@ -709,3 +710,8 @@ Designentscheidung; `DECISIONS.md` unberührt.
     abnehmen und integrieren.~~ Erfolgreich am 19. Juli 2026 und mit PR #23
     in `main` integriert. Android Chrome, AP-Isolation und Discovery bleiben
     die naechsten Netzwerk-Gates.
+15. ~~KL-OFFLINE-006 als Foreground-Hub direkt auf dem iPhone abnehmen und
+    integrieren.~~ Mac bestellte erfolgreich ueber die vom iPhone bereitgestellte
+    Gastadresse; Kueche-zu-Kellner-Ablauf bestanden und mit PR #25 in `main`
+    integriert. Hintergrundbetrieb und die verbleibenden Netzwerk-Gates bleiben
+    offen.
