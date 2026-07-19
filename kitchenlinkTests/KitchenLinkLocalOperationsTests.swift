@@ -129,4 +129,23 @@ struct KitchenLinkLocalOperationsTests {
 
         #expect(model.normalizedHubURL()?.absoluteString == "http://192.168.178.110:8080")
     }
+
+    @Test @MainActor
+    func internalIPhoneHubDoesNotOverwriteSavedMacFallback() throws {
+        let suite = "KitchenLinkLocalOperationsTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let macHub = "http://192.168.1.20:8080"
+        defaults.set(macHub, forKey: KitchenLinkLocalOperationsModel.addressDefaultsKey)
+        let model = KitchenLinkLocalOperationsModel(
+            transport: KitchenLinkLocalOperatorTransportSpy(orders: []),
+            defaults: defaults
+        )
+
+        model.connect(to: try #require(URL(string: "http://127.0.0.1:8123")))
+        defer { model.disconnect() }
+
+        #expect(model.hubAddress == macHub)
+        #expect(defaults.string(forKey: KitchenLinkLocalOperationsModel.addressDefaultsKey) == macHub)
+    }
 }
