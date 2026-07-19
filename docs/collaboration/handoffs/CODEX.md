@@ -1,9 +1,22 @@
 # Codex Handoff
 
 **Updated:** 19 July 2026
-**Branch:** `codex/iphone-venue-hub-poc`
-**Status:** Foreground-iPhone-Hub implementiert, installiert und mit einer
-echten Mac-zu-iPhone-Bestellung abgenommen; PR #25 bereit zur Integration
+**Branch:** `codex/post-merge-state-pr25`
+**Status:** Foreground-iPhone-Hub implementiert, real abgenommen und mit PR #25
+in `main` integriert
+
+## Latest Continuation (19. Juli 2026, PR #25 Integration)
+
+- PR #25 nach der positiven Mac-zu-iPhone-Abnahme aus dem Draft genommen und
+  als Merge-Commit `cbf7196` nach `main` integriert.
+- `origin/main` auf den exakten Merge-Stand verifiziert und diesen reinen
+  Statusnachtrag direkt davon abgezweigt; lokales `main` blieb unangetastet,
+  weil es im separaten Claude-Worktree ausgecheckt ist.
+- Keine GitHub-Actions-Checks waren fuer PR #25 konfiguriert. Die neun
+  Core-Tests, 172 App-Tests, Simulator-/Geraetebuilds und die reale Abnahme
+  waren vor Integration gruen.
+- Der GitHub-Ablauf hielt PR #25 bis zur realen Geraeteabnahme bewusst im
+  Draft; erst der bestandene Lauf loeste Ready-Status und Merge aus.
 
 ## Latest Continuation (19. Juli 2026, echte iPhone-Hub-Abnahme)
 

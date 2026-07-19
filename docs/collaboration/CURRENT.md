@@ -4,13 +4,14 @@
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Latest material integration:** PR #23
-(`codex/local-operator-workflow` -> `main`) adds the real local
-Kitchen-to-Waiter vertical slice: a second device submits through the local
-guest page, the iPhone receives the order live in Kitchen mode, hands it to
-Waiter mode after preparation and completes it as served. PR #22 fixed the
-first iPhone-LAN blocker, while PR #20 added the commit-before-ACK host
-surrogate. Local guest ordering during cloud failure remains a required
+**Latest material integration:** PR #25
+(`codex/iphone-venue-hub-poc` -> `main`) removes the Mac dependency from the
+foreground proof: while `Lokaler Service` stays open, the iPhone itself serves
+the guest page in the WLAN, durably accepts orders into the existing SQLite
+event log and drives the Kitchen-to-Waiter workflow. The real Mac-to-iPhone
+acceptance passed on 19 July 2026. PR #23 remains the underlying operator
+vertical slice, PR #22 fixed the first iPhone-LAN blocker and PR #20 introduced
+commit-before-ACK. Local guest ordering during cloud failure remains a required
 Sandbox-Beta capability. The guest web remains deployed from
 `main` to Hostinger PaaS at
 **`https://kitchenlink.luneq.eu`** and anonymous sandbox ordering has been
@@ -141,18 +142,18 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   `(venue_id, idempotency_key, request_fingerprint)`, and a lease-based
   outbox claim/nack/ack cycle with an honest, source-linked durability
   policy (WAL + `synchronous=FULL` + `fullfsync`, no unproven crash-safety
-  claims). It has no app dependency and activates nothing productive; the
-  later iOS integration seam is documented but deliberately out of scope
+  claims). PR #25 now exercises the documented iOS integration seam through
+  the shared guest-order core; it still activates nothing productive
   (`docs/architecture/offline/EVENT_LOG_V2.md` §12).
-- `prototypes/KitchenLinkLocalGuestPOC/` (KL-OFFLINE-004) is an isolated
-  macOS host surrogate for the next local-ordering proof: it serves a
-  same-origin mobile guest page and bootstrap document over LAN HTTP, validates
+- `prototypes/KitchenLinkLocalGuestPOC/` began as the isolated macOS host
+  surrogate from KL-OFFLINE-004. Its shared core now supports iOS and macOS,
+  bundles the same-origin mobile guest page and bootstrap document, validates
   menu lines and prices server-side, and returns an accepted receipt only after
   the existing event log has atomically committed the event plus cloud outbox.
   Retries return the original receipt; same-key/different-payload requests
-  conflict. This proves the software seam locally, not the Stage-2 network
-  gate: QR generation, iOS/Android devices, AP isolation, Hub lifecycle,
-  Bonjour and TLS/trust remain open and no production path is activated.
+  conflict. This proves the software seam locally; Android, AP isolation,
+  background Hub lifecycle, automatic discovery and TLS/trust remain open and
+  no production path is activated.
   PR #20 integrated the prototype after an additional review pass required
   `application/json` for order writes and replaced menu HTML interpolation with
   DOM-safe text rendering. The merge commit is `be54d60`.
@@ -163,11 +164,22 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   `Bestellung zubereitet` hands them to Waiter mode, and `Bestellung serviert`
   completes them. It reuses `LiveOrderMessage` and `OrderLifecycleStatus`
   rather than creating another app order domain. This remains a sandbox
-  polling client for the macOS surrogate, not a production hub architecture.
+  polling client for either its internal foreground iPhone Hub or the retained
+  macOS fallback, not a production hub architecture.
   PR #23 integrated this slice after the intended real two-device acceptance:
   the iPhone stayed open in Kitchen mode while a second device submitted
   through the local guest page; the order appeared live, moved to Waiter mode
   after preparation, and was completed there as served.
+- PR #25 integrates KL-OFFLINE-006: `Lokaler Service` starts an iOS
+  `NWListener` on a dynamic port, advertises `_kitchenlink-hub._tcp`, shows a
+  scannable QR code plus the concrete WLAN guest URL and connects the operator
+  projection internally through loopback. The Hub stops when the view closes
+  or the app backgrounds; the macOS address remains available as a deliberate
+  fallback. The signed build was installed on the test iPhone and the user
+  passed the real Mac-to-iPhone flow: guest page from the iPhone URL, durable
+  order receipt, live Kitchen arrival and handoff into Waiter mode. Automatic
+  discovery, background operation, LAN authentication, Android, AP isolation,
+  IP-change handling and TLS/trust remain open; no production path is enabled.
 - `kitchenlink/Features/Workforce/` (KL-WORKFORCE-001) is an isolated Swift
   domain foundation for shift planning, time tracking and staffing
   (Blueprint §9): `VenueShift`, `WorkforcePlannedShift` and time-entry
