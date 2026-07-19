@@ -143,8 +143,8 @@ struct KitchenLinkV2BusinessHomeView: View {
                 KitchenLinkV2LocalOperationsView()
             } label: {
                 operationsRow(
-                    title: "Lokaler Service",
-                    subtitle: "Gastbestellungen live in Küche und Kellner-Modus",
+                    title: "Service",
+                    subtitle: "Online- und lokale Bestellungen · Küche und Kellner",
                     systemImage: "wifi"
                 )
             }

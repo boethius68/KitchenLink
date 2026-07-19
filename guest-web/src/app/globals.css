@@ -264,6 +264,50 @@ button {
   cursor: not-allowed;
 }
 
+/* Die Bestellleiste als Link (lokaler Fallback): gleiche Zitronenflaeche,
+   nur ohne Button-Semantik. */
+.kl-order-bar-link {
+  text-decoration: none;
+}
+
+/* Hinweis, wenn das Service-Geraet des Restaurants offline ist
+   (KL-CLOUD-001): ruhige Warteflaeche, Status ueber Farbe plus Klartext,
+   bewusst keine Zitrone (die bleibt der Primaeraktion vorbehalten). */
+.kl-hub-notice {
+  background: var(--kl-surface-card);
+  border: 1px solid var(--kl-border-subtle);
+  border-left: 3px solid var(--kl-urgency-waiting-symbol);
+  border-radius: var(--kl-radius-card);
+  padding: var(--kl-space-4);
+  margin: 0 0 var(--kl-space-5);
+}
+
+.kl-hub-notice-title {
+  margin: 0 0 var(--kl-space-2);
+  color: var(--kl-urgency-waiting-text);
+}
+
+.kl-hub-notice-text {
+  margin: 0 0 var(--kl-space-3);
+}
+
+.kl-hub-notice-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 var(--kl-space-4);
+  border: 1px solid var(--kl-border-control);
+  border-radius: var(--kl-radius-control);
+  color: var(--kl-text-primary);
+  text-decoration: none;
+}
+
+.kl-hub-inline-link {
+  color: inherit;
+  text-decoration: underline;
+}
+
 /* Bestelluebersicht als Sheet (§8 radius.sheet, echte Ebene) */
 .kl-sheet-backdrop {
   position: fixed;

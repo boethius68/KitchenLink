@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type Cart,
   decrement,
@@ -21,6 +21,13 @@ import {
   submittingState,
   type SubmitUiState,
 } from "@/lib/order-ack";
+import {
+  evaluateHubPresence,
+  fetchHubPresence,
+  HUB_POLL_INTERVAL_MS,
+  type HubAvailability,
+} from "@/lib/hub-presence";
+import { getSupabase } from "@/lib/supabase-client";
 import type { GuestMenuItem, GuestVenue } from "@/lib/venue-data";
 
 interface GuestMenuCardProps {
@@ -37,6 +44,34 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
   // wird bei Erfolg sofort geleert, das Sheet soll aber weiterhin zeigen, was
   // bestaetigt wurde, statt auf 0,00 EUR zurueckzufallen.
   const [confirmedCart, setConfirmedCart] = useState<Cart | null>(null);
+  // Ist das Service-Geraet des Restaurants online? Ohne Presence-Daten bleibt
+  // es bei "unknown" und die Cloud-Bestellung verhaelt sich wie bisher.
+  const [hubAvailability, setHubAvailability] = useState<HubAvailability>({
+    kind: "unknown",
+  });
+
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return;
+    }
+    let cancelled = false;
+    const check = async () => {
+      const row = await fetchHubPresence(venue.slug, supabase);
+      if (!cancelled) {
+        setHubAvailability(evaluateHubPresence(row, Date.now()));
+      }
+    };
+    void check();
+    const timer = setInterval(() => void check(), HUB_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [venue.slug]);
+
+  const localFallback =
+    hubAvailability.kind === "local_fallback" ? hubAvailability : null;
 
   const sections = useMemo(
     () =>
@@ -69,6 +104,25 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
       </header>
 
       <main className="kl-page">
+        {localFallback && (
+          <aside className="kl-hub-notice" role="status">
+            <p className="kl-hub-notice-title kl-type-primary">
+              Online-Bestellung gerade nicht möglich
+            </p>
+            <p className="kl-hub-notice-text kl-type-secondary">
+              Das Restaurant ist gerade nicht mit dem Internet verbunden. Du
+              bist vor Ort? Verbinde dich mit dem WLAN des Restaurants und
+              bestelle direkt lokal weiter.
+            </p>
+            <a
+              className="kl-hub-notice-link kl-type-button"
+              href={localFallback.localGuestUrl}
+            >
+              Lokal bestellen (nur im Restaurant-WLAN)
+            </a>
+          </aside>
+        )}
+
         {sections.map((section) => (
           <section key={section.title} aria-label={section.title}>
             <h2 className="kl-type-section kl-menu-section-title">
@@ -95,18 +149,34 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
 
       <div className="kl-order-bar">
         {/* Die gesamte Leiste ist die einzige dauerhafte Zitronenflaeche
-            (§5, §9) und ein einzelnes, durchgehendes Aktionsziel. */}
-        <button
-          type="button"
-          className="kl-order-bar-button"
-          disabled={count === 0 || submitState.kind === "submitting"}
-          onClick={() => setSummaryOpen(true)}
-        >
-          <span className="kl-type-button kl-tabular">
-            {count === 1 ? "1 Artikel" : `${count} Artikel`} · bestellen
-          </span>
-          <span className="kl-type-button kl-tabular">{formatEuro(total)}</span>
-        </button>
+            (§5, §9) und ein einzelnes, durchgehendes Aktionsziel. Ist das
+            Service-Geraet offline, wird die Primaeraktion selbst zum
+            Verweis auf die lokale Bestellseite im Restaurant-WLAN. */}
+        {localFallback ? (
+          <a
+            className="kl-order-bar-button kl-order-bar-link"
+            href={localFallback.localGuestUrl}
+          >
+            <span className="kl-type-button">
+              Im Restaurant-WLAN lokal bestellen
+            </span>
+            <span className="kl-type-button" aria-hidden="true">
+              →
+            </span>
+          </a>
+        ) : (
+          <button
+            type="button"
+            className="kl-order-bar-button"
+            disabled={count === 0 || submitState.kind === "submitting"}
+            onClick={() => setSummaryOpen(true)}
+          >
+            <span className="kl-type-button kl-tabular">
+              {count === 1 ? "1 Artikel" : `${count} Artikel`} · bestellen
+            </span>
+            <span className="kl-type-button kl-tabular">{formatEuro(total)}</span>
+          </button>
+        )}
       </div>
 
       {isSummaryOpen && (
@@ -114,6 +184,7 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
           venue={venue}
           cart={submitState.kind === "accepted" && confirmedCart ? confirmedCart : cart}
           totalCents={submitState.kind === "accepted" ? submitState.ack.totalCents : total}
+          localFallbackUrl={localFallback?.localGuestUrl ?? null}
           submitState={submitState}
           onClose={() => {
             // Nach bestätigter Bestellung schließt das Sheet in den Ausgangs-
@@ -215,6 +286,7 @@ interface OrderSummarySheetProps {
   venue: GuestVenue;
   cart: Cart;
   totalCents: number;
+  localFallbackUrl: string | null;
   submitState: SubmitUiState;
   onClose: () => void;
   onSubmit: () => void | Promise<void>;
@@ -224,6 +296,7 @@ function OrderSummarySheet({
   venue,
   cart,
   totalCents,
+  localFallbackUrl,
   submitState,
   onClose,
   onSubmit,
@@ -234,6 +307,10 @@ function OrderSummarySheet({
   // Klick würde "leerer Warenkorb" melden. Die Bestellung ist bereits raus —
   // der Submit-Button hat nichts mehr zu tun und wird deaktiviert.
   const isAccepted = submitState.kind === "accepted";
+  // Service-Geraet offline: eine Cloud-Bestellung wuerde niemand sehen. Der
+  // Submit wird gesperrt und der lokale Weg angeboten (eine bereits
+  // bestaetigte Bestellung bleibt unveraendert sichtbar).
+  const isLocalFallback = localFallbackUrl !== null && !isAccepted;
 
   return (
     <div
@@ -277,6 +354,17 @@ function OrderSummarySheet({
           </span>
         </div>
 
+        {isLocalFallback && (
+          <p className="kl-sheet-note kl-type-secondary" role="alert">
+            Das Restaurant ist gerade nicht online erreichbar. Verbinde dich
+            mit dem Restaurant-WLAN und{" "}
+            <a className="kl-hub-inline-link" href={localFallbackUrl}>
+              bestelle lokal weiter
+            </a>
+            .
+          </p>
+        )}
+
         <SubmitStatusRow submitState={submitState} />
 
         <div className="kl-sheet-actions">
@@ -284,13 +372,17 @@ function OrderSummarySheet({
             type="button"
             className="kl-primary-button kl-type-button"
             onClick={onSubmit}
-            disabled={isSubmitting || isAccepted || lines.length === 0}
+            disabled={
+              isSubmitting || isAccepted || isLocalFallback || lines.length === 0
+            }
           >
             {isSubmitting
               ? "Übermitteln…"
               : isAccepted
                 ? "Bestellung eingegangen ✓"
-                : "Sandbox-Bestellung senden"}
+                : isLocalFallback
+                  ? "Online-Bestellung nicht möglich"
+                  : "Sandbox-Bestellung senden"}
           </button>
           <button
             type="button"
