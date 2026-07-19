@@ -578,8 +578,8 @@ genommen und als Merge-Commit `dc67ecc` nach `main` integriert.
 
 ### KL-OFFLINE-008 - Lokale Hub-Erkennung in der Business-App
 
-**Status:** Implementiert und lokal verifiziert auf
-`codex/local-hub-discovery`; reale Auswahl auf dem iPhone steht noch aus
+**Status:** Implementiert und lokal verifiziert in Draft-PR #29; reale Auswahl
+auf dem iPhone steht noch aus
 **Abhaengigkeit:** KL-OFFLINE-006 und KL-OFFLINE-007
 **Schreibbereich:** `kitchenlink/Features/LocalOperations/`, gezielte Tests in
 `kitchenlinkTests/`, bei Bedarf additive lokale Netzwerkdeklarationen sowie

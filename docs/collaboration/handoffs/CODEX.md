@@ -2,8 +2,8 @@
 
 **Updated:** 19 July 2026
 **Branch:** `codex/local-hub-discovery`
-**Status:** Native Hub-Erkennung implementiert und lokal verifiziert; reale
-iPhone-Abnahme vor Integration offen
+**Status:** Native Hub-Erkennung in Draft-PR #29; reale iPhone-Abnahme vor
+Integration offen
 
 ## Latest Continuation (19. Juli 2026, KL-OFFLINE-008)
 
