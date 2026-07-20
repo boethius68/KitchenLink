@@ -21,9 +21,14 @@
 #
 #   Mit OpenCode Zen (OpenAI-kompatibles Gateway, https://opencode.ai/zen):
 #     KITCHENLINK_OPENCODE_API_KEY=... ./scripts/run-import-review.sh
-#   Standardmodell dabei: claude-sonnet-5 (Vision-fähig). Anderes Modell:
-#     KITCHENLINK_LLM_MODEL=gemini-3.5-flash KITCHENLINK_OPENCODE_API_KEY=... \
+#   Standardmodell dabei: big-pickle (FREE-Modell, Nutzer-Vorgabe: nur
+#   Free-Modelle). Anderes Modell:
+#     KITCHENLINK_LLM_MODEL=deepseek-v4-flash-free KITCHENLINK_OPENCODE_API_KEY=... \
 #       ./scripts/run-import-review.sh
+#   Falls das Modell keine Bilder versteht (Vision), zusätzlich
+#   KITCHENLINK_LLM_SEND_IMAGES=0 setzen — dann arbeitet die KI nur mit den
+#   koordinaten-annotierten OCR-Zeilen. Welche Free-Modelle Vision können,
+#   zeigt ./scripts/check-llm-gateway.sh.
 #
 #   Beliebiges anderes OpenAI-kompatibles Gateway:
 #     KITCHENLINK_LLM_BASE_URL=https://.../v1 KITCHENLINK_LLM_MODEL=... \
@@ -71,7 +76,8 @@ app_bundle="$derived_data/Build/Products/Debug-iphonesimulator/kitchenlink.app"
 if [[ -n "${KITCHENLINK_OPENCODE_API_KEY:-}" ]]; then
   KITCHENLINK_OPENAI_API_KEY="$KITCHENLINK_OPENCODE_API_KEY"
   KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-https://opencode.ai/zen/v1}"
-  KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-claude-sonnet-5}"
+  # Nutzer-Vorgabe (20. Juli 2026): nur Free-Modelle des Zen-Gateways.
+  KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-big-pickle}"
 fi
 
 run_llm="false"
@@ -97,6 +103,7 @@ xctestrun=$(find "$derived_data/Build/Products" -maxdepth 1 -name '*.xctestrun' 
 TEST_RUNNER_KITCHENLINK_OPENAI_API_KEY="${KITCHENLINK_OPENAI_API_KEY:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-}" \
+TEST_RUNNER_KITCHENLINK_LLM_SEND_IMAGES="${KITCHENLINK_LLM_SEND_IMAGES:-}" \
 xcodebuild \
   test-without-building \
   -xctestrun "$xctestrun" \

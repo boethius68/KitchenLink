@@ -4080,6 +4080,14 @@ enum MenuImportService {
         configValue(forKey: "KITCHENLINK_LLM_MODEL") ?? llmModelDefault
     }
 
+    /// `KITCHENLINK_LLM_SEND_IMAGES=0` schaltet den Bild-Versand ab (für
+    /// Text-only-Modelle, z. B. die Free-Modelle des OpenCode-Zen-Gateways).
+    /// Der OCR-Zeilen-Dump trägt Seite und x/y-Koordinaten, sodass auch ein
+    /// reines Textmodell Spaltenlayouts auflösen kann.
+    static var llmSendsImages: Bool {
+        configValue(forKey: "KITCHENLINK_LLM_SEND_IMAGES") != "0"
+    }
+
     private static func configValue(forKey key: String) -> String? {
         if let environment = ProcessInfo.processInfo.environment[key] {
             let trimmed = environment.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -4598,6 +4606,11 @@ enum MenuImportService {
         - Preise immer als Cent-Integer.
         """
 
+        let sourceHint = llmSendsImages
+            ? "Es gibt keinen verlässlichen Vorparser. Nutze primär die Bildinhalte."
+            : "Es gibt keine Bilder. Arbeite ausschließlich mit den OCR-Linien; "
+                + "nutze deren Seiten- und x/y-Angaben, um Spalten und "
+                + "Preiszuordnungen korrekt aufzulösen."
         let userPrompt = """
         OCR-Linien (zusätzlicher Kontext):
         \(ocrText)
@@ -4605,7 +4618,7 @@ enum MenuImportService {
         Erkannte Allergen-Legende:
         \(legendSummary)
 
-        Es gibt keinen verlässlichen Vorparser. Nutze primär die Bildinhalte.
+        \(sourceHint)
         """
 
         let primaryAttempt = await runLLMMenuCallWithTimeout(
@@ -4643,7 +4656,7 @@ enum MenuImportService {
                 detail: "low"
             )
 
-            guard !slimImageParts.isEmpty else {
+            guard !slimImageParts.isEmpty || !llmSendsImages else {
                 return LLMParseOutcome(
                     sections: nil,
                     message: "KI-Timeout. Kein reduzierter Vision-Retry möglich."
@@ -4710,7 +4723,7 @@ enum MenuImportService {
                 perImageMaxBytes: 1_000_000,
                 detail: "high"
             )
-            guard !imageParts.isEmpty else {
+            guard !imageParts.isEmpty || !llmSendsImages else {
                 pageErrors.append("Seite \(pageNumber): kein nutzbares Bild")
                 continue
             }
@@ -4961,6 +4974,7 @@ enum MenuImportService {
         perImageMaxBytes: Int,
         detail: String
     ) -> [OpenAIChatRequest.Message.Part] {
+        guard llmSendsImages else { return [] }
         let cappedPageCount = min(images.count, maxPages)
         var parts: [OpenAIChatRequest.Message.Part] = []
         var rawByteBudget = 0

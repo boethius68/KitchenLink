@@ -77,10 +77,14 @@ die Roh-OCR-Zeilen pro Seite.
    Karten). Mit gesetztem API-Key läuft zusätzlich der KI-Pfad; der Report
    zeigt dann beide Pipelines umschaltbar nebeneinander. Unterstützt:
    `KITCHENLINK_OPENAI_API_KEY` (OpenAI direkt), `KITCHENLINK_OPENCODE_API_KEY`
-   (OpenCode-Zen-Gateway, Standardmodell `claude-sonnet-5`, Vision-fähig)
-   oder ein beliebiges OpenAI-kompatibles Gateway über
-   `KITCHENLINK_LLM_BASE_URL` + `KITCHENLINK_LLM_MODEL`. Wichtig: das
-   gewählte Modell muss Bildeingabe (Vision) unterstützen.
+   (OpenCode-Zen-Gateway) oder ein beliebiges OpenAI-kompatibles Gateway über
+   `KITCHENLINK_LLM_BASE_URL` + `KITCHENLINK_LLM_MODEL`.
+   **Nutzer-Vorgabe (20. Juli 2026): nur die Free-Modelle des Zen-Gateways**
+   (OpenCode-Standardmodell ist `big-pickle`). Ob ein Free-Modell Bilder
+   versteht, prüft `./scripts/check-llm-gateway.sh` automatisch (Text- und
+   Vision-Kurztest je Free-Modell samt Befehlsempfehlung); ohne Vision läuft
+   der KI-Pfad mit `KITCHENLINK_LLM_SEND_IMAGES=0` im Textmodus über die
+   koordinaten-annotierten OCR-Zeilen (Seite + x/y pro Zeile).
 2. **Selbstverifikation (Pflicht, seit Runde 1):** Der Agent prüft den Lauf
    zuerst vollständig selbst — jede Seite gegen die Roh-OCR-Zeilen — und legt
    dem Nutzer seine eigene Befundliste zusammen mit dem Report vor. Ein Lauf

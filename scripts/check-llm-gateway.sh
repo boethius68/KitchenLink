@@ -68,3 +68,72 @@ case "$status" in
   400) echo "DIAGNOSE: Anfrageformat/Modellname — Antworttext oben lesen, ggf. anderes Modell aus der Liste wählen." ;;
   *)   echo "DIAGNOSE: Unerwarteter Status — Antworttext oben lesen." ;;
 esac
+echo ""
+
+# ============================================================================
+# 3) Free-Modell-Matrix: Welche Gratis-Modelle antworten, welche können Vision?
+#    (Nutzer-Vorgabe 20. Juli 2026: nur Free-Modelle nutzen.)
+#    Ein winziges rotes Testbild als data-URL prüft echte Bildverarbeitung.
+# ============================================================================
+echo "== 3) Free-Modelle: Text- und Vision-Kurztest =="
+
+free_models=$(jq -r '.data[].id' /tmp/kl-llm-models.json 2>/dev/null \
+  | grep -E '\-free$|^big-pickle$' || true)
+if [[ -z "$free_models" ]]; then
+  echo "Keine Free-Modelle in der Liste gefunden — Abschnitt übersprungen."
+  exit 0
+fi
+
+# 8x8 rotes PNG, base64 (winzig, kostet praktisch nichts).
+red_png="iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAFklEQVR4nGP8z8Dwn4EIwESMolGFlCsEAE1uAgVDVVwJAAAAAElFTkSuQmCC"
+
+results_file=/tmp/kl-llm-free-matrix.txt
+: > "$results_file"
+best_vision=""
+best_text=""
+
+for m in $free_models; do
+  # Text-Test
+  t_status=$(curl -sS -o /tmp/kl-llm-free-text.json -w "%{http_code}" \
+    --max-time 30 "$base/chat/completions" \
+    -H "Authorization: Bearer $key" -H "Content-Type: application/json" \
+    -d "{\"model\":\"$m\",\"messages\":[{\"role\":\"user\",\"content\":\"Antworte nur mit OK\"}],\"max_tokens\":10}" \
+    || echo "000")
+  text_ok="nein"
+  if [[ "$t_status" == "200" ]] && jq -e '.choices[0].message.content' /tmp/kl-llm-free-text.json >/dev/null 2>&1; then
+    text_ok="ja"
+    [[ -z "$best_text" ]] && best_text="$m"
+  fi
+
+  # Vision-Test (rotes Bild, Frage nach der Farbe)
+  v_status=$(curl -sS -o /tmp/kl-llm-free-vision.json -w "%{http_code}" \
+    --max-time 30 "$base/chat/completions" \
+    -H "Authorization: Bearer $key" -H "Content-Type: application/json" \
+    -d "{\"model\":\"$m\",\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Welche Farbe hat dieses Bild? Ein Wort.\"},{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,$red_png\"}}]}],\"max_tokens\":12}" \
+    || echo "000")
+  vision_ok="nein"
+  if [[ "$v_status" == "200" ]]; then
+    answer=$(jq -r '.choices[0].message.content // ""' /tmp/kl-llm-free-vision.json 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    if [[ "$answer" == *rot* || "$answer" == *red* ]]; then
+      vision_ok="ja"
+      [[ -z "$best_vision" ]] && best_vision="$m"
+    fi
+  fi
+
+  printf "  %-28s Text(HTTP %s): %-4s Vision(HTTP %s): %s\n" \
+    "$m" "$t_status" "$text_ok" "$v_status" "$vision_ok" | tee -a "$results_file"
+done
+
+echo ""
+echo "== Empfehlung =="
+if [[ -n "$best_vision" ]]; then
+  echo "Vision-fähiges Free-Modell gefunden: $best_vision"
+  echo "Review-Lauf:"
+  echo "  KITCHENLINK_LLM_MODEL=$best_vision KITCHENLINK_OPENCODE_API_KEY=\$KEY ./scripts/run-import-review.sh"
+elif [[ -n "$best_text" ]]; then
+  echo "Kein Free-Modell kann Bilder — Text-Modus mit OCR-Koordinaten nutzen:"
+  echo "  KITCHENLINK_LLM_MODEL=$best_text KITCHENLINK_LLM_SEND_IMAGES=0 \\"
+  echo "    KITCHENLINK_OPENCODE_API_KEY=\$KEY ./scripts/run-import-review.sh"
+else
+  echo "Kein Free-Modell hat geantwortet — Ausgaben oben prüfen."
+fi
