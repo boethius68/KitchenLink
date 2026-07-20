@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KitchenLink · Import-Review</title>
+<style>
+  :root {
+    --grape: #4A3A6B; --grape-soft: #EFEBF7; --lemon: #F5D547;
+    --ink: #241E33; --ink-soft: #6E6880; --line: #DDD8E8;
+    --ok: #1E7A46; --warn: #9A6A00; --bad: #A31C15;
+    --card: #FCFBFE; --page-bg: #F4F2F9;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 -apple-system, "Helvetica Neue", sans-serif;
+         color: var(--ink); background: var(--page-bg); }
+  header { position: sticky; top: 0; z-index: 30; background: var(--grape); color: #fff;
+           padding: 10px 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  header h1 { font-size: 17px; margin: 0 14px 0 0; font-weight: 700; }
+  header .meta { font-size: 12px; opacity: .75; }
+  nav { position: sticky; top: 46px; z-index: 29; display: flex; flex-wrap: wrap; gap: 6px;
+        padding: 8px 18px; background: #fff; border-bottom: 1px solid var(--line); }
+  nav button { border: 1px solid var(--line); background: #fff; border-radius: 999px;
+               padding: 6px 14px; font-size: 13px; cursor: pointer; }
+  nav button.active { background: var(--grape); color: #fff; border-color: var(--grape); }
+  nav .spacer { flex: 1; }
+  nav .export { background: var(--lemon); border-color: var(--lemon); font-weight: 600; }
+  main { padding: 16px 18px 80px; max-width: 1700px; margin: 0 auto; }
+  .summary { display: flex; flex-wrap: wrap; gap: 16px; margin: 6px 0 14px;
+             font-size: 13px; color: var(--ink-soft); }
+  .summary b { color: var(--ink); font-size: 16px; }
+  .pageblock { display: grid; grid-template-columns: minmax(380px, 46%) 1fr; gap: 16px;
+               margin-bottom: 26px; align-items: start; }
+  @media (max-width: 980px) { .pageblock { grid-template-columns: 1fr; } }
+  .pagecard, .entrycard { background: var(--card); border: 1px solid var(--line);
+                          border-radius: 12px; overflow: hidden; }
+  .pagecard { position: sticky; top: 104px; }
+  .pagecard .caption { padding: 8px 12px; font-size: 12px; color: var(--ink-soft);
+                       display: flex; justify-content: space-between; align-items: center; }
+  .imgwrap { position: relative; }
+  .imgwrap img { display: block; width: 100%; height: auto; }
+  .box { position: absolute; border: 2px solid rgba(74,58,107,.85); border-radius: 2px;
+         pointer-events: none; transition: box-shadow .12s, border-color .12s; }
+  .box.offer { border-style: dashed; border-color: rgba(30,122,70,.8); }
+  .box.hot { border-color: var(--lemon); box-shadow: 0 0 0 3px rgba(245,213,71,.55);
+             z-index: 5; }
+  .entrycard { padding: 4px 0; }
+  .sectiontitle { padding: 10px 14px 4px; font-size: 12px; letter-spacing: 1px;
+                  text-transform: uppercase; color: var(--grape); font-weight: 700; }
+  .entry { padding: 9px 14px; border-top: 1px solid var(--line); cursor: default; }
+  .entry:hover { background: var(--grape-soft); }
+  .entry .row1 { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .entry .name { font-weight: 600; }
+  .entry .price { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .entry .desc { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+  .entry .extra { font-size: 12px; color: var(--ink-soft); margin-top: 3px; }
+  .flag { font-size: 11px; border-radius: 4px; padding: 1px 6px; font-weight: 600; }
+  .flag.warn { background: #FBF0D4; color: var(--warn); }
+  .flag.bad { background: #FBE2E0; color: var(--bad); }
+  .flag.info { background: var(--grape-soft); color: var(--grape); }
+  .fb { display: flex; gap: 6px; margin-top: 7px; align-items: center; flex-wrap: wrap; }
+  .fb button { border: 1px solid var(--line); background: #fff; border-radius: 6px;
+               padding: 3px 10px; font-size: 12px; cursor: pointer; }
+  .fb button.sel-ok { background: #E2F3E9; border-color: var(--ok); color: var(--ok); }
+  .fb button.sel-bad { background: #FBE2E0; border-color: var(--bad); color: var(--bad); }
+  .fb input { flex: 1; min-width: 160px; border: 1px solid var(--line); border-radius: 6px;
+              padding: 4px 8px; font-size: 12px; }
+  .missing { margin: 0 0 26px; }
+  .missing textarea { width: 100%; min-height: 54px; border: 1px solid var(--line);
+                      border-radius: 8px; padding: 8px; font: inherit; font-size: 13px; }
+  details.block { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+                  margin-bottom: 22px; }
+  details.block > summary { cursor: pointer; padding: 11px 14px; font-weight: 600; }
+  details.block .inner { padding: 0 14px 12px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 5px 10px 5px 0; border-top: 1px solid var(--line);
+           vertical-align: top; }
+  th { color: var(--ink-soft); font-weight: 600; border-top: none; }
+  .ocrline { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+  .pill { display: inline-block; background: var(--grape-soft); color: var(--grape);
+          border-radius: 999px; padding: 0 8px; font-size: 11px; font-weight: 600; }
+  .hint { font-size: 12px; color: var(--ink-soft); margin: 4px 0 18px; }
+  .pipeswitch { display: inline-flex; gap: 0; border: 1px solid var(--line);
+                border-radius: 8px; overflow: hidden; }
+  .pipeswitch button { border: none; background: #fff; padding: 5px 12px;
+                       font-size: 13px; cursor: pointer; }
+  .pipeswitch button.active { background: var(--grape); color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>KitchenLink · Import-Review</h1>
+  <span class="meta" id="runMeta"></span>
+</header>
+<nav id="menuNav"></nav>
+<main id="content"></main>
+
+<script src="report.js"></script>
+<script>
+"use strict";
+const R = window.KL_REPORT;
+const RUN_KEY = "kl-import-review:" + (R ? R.generatedAt : "no-run");
+
+/* ---------- Feedback-Speicher (localStorage, pro Lauf) ---------- */
+function loadFB() {
+  try { return JSON.parse(localStorage.getItem(RUN_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveFB(fb) { localStorage.setItem(RUN_KEY, JSON.stringify(fb)); }
+let FB = loadFB();
+
+function setVerdict(key, verdict) {
+  FB[key] = FB[key] || {};
+  FB[key].verdict = (FB[key].verdict === verdict) ? null : verdict;
+  saveFB(FB); render();
+}
+function setNote(key, note) {
+  FB[key] = FB[key] || {}; FB[key].note = note; saveFB(FB);
+}
+function setMissing(key, text) {
+  FB[key] = FB[key] || {}; FB[key].missing = text; saveFB(FB);
+}
+
+/* ---------- Heuristiken für automatische Markierungen ---------- */
+// Nachgestellte Legende-Codes: ", a,c" / "(1,4)" am Ende …
+const CODE_TAIL = /[\s,.]((\(?[a-hj-z0-9]{1,3}([.,/|][a-z0-9]{1,3})+\)?)|\([a-z0-9]{1,3}\))\s*$/i;
+// … sowie eingebettete Code-Gruppen wie "-A,G,-", "A,J,-" oder direkt am Wort
+// ("Gulaschsuppe-A,G,l,-"). Erstes Element muss ein Buchstabe sein, damit
+// Mengen ("0,5 l") nicht anschlagen; Kommapflicht schützt Komposita
+// ("Olivenöl-Balsamico-Dressing").
+const CODE_GROUP = /(^|[\s(-])-?[A-Za-z](,[A-Za-z0-9]{1,2})+[,\-.)]*(\s|$)/;
+function looksLikeCodeTail(text) {
+  if (!text) return false;
+  const trimmed = text.trim();
+  return CODE_TAIL.test(trimmed) || CODE_GROUP.test(trimmed);
+}
+
+function euro(cents) {
+  if (cents == null) return "";
+  const sign = cents < 0 ? "-" : "";
+  const magnitude = Math.abs(cents);
+  return sign + Math.floor(magnitude / 100) + "," +
+    String(magnitude % 100).padStart(2, "0") + " €";
+}
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function entryFlags(entry) {
+  const flags = [];
+  const fixed = entry.offers.find(o => o.priceKind === "fixed" && o.amountCents != null);
+  if (!fixed) flags.push(["ohne Preis", "warn"]);
+  if (entry.reviewState === "needsReview") flags.push(["zu klären", "warn"]);
+  if (!entry.nameEvidence.located) flags.push(["ohne Fundstelle", "bad"]);
+  if (looksLikeCodeTail(entry.name)) flags.push(["Codes im Namen?", "bad"]);
+  if (entry.description && looksLikeCodeTail(entry.description))
+    flags.push(["Codes in Beschreibung?", "bad"]);
+  if (!entry.description) flags.push(["ohne Beschreibung", "info"]);
+  if (entry.declarations.length)
+    flags.push(["Allergene: " + entry.declarations.map(d => d.localCode || "?").join(","), "info"]);
+  return flags;
+}
+
+/* ---------- Navigation ---------- */
+let activeMenu = 0;
+/* Pipeline-Auswahl pro Karte: "local" (Regel-Parser) oder "llm" (KI-Pfad),
+   sofern der Lauf beide enthält. Feedback-Schlüssel der KI-Ansicht tragen
+   ein "llm::"-Präfix, damit die Urteile beider Pipelines getrennt bleiben. */
+const PIPE = {};
+function renderNav() {
+  const nav = document.getElementById("menuNav");
+  nav.innerHTML = "";
+  R.menus.forEach((menu, index) => {
+    const btn = document.createElement("button");
+    btn.textContent = menu.title;
+    btn.className = index === activeMenu ? "active" : "";
+    btn.onclick = () => { activeMenu = index; render(); window.scrollTo(0, 0); };
+    nav.appendChild(btn);
+  });
+  const spacer = document.createElement("div");
+  spacer.className = "spacer";
+  nav.appendChild(spacer);
+  const exportBtn = document.createElement("button");
+  exportBtn.className = "export";
+  exportBtn.textContent = "Feedback exportieren";
+  exportBtn.onclick = exportFeedback;
+  nav.appendChild(exportBtn);
+}
+
+/* ---------- Hauptansicht ---------- */
+function render() {
+  renderNav();
+  const menu = R.menus[activeMenu];
+  const main = document.getElementById("content");
+  const hasLLM = !!(menu.llmDraftSections || menu.llmError);
+  const pipe = hasLLM && PIPE[menu.id] === "llm" ? "llm" : "local";
+  const draftSections = pipe === "llm" ? (menu.llmDraftSections || []) : menu.draftSections;
+  const legacySections = pipe === "llm" ? (menu.llmLegacySections || []) : menu.legacySections;
+  const fbPrefix = pipe === "llm" ? menu.id + "::llm::" : menu.id + "::";
+  const entryCount = draftSections.reduce((total, s) => total + s.entries.length, 0);
+  const flagged = draftSections.reduce((total, s) =>
+    total + s.entries.filter(e => entryFlags(e).some(f => f[1] !== "info")).length, 0);
+
+  const pipeSwitch = hasLLM
+    ? `<span class="pipeswitch">
+        <button class="${pipe === "local" ? "active" : ""}"
+          onclick="setPipe('${esc(menu.id)}','local')">Lokale Regeln</button>
+        <button class="${pipe === "llm" ? "active" : ""}"
+          onclick="setPipe('${esc(menu.id)}','llm')">KI-Pfad</button>
+      </span>`
+    : "";
+
+  let html = `<div class="summary">
+      ${pipeSwitch}
+      <span><b>${menu.pageCount}</b> Seiten</span>
+      <span><b>${draftSections.length}</b> Kategorien</span>
+      <span><b>${entryCount}</b> Einträge</span>
+      <span><b>${flagged}</b> automatisch markiert</span>
+      <span><b>${menu.ocrLineCount}</b> OCR-Zeilen</span>
+      <span class="pill">${esc(menu.source)}</span>
+    </div>
+    <p class="hint">Links die Originalseite (Rahmen = Fundstellen: durchgezogen Name,
+    gestrichelt Preis). Rechts das Erkennungsergebnis. Zeile berühren hebt die
+    Fundstelle hervor. Pro Eintrag: <b>OK</b> / <b>Falsch</b> + Notiz; Fehlendes unten
+    pro Seite eintragen. Am Ende oben rechts „Feedback exportieren".</p>`;
+
+  if (pipe === "llm" && menu.llmDiagnostics) {
+    html += `<p class="hint">KI-Diagnose: ${esc(menu.llmDiagnostics)}</p>`;
+  }
+  if (menu.llmError) {
+    html += `<p class="hint"><span class="flag warn">KI-Pfad</span> ${esc(menu.llmError)}</p>`;
+  }
+
+  menu.pageFiles.forEach((file, pageIndex) => {
+    const sectionsOnPage = draftSections
+      .map(section => ({
+        section,
+        entries: section.entries.filter(e => e.nameEvidence.pageIndex === pageIndex)
+      }))
+      .filter(x => x.entries.length);
+
+    let boxes = "", rows = "";
+    sectionsOnPage.forEach(({ section, entries }) => {
+      rows += `<div class="sectiontitle">${esc(section.title)}</div>`;
+      entries.forEach(entry => {
+        const key = fbPrefix + entry.id;
+        const fb = FB[key] || {};
+        const flags = entryFlags(entry)
+          .map(([label, kind]) => `<span class="flag ${kind}">${esc(label)}</span>`).join(" ");
+        const fixed = entry.offers.find(o => o.priceKind === "fixed" && o.amountCents != null);
+        const otherOffers = entry.offers.filter(o => o !== fixed);
+        if (entry.nameEvidence.located) {
+          boxes += boxDiv(entry.nameEvidence, "name", entry.id);
+        }
+        entry.offers.forEach(o => {
+          if (o.evidence.located && o.evidence.pageIndex === pageIndex)
+            boxes += boxDiv(o.evidence, "offer", entry.id);
+        });
+        const extras = [];
+        if (otherOffers.length) extras.push("weitere Preise: " +
+          otherOffers.map(o => esc(o.rawPrice) + " (" + esc(o.priceKind) + ")").join(", "));
+        if (entry.optionGroups.length) extras.push("Optionen: " + entry.optionGroups.map(g =>
+          esc(g.title) + " [" + g.choices.map(c =>
+            esc(c.name) + (c.offers[0] ? " " + esc(c.offers[0].rawPrice) : "")).join(" · ") + "]"
+        ).join(" | "));
+        if (entry.quantities.length) extras.push("Mengen: " + entry.quantities.map(esc).join(", "));
+        if (entry.itemNumber) extras.push("Nr. " + esc(entry.itemNumber));
+
+        rows += `<div class="entry" data-entry="${esc(entry.id)}"
+                      onmouseenter="hot('${esc(entry.id)}',true)"
+                      onmouseleave="hot('${esc(entry.id)}',false)">
+          <div class="row1">
+            <span class="name">${esc(entry.name)}</span>
+            ${flags}
+            <span class="price">${fixed ? euro(fixed.amountCents) : "—"}</span>
+          </div>
+          ${entry.description ? `<div class="desc">${esc(entry.description)}</div>` : ""}
+          ${extras.length ? `<div class="extra">${extras.join(" · ")}</div>` : ""}
+          <div class="fb">
+            <button class="${fb.verdict === "ok" ? "sel-ok" : ""}"
+                    onclick="setVerdict('${esc(key)}','ok')">OK</button>
+            <button class="${fb.verdict === "bad" ? "sel-bad" : ""}"
+                    onclick="setVerdict('${esc(key)}','bad')">Falsch</button>
+            <input placeholder="Notiz (was ist falsch/anders?)"
+                   value="${esc(fb.note || "")}"
+                   onchange="setNote('${esc(key)}', this.value)">
+          </div>
+        </div>`;
+      });
+    });
+
+    const missingKey = fbPrefix + "page" + (pageIndex + 1) + "::missing";
+    html += `<div class="pageblock">
+        <div class="pagecard">
+          <div class="imgwrap" id="page-${menu.id}-${pageIndex}">
+            <img src="pages/${esc(file)}" alt="Seite ${pageIndex + 1}">
+            ${boxes}
+          </div>
+          <div class="caption"><span>Seite ${pageIndex + 1} von ${menu.pageCount}</span>
+            <span>${esc(file)}</span></div>
+        </div>
+        <div>
+          <div class="entrycard">${rows ||
+            `<div class="entry">Keine Einträge auf dieser Seite erkannt.</div>`}</div>
+          <div class="missing" style="margin-top:10px">
+            <textarea placeholder="Fehlt etwas auf dieser Seite? Hier eintragen (ein Eintrag pro Zeile)."
+              onchange="setMissing('${esc(missingKey)}', this.value)">${esc((FB[missingKey] || {}).missing || "")}</textarea>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  /* Veröffentlichungs-Vorschau (Legacy-Konvertierung) */
+  let legacyRows = "";
+  legacySections.forEach(section => {
+    section.items.forEach(item => {
+      const codesInName = item.name !== item.displayName;
+      legacyRows += `<tr>
+        <td>${esc(section.title)}</td>
+        <td>${esc(item.displayName)}${codesInName ?
+          ` <span class="flag bad">Codes im Rohnamen</span>` : ""}</td>
+        <td>${euro(item.priceCents)}</td>
+        <td>${esc(item.description)}</td>
+        <td>${esc(item.allergenCodes || "")}</td>
+        <td>${item.variants.map(v => esc(v.name) + " " + euro(v.priceCents)).join("<br>")}</td>
+      </tr>`;
+    });
+  });
+  html += `<details class="block"><summary>Veröffentlichungs-Vorschau
+      (konvertiertes Ergebnis, ${legacySections.reduce((t, s) => t + s.items.length, 0)} Artikel)</summary>
+    <div class="inner"><table>
+      <tr><th>Kategorie</th><th>Name</th><th>Preis</th><th>Beschreibung</th>
+          <th>Allergene</th><th>Varianten</th></tr>
+      ${legacyRows}
+    </table></div></details>`;
+
+  /* Roh-OCR pro Seite */
+  let ocrBlocks = "";
+  menu.pageFiles.forEach((_, pageIndex) => {
+    const lines = menu.ocrLines.filter(l => l.pageIndex === pageIndex);
+    ocrBlocks += `<h4>Seite ${pageIndex + 1}</h4><div class="ocrline">${
+      lines.map(l => esc(l.text)).join("\n")}</div>`;
+  });
+  html += `<details class="block"><summary>Roh-OCR-Zeilen (zum Prüfen, ob etwas schon
+      bei der Texterkennung fehlte)</summary><div class="inner">${ocrBlocks}</div></details>`;
+
+  if (menu.draftValidationErrors.length) {
+    html += `<details class="block" open><summary>Draft-Validierungsfehler
+        (${menu.draftValidationErrors.length})</summary><div class="inner"><ul>${
+      menu.draftValidationErrors.map(e => "<li>" + esc(e) + "</li>").join("")}</ul></div></details>`;
+  }
+
+  main.innerHTML = html;
+}
+
+function boxDiv(evidence, kind, entryID) {
+  const top = (1 - evidence.y - evidence.height) * 100;
+  return `<div class="box ${kind}" data-box="${esc(entryID)}" style="left:${evidence.x * 100}%;` +
+    `top:${top}%;width:${evidence.width * 100}%;height:${evidence.height * 100}%"></div>`;
+}
+function hot(entryID, on) {
+  document.querySelectorAll(`[data-box="${CSS.escape(entryID)}"]`)
+    .forEach(el => el.classList.toggle("hot", on));
+}
+function setPipe(menuID, pipe) {
+  PIPE[menuID] = pipe;
+  render();
+}
+
+/* ---------- Feedback-Export ---------- */
+function exportFeedback() {
+  const payload = {
+    run: R.generatedAt,
+    parserMode: R.parserMode,
+    exportedAt: new Date().toISOString(),
+    feedback: FB
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "import-review-feedback.json";
+  a.click();
+  if (navigator.clipboard) navigator.clipboard.writeText(json).catch(() => {});
+  alert("Feedback als import-review-feedback.json heruntergeladen und in die " +
+        "Zwischenablage kopiert. Bitte an Claude/Codex übergeben.");
+}
+
+/* ---------- Start ---------- */
+if (!R || !R.menus || !R.menus.length) {
+  document.getElementById("content").innerHTML =
+    "<p>Kein Report gefunden. Bitte über <code>scripts/run-import-review.sh</code> erzeugen.</p>";
+} else {
+  document.getElementById("runMeta").textContent =
+    "Lauf: " + R.generatedAt + " · Parser: " + R.parserMode +
+    " · " + R.menus.length + " Karten";
+  render();
+}
+</script>
+</body>
+</html>

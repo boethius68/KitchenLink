@@ -300,6 +300,29 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   startup screen (navigation responds instantly, models mount on the next
   runloop turn) and async QR rendering — resolved against the unified
   Service view.
+- KL-MENU-005 (implemented on `main`, 19 July 2026): the scan-to-publish
+  bridge. Until now the menu scan published **only** into the local sandbox
+  menu, never to the guest web. An operator can now publish a reviewed import
+  draft straight into the Supabase venue from the draft-review screen; the
+  guest card at `kitchenlink.luneq.eu/<slug>/menu` shows it within the ISR
+  window (max 1 min). New additive migration
+  `20260719200000_operator_publish_menu.sql` adds the staff-gated
+  `operator_publish_menu` RPC that **fully replaces** the venue's active menu
+  (no merge, mirroring `store.replaceMenu`), guarantees exactly one active
+  menu and rejects duplicate `menu_items.slug` in the payload (the load-bearing
+  order-gate invariant). App side: a pure, tested payload builder
+  (`KitchenLinkMenuPublishPayload`, German slug generation ä→ae plus
+  deterministic slug de-duplication), `KitchenLinkMenuPublishModel` (reuses a
+  stored operator session or signs in with familiar credentials, exactly-once
+  401 refresh) and `MenuPublishSheet` from the review flow (email/password
+  only, explicit replace warning, success card with the live URL). Auth is
+  shared with the order transport through the narrow
+  `KitchenLinkCloudAuthenticating` protocol. `tag`/`variant_options` are not
+  published yet (documented follow-up). Verified: app build green, full
+  `kitchenlinkTests` target 0 failures incl. 11 new publish tests. Pending:
+  apply the migration and run one real publish against the instance
+  (`SANDBOX_SETUP.md` §6.2) — the RPC SQL has not run against real Postgres
+  (same boundary as KL-WEB-002/KL-CLOUD-001).
 - `kitchenlink/Features/Inventory/` contains the Swift stock foundation from
   KL-INVENTORY-001 and the read-only operator surface from KL-INVENTORY-002:
   dimension-safe quantities (mass/volume/count), an append-only ledger with
@@ -362,10 +385,29 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   for orphaned anonymous users remain open. Hostinger is selected only for the
   current sandbox; Supabase menu loading and authoritative sandbox ordering are
   already live.
-- **Cloud order loop (KL-CLOUD-001):** implemented on
-  `claude/cloud-order-loop`, waiting for the user to apply migration
-  `20260719100000` plus the operator account (SANDBOX_SETUP.md §6.1) and to
-  run the real web-to-iPhone acceptance before integration. A guest status
-  page in the web remains a follow-up.
+- **Cloud order loop (KL-CLOUD-001):** merged into `main`, waiting for the user
+  to apply migration `20260719100000` plus the operator account
+  (SANDBOX_SETUP.md §6.1) and to run the real web-to-iPhone acceptance. A guest
+  status page in the web remains a follow-up.
+- **Scan-to-publish (KL-MENU-005):** implemented on `main`. Waiting for the user
+  to apply migration `20260719200000` and run one real publish against the
+  instance (SANDBOX_SETUP.md §6.2). This is the second half of the core pitch:
+  paper menu → scan → review → live guest card. Open follow-ups: publishing
+  `tag`/`variant_options`, additive menu editing (currently full replace), and a
+  table context in the guest web.
+- **Import quality rounds (KL-SCAN-002):** after the first real scan comparison
+  the user required an iterative quality workflow (categories from card titles,
+  variants/sizes/descriptions, structured allergen mapping via the card legend
+  with uniform icons later in the UI, and the hard rule that legend codes never
+  end up in names or descriptions — targets recorded in
+  `docs/test-fixtures/scanner-benchmark/QUALITY_TARGETS.md`). A batch review
+  environment now exists: `scripts/run-import-review.sh` runs all fixtures
+  (plus any user-supplied menus) through the real local OCR pipeline and opens
+  an HTML report — original page with evidence overlays next to the parsed
+  result, automatic issue flags, per-entry OK/Falsch feedback with export for
+  the agent. The first run already surfaces real findings (legend codes inside
+  descriptions and names, duplicated description fragments, OCR confusions).
+  Parser fixes start with round 1 once the user returns the first feedback
+  export.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

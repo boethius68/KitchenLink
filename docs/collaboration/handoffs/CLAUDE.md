@@ -1,20 +1,275 @@
 # Claude Code Handoff
 
-**Updated:** 19 July 2026 (Abend)
+**Updated:** 19 July 2026 (Nacht)
 **Branch:** `main` (Main-Only-Modus seit 19. Juli 2026, `DECISIONS.md`)
-**Status:** Konsolidierung abgeschlossen. KL-CLOUD-001 und KL-OFFLINE-008
-sind in `main` gemergt (Merge-Konflikt in der Service-Ansicht manuell
-aufgeloest: Codex' Startup-Wrapper/Discovery/async-QR + Cloud-Schleife).
-Nicht gemergte Branch-Staende sind als `archive/*`-Tags gesichert; das
-Loeschen der Remote-Branches wartet auf Nutzerbestaetigung. Neu ausserdem:
-`docs/strategy/MARKET_ASSESSMENT_2026-07-19.md` (Markt-/Fokus-Analyse),
-zwei Entscheidungen in `DECISIONS.md` (Usability-Leitplanke, Main-Only),
-Home entruempelt (Entwicklung & Demo eingeklappt), Service-Ansicht zeigt
-Bestellungen direkt nach dem Moduswechsler. Verifikation: komplette
-Unit-Suite 192/0/1 nach dem Merge, POC-Paket 12/12; nach den UI-Umbauten
-erneut gruen (siehe Session-Teil 9 unten). Offen fuer den Nutzer:
-Migration + Betreiber-Konto (SANDBOX_SETUP.md §6.1), App von `main` neu
-bauen, reale Web-zu-iPhone-Abnahme.
+**Status:** Zwei Straenge in dieser Session: (1) Scan-zu-Publish-Bruecke
+(KL-MENU-005) implementiert — Migration, Publish-Client/-Model/-Sheet,
+11 neue Tests, komplette Suite gruen; offen ist nur die reale Abnahme
+(SANDBOX_SETUP.md §6.2). (2) Nach dem Nutzerbefund zur Erkennungsqualitaet
+(„Namen passen groesstenteils, aber nicht alle") die Import-Review-Umgebung
+KL-SCAN-002 gebaut: `scripts/run-import-review.sh` erzeugt einen
+Seite-an-Seite-HTML-Report ueber alle Karten mit Fundstellen-Overlays,
+automatischen Markierungen und Feedback-Export. Erster Lauf verifiziert;
+er bestaetigt die Nutzerbeobachtung mit konkreten Befunden (Legende-Codes
+in Beschreibungen und Namen, doppelte Fragmente, OCR-Verwechslungen).
+Qualitaetsziele verbindlich in
+`docs/test-fixtures/scanner-benchmark/QUALITY_TARGETS.md`. **Runde 1 ist am
+20. Juli ausgewertet** (Session-Teil 12): Nutzer-Feedback + nachgeholte
+vollstaendige Eigenverifikation in `ROUND_01_FINDINGS.md`; Kernbefund: die
+OCR ist nicht der Engpass, der Regel-Parser ist es; die Review-Umgebung
+kann jetzt lokal vs. KI-Pfad umschaltbar vergleichen. Offen fuer den
+Nutzer: API-Key/Anbieter-Entscheidung fuer den Runde-2-Vergleichslauf;
+ausserdem weiterhin die realen Abnahmen KL-CLOUD-001 (§6.1) und
+KL-MENU-005 (§6.2). Details in Session-Teil 10 bis 12.
+
+Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
+`main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
+das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
+
+## Session-Teil 12: KL-SCAN-002 Runde 1 — Feedback ausgewertet, KI-Vergleich vorbereitet
+
+### Anlass
+
+Der Nutzer lieferte den ersten Feedback-Export aus dem Review-Report und
+ruegte zu Recht, dass ich die Erkennungsergebnisse nicht selbst vollstaendig
+verifiziert hatte, bevor ich sie vorlegte (die Lichtburg-Menueseite und die
+Alexxanders-Deckseite haette ich selbst finden muessen). Prozessaenderung ist
+jetzt bindend in `QUALITY_TARGETS.md` §2: kein Lauf ohne eigene, vollstaendige
+Befundliste des Agenten.
+
+### Umgesetzt
+
+- **Vollstaendige Eigenverifikation nachgeholt** (jede Seite gegen die
+  Roh-OCR): alle Nutzerbefunde bestaetigt und mit Ursachen belegt in
+  `docs/test-fixtures/scanner-benchmark/ROUND_01_FINDINGS.md`. Kernbefund:
+  Die OCR verliert praktisch nichts — die „wahlweise"-Zeile, beide
+  Beilagen-Spalten (mit x-Koordinaten), die komplette Menuestruktur inkl.
+  „oder/or"-Wahl und „pro Person: 39,90"/„55€" stehen alle im Rohtext. Der
+  Regel-Parser ist der Engpass: Spalten landen in verschleppten Sektionen,
+  das Set-Menue zerfaellt in 3 Fragmente (Tiramisu bekommt einen Preis von
+  einer anderen Seite), die Deckseite wird zum Phantomartikel „Gastgeber",
+  EN-Zeilen werden dupliziert, `per_person` wird nie gesetzt, obwohl das
+  Draft-Modell es kann.
+- **QUALITY_TARGETS.md erweitert** um die neuen Anforderungen aus dem
+  Feedback: Set-/Gang-Menues als Bundle, eine Sprache + optionales EN im
+  Gast-Web (Folgeticket), Deckseiten ueberspringen, Warnung bei Codes ohne
+  Legende, vegetarisch/vegan strukturiert + Icon-Folgeticket, Optionen bis
+  ins Produkt wirklich waehlbar, `per_person`-Preisbasis.
+- **KI-Vergleichsmodus in der Review-Umgebung:** Der Harness laeuft auf
+  Wunsch (`runLLM` in der Request-Datei) zusaetzlich ueber den vorhandenen
+  KI-Pfad (`MenuImportService.importMenu` mit aktiviertem LLM; Fehler landen
+  ehrlich als `llmError` im Report statt den Lauf abzubrechen). Das
+  Runner-Skript aktiviert das automatisch, wenn `KITCHENLINK_OPENAI_API_KEY`
+  gesetzt ist (Key geht NUR als TEST_RUNNER_-Umgebungsvariable in den
+  Testprozess, nie in eine Datei). Der Report zeigt dann pro Karte einen
+  Umschalter „Lokale Regeln / KI-Pfad"; Feedback-Schluessel der KI-Ansicht
+  tragen ein `llm::`-Praefix, damit die Urteile getrennt bleiben.
+
+### Verifikation
+
+- Harness kompiliert (build-for-testing gruen); Gate-Skip unveraendert.
+- Report-Umschalter im Browser verifiziert — mangels API-Key mit simulierten
+  KI-Daten per JS-Injektion: ohne KI-Daten kein Umschalter, mit Daten
+  korrekte KI-Ansicht, Diagnosezeile, getrennte `llm::`-Feedback-Schluessel,
+  Rueckschalten intakt. Der echte KI-Lauf selbst konnte ohne Key nicht
+  ausgefuehrt werden — das ist genau der offene Runde-2-Schritt.
+- Zwischenfall, behoben: Beim Testen wurde das localStorage-Feedback des
+  Nutzers geloescht; es wurde sofort aus dem vorliegenden Export
+  byte-genau wiederhergestellt und die Wiederherstellung im Report
+  verifiziert (7×OK, 2×Falsch, 4 Notizen bei Scheune sichtbar).
+
+### Naechster Schritt
+
+1. **Nutzer-Entscheidung fuer Runde 2:** OpenAI-Key fuer den vorhandenen
+   KI-Pfad bereitstellen (`KITCHENLINK_OPENAI_API_KEY=... ./scripts/
+   run-import-review.sh`) ODER den KI-Pfad zuerst auf einen anderen Anbieter
+   (z. B. Claude) umstellen — Anbieter/Kosten sind Nutzer-Entscheidung.
+2. Danach Vergleichslauf, Eigenverifikation, dann gezielte Haertung des
+   KI-Pfads entlang der Zielliste; der Regel-Parser bleibt Offline-Fallback.
+3. Unveraendert offen: reale Abnahmen KL-CLOUD-001 (§6.1) und KL-MENU-005
+   (§6.2).
+
+## Session-Teil 11: KL-SCAN-002 — Import-Review-Umgebung
+
+### Anlass und Scope
+
+Nach KL-MENU-005 stellte der Nutzer klar, dass die Erkennungsqualitaet selbst
+nie verifiziert wurde (stimmt — mein Ticket verifizierte nur den
+Publish-Transport; die Scanner-Luecken sind in `CURRENT_RESULTS.md`
+dokumentiert) und forderte einen mehrstufigen Optimierungs-Workflow mit
+qualifiziertem Input/Output-Vergleich ueber viele Speisekarten — plus eine
+eigene Umgebung, damit die Pruefung nicht in Dutzenden Einzelimporten am
+iPhone stattfinden muss. Diese Session baut die Umgebung; Parser-Fixes
+beginnen bewusst erst mit dem ersten Feedback (Runde 1).
+
+### Umgesetzt
+
+- **`docs/test-fixtures/scanner-benchmark/QUALITY_TARGETS.md`:** die
+  Nutzeranforderungen als verbindliche Zielliste — Kategorien aus
+  Kartentiteln; Artikel mit Varianten/Optionen/Groessen und Beschreibungen;
+  strukturierte Allergen-Zuordnung ueber die Karten-Legende (einheitliche
+  Icons in der UI als eigenes Folgeticket); harte Regel: Legende-Codes nie in
+  Name oder Beschreibung; Preise nur echt zugeordnet, nie erfunden. Dazu der
+  Runden-Workflow (Lauf -> Nutzer-Feedback -> Parser-Fix + Gold-Anker ->
+  Nachweis).
+- **`kitchenlinkTests/MenuImportReviewHarnessTests.swift`:** gegateter
+  Batch-Export (Gate: `ImportReviewRequest.json` im App-Bundle, gleicher
+  Mechanismus wie der Benchmark). Jagt alle Demo-Fixtures und optional
+  beliebige eigene Karten (PDFs per CGPDFDocument mit ~2000 px gerendert;
+  Bild-Unterordner alphabetisch) durch `MenuImportService.benchmarkLocalImport`
+  (LLM aus, deterministisch) und schreibt Seiten-PNGs (orientierungs-
+  normalisiert) plus `report.json`: Draft-Sektionen/-Eintraege mit Name,
+  Beschreibung, Offers, Evidenz (Seite, Bounding Box, located, Methode),
+  Deklarationen, Optionsgruppen, Mengen; Legacy-Konvertierung (inkl.
+  `displayName` zur Code-im-Namen-Erkennung); Roh-OCR-Zeilen;
+  Draft-Validierungsfehler. Bewusst KEINE Qualitaets-Assertions — Regression
+  bleibt Sache des Gold-Benchmarks.
+- **`scripts/run-import-review.sh` + `scripts/import-review-report.html`:**
+  Runner (build-for-testing, Konfiguration ins Bundle, Test, Report-Bau,
+  `latest`-Symlink, oeffnet Browser; `KITCHENLINK_REVIEW_MENUS=<Ordner>` fuer
+  eigene Karten) und statischer HTML-Report (Daten als `report.js`-Script,
+  damit file:// ohne Server funktioniert): Karten-Tabs; pro Seite links das
+  Original mit Overlays (Name durchgezogen, Preis gestrichelt; Hover hebt
+  hervor), rechts die Eintraege mit automatischen Markierungen (ohne Preis,
+  zu klaeren, ohne Fundstelle, Codes im Namen/Beschreibung — Heuristik fuer
+  nachgestellte UND eingebettete Code-Gruppen wie `-A,G,)-` oder
+  `Gulaschsuppe-A,G,l,-`, Kommapflicht schuetzt Komposita und Mengen —,
+  ohne Beschreibung, erkannte Allergene); OK/Falsch + Notiz pro Eintrag und
+  Fehlend-Feld pro Seite (localStorage pro Lauf); „Feedback exportieren"
+  laedt `import-review-feedback.json` herunter und kopiert es in die
+  Zwischenablage. Dazu Veroeffentlichungs-Vorschau (Legacy-Tabelle) und
+  Roh-OCR pro Seite als Aufklapper.
+
+### Verifikation
+
+- Kompletter Lauf: Build + 14 Seiten echte Vision-OCR in 48 s, Test gruen,
+  `report.json` mit 3 Karten / 105 Draft-Eintraegen / 0 Validierungsfehlern.
+- Report im Browser (ueber lokalen HTTP-Server, da die eingebaute
+  Tool-Vorschau file://-Nachbardateien nicht laedt — in echtem Safari/Chrome
+  laeuft file:// direkt): Overlays sitzen auf den richtigen Zeilen, Tabs,
+  Hover-Hervorhebung, OK/Falsch-Zustand + Notiz persistiert in localStorage,
+  Zaehler plausibel. Querschnitt gegen den dokumentierten Stand: exakt 7
+  preislose Lichtburg- und 2 Alexxanders-Kandidaten erscheinen als
+  „ohne Preis"/„zu klaeren".
+- **Echte Befunde aus dem ersten Lauf (bestaetigen den Nutzereindruck):**
+  Scheune hat 14 Eintraege mit Legende-Codes in der Beschreibung und einen im
+  Namen (`Grosse Hausgemachte Gulaschsuppe-A,G,l,-`); Beschreibungsfragmente
+  werden teils doppelt angehaengt (deutsch/englisch bzw. OCR-Zeilendopplung);
+  OCR verwechselt `)`/`J` und `l`/`1` in Code-Gruppen; Beschreibungen tragen
+  `#`-Trennzeichen aus dem Parser. Alexxanders faellt mit 26/27
+  `needsReview`-Eintraegen auf. Alles Runde-1-Material, bewusst noch nicht
+  gefixt.
+
+### Risiken / bewusste Grenzen
+
+- Die automatischen Markierungen sind Heuristiken zur Aufmerksamkeitslenkung
+  (z. B. schlagen additive Ziffern-Codes wie `1,2` derzeit nicht an); das
+  Urteil faellt der Mensch im Report.
+- Der Report zeigt die lokale Pipeline ohne LLM — identisch zum Benchmark,
+  damit Runden vergleichbar bleiben.
+- Feedback liegt in localStorage des Browsers pro Lauf; der Export ist der
+  Uebergabeweg. Kein Server, keine Persistenz im Repo.
+
+### Naechster Schritt
+
+1. **Nutzer:** `./scripts/run-import-review.sh` ausfuehren (oder den bereits
+   erzeugten Lauf unter `/tmp/kitchenlink-import-review/latest/index.html`
+   oeffnen), Karten durchgehen, Feedback exportieren und uebergeben. Gern
+   zusaetzlich echte Karten ueber `KITCHENLINK_REVIEW_MENUS=<Ordner>`.
+2. **Agent (Runde 1):** Feedback in Parser-Fixes + Gold-Baseline-Anker
+   uebersetzen; die bereits sichtbaren Befunde (Codes in Text, doppelte
+   Fragmente, `#`-Artefakte) sind der erste Arbeitsvorrat.
+3. Parallel bleiben die realen Abnahmen KL-CLOUD-001 (§6.1) und KL-MENU-005
+   (§6.2) offen.
+
+## Session-Teil 10: KL-MENU-005 — Scan-zu-Publish-Bruecke
+
+### Anlass und Scope
+
+Der Nutzer hat aus den moeglichen naechsten Schritten die Scan-zu-Publish-
+Bruecke gewaehlt (Marktanalyse §5.2). Befund: Der Menuescan war bisher nur
+mit dem lokalen Sandbox-Menue verdrahtet (`store.replaceMenu`); die zweite
+Haelfte des Kern-Pitches — gescannte Karte wird fuer Gaeste im Gast-Web
+bestellbar — fehlte. Diese Scheibe schliesst das.
+
+### Umgesetzt
+
+- **Migration `supabase/migrations/20260719200000_operator_publish_menu.sql`**
+  (additiv, aendert keine bestehende Tabelle/Policy/Funktion): SECURITY-DEFINER-
+  RPC `operator_publish_menu(p_venue_slug, p_menu jsonb)`, staff-gated ueber
+  `is_venue_staff` (gespiegelt zu KL-CLOUD-001). Sie **ersetzt die aktive Karte
+  der Venue vollstaendig** (kein Merge, exakt wie die lokale Uebernahme),
+  garantiert genau eine aktive Karte pro Venue und lehnt doppelte
+  `menu_items.slug` in der Nutzlast ab — das ist die lastende Invariante des
+  Bestell-Gates (`guest_web_submit_order` loest Artikel ueber den Slug auf).
+  Das Loeschen der Kategorien kaskadiert auf `menu_items`; historische
+  `order_items.menu_item_id` fallen per FK auf NULL, Name/Preis bleiben als
+  Snapshot in `order_items`. `tag` und `variant_options` werden bewusst nicht
+  geschrieben (erster Schnitt; Gastkarte und Bestell-Gate nutzen beides derzeit
+  nicht) — als Folgearbeit dokumentiert.
+- **App, neu `KitchenLinkMenuPublishClient.swift`:** reiner, testbarer
+  Nutzlast-Bau `KitchenLinkMenuPublishPayload.build(from: [MenuSectionData])`
+  mit deutscher Slug-Erzeugung (ä→ae, Diakritika entfernt, Nicht-Alphanumerik →
+  Bindestrich) und deterministischer Deduplizierung (`-2`, `-3`, …); nutzt
+  `item.displayName` (Allergen-Codes werden vom Namen getrennt und separat als
+  Array uebergeben). `KitchenLinkMenuPublishModel` (@MainActor) veroeffentlicht
+  mit einer bestehenden Betreiber-Sitzung oder meldet mit vertrauten
+  Zugangsdaten an; genau-einmaliger 401-Refresh und tote-Sitzung-Abmeldung wie
+  im Cloud-Bestellmodell.
+- **App, umgebaut `KitchenLinkCloudOrderClient.swift`:** schmales
+  `KitchenLinkCloudAuthenticating`-Protokoll (nur signIn/refresh) aus
+  `KitchenLinkCloudTransport` herausgezogen — bestehende Konformer (URLSession-
+  Transport, Test-Spy) erfuellen es transparent weiter. `rpc` teilt sich jetzt
+  einen `rpcData`-Helfer, damit die Publish-RPC einen verschachtelten
+  `p_menu`-Encodable-Body senden kann. `URLSessionKitchenLinkCloudTransport`
+  erfuellt zusaetzlich `KitchenLinkMenuPublishTransport`.
+- **App, neu `MenuPublishSheet.swift` + Aktion im Draft-Review:** Im
+  unlocked-Zustand des Review-Screens gibt es neben „In Sandbox-Menue
+  uebernehmen" jetzt „Online veroeffentlichen" (`draftReview.publishOnline`).
+  Das Sheet zeigt, was online geht, meldet bei Bedarf mit **nur** E-Mail +
+  Passwort an (Usability-Leitplanke: keine technischen Verbindungsfelder),
+  warnt explizit vor dem vollstaendigen Ersetzen und bestaetigt mit der
+  Live-URL `kitchenlink.luneq.eu/alte-muehle/menu`.
+
+### Verifikation
+
+- App-Target-Build fuer iPhone-17-Pro-Simulator: **BUILD SUCCEEDED**.
+- Komplettes `kitchenlinkTests`-Target: **0 Fehlschlaege** (xcodebuild meldet
+  202 „passed"-Zeilen inkl. des ueblichen Swift-Testing-Doppelreportings). Die
+  11 neuen Publish-Tests: Slugify (Umlaute/Diakritika/Separatoren/Fallback),
+  Payload-Bau (Dedup, Kind-/Allergen-Mapping, leere Sektion faellt weg,
+  displayName ohne Codes) und das Model gegen einen Transport-Spy (gespeicherte
+  Sitzung, Anmeldung-dann-Publish, genau-einmaliger 401-Refresh mit Retry, tote
+  Sitzung → Abmeldung, leere Zugangsdaten ohne Netz).
+- **Nicht ohne Nutzer verifizierbar:** Die RPC-SQL lief nicht gegen echtes
+  Postgres — dieselbe Grenze wie bei KL-WEB-002 und KL-CLOUD-001. Es gibt hier
+  keine Instanz-Credentials. Aufzuloesen durch die reale Abnahme.
+
+### Risiken / bewusste Grenzen
+
+- **Vollstaendiger Ersatz statt Merge:** Ein veroeffentlichter Scan loest die
+  gesamte aktive Karte ab, inklusive des eingebauten 8-Artikel-Sandbox-Seeds.
+  Das ist bewusst (der Scan IST die Karte), aber ein spaeteres Ticket sollte
+  additive Kartenpflege ermoeglichen.
+- **Slug-Stabilitaet ueber Re-Publish:** Slugs werden bei jedem Publish neu aus
+  den Namen erzeugt. Aendert sich ein Name, aendert sich der Slug; alte,
+  bereits geoeffnete Gast-Tabs koennten dann `guest_web_unknown_item` sehen.
+  Fuer die Sandbox unkritisch; vor Produktion ist stabile Slug-Zuordnung zu
+  bedenken.
+- **Sitzung** liegt weiter in UserDefaults (nicht Keychain), geteilt mit
+  KL-CLOUD-001 — dieselbe dokumentierte Sandbox-Grenze.
+- `tag`/`variant_options` gehen noch nicht mit; Allergencodes schon.
+
+### Naechster Schritt (Nutzer)
+
+1. Migration `20260719200000_operator_publish_menu.sql` anwenden
+   (SANDBOX_SETUP.md Abschnitt 2).
+2. In der App eine Karte scannen, im Draft-Review klaeren, „Online
+   veroeffentlichen" waehlen (SANDBOX_SETUP.md §6.2), dann
+   `kitchenlink.luneq.eu/alte-muehle/menu` im Browser pruefen.
+3. Danach ist der Kern-Pitch erstmals durchgaengig vorfuehrbar; sinnvolle
+   Folgeschritte: Tisch-Kontext im Gast-Web (QR mit Tischparameter) und die
+   Payment/TSE-Provider-Vorentscheidung als Papieraufgabe.
 
 ## Session-Teil 9: Konsolidierung auf main + Aufraeumen (19. Juli, Abend)
 
@@ -529,10 +784,14 @@ autoritative Bestellgrenze, Supabase-Anbindung, PWA-Stufe.
 
 ## Recommended Next Step
 
-Siehe Session-Teil 8 oben: Migration + Betreiber-Konto einrichten
-(`SANDBOX_SETUP.md` §6.1), reale Web-zu-iPhone-Abnahme inklusive
-Offline-Hinweis, dann `claude/cloud-order-loop` integrieren. Danach ist der
-naechste sinnvolle Produktschritt die Scan-zu-Publish-Bruecke (geprüften
-Import-Draft in die Supabase-Venue veroeffentlichen) und ein Tisch-Kontext im
-Gast-Web; als Folgeticket der Schleife bleibt eine Gast-Statusseite nach dem
-ACK offen.
+Zwei parallele Nutzer-Abnahmen offen, beide nur mit echter Instanz/Geraet
+machbar: (1) KL-CLOUD-001 (Migration `20260719100000` + Betreiber-Konto,
+`SANDBOX_SETUP.md` §6.1, reale Web-zu-iPhone-Abnahme) und (2) KL-MENU-005
+(Migration `20260719200000`, einmal veroeffentlichen, `SANDBOX_SETUP.md` §6.2).
+Nach diesen Abnahmen ist die geschlossene Schleife *Papierkarte → Scan →
+Pruefung → Live-Gastkarte → Bestellung → Kueche → serviert* erstmals
+durchgaengig vorfuehrbar. Naechste Code-Schritte danach: Tisch-Kontext im
+Gast-Web (QR mit Tischparameter + minimale Tisch-Session) und die
+Payment/TSE-Provider-Vorentscheidung als Papieraufgabe. Als Folgetickets offen:
+Gast-Statusseite nach dem ACK, additive Kartenpflege (statt Vollersatz) und
+stabile Slug-Zuordnung ueber Re-Publish.
