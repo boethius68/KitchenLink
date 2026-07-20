@@ -4920,11 +4920,18 @@ enum MenuImportService {
                 return LLMCallOutcome(root: nil, errorMessage: "ungültige HTTP-Antwort")
             }
             guard (200 ... 299).contains(http.statusCode) else {
-                if http.statusCode == 401 {
-                    return LLMCallOutcome(root: nil, errorMessage: "API-Key ungültig (HTTP 401)")
-                }
                 let body = String(data: data, encoding: .utf8) ?? ""
                 let shortBody = body.trimmingCharacters(in: .whitespacesAndNewlines).prefix(180)
+                if http.statusCode == 401 {
+                    // Server-Begründung mitgeben (falscher Key vs. fehlendes
+                    // Billing vs. Header-Format lässt sich sonst nicht
+                    // unterscheiden). Der Text muss "API-Key ungültig"
+                    // enthalten — importMenu mappt darüber auf invalidAPIKey.
+                    return LLMCallOutcome(
+                        root: nil,
+                        errorMessage: "API-Key ungültig (HTTP 401): \(shortBody)"
+                    )
+                }
                 return LLMCallOutcome(root: nil, errorMessage: "HTTP \(http.statusCode): \(shortBody)")
             }
 

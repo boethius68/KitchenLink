@@ -286,7 +286,10 @@ final class MenuImportReviewHarnessTests: XCTestCase {
                         + "\(MenuImportService.resolvedLLMBaseURL) — "
                         + MenuImportService.lastImportDiagnostics()
                 } catch {
-                    llmError = String(describing: error)
+                    // Die Diagnose trägt die Server-Begründung (z. B. den
+                    // 401-Antworttext); der blanke Fehlerfall wäre nur "invalidAPIKey".
+                    llmError = "\(String(describing: error)) — "
+                        + MenuImportService.lastImportDiagnostics()
                 }
             } else {
                 llmError = "Kein API-Key konfiguriert "
