@@ -44,6 +44,14 @@ Grund für OCR-only. Behoben:
   statt 5/7, Alexxanders 3/4 statt 1/4), Spalten komplett, Set-Menü ein
   Eintrag ohne Reste, Code-Verdacht 0; Suite 207/0. Details:
   `docs/test-fixtures/scanner-benchmark/ROUND_05_FINDINGS.md`.
+- **Launch-Default (live, `ebca8f3`, nutzerfreigegeben 21. Juli 2026):** In der
+  echten App läuft der Import jetzt OHNE Konfiguration über die kostenlose
+  keylose Zen-Vision (big-pickle); ein eigener Key überschreibt das. Sichtbarer
+  In-App-Hinweis auf die externe KI-Verarbeitung, Datenfluss in SANDBOX_SETUP
+  dokumentiert, OCR-Fallback bei KI-Ausfall (Scan bricht nie ab). Für Produktion
+  ist ein verlässlicher/vertraglicher Anbieter statt des anonymen Free-Gateways
+  vorzusehen. Persönliche Permission-Regel `git commit`/`git push` in
+  `.claude/settings.local.json` gesetzt (autonomes Pushen freigegeben).
 - **Nächster Schritt (autonom fortsetzbar):** den echten Menü-Korpus des
   Nutzers über `KITCHENLINK_REVIEW_MENUS=<Ordner> KITCHENLINK_OPENCODE_FREE=1
   ./scripts/run-import-review.sh` fahren und Einzelfehler entlang echter
