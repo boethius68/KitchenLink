@@ -24,6 +24,28 @@ struct MenuImportJSONRepairTests {
         #expect(MenuImportService.repairJSONStringQuotes(clean) == clean)
     }
 
+    @Test func repairsGermanQuotePairInName() {
+        // Streuquote MITTEN im Wert, gefolgt von Nicht-Struktur.
+        let broken = #"{"items":[{"name":"„Süßes" Wiener Schnitzel","price":1}]}"#
+        #expect(!decodes(broken))
+        let fixed = MenuImportService.repairJSONStringQuotes(broken)
+        #expect(decodes(fixed))
+        let obj = try? JSONSerialization.jsonObject(with: fixed.data(using: .utf8)!) as? [String: Any]
+        let items = obj?["items"] as? [[String: Any]]
+        #expect((items?.first?["name"] as? String) == "„Süßes\" Wiener Schnitzel")
+    }
+
+    @Test func repairsGermanQuotePairFollowedByComma() {
+        // Der harte Fall: Streuquote gefolgt von Komma (sieht wie String-Ende aus).
+        let broken = #"{"items":[{"description":"Roulade nach „Hausfrauenart", Rotkohl, Klöße","price":1}]}"#
+        #expect(!decodes(broken))
+        let fixed = MenuImportService.repairJSONStringQuotes(broken)
+        #expect(decodes(fixed))
+        let obj = try? JSONSerialization.jsonObject(with: fixed.data(using: .utf8)!) as? [String: Any]
+        let items = obj?["items"] as? [[String: Any]]
+        #expect((items?.first?["description"] as? String) == "Roulade nach „Hausfrauenart\", Rotkohl, Klöße")
+    }
+
     @Test func preservesEmptyStringsAndEscapes() {
         let s = #"{"a":"","b":"er sagte \"ok\"","c":123}"#
         #expect(MenuImportService.repairJSONStringQuotes(s) == s)

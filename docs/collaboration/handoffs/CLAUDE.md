@@ -26,6 +26,29 @@ Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
 
+## Session-Teil 14: KL-SCAN-002 Runde 3 — KI-Pfad gehärtet
+
+Auf „mach direkt weiter" die vier offenen Runde-2-Punkte angegangen; die zwei
+größten sind gelöst, alle Karten laufen jetzt vollständig durch.
+
+- **Set-/Gang-Menüs:** `LLMItemPayload` um `price_basis` und `courses`
+  erweitert; zentraler `llmMenuSystemPrompt` (beide Prompt-Stellen teilen ihn)
+  instruiert Menüs als EINEN bepreisten Eintrag mit Gangauflistung + Deckseiten
+  überspringen + eine Sprache + Spalten via Koordinaten. `mapLLMSections` webt
+  `courses`/`per_person` in die Beschreibung. Ergebnis: „Menü Lichtburg · 39,90
+  · Preis pro Person · Vorspeise … Hauptgang (Wahl) … Dessert".
+- **JSON-Robustheit:** `repairJSONStringQuotes` um deutsche Anführungspaare
+  erweitert (`„…"` mit geradem Schlusszeichen, auch vor Komma) — Scheune 3/3.
+  Zusätzlich Retry bei JSON-Fehler im seitenweisen Pfad (fängt die
+  Nicht-Determinismus-Varianz freier Modelle; Alexxanders S4).
+- **Verifikation:** alle 3 Karten vollständig (Scheune 3/3, Lichtburg 7/7,
+  Alexxanders 3/4 + 1 leere Deckseite); Scheune Code-Verdacht lokal 16 → KI 0;
+  5 JSON-Repair-Unit-Tests; komplette `kitchenlinkTests`-Suite 207/0.
+- **Offen (Runde 4, abnehmender Ertrag):** vereinzelte preislose
+  Set-Menü-Gang-Reste (needsReview, unpubliziert), Streupreise,
+  Kategorienschnitt, Vision-Modus ungetestet, Rest-Nichtdeterminismus. Details
+  in `docs/test-fixtures/scanner-benchmark/ROUND_03_FINDINGS.md`.
+
 ## Session-Teil 13: KL-SCAN-002 Runde 2 — KI-Pfad läuft, schlägt Regel-Parser klar
 
 ### Schlüsselbefund zum Gateway

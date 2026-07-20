@@ -4051,6 +4051,57 @@ enum MenuImportService {
         lastImportDiagnosticsStorage
     }
 
+    /// Gemeinsamer System-Prompt für den KI-Import (Einzel- und Seitenmodus).
+    /// KL-SCAN-002 Runde 3: Set-/Gang-Menüs, Preisbasis pro Person, Deckseiten,
+    /// Zweisprachigkeit und die harte Code-Regel sind hier zentral geregelt.
+    static let llmMenuSystemPrompt = """
+    Du bist ein präziser Parser für deutsche Speisekarten.
+    Gib ausschließlich JSON zurück, ohne Markdown, exakt in diesem Schema:
+    {
+      "sections": [
+        {
+          "title": "string",
+          "subtitle": "string",
+          "kind": "food|drink",
+          "items": [
+            {
+              "name": "string",
+              "description": "string",
+              "price_cents": 1290,
+              "price_basis": "per_item|per_person",
+              "allergen_codes": ["a","f","2"],
+              "courses": "nur bei Menüs: Gänge auflisten",
+              "options": [
+                { "name": "Klein", "price_cents": 690, "kind": "portion" },
+                { "name": "mit Käse", "price_cents": 120, "kind": "extra" },
+                { "name": "Pute", "price_cents": 540, "kind": "variant" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    Regeln:
+    - Erfasse ALLE Artikel; nutze bei mehrspaltigem Layout die x/y-Koordinaten
+      der OCR-Zeilen, damit linke und rechte Spalte korrekt getrennt werden.
+    - Allergen-/Zusatzstoff-Kürzel (nachgestellte Buchstaben wie "a,c,g" oder
+      Ziffern) gehören AUSSCHLIESSLICH in allergen_codes, NIEMALS in name oder
+      description.
+    - Set-/Gang-Menüs (feste Menüs mit Vorspeise/Hauptgang/Dessert, evtl.
+      Wahlgänge mit "oder"/"or"): als EINEN Eintrag mit dem Menüpreis, die Gänge
+      in "courses" auflisten (z. B. "Vorspeise: Antipasti | Hauptgang (Wahl):
+      Wiener Schnitzel / Rumpsteak / Lachsfilet | Dessert: Tiramisu"). Erzeuge
+      KEINE preislosen Gang-Fragmente als eigene Artikel.
+    - "price_basis": "per_person" NUR wenn die Karte den Preis ausdrücklich pro
+      Person nennt, sonst "per_item".
+    - Zweisprachige Karten (Deutsch/Englisch): erfasse jeden Artikel NUR EINMAL
+      auf Deutsch; die englische Übersetzung nicht als zweiten Artikel.
+    - Reine Deck-, Titel- oder Zierseiten ohne Gerichte: gib {"sections": []}
+      zurück, erfinde KEINE Artikel aus Logo-/Marketingtext.
+    - 'portion': klein/groß/0,2L/0,4L; 'extra': Zuschläge; 'variant': Alternativen.
+    - Preise immer als Cent-Integer (12,90 € -> 1290).
+    """
+
     /// Sentinel für den keylosen Zugang. Manche Gateways (z. B. OpenCode Zen)
     /// bedienen ihre Free-Modelle ohne Authentifizierung; ein LEERER Key geht
     /// dann durch, ein falscher Key wird dagegen mit 401 abgelehnt. Dieser
@@ -4400,6 +4451,13 @@ enum MenuImportService {
         let kindRaw: String?
         let allergenCodesRaw: [String]
         let options: [LLMOptionPayload]
+        /// Preisbasis, z. B. "per_person" bei Menüpreisen. `per_item` (Default)
+        /// bleibt unmarkiert.
+        let priceBasis: String?
+        /// Gang-Auflistung eines Set-/Menü-Angebots ("Vorspeise: … | Hauptgang
+        /// (Wahl): … / … | Dessert: …"), damit ein Menü als EIN Eintrag mit
+        /// Menüpreis erhalten bleibt statt in preislose Fragmente zu zerfallen.
+        let courses: String?
 
         enum CodingKeys: String, CodingKey {
             case name
@@ -4415,6 +4473,9 @@ enum MenuImportService {
             case variants
             case extras
             case portions
+            case priceBasis
+            case basis
+            case courses
         }
 
         init(from decoder: Decoder) throws {
@@ -4424,6 +4485,9 @@ enum MenuImportService {
                 ?? (try? container.decodeIfPresent(String.self, forKey: .details))
             kindRaw = (try? container.decodeIfPresent(String.self, forKey: .kind))
                 ?? (try? container.decodeIfPresent(String.self, forKey: .type))
+            priceBasis = (try? container.decodeIfPresent(String.self, forKey: .priceBasis))
+                ?? (try? container.decodeIfPresent(String.self, forKey: .basis))
+            courses = try? container.decodeIfPresent(String.self, forKey: .courses)
 
             priceCents = Self.decodePriceCents(
                 from: container,
@@ -4586,42 +4650,8 @@ enum MenuImportService {
 
         let legendSummary = makeLegendSummary(allergenLegend)
 
-        let systemPrompt = """
-        Du bist ein präziser Parser für deutsche Speisekarten.
-        Primäre Quelle sind die Bilder. OCR kann fehlerhaft sein und dient nur als schwacher Zusatzkontext.
-        Gib ausschließlich JSON zurück, ohne Markdown.
-        Verwende dieses Schema:
-        {
-          "sections": [
-            {
-              "title": "string",
-              "subtitle": "string",
-              "kind": "food|drink",
-              "items": [
-                {
-                  "name": "string",
-                  "description": "string",
-                  "price_cents": 1290,
-                  "allergen_codes": ["a1","f","2"],
-                  "options": [
-                    { "name": "Klein", "price_cents": 690, "kind": "portion" },
-                    { "name": "mit Käse", "price_cents": 120, "kind": "extra" },
-                    { "name": "Pute", "price_cents": 540, "kind": "variant" }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-        Regeln:
-        - Nutze alle übergebenen Seitenbilder in ihrer Reihenfolge (Seite 1, Seite 2, ...).
-        - 'portion': klein/groß/halbe Portion etc.
-        - 'extra': optionale Zuschläge (extra, plus, Zusatz).
-        - 'variant': alternative Ausprägungen desselben Gerichts.
-        - Fasse keine reinen Allergenkürzel als Gericht auf.
-        - Wenn klein/groß existiert, kein doppeltes Gericht erzeugen, sondern Portionen in options.
-        - Preise immer als Cent-Integer.
-        """
+        let systemPrompt = llmMenuSystemPrompt
+            + "\nDu erhältst ggf. mehrere Seitenbilder in Reihenfolge (Seite 1, 2, …)."
 
         let sourceHint = llmSendsImages
             ? "Es gibt keinen verlässlichen Vorparser. Nutze primär die Bildinhalte."
@@ -4746,41 +4776,7 @@ enum MenuImportService {
                 continue
             }
 
-            let systemPrompt = """
-            Du bist ein präziser Parser für deutsche Speisekarten.
-            Du erhältst genau eine Seite der Karte.
-            Gib ausschließlich JSON zurück, ohne Markdown.
-            Verwende dieses Schema:
-            {
-              "sections": [
-                {
-                  "title": "string",
-                  "subtitle": "string",
-                  "kind": "food|drink",
-                  "items": [
-                    {
-                      "name": "string",
-                      "description": "string",
-                      "price_cents": 1290,
-                      "allergen_codes": ["a","f","2"],
-                      "options": [
-                        { "name": "Klein", "price_cents": 690, "kind": "portion" },
-                        { "name": "mit Käse", "price_cents": 120, "kind": "extra" },
-                        { "name": "Pute", "price_cents": 540, "kind": "variant" }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-            Regeln:
-            - Erfasse alle erkennbaren Artikel dieser Seite.
-            - 'portion': klein/groß/0,2L/0,4L etc.
-            - 'extra': optionale Zuschläge.
-            - 'variant': alternative Ausprägungen.
-            - Fasse keine reinen Allergenkürzel als Gericht auf.
-            - Preise immer als Cent-Integer.
-            """
+            let systemPrompt = llmMenuSystemPrompt + "\nDu erhältst genau eine Seite der Karte."
 
             let userPrompt = """
             Aktuelle Seite: \(pageNumber) von \(sourceImages.count)
@@ -4813,10 +4809,16 @@ enum MenuImportService {
                     )
                 }
 
-                let shouldRetry = lastError.localizedCaseInsensitiveContains("timed out") ||
+                let retryOnTimeout = lastError.localizedCaseInsensitiveContains("timed out") ||
                     lastError.localizedCaseInsensitiveContains("timeout") ||
                     lastError.localizedCaseInsensitiveContains("network connection was lost")
-                if shouldRetry {
+                // Nicht-deterministische Free-Modelle liefern dieselbe Seite mal
+                // als gültiges, mal als kaputtes JSON. Ein einmaliger Neuversuch
+                // holt solche Seiten meist zurück (verifiziert an Alexxanders S4).
+                let retryOnBadJSON = lastError.localizedCaseInsensitiveContains("menümodell")
+                    || lastError.localizedCaseInsensitiveContains("parsebares json")
+
+                if retryOnTimeout {
                     let slimParts = makeLLMImageParts(
                         from: [image],
                         maxPages: 1,
@@ -4836,6 +4838,17 @@ enum MenuImportService {
                         parsedRoot = retryAttempt.root
                         lastError = retryAttempt.errorMessage ?? lastError
                     }
+                } else if retryOnBadJSON {
+                    // Gleiche Anfrage erneut (auch im Textmodus ohne Bilder).
+                    let retryAttempt = await runLLMMenuCallWithTimeout(
+                        apiKey: apiKey,
+                        systemPrompt: systemPrompt,
+                        userPrompt: userPrompt,
+                        imageParts: imageParts,
+                        timeoutSeconds: 45
+                    )
+                    parsedRoot = retryAttempt.root
+                    lastError = retryAttempt.errorMessage ?? lastError
                 }
             }
 
@@ -5159,7 +5172,21 @@ enum MenuImportService {
                 guard itemPayload.priceCents > 0 else { continue }
 
                 let itemKind = mapMenuKind(from: itemPayload.kindRaw) ?? sectionKind
-                let description = sanitizeImportedTitle(itemPayload.description ?? "")
+                var description = sanitizeImportedTitle(itemPayload.description ?? "")
+                // Set-/Gang-Menü: die Gangauflistung wird zur (oder ergänzt die)
+                // Beschreibung, damit das Menü als EIN bepreister Eintrag steht.
+                if let courses = itemPayload.courses.map({ sanitizeImportedTitle($0) }),
+                   !courses.isEmpty {
+                    description = description.isEmpty ? courses : "\(description) · \(courses)"
+                }
+                // Preisbasis pro Person klar sichtbar voranstellen.
+                if let basis = itemPayload.priceBasis?.lowercased(),
+                   basis.contains("person") {
+                    let marker = "Preis pro Person"
+                    if !description.localizedCaseInsensitiveContains("pro person") {
+                        description = description.isEmpty ? marker : "\(marker) · \(description)"
+                    }
+                }
                 let mergedCodeInput = itemPayload.allergenCodesRaw + [splitName.allergenCodes].compactMap { $0 }
                 let codes = mergeAllergenCodes(mergedCodeInput)
 
@@ -5355,12 +5382,17 @@ enum MenuImportService {
         var out: [Character] = []
         out.reserveCapacity(chars.count)
         var inString = false
+        // Offene deutsche Anführungszeichen „ im aktuellen String-Wert. Das
+        // Modell paart „ häufig mit einem GERADEN " (statt "), das dann als
+        // JSON-Delimiter missverstanden würde. Ein gerades " mit offenem „
+        // davor ist deshalb ein Inhalts-Zeichen und wird escapt.
+        var openGermanQuotes = 0
         var i = 0
         while i < chars.count {
             let c = chars[i]
             if !inString {
                 out.append(c)
-                if c == "\"" { inString = true }
+                if c == "\"" { inString = true; openGermanQuotes = 0 }
                 i += 1
                 continue
             }
@@ -5372,8 +5404,22 @@ enum MenuImportService {
                 i += 2
                 continue
             }
+            if c == "\u{201E}" { // „
+                openGermanQuotes += 1
+                out.append(c)
+                i += 1
+                continue
+            }
             if c == "\"" {
-                // Nächstes bedeutsames Zeichen suchen.
+                if openGermanQuotes > 0 {
+                    // Gerades " als deutsches Schlusszeichen im Wert: escapen.
+                    openGermanQuotes -= 1
+                    out.append("\\")
+                    out.append("\"")
+                    i += 1
+                    continue
+                }
+                // Sonst: nächstes bedeutsames Zeichen entscheidet.
                 var j = i + 1
                 while j < chars.count, chars[j] == " " || chars[j] == "\n"
                     || chars[j] == "\r" || chars[j] == "\t" { j += 1 }
