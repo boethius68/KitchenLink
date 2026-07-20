@@ -19,16 +19,16 @@
 #   Mit OpenAI direkt:
 #     KITCHENLINK_OPENAI_API_KEY=sk-... ./scripts/run-import-review.sh
 #
-#   Mit OpenCode Zen (OpenAI-kompatibles Gateway, https://opencode.ai/zen):
+#   Mit OpenCode Zen, kostenlos und OHNE Key (Free-Modelle brauchen keine
+#   Auth; Standardmodell big-pickle -> mimo-v2.5, kann Text und Vision):
+#     KITCHENLINK_OPENCODE_FREE=1 ./scripts/run-import-review.sh
+#
+#   Mit OpenCode-Zen-Key (falls doch ein gültiger Key vorliegt):
 #     KITCHENLINK_OPENCODE_API_KEY=... ./scripts/run-import-review.sh
-#   Standardmodell dabei: big-pickle (FREE-Modell, Nutzer-Vorgabe: nur
-#   Free-Modelle). Anderes Modell:
-#     KITCHENLINK_LLM_MODEL=deepseek-v4-flash-free KITCHENLINK_OPENCODE_API_KEY=... \
-#       ./scripts/run-import-review.sh
-#   Falls das Modell keine Bilder versteht (Vision), zusätzlich
-#   KITCHENLINK_LLM_SEND_IMAGES=0 setzen — dann arbeitet die KI nur mit den
-#   koordinaten-annotierten OCR-Zeilen. Welche Free-Modelle Vision können,
-#   zeigt ./scripts/check-llm-gateway.sh.
+#
+#   Anderes Free-Modell / Textmodus, falls ein Modell keine Bilder versteht:
+#     KITCHENLINK_LLM_MODEL=deepseek-v4-flash-free KITCHENLINK_LLM_SEND_IMAGES=0 \
+#       KITCHENLINK_OPENCODE_FREE=1 ./scripts/run-import-review.sh
 #
 #   Beliebiges anderes OpenAI-kompatibles Gateway:
 #     KITCHENLINK_LLM_BASE_URL=https://.../v1 KITCHENLINK_LLM_MODEL=... \
@@ -72,7 +72,7 @@ app_bundle="$derived_data/Build/Products/Debug-iphonesimulator/kitchenlink.app"
 # den Testprozess gereicht.
 #
 # OpenCode-Bequemlichkeit: KITCHENLINK_OPENCODE_API_KEY setzt Gateway,
-# Vision-Standardmodell und Key in einem Schritt.
+# Standardmodell und Key in einem Schritt.
 if [[ -n "${KITCHENLINK_OPENCODE_API_KEY:-}" ]]; then
   KITCHENLINK_OPENAI_API_KEY="$KITCHENLINK_OPENCODE_API_KEY"
   KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-https://opencode.ai/zen/v1}"
@@ -80,10 +80,21 @@ if [[ -n "${KITCHENLINK_OPENCODE_API_KEY:-}" ]]; then
   KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-big-pickle}"
 fi
 
+# Keyloser Free-Modus: OpenCode Zen bedient die Free-Modelle ohne Auth. Ohne
+# Key wird KEIN Authorization-Header gesendet (ein falscher Key würde 401
+# auslösen). KITCHENLINK_OPENCODE_FREE=1 aktiviert das in einem Schritt.
+if [[ "${KITCHENLINK_OPENCODE_FREE:-0}" == "1" ]]; then
+  KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-https://opencode.ai/zen/v1}"
+  KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-big-pickle}"
+  KITCHENLINK_LLM_ALLOW_KEYLESS=1
+fi
+
 run_llm="false"
-if [[ -n "${KITCHENLINK_OPENAI_API_KEY:-}" ]]; then
+if [[ -n "${KITCHENLINK_OPENAI_API_KEY:-}" || "${KITCHENLINK_LLM_ALLOW_KEYLESS:-}" == "1" ]]; then
   run_llm="true"
-  echo "KI-Vergleich aktiv: ${KITCHENLINK_LLM_MODEL:-gpt-4.1} @ ${KITCHENLINK_LLM_BASE_URL:-https://api.openai.com/v1}"
+  auth_note="Key"
+  [[ "${KITCHENLINK_LLM_ALLOW_KEYLESS:-}" == "1" && -z "${KITCHENLINK_OPENAI_API_KEY:-}" ]] && auth_note="keylos/frei"
+  echo "KI-Vergleich aktiv: ${KITCHENLINK_LLM_MODEL:-gpt-4.1} @ ${KITCHENLINK_LLM_BASE_URL:-https://api.openai.com/v1} ($auth_note)"
 fi
 
 if [[ -n "$extra_menus" ]]; then
@@ -104,6 +115,7 @@ TEST_RUNNER_KITCHENLINK_OPENAI_API_KEY="${KITCHENLINK_OPENAI_API_KEY:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_SEND_IMAGES="${KITCHENLINK_LLM_SEND_IMAGES:-}" \
+TEST_RUNNER_KITCHENLINK_LLM_ALLOW_KEYLESS="${KITCHENLINK_LLM_ALLOW_KEYLESS:-}" \
 xcodebuild \
   test-without-building \
   -xctestrun "$xctestrun" \

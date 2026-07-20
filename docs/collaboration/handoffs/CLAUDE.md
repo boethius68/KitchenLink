@@ -26,6 +26,51 @@ Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
 
+## Session-Teil 13: KL-SCAN-002 Runde 2 — KI-Pfad läuft, schlägt Regel-Parser klar
+
+### Schlüsselbefund zum Gateway
+
+Der Key des Nutzers war die ganze Zeit **ungültig** (`401 AuthError`), nicht
+guthabenlos — Aufladen half nicht. Direkter curl-Test bewies: OpenCode Zen
+bedient `/models` UND `/chat/completions` **ohne jede Auth** für die
+Free-Modelle (`cost: 0`, `is_byok: true`). `big-pickle` → `xiaomi/mimo-v2.5`
+kann Text und Vision. Damit braucht der Free-Vergleich gar keinen Key.
+
+### Umgesetzt (Client + Runner)
+
+- **Keyloser Free-Zugang:** `resolvedLLMAPIKey` gibt bei
+  `KITCHENLINK_LLM_ALLOW_KEYLESS=1` einen Sentinel zurück; `runLLMMenuCall`
+  sendet dann KEINEN `Authorization`-Header (falscher Key → 401, kein Key →
+  freier Zugang). Runner-Ein-Schritt: `KITCHENLINK_OPENCODE_FREE=1`.
+- **Reasoning-Modelle:** Antwort aus `content` mit Fallback auf `reasoning`;
+  `max_tokens: 8000`.
+- **JSON-Reparatur** `repairJSONStringQuotes` (Ein-Durchlauf-Automat) für
+  unescapte Anführungszeichen in Werten (`"Wurstsalat „Scheune""`), nur als
+  Fallback nach striktem Parse. 3 Unit-Tests.
+- **Teilergebnisse:** leere Seiten (Deckseiten) verwerfen die Karte nicht mehr;
+  die „alle Seiten müssen klappen"-Regel ist aufgehoben, gescheiterte
+  Einzelseiten werden als Teilfehler gemeldet.
+
+### Verifiziertes Ergebnis (Eigenverifikation gegen Roh-OCR)
+
+KI schlägt den Regel-Parser bei allen Runde-1-Befunden: Allergen-Codes
+getrennt (Scheune 16→0 Einträge mit Codes im Text), verlorene
+Beschreibungszeile wieder da, Lichtburg-S5-Beilagenspalte erfasst,
+Alexxanders-Deckseite übersprungen (kein Phantom „Gastgeber"),
+Überraschungsmenü-Beschreibung vorhanden. Vollständige Tabelle und die
+verbliebenen Lücken (Set-/Gang-Menüs, `per_person`, ein weiterer JSON-Fehler
+auf Scheune S3, Bild-Modus noch ungetestet) in
+`docs/test-fixtures/scanner-benchmark/ROUND_02_FINDINGS.md`. Gesamte
+`kitchenlinkTests`-Suite: 206 bestanden, 0 Fehlschläge.
+
+### Nächster Schritt
+
+Runde 3: Prompt/Mapping um Gang-/Bundle-Menüs und Preisbasis erweitern,
+Scheune-S3-JSON diagnostizieren, Vision- gegen Textmodus messen, bestätigte
+Ergebnisse als Gold-Anker sichern. Nutzer kann den fertigen Report unter
+`/tmp/kitchenlink-import-review/latest/index.html` selbst durchsehen und je
+Pipeline (Umschalter „Lokale Regeln / KI-Pfad") Feedback exportieren.
+
 ## Session-Teil 12: KL-SCAN-002 Runde 1 — Feedback ausgewertet, KI-Vergleich vorbereitet
 
 ### Anlass

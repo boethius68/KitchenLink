@@ -4051,6 +4051,12 @@ enum MenuImportService {
         lastImportDiagnosticsStorage
     }
 
+    /// Sentinel für den keylosen Zugang. Manche Gateways (z. B. OpenCode Zen)
+    /// bedienen ihre Free-Modelle ohne Authentifizierung; ein LEERER Key geht
+    /// dann durch, ein falscher Key wird dagegen mit 401 abgelehnt. Dieser
+    /// Sentinel signalisiert „LLM läuft, aber sende KEINEN Authorization-Header".
+    static let keylessSentinel = "__kitchenlink_keyless__"
+
     private static var resolvedLLMAPIKey: String? {
         let stored = storedLLMAPIKey().trimmingCharacters(in: .whitespacesAndNewlines)
         if !stored.isEmpty { return stored }
@@ -4063,6 +4069,11 @@ enum MenuImportService {
         if let environment = ProcessInfo.processInfo.environment["KITCHENLINK_OPENAI_API_KEY"] {
             let trimmed = environment.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty { return trimmed }
+        }
+
+        // Keyloser Free-Zugang (opt-in), wenn kein echter Key vorliegt.
+        if configValue(forKey: "KITCHENLINK_LLM_ALLOW_KEYLESS") == "1" {
+            return keylessSentinel
         }
         return nil
     }
@@ -4303,19 +4314,25 @@ enum MenuImportService {
         let temperature: Double
         let responseFormat: ResponseFormat
         let messages: [Message]
+        let maxTokens: Int?
 
         enum CodingKeys: String, CodingKey {
             case model
             case temperature
             case responseFormat = "response_format"
             case messages
+            case maxTokens = "max_tokens"
         }
     }
 
     private struct OpenAIChatResponse: Decodable {
         struct Choice: Decodable {
             struct Message: Decodable {
-                let content: String
+                // Reasoning-Modelle (z. B. big-pickle -> mimo) legen die
+                // Endantwort in `content`, das Nachdenken in `reasoning`.
+                // Bei zu knappem Token-Limit bleibt `content` null.
+                let content: String?
+                let reasoning: String?
             }
 
             let message: Message
@@ -4709,6 +4726,7 @@ enum MenuImportService {
         var collectedSections: [MenuSectionData] = []
         var pageErrors: [String] = []
         var successfulPages = 0
+        var emptyPages = 0
 
         for (pageIndex, image) in sourceImages.enumerated() {
             let pageNumber = pageIndex + 1
@@ -4827,8 +4845,11 @@ enum MenuImportService {
             }
 
             let mappedSections = mapLLMSections(root.sections, allergenLegend: allergenLegend)
+            // Eine Seite ohne Artikel ist KEIN Fehler: Deck-, Info- oder
+            // Getränke-nur-Seiten sind legitim leer. Sie zählen als sauber
+            // verarbeitet und dürfen die restliche Karte nicht verwerfen.
             guard !mappedSections.isEmpty else {
-                pageErrors.append("Seite \(pageNumber): keine nutzbaren Menüdaten")
+                emptyPages += 1
                 continue
             }
 
@@ -4836,30 +4857,33 @@ enum MenuImportService {
             successfulPages += 1
         }
 
+        // Ganze Karte verwerfen nur, wenn NICHTS erkannt wurde UND mindestens
+        // eine Seite echt scheiterte (Netz/Parse), nicht bloß leer war.
         guard !collectedSections.isEmpty else {
-            let reason = pageErrors.isEmpty ? "Unbekannter Fehler" : pageErrors.joined(separator: " | ")
+            if pageErrors.isEmpty {
+                return LLMParseOutcome(
+                    sections: nil,
+                    message: "KI-Reflexion fand auf keiner Seite Menüdaten (\(emptyPages) leere Seiten)."
+                )
+            }
             return LLMParseOutcome(
                 sections: nil,
-                message: "KI-Reflexion seitenweise fehlgeschlagen: \(reason)"
+                message: "KI-Reflexion seitenweise fehlgeschlagen: \(pageErrors.joined(separator: " | "))"
             )
         }
 
-        guard successfulPages == sourceImages.count else {
-            let reason = pageErrors.isEmpty ? "Nicht alle Seiten wurden erkannt." : pageErrors.joined(separator: " | ")
-            return LLMParseOutcome(
-                sections: nil,
-                message: "KI-Reflexion unvollständig: \(successfulPages)/\(sourceImages.count) Seiten erkannt. \(reason)"
-            )
-        }
-
+        // Teilergebnis bewusst behalten: gescheiterte Einzelseiten werden ehrlich
+        // als Teilfehler gemeldet, statt die guten Seiten mitzuverwerfen. Der
+        // Betreiber prüft ohnehin und kann fehlende Seiten nachziehen.
         let itemCount = collectedSections.reduce(0) { $0 + $1.items.count }
-        let errorSuffix: String = {
-            guard !pageErrors.isEmpty else { return "" }
-            return " | Teilfehler: \(pageErrors.prefix(2).joined(separator: " | "))"
-        }()
+        let errorSuffix = pageErrors.isEmpty
+            ? ""
+            : " | Teilfehler: \(pageErrors.joined(separator: " | "))"
+        let emptySuffix = emptyPages > 0 ? " | \(emptyPages) leere Seite(n)" : ""
         return LLMParseOutcome(
             sections: collectedSections,
-            message: "Vision-KI seitenweise: \(itemCount) Artikel aus \(successfulPages)/\(sourceImages.count) Seiten." + errorSuffix
+            message: "Vision-KI seitenweise: \(itemCount) Artikel aus \(successfulPages)/\(sourceImages.count) Seiten."
+                + emptySuffix + errorSuffix
         )
     }
 
@@ -4913,7 +4937,10 @@ enum MenuImportService {
                         role: "user",
                         content: .parts([.text(userPrompt)] + imageParts)
                     )
-                ]
+                ],
+                // Großzügig, damit Reasoning-Modelle vor der JSON-Antwort
+                // genug Denk-Budget haben und `content` nicht leer bleibt.
+                maxTokens: 8000
             )
 
             let base = resolvedLLMBaseURL.hasSuffix("/")
@@ -4925,7 +4952,11 @@ enum MenuImportService {
             var request = URLRequest(url: endpoint)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            // Keyloser Free-Zugang: bewusst KEIN Authorization-Header (ein leerer
+            // Key geht durch, ein falscher würde 401 auslösen).
+            if apiKey != keylessSentinel {
+                request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            }
             request.httpBody = try JSONEncoder().encode(requestBody)
 
             let (data, response) = try await llmSession.data(for: request)
@@ -4949,18 +4980,29 @@ enum MenuImportService {
             }
 
             let chat = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
-            guard let content = chat.choices.first?.message.content,
-                  let jsonText = extractJSONObject(from: content),
-                  let jsonData = jsonText.data(using: .utf8) else {
+            let message = chat.choices.first?.message
+            // content bevorzugen; bei Reasoning-Modellen kann das JSON im
+            // reasoning-Feld stehen, wenn content leer geblieben ist.
+            let rawText = [message?.content, message?.reasoning]
+                .compactMap { $0 }
+                .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            guard let rawText,
+                  let jsonText = extractJSONObject(from: rawText) else {
                 return LLMCallOutcome(root: nil, errorMessage: "Antwort ohne parsebares JSON")
             }
 
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
-            guard let root = try? decoder.decode(LLMMenuRoot.self, from: jsonData) else {
-                return LLMCallOutcome(root: nil, errorMessage: "JSON konnte nicht ins Menümodell übertragen werden")
+            // Erst strikt, dann mit Reparatur unescapter Anführungszeichen (z. B.
+            // Namen wie `Wurstsalat „Scheune"`, die ein gerades Schlusszeichen im
+            // Wert tragen und den JSON-String vorzeitig schließen).
+            for candidate in [jsonText, repairJSONStringQuotes(jsonText)] {
+                if let jsonData = candidate.data(using: .utf8),
+                   let root = try? decoder.decode(LLMMenuRoot.self, from: jsonData) {
+                    return LLMCallOutcome(root: root, errorMessage: nil)
+                }
             }
-            return LLMCallOutcome(root: root, errorMessage: nil)
+            return LLMCallOutcome(root: nil, errorMessage: "JSON konnte nicht ins Menümodell übertragen werden")
         } catch {
             return LLMCallOutcome(root: nil, errorMessage: error.localizedDescription)
         }
@@ -5300,6 +5342,58 @@ enum MenuImportService {
             return Int((value * 100).rounded())
         }
         return Int(value.rounded())
+    }
+
+    /// Repariert unescapte Anführungszeichen INNERHALB von JSON-String-Werten —
+    /// der häufigste JSON-Fehler von LLMs (z. B. `"Wurstsalat „Scheune""`). Ein
+    /// Ein-Durchlauf-Automat verfolgt den String-Zustand; trifft er im String auf
+    /// ein `"`, dessen nächstes bedeutsames Zeichen KEIN Strukturzeichen
+    /// (`, : } ]`) ist, wird es zu `\"` escapt statt den String zu schließen.
+    /// Bei sauberem JSON ist die Ausgabe identisch; Aufruf nur als Fallback.
+    static func repairJSONStringQuotes(_ input: String) -> String {
+        let chars = Array(input)
+        var out: [Character] = []
+        out.reserveCapacity(chars.count)
+        var inString = false
+        var i = 0
+        while i < chars.count {
+            let c = chars[i]
+            if !inString {
+                out.append(c)
+                if c == "\"" { inString = true }
+                i += 1
+                continue
+            }
+            // Innerhalb eines Strings.
+            if c == "\\" {
+                // Escape-Sequenz unangetastet übernehmen.
+                out.append(c)
+                if i + 1 < chars.count { out.append(chars[i + 1]) }
+                i += 2
+                continue
+            }
+            if c == "\"" {
+                // Nächstes bedeutsames Zeichen suchen.
+                var j = i + 1
+                while j < chars.count, chars[j] == " " || chars[j] == "\n"
+                    || chars[j] == "\r" || chars[j] == "\t" { j += 1 }
+                let next: Character? = j < chars.count ? chars[j] : nil
+                if next == nil || next == "," || next == ":" || next == "}" || next == "]" {
+                    // Legitimes String-Ende.
+                    out.append(c)
+                    inString = false
+                } else {
+                    // Anführungszeichen im Wert: escapen.
+                    out.append("\\")
+                    out.append("\"")
+                }
+                i += 1
+                continue
+            }
+            out.append(c)
+            i += 1
+        }
+        return String(out)
     }
 
     private static func extractJSONObject(from text: String) -> String? {
