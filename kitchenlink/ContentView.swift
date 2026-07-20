@@ -3279,8 +3279,8 @@ private struct OperatorMenuEditorView: View {
 
                 Toggle(isOn: $llmImportEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("KI-Reflexion für Import nutzen")
-                        Text("Besser für komplexe Karten, Varianten und Portionen.")
+                        Text("KI-Erfassung für Import nutzen")
+                        Text("Analysiert die Kartenbilder direkt — erkennt Kategorien, Varianten, Portionen und Allergene. Standardmäßig aktiv und kostenlos; die Karte wird dafür an einen externen KI-Dienst übertragen.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -3289,28 +3289,30 @@ private struct OperatorMenuEditorView: View {
                     MenuImportService.setLLMEnabled(newValue)
                 }
 
-                SecureField("OpenAI API-Key (optional)", text: $llmAPIKeyInput)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .font(.caption)
+                DisclosureGroup("Eigenen KI-Zugang verwenden (optional)") {
+                    SecureField("OpenAI API-Key", text: $llmAPIKeyInput)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.caption)
 
-                Button("API-Key speichern") {
-                    MenuImportService.saveLLMAPIKey(llmAPIKeyInput)
-                    llmConfigMessage = MenuImportService.hasConfiguredLLMAPIKey()
-                        ? "API-Key gespeichert."
-                        : "Kein API-Key gespeichert. Import läuft nur mit OCR-Regeln."
+                    Button("API-Key speichern") {
+                        MenuImportService.saveLLMAPIKey(llmAPIKeyInput)
+                        llmConfigMessage = llmAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? "Kein eigener Key. Es läuft die kostenlose KI-Erfassung."
+                            : "Eigener API-Key gespeichert."
+                    }
+                    .buttonStyle(KitchenSecondaryButtonStyle())
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+
+                    Text("Ohne eigenen Key nutzt der Import die eingebaute kostenlose KI-Erfassung. Ein eigener Schlüssel (OpenAI-kompatibel) ersetzt sie.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(KitchenSecondaryButtonStyle())
-                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
 
                 if let llmConfigMessage {
                     Text(llmConfigMessage)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                } else if llmImportEnabled && !MenuImportService.hasConfiguredLLMAPIKey() {
-                    Text("Hinweis: Kein API-Key hinterlegt. KI-Reflexion ist aktuell aus.")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
                 }
             }
 
@@ -4116,38 +4118,47 @@ enum MenuImportService {
     /// Sentinel signalisiert „LLM läuft, aber sende KEINEN Authorization-Header".
     static let keylessSentinel = "__kitchenlink_keyless__"
 
-    private static var resolvedLLMAPIKey: String? {
+    /// Ein ausdrücklich hinterlegter, echter Schlüssel (Speicher, Info.plist
+    /// oder Umgebung). Nil = der Nutzer hat keinen eigenen Schlüssel angegeben.
+    private static var explicitLLMAPIKey: String? {
         let stored = storedLLMAPIKey().trimmingCharacters(in: .whitespacesAndNewlines)
         if !stored.isEmpty { return stored }
-
         if let bundled = Bundle.main.object(forInfoDictionaryKey: "KITCHENLINK_OPENAI_API_KEY") as? String {
             let trimmed = bundled.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty { return trimmed }
         }
-
         if let environment = ProcessInfo.processInfo.environment["KITCHENLINK_OPENAI_API_KEY"] {
             let trimmed = environment.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty { return trimmed }
         }
-
-        // Keyloser Free-Zugang (opt-in), wenn kein echter Key vorliegt.
-        if configValue(forKey: "KITCHENLINK_LLM_ALLOW_KEYLESS") == "1" {
-            return keylessSentinel
-        }
         return nil
     }
 
-    /// KL-SCAN-002 Runde 2: Der KI-Pfad spricht jedes OpenAI-kompatible
-    /// Chat-Completions-Gateway. Basis-URL und Modell sind per Umgebung oder
-    /// Info.plist überschreibbar (z. B. OpenCode Zen:
-    /// `https://opencode.ai/zen/v1` + `claude-sonnet-5`); ohne Überschreibung
-    /// bleibt exakt das bisherige Verhalten (api.openai.com + gpt-4.1).
+    /// Launchfähiger Default (KL-SCAN-002 Runde 5): OHNE eigenen Schlüssel läuft
+    /// der KI-Import über den kostenlosen, keylosen OpenCode-Zen-Vision-Pfad —
+    /// der Betreiber muss nichts konfigurieren (Usability-Leitplanke). MIT
+    /// eigenem Schlüssel wird dieser verwendet. Sandbox-Default; für Produktion
+    /// ist ein verlässlicher (ggf. bezahlter) Anbieter zu hinterlegen.
+    static var usesKeylessFreeDefault: Bool {
+        explicitLLMAPIKey == nil
+    }
+
+    private static var resolvedLLMAPIKey: String? {
+        explicitLLMAPIKey ?? keylessSentinel
+    }
+
+    /// Der KI-Pfad spricht jedes OpenAI-kompatible Chat-Completions-Gateway.
+    /// Basis-URL/Modell sind per Umgebung oder Info.plist überschreibbar; ohne
+    /// Überschreibung: eigener Schlüssel → OpenAI (gpt-4.1), sonst der kostenlose
+    /// Zen-Vision-Default (big-pickle).
     static var resolvedLLMBaseURL: String {
-        configValue(forKey: "KITCHENLINK_LLM_BASE_URL") ?? "https://api.openai.com/v1"
+        if let override = configValue(forKey: "KITCHENLINK_LLM_BASE_URL") { return override }
+        return usesKeylessFreeDefault ? "https://opencode.ai/zen/v1" : "https://api.openai.com/v1"
     }
 
     static var resolvedLLMModel: String {
-        configValue(forKey: "KITCHENLINK_LLM_MODEL") ?? llmModelDefault
+        if let override = configValue(forKey: "KITCHENLINK_LLM_MODEL") { return override }
+        return usesKeylessFreeDefault ? "big-pickle" : llmModelDefault
     }
 
     /// `KITCHENLINK_LLM_SEND_IMAGES=0` schaltet den Bild-Versand ab (für
@@ -4208,17 +4219,24 @@ enum MenuImportService {
             if let semanticSections = llmOutcome.sections {
                 sections = semanticSections
                 usedLLM = true
+                lastImportDiagnosticsStorage = llmOutcome.message
             } else {
-                if llmOutcome.message.localizedCaseInsensitiveContains("api-key ungültig") ||
-                    llmOutcome.message.localizedCaseInsensitiveContains("http 401") ||
-                    llmOutcome.message.localizedCaseInsensitiveContains("incorrect api key") {
+                let is401 = llmOutcome.message.localizedCaseInsensitiveContains("api-key ungültig")
+                    || llmOutcome.message.localizedCaseInsensitiveContains("http 401")
+                    || llmOutcome.message.localizedCaseInsensitiveContains("incorrect api key")
+                // Nur bei EIGENEM Schlüssel den Auth-Fehler an den Nutzer
+                // durchreichen (er hat einen falschen Key hinterlegt). Im
+                // kostenlosen Default-Pfad oder bei sonstigen KI-Fehlern (Netz,
+                // Gateway) NICHT den Scan abbrechen, sondern auf die lokalen
+                // OCR-Regeln zurückfallen — der Betreiber prüft ohnehin.
+                if is401, !usesKeylessFreeDefault {
                     lastImportDiagnosticsStorage = llmOutcome.message
                     throw ImportError.invalidAPIKey
                 }
-                lastImportDiagnosticsStorage = llmOutcome.message
-                throw ImportError.llmImportFailed(llmOutcome.message)
+                sections = localParseResult.sections
+                lastImportDiagnosticsStorage =
+                    "KI-Erfassung nicht verfügbar (\(llmOutcome.message)). Lokale OCR-Regeln genutzt."
             }
-            lastImportDiagnosticsStorage = llmOutcome.message
         } else {
             sections = localParseResult.sections
             lastImportDiagnosticsStorage = isLLMEnabled()

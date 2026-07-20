@@ -280,6 +280,23 @@ dadurch durch die gescannte Karte abgelöst. Der Schreibweg läuft nur über die
 staff-gated RPC `operator_publish_menu`; die Menü-Tabellen bleiben ohne direkte
 Client-Schreib-Policy.
 
+### KI-Erfassung des Scans (KL-SCAN-002, Datenfluss)
+
+Der Menü-Import analysiert die gescannten **Kartenbilder direkt mit einem
+KI-Vision-Modell** (deutlich zuverlässiger als reine OCR bei Spalten, Varianten,
+Set-Menüs und Allergen-Legenden). **Sandbox-Default (vom Nutzer freigegeben,
+21. Juli 2026):** ohne eigenen Schlüssel läuft das kostenlos und ohne
+Konfiguration über das **OpenCode-Zen-Gateway** (`opencode.ai/zen`, Free-Modell
+`big-pickle`, keyloser Zugang). Das heißt: die gescannte Karte wird an diesen
+externen KI-Dienst übertragen. Speisekarten sind öffentliche Daten (geringe
+Sensibilität); die App weist im Import-Bereich sichtbar darauf hin.
+
+Ein eigener Schlüssel (OpenAI-kompatibel) ersetzt den Default und wird unter
+„Eigenen KI-Zugang verwenden" hinterlegt. Fällt die KI aus (Netz/Gateway),
+fällt der Import automatisch auf die lokalen OCR-Regeln zurück, statt den Scan
+abzubrechen. **Für Produktion** ist ein verlässlicher, vertraglich geregelter
+Anbieter statt des anonymen Free-Gateways vorzusehen (in §7 als offener Punkt).
+
 ---
 
 ## 7. Was bewusst NICHT hier gelöst ist
