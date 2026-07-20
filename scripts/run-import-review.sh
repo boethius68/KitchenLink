@@ -86,16 +86,15 @@ fi
 # Key wird KEIN Authorization-Header gesendet (ein falscher Key würde 401
 # auslösen). KITCHENLINK_OPENCODE_FREE=1 aktiviert das in einem Schritt.
 #
-# Default = TEXTMODUS: Runde-3-Messung zeigte, dass big-pickle im Bildmodus
-# regelmäßig in Timeouts läuft (Bilder+Reasoning > 26–45 s/Seite) und die
-# Coverage einbricht, während der Textmodus mit koordinaten-annotierten
-# OCR-Zeilen zuverlässig alle Seiten schafft. Vision explizit anfordern mit
-# KITCHENLINK_LLM_SEND_IMAGES=1 (höhere Einzelseiten-Qualität, aber langsam).
+# Default = VISION (Bilder): Runde 5 hat die Timeouts als Ursache behoben
+# (URLSession-Deckel 35 s -> 180 s, Seiten-Timeout 150 s, Seiten laufen jetzt
+# PARALLEL). Vision analysiert das Bild direkt und ist bei Layout/Spalten/
+# Set-Menüs zuverlässiger als reine OCR. Reinen Textmodus (OCR-Koordinaten,
+# ohne Bild) erzwingt man mit KITCHENLINK_LLM_SEND_IMAGES=0.
 if [[ "${KITCHENLINK_OPENCODE_FREE:-0}" == "1" ]]; then
   KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-https://opencode.ai/zen/v1}"
   KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-big-pickle}"
   KITCHENLINK_LLM_ALLOW_KEYLESS=1
-  KITCHENLINK_LLM_SEND_IMAGES="${KITCHENLINK_LLM_SEND_IMAGES:-0}"
 fi
 
 run_llm="false"

@@ -26,6 +26,29 @@ Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
 
+## Session-Teil 16: KL-SCAN-002 Runde 5 — Vision zuverlässig gemacht
+
+Nutzer-Korrektur (zu Recht): der KI-Pfad soll das Bild direkt analysieren;
+die Vision-Timeouts aus Runde 4 waren mein Engineering-Versäumnis, kein
+Grund für OCR-only. Behoben:
+
+- **Ursache gemessen:** Vision-Aufrufe dauern real 33–37 s/Seite; die
+  `URLSession`-Deckel lagen bei `timeoutIntervalForRequest = 35 s` /
+  `resource = 50 s` und schnitten korrekte Antworten ab; Retry (22/26 s) war
+  garantiert zu kurz; Seiten liefen seriell.
+- **Fix:** URLSession auf 180 s / 300 s, Seiten-Timeouts 150 s, und Seiten
+  laufen jetzt PARALLEL (`parseSingleLLMPage` + bounded TaskGroup, max 5
+  gleichzeitig). Vision wieder Default im Runner; Set-Menü-Fragmente beseitigt
+  (im KI-Modus keine lokalen `unpricedCandidates` mehr).
+- **Verifiziert (Vision, kostenlos):** alle Karten vollständig (Lichtburg 7/7
+  statt 5/7, Alexxanders 3/4 statt 1/4), Spalten komplett, Set-Menü ein
+  Eintrag ohne Reste, Code-Verdacht 0; Suite 207/0. Details:
+  `docs/test-fixtures/scanner-benchmark/ROUND_05_FINDINGS.md`.
+- **Nächster Schritt (autonom fortsetzbar):** den echten Menü-Korpus des
+  Nutzers über `KITCHENLINK_REVIEW_MENUS=<Ordner> KITCHENLINK_OPENCODE_FREE=1
+  ./scripts/run-import-review.sh` fahren und Einzelfehler entlang echter
+  Vielfalt schließen.
+
 ## Session-Teil 15: KL-SCAN-002 Runde 4 — Vision gemessen, Textmodus als Default
 
 - **Vision funktioniert** (Kontrolltest: weißes Bild → 0 Artikel, Menüseite →

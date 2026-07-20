@@ -4009,12 +4009,20 @@ enum MenuImportService {
     private static let llmAPIKeyStorageKey = "kitchenlink.import.llm.openai.key"
     private static let llmModelDefault = "gpt-4.1"
     private static var lastImportDiagnosticsStorage = "Nur OCR-Regeln genutzt."
-    private static let llmPrimaryTimeoutSeconds: Double = 36
-    private static let llmRetryTimeoutSeconds: Double = 22
+    // Vision-Aufrufe an das (langsame, reasonende) Free-Modell dauern gemessen
+    // 33–37 s pro Bildseite. Die Timeouts liegen deutlich darüber, sonst würde
+    // eine korrekte Antwort abgeschnitten. Seiten laufen parallel (siehe
+    // parseSectionsWithLLMPageByPage), daher ist die Gesamtlaufzeit trotzdem
+    // niedrig.
+    private static let llmPrimaryTimeoutSeconds: Double = 150
+    private static let llmRetryTimeoutSeconds: Double = 150
+    /// Maximale gleichzeitige Seitenanfragen pro Karte (schont das Free-Gateway,
+    /// hält aber mehrseitige Karten schnell).
+    private static let llmMaxConcurrentPages = 5
     private static let llmSession: URLSession = {
         let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 35
-        configuration.timeoutIntervalForResource = 50
+        configuration.timeoutIntervalForRequest = 180
+        configuration.timeoutIntervalForResource = 300
         configuration.waitsForConnectivity = false
         return URLSession(configuration: configuration)
     }()
@@ -4189,6 +4197,7 @@ enum MenuImportService {
         let detectedLegend = detectAllergenLegend(from: allLines)
         let localParseResult = parseLinesToResult(allLines, allergenLegend: detectedLegend)
         let sections: [MenuSectionData]
+        var usedLLM = false
 
         if isLLMEnabled(), hasConfiguredLLMAPIKey() {
             let llmOutcome = await parseSectionsWithLLM(
@@ -4198,6 +4207,7 @@ enum MenuImportService {
             )
             if let semanticSections = llmOutcome.sections {
                 sections = semanticSections
+                usedLLM = true
             } else {
                 if llmOutcome.message.localizedCaseInsensitiveContains("api-key ungültig") ||
                     llmOutcome.message.localizedCaseInsensitiveContains("http 401") ||
@@ -4227,11 +4237,14 @@ enum MenuImportService {
             sourceTypeDetail: sourceTypeDetail,
             displayName: displayName
         )
+        // Im KI-Modus ist das KI-Ergebnis autoritativ: die preislosen Kandidaten
+        // des LOKALEN Parsers (z. B. zerlegte Menü-Gangtitel) würden sonst als
+        // Fragmente in den Draft sickern. Deshalb dann keine lokalen Kandidaten.
         let draft = MenuImportDraftAdapter().makeDraft(
             sourceDocument: sourceDocument,
             legacySections: sections,
             ocrLines: allLines.map(snapshot),
-            unpricedCandidates: localParseResult.unpricedCandidates
+            unpricedCandidates: usedLLM ? [] : localParseResult.unpricedCandidates
         )
         return ImportResult(sections: sections, draft: draft)
     }
@@ -4746,128 +4759,87 @@ enum MenuImportService {
         )
     }
 
+    private enum LLMPageResult {
+        case sections([MenuSectionData])
+        case empty
+        case failed(String)
+    }
+
     private static func parseSectionsWithLLMPageByPage(
         apiKey: String,
         lines: [OCRLineToken],
         sourceImages: [UIImage],
         allergenLegend: [String: String]
     ) async -> LLMParseOutcome {
-        let legendSummary = makeLegendSummary(allergenLegend)
+        let totalPages = sourceImages.count
+
+        // Seiten PARALLEL verarbeiten (max. llmMaxConcurrentPages gleichzeitig),
+        // damit mehrseitige Karten nicht seriell 35 s je Seite kosten.
+        var results: [Int: LLMPageResult] = [:]
+        await withTaskGroup(of: (Int, LLMPageResult).self) { group in
+            var nextIndex = 0
+            let initial = min(llmMaxConcurrentPages, totalPages)
+            while nextIndex < initial {
+                let idx = nextIndex
+                group.addTask {
+                    (idx, await parseSingleLLMPage(
+                        pageIndex: idx,
+                        image: sourceImages[idx],
+                        lines: lines,
+                        allergenLegend: allergenLegend,
+                        apiKey: apiKey,
+                        totalPages: totalPages
+                    ))
+                }
+                nextIndex += 1
+            }
+            while let (idx, result) = await group.next() {
+                results[idx] = result
+                if nextIndex < totalPages {
+                    let queued = nextIndex
+                    group.addTask {
+                        (queued, await parseSingleLLMPage(
+                            pageIndex: queued,
+                            image: sourceImages[queued],
+                            lines: lines,
+                            allergenLegend: allergenLegend,
+                            apiKey: apiKey,
+                            totalPages: totalPages
+                        ))
+                    }
+                    nextIndex += 1
+                }
+            }
+        }
+
+        // In Seitenreihenfolge aggregieren.
         var collectedSections: [MenuSectionData] = []
         var pageErrors: [String] = []
         var successfulPages = 0
         var emptyPages = 0
+        var authFailure: String?
 
-        for (pageIndex, image) in sourceImages.enumerated() {
-            let pageNumber = pageIndex + 1
-            let pageLines = lines.filter { $0.pageIndex == pageIndex }
-            let ocrContext = String(makeLLMLineDump(from: pageLines).prefix(7_000))
-
-            let imageParts = makeLLMImageParts(
-                from: [image],
-                maxPages: 1,
-                maxDimension: 1400,
-                maxRawBytes: 1_000_000,
-                perImageMaxBytes: 1_000_000,
-                detail: "high"
-            )
-            guard !imageParts.isEmpty || !llmSendsImages else {
-                pageErrors.append("Seite \(pageNumber): kein nutzbares Bild")
-                continue
-            }
-
-            let systemPrompt = llmMenuSystemPrompt + "\nDu erhältst genau eine Seite der Karte."
-
-            let userPrompt = """
-            Aktuelle Seite: \(pageNumber) von \(sourceImages.count)
-
-            OCR-Linien dieser Seite (nur Zusatzkontext):
-            \(ocrContext)
-
-            Erkannte Allergen-Legende:
-            \(legendSummary)
-            """
-
-            let primaryAttempt = await runLLMMenuCallWithTimeout(
-                apiKey: apiKey,
-                systemPrompt: systemPrompt,
-                userPrompt: userPrompt,
-                imageParts: imageParts,
-                timeoutSeconds: 45
-            )
-
-            var parsedRoot = primaryAttempt.root
-            var lastError = primaryAttempt.errorMessage ?? "Unbekannter Fehler"
-
-            if parsedRoot == nil {
-                if lastError.localizedCaseInsensitiveContains("http 401") ||
-                    lastError.localizedCaseInsensitiveContains("incorrect api key") ||
-                    lastError.localizedCaseInsensitiveContains("api-key ungültig") {
-                    return LLMParseOutcome(
-                        sections: nil,
-                        message: "KI-Reflexion fehlgeschlagen: API-Key ungültig (HTTP 401)"
-                    )
-                }
-
-                let retryOnTimeout = lastError.localizedCaseInsensitiveContains("timed out") ||
-                    lastError.localizedCaseInsensitiveContains("timeout") ||
-                    lastError.localizedCaseInsensitiveContains("network connection was lost")
-                // Nicht-deterministische Free-Modelle liefern dieselbe Seite mal
-                // als gültiges, mal als kaputtes JSON. Ein einmaliger Neuversuch
-                // holt solche Seiten meist zurück (verifiziert an Alexxanders S4).
-                let retryOnBadJSON = lastError.localizedCaseInsensitiveContains("menümodell")
-                    || lastError.localizedCaseInsensitiveContains("parsebares json")
-
-                if retryOnTimeout {
-                    let slimParts = makeLLMImageParts(
-                        from: [image],
-                        maxPages: 1,
-                        maxDimension: 1024,
-                        maxRawBytes: 480_000,
-                        perImageMaxBytes: 480_000,
-                        detail: "low"
-                    )
-                    if !slimParts.isEmpty {
-                        let retryAttempt = await runLLMMenuCallWithTimeout(
-                            apiKey: apiKey,
-                            systemPrompt: systemPrompt,
-                            userPrompt: userPrompt,
-                            imageParts: slimParts,
-                            timeoutSeconds: 26
-                        )
-                        parsedRoot = retryAttempt.root
-                        lastError = retryAttempt.errorMessage ?? lastError
-                    }
-                } else if retryOnBadJSON {
-                    // Gleiche Anfrage erneut (auch im Textmodus ohne Bilder).
-                    let retryAttempt = await runLLMMenuCallWithTimeout(
-                        apiKey: apiKey,
-                        systemPrompt: systemPrompt,
-                        userPrompt: userPrompt,
-                        imageParts: imageParts,
-                        timeoutSeconds: 45
-                    )
-                    parsedRoot = retryAttempt.root
-                    lastError = retryAttempt.errorMessage ?? lastError
-                }
-            }
-
-            guard let root = parsedRoot else {
-                pageErrors.append("Seite \(pageNumber): \(lastError)")
-                continue
-            }
-
-            let mappedSections = mapLLMSections(root.sections, allergenLegend: allergenLegend)
-            // Eine Seite ohne Artikel ist KEIN Fehler: Deck-, Info- oder
-            // Getränke-nur-Seiten sind legitim leer. Sie zählen als sauber
-            // verarbeitet und dürfen die restliche Karte nicht verwerfen.
-            guard !mappedSections.isEmpty else {
+        for idx in 0..<totalPages {
+            switch results[idx] ?? .failed("kein Ergebnis") {
+            case .sections(let secs):
+                collectedSections = mergeImportedSections(collectedSections, with: secs)
+                successfulPages += 1
+            case .empty:
                 emptyPages += 1
-                continue
+            case .failed(let message):
+                if message.localizedCaseInsensitiveContains("401")
+                    || message.localizedCaseInsensitiveContains("api-key ungültig") {
+                    authFailure = message
+                }
+                pageErrors.append("Seite \(idx + 1): \(message)")
             }
+        }
 
-            collectedSections = mergeImportedSections(collectedSections, with: mappedSections)
-            successfulPages += 1
+        if let authFailure {
+            return LLMParseOutcome(
+                sections: nil,
+                message: "KI-Reflexion fehlgeschlagen: \(authFailure)"
+            )
         }
 
         // Ganze Karte verwerfen nur, wenn NICHTS erkannt wurde UND mindestens
@@ -4898,6 +4870,112 @@ enum MenuImportService {
             message: "Vision-KI seitenweise: \(itemCount) Artikel aus \(successfulPages)/\(sourceImages.count) Seiten."
                 + emptySuffix + errorSuffix
         )
+    }
+
+    /// Verarbeitet EINE Seite über das KI-Modell. Rein und nebenläufigkeitssicher
+    /// (nur lokaler Zustand + die thread-sichere `llmSession`), damit die Seiten
+    /// parallel laufen können. Liefert erkannte Sektionen, „leer" (Deck-/
+    /// Infoseite) oder einen Fehlertext.
+    private static func parseSingleLLMPage(
+        pageIndex: Int,
+        image: UIImage,
+        lines: [OCRLineToken],
+        allergenLegend: [String: String],
+        apiKey: String,
+        totalPages: Int
+    ) async -> LLMPageResult {
+        let pageNumber = pageIndex + 1
+        let legendSummary = makeLegendSummary(allergenLegend)
+        let pageLines = lines.filter { $0.pageIndex == pageIndex }
+        let ocrContext = String(makeLLMLineDump(from: pageLines).prefix(7_000))
+
+        let imageParts = makeLLMImageParts(
+            from: [image],
+            maxPages: 1,
+            maxDimension: 1400,
+            maxRawBytes: 1_000_000,
+            perImageMaxBytes: 1_000_000,
+            detail: "high"
+        )
+        guard !imageParts.isEmpty || !llmSendsImages else {
+            return .failed("kein nutzbares Bild")
+        }
+
+        let systemPrompt = llmMenuSystemPrompt + "\nDu erhältst genau eine Seite der Karte."
+        let userPrompt = """
+        Aktuelle Seite: \(pageNumber) von \(totalPages)
+
+        OCR-Linien dieser Seite (nur Zusatzkontext):
+        \(ocrContext)
+
+        Erkannte Allergen-Legende:
+        \(legendSummary)
+        """
+
+        let primaryAttempt = await runLLMMenuCallWithTimeout(
+            apiKey: apiKey,
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt,
+            imageParts: imageParts,
+            timeoutSeconds: llmPrimaryTimeoutSeconds
+        )
+
+        var parsedRoot = primaryAttempt.root
+        var lastError = primaryAttempt.errorMessage ?? "Unbekannter Fehler"
+
+        if parsedRoot == nil {
+            if lastError.localizedCaseInsensitiveContains("http 401")
+                || lastError.localizedCaseInsensitiveContains("incorrect api key")
+                || lastError.localizedCaseInsensitiveContains("api-key ungültig") {
+                return .failed("API-Key ungültig (HTTP 401)")
+            }
+
+            // Timeout ODER nicht-deterministisch kaputtes JSON: einmal neu.
+            // Beim Timeout mit reduziertem Bild, sonst identische Anfrage.
+            let retryOnTimeout = lastError.localizedCaseInsensitiveContains("timed out")
+                || lastError.localizedCaseInsensitiveContains("timeout")
+                || lastError.localizedCaseInsensitiveContains("network connection was lost")
+            let retryOnBadJSON = lastError.localizedCaseInsensitiveContains("menümodell")
+                || lastError.localizedCaseInsensitiveContains("parsebares json")
+
+            if retryOnTimeout {
+                let slimParts = makeLLMImageParts(
+                    from: [image],
+                    maxPages: 1,
+                    maxDimension: 1100,
+                    maxRawBytes: 640_000,
+                    perImageMaxBytes: 640_000,
+                    detail: "low"
+                )
+                let retryAttempt = await runLLMMenuCallWithTimeout(
+                    apiKey: apiKey,
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    imageParts: slimParts.isEmpty ? imageParts : slimParts,
+                    timeoutSeconds: llmRetryTimeoutSeconds
+                )
+                parsedRoot = retryAttempt.root
+                lastError = retryAttempt.errorMessage ?? lastError
+            } else if retryOnBadJSON {
+                let retryAttempt = await runLLMMenuCallWithTimeout(
+                    apiKey: apiKey,
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    imageParts: imageParts,
+                    timeoutSeconds: llmPrimaryTimeoutSeconds
+                )
+                parsedRoot = retryAttempt.root
+                lastError = retryAttempt.errorMessage ?? lastError
+            }
+        }
+
+        guard let root = parsedRoot else {
+            return .failed(lastError)
+        }
+
+        let mappedSections = mapLLMSections(root.sections, allergenLegend: allergenLegend)
+        // Leere Seite (Deck-/Info-/Zierseite) ist kein Fehler.
+        return mappedSections.isEmpty ? .empty : .sections(mappedSections)
     }
 
     private struct LLMCallOutcome {
