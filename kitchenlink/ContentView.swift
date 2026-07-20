@@ -4067,6 +4067,31 @@ enum MenuImportService {
         return nil
     }
 
+    /// KL-SCAN-002 Runde 2: Der KI-Pfad spricht jedes OpenAI-kompatible
+    /// Chat-Completions-Gateway. Basis-URL und Modell sind per Umgebung oder
+    /// Info.plist überschreibbar (z. B. OpenCode Zen:
+    /// `https://opencode.ai/zen/v1` + `claude-sonnet-5`); ohne Überschreibung
+    /// bleibt exakt das bisherige Verhalten (api.openai.com + gpt-4.1).
+    static var resolvedLLMBaseURL: String {
+        configValue(forKey: "KITCHENLINK_LLM_BASE_URL") ?? "https://api.openai.com/v1"
+    }
+
+    static var resolvedLLMModel: String {
+        configValue(forKey: "KITCHENLINK_LLM_MODEL") ?? llmModelDefault
+    }
+
+    private static func configValue(forKey key: String) -> String? {
+        if let environment = ProcessInfo.processInfo.environment[key] {
+            let trimmed = environment.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        if let bundled = Bundle.main.object(forInfoDictionaryKey: key) as? String {
+            let trimmed = bundled.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return nil
+    }
+
     static func importSections(
         from images: [UIImage],
         progress: (@Sendable (_ completed: Int, _ total: Int) async -> Void)? = nil
@@ -4866,7 +4891,7 @@ enum MenuImportService {
     ) async -> LLMCallOutcome {
         do {
             let requestBody = OpenAIChatRequest(
-                model: llmModelDefault,
+                model: resolvedLLMModel,
                 temperature: 0.1,
                 responseFormat: .init(type: "json_object"),
                 messages: [
@@ -4878,7 +4903,13 @@ enum MenuImportService {
                 ]
             )
 
-            var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
+            let base = resolvedLLMBaseURL.hasSuffix("/")
+                ? String(resolvedLLMBaseURL.dropLast())
+                : resolvedLLMBaseURL
+            guard let endpoint = URL(string: "\(base)/chat/completions") else {
+                return LLMCallOutcome(root: nil, errorMessage: "ungültige LLM-Basis-URL: \(base)")
+            }
+            var request = URLRequest(url: endpoint)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")

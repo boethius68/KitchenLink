@@ -80,12 +80,22 @@ Befundliste des Agenten.
 
 ### Naechster Schritt
 
-1. **Nutzer-Entscheidung fuer Runde 2:** OpenAI-Key fuer den vorhandenen
-   KI-Pfad bereitstellen (`KITCHENLINK_OPENAI_API_KEY=... ./scripts/
-   run-import-review.sh`) ODER den KI-Pfad zuerst auf einen anderen Anbieter
-   (z. B. Claude) umstellen — Anbieter/Kosten sind Nutzer-Entscheidung.
-2. Danach Vergleichslauf, Eigenverifikation, dann gezielte Haertung des
-   KI-Pfads entlang der Zielliste; der Regel-Parser bleibt Offline-Fallback.
+1. **Nutzer-Entscheidung gefallen (20. Juli): OpenCode-Zen-Key.** Der
+   KI-Client ist dafuer auf konfigurierbare OpenAI-kompatible Gateways
+   verallgemeinert (`resolvedLLMBaseURL`/`resolvedLLMModel`, Env oder
+   Info.plist; Standard unveraendert api.openai.com + gpt-4.1). Der Runner
+   kennt `KITCHENLINK_OPENCODE_API_KEY=…` als Ein-Schritt-Weg
+   (Gateway `https://opencode.ai/zen/v1`, Standardmodell `claude-sonnet-5`,
+   Vision-faehig; Modell per `KITCHENLINK_LLM_MODEL` wechselbar). Offen ist
+   nur noch der echte Lauf mit dem Key des Nutzers:
+   `KITCHENLINK_OPENCODE_API_KEY=… ./scripts/run-import-review.sh`.
+   Ehrliche Grenze: ob Zen Claude-Modelle ueber den generischen
+   `chat/completions`-Endpunkt bedient, konnte ohne Key nicht verifiziert
+   werden; ein Fehler landet sichtbar als `llmError` im Report, dann Modell
+   wechseln (z. B. `gemini-3.5-flash`) oder Endpunkt-Anpassung nachziehen.
+2. Danach Vergleichslauf, Eigenverifikation (Pflicht), dann gezielte
+   Haertung des KI-Pfads entlang der Zielliste; der Regel-Parser bleibt
+   Offline-Fallback.
 3. Unveraendert offen: reale Abnahmen KL-CLOUD-001 (§6.1) und KL-MENU-005
    (§6.2).
 

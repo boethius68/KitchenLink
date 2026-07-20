@@ -74,8 +74,13 @@ die Roh-OCR-Zeilen pro Seite.
 **Eine Runde:**
 
 1. **Lauf:** Agent oder Nutzer führt das Skript aus (mit möglichst vielen
-   Karten). Mit gesetztem `KITCHENLINK_OPENAI_API_KEY` läuft zusätzlich der
-   KI-Pfad; der Report zeigt dann beide Pipelines umschaltbar nebeneinander.
+   Karten). Mit gesetztem API-Key läuft zusätzlich der KI-Pfad; der Report
+   zeigt dann beide Pipelines umschaltbar nebeneinander. Unterstützt:
+   `KITCHENLINK_OPENAI_API_KEY` (OpenAI direkt), `KITCHENLINK_OPENCODE_API_KEY`
+   (OpenCode-Zen-Gateway, Standardmodell `claude-sonnet-5`, Vision-fähig)
+   oder ein beliebiges OpenAI-kompatibles Gateway über
+   `KITCHENLINK_LLM_BASE_URL` + `KITCHENLINK_LLM_MODEL`. Wichtig: das
+   gewählte Modell muss Bildeingabe (Vision) unterstützen.
 2. **Selbstverifikation (Pflicht, seit Runde 1):** Der Agent prüft den Lauf
    zuerst vollständig selbst — jede Seite gegen die Roh-OCR-Zeilen — und legt
    dem Nutzer seine eigene Befundliste zusammen mit dem Report vor. Ein Lauf

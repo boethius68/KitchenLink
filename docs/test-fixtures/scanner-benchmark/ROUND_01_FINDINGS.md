@@ -67,9 +67,12 @@ Review-Umgebung kann beide Pipelines nebeneinander zeigen).
 ## 3. Nächste Schritte (Runde 2)
 
 1. **KI-Vergleich messen:** Review-Umgebung im Vergleichsmodus laufen lassen
-   (lokal vs. KI nebeneinander). Benötigt den OpenAI-Key des Nutzers
-   (`KITCHENLINK_OPENAI_API_KEY` beim Skriptaufruf); alternativ Entscheidung,
-   den KI-Pfad auf einen anderen Anbieter umzustellen.
+   (lokal vs. KI nebeneinander). Nutzerentscheidung vom 20. Juli: über einen
+   **OpenCode-Zen-Key** (`KITCHENLINK_OPENCODE_API_KEY=…
+   ./scripts/run-import-review.sh`; OpenAI-kompatibles Gateway
+   `https://opencode.ai/zen/v1`, Standardmodell `claude-sonnet-5`,
+   Vision-fähig). OpenAI direkt oder ein anderes OpenAI-kompatibles Gateway
+   bleiben als Alternativen verdrahtet.
 2. Nach dem Vergleich: KI-Pfad gezielt auf die Zielliste härten (Bundles,
    `per_person`, Sprachen-Trennung, Deckseiten, Legende-Warnung) statt den
    Regel-Parser fallweise zu flicken. Der Regel-Parser bleibt Offline-Fallback

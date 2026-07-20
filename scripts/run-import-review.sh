@@ -14,8 +14,20 @@
 #
 # KI-Vergleich (Runde 2): mit gesetztem API-Key läuft zusätzlich der
 # vorhandene KI-Pfad (Seitenbilder + OCR an das Vision-LLM); der Report zeigt
-# beide Pipelines umschaltbar nebeneinander:
-#   KITCHENLINK_OPENAI_API_KEY=sk-... ./scripts/run-import-review.sh
+# beide Pipelines umschaltbar nebeneinander.
+#
+#   Mit OpenAI direkt:
+#     KITCHENLINK_OPENAI_API_KEY=sk-... ./scripts/run-import-review.sh
+#
+#   Mit OpenCode Zen (OpenAI-kompatibles Gateway, https://opencode.ai/zen):
+#     KITCHENLINK_OPENCODE_API_KEY=... ./scripts/run-import-review.sh
+#   Standardmodell dabei: claude-sonnet-5 (Vision-fähig). Anderes Modell:
+#     KITCHENLINK_LLM_MODEL=gemini-3.5-flash KITCHENLINK_OPENCODE_API_KEY=... \
+#       ./scripts/run-import-review.sh
+#
+#   Beliebiges anderes OpenAI-kompatibles Gateway:
+#     KITCHENLINK_LLM_BASE_URL=https://.../v1 KITCHENLINK_LLM_MODEL=... \
+#       KITCHENLINK_OPENAI_API_KEY=... ./scripts/run-import-review.sh
 #
 # Jeder Lauf landet in einem eigenen Zeitstempel-Ordner; "latest" zeigt auf den
 # neuesten. Feedback aus dem Report bitte als import-review-feedback.json an
@@ -53,10 +65,19 @@ app_bundle="$derived_data/Build/Products/Debug-iphonesimulator/kitchenlink.app"
 # Scanner-Benchmark, nur mit Inhalt statt leerer Flag-Datei). Der API-Key
 # selbst landet NIE in einer Datei; er wird nur als TEST_RUNNER_-Variable in
 # den Testprozess gereicht.
+#
+# OpenCode-Bequemlichkeit: KITCHENLINK_OPENCODE_API_KEY setzt Gateway,
+# Vision-Standardmodell und Key in einem Schritt.
+if [[ -n "${KITCHENLINK_OPENCODE_API_KEY:-}" ]]; then
+  KITCHENLINK_OPENAI_API_KEY="$KITCHENLINK_OPENCODE_API_KEY"
+  KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-https://opencode.ai/zen/v1}"
+  KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-claude-sonnet-5}"
+fi
+
 run_llm="false"
 if [[ -n "${KITCHENLINK_OPENAI_API_KEY:-}" ]]; then
   run_llm="true"
-  echo "KI-Vergleich aktiv (API-Key aus der Umgebung)."
+  echo "KI-Vergleich aktiv: ${KITCHENLINK_LLM_MODEL:-gpt-4.1} @ ${KITCHENLINK_LLM_BASE_URL:-https://api.openai.com/v1}"
 fi
 
 if [[ -n "$extra_menus" ]]; then
@@ -74,6 +95,8 @@ xctestrun=$(find "$derived_data/Build/Products" -maxdepth 1 -name '*.xctestrun' 
 }
 
 TEST_RUNNER_KITCHENLINK_OPENAI_API_KEY="${KITCHENLINK_OPENAI_API_KEY:-}" \
+TEST_RUNNER_KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-}" \
+TEST_RUNNER_KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-}" \
 xcodebuild \
   test-without-building \
   -xctestrun "$xctestrun" \

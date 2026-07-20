@@ -282,12 +282,15 @@ final class MenuImportReviewHarnessTests: XCTestCase {
                     )
                     llmLegacySections = llmResult.sections.map(legacySection(from:))
                     llmDraftSections = llmResult.draft.sections.map(draftSection(from:))
-                    llmDiagnostics = MenuImportService.lastImportDiagnostics()
+                    llmDiagnostics = "Modell \(MenuImportService.resolvedLLMModel) @ "
+                        + "\(MenuImportService.resolvedLLMBaseURL) — "
+                        + MenuImportService.lastImportDiagnostics()
                 } catch {
                     llmError = String(describing: error)
                 }
             } else {
-                llmError = "Kein API-Key konfiguriert (KITCHENLINK_OPENAI_API_KEY)."
+                llmError = "Kein API-Key konfiguriert "
+                    + "(KITCHENLINK_OPENAI_API_KEY oder KITCHENLINK_OPENCODE_API_KEY)."
             }
         }
 
