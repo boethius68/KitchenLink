@@ -62,8 +62,14 @@ struct MenuImportDraftReviewView: View {
         let id: String
     }
 
+    private struct PublishPayload: Identifiable {
+        let id = UUID()
+        let sections: [MenuSectionData]
+    }
+
     @Environment(\.dismiss) private var dismiss
     @State private var selectedEntry: SelectedEntry?
+    @State private var publishPayload: PublishPayload?
 
     var body: some View {
         NavigationStack {
@@ -106,6 +112,9 @@ struct MenuImportDraftReviewView: View {
                     pages: pages
                 )
                 .id(selected.id)
+            }
+            .sheet(item: $publishPayload) { payload in
+                MenuPublishSheet(sections: payload.sections)
             }
         }
         .tint(KitchenLinkV2Palette.Brand.grape)
@@ -273,6 +282,15 @@ struct MenuImportDraftReviewView: View {
                 }
                 .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
                 .accessibilityIdentifier("draftReview.convert")
+
+                Button("Online veröffentlichen") {
+                    if let sections = model.convertToSandboxSections() {
+                        publishPayload = PublishPayload(sections: sections)
+                    }
+                }
+                .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                .accessibilityIdentifier("draftReview.publishOnline")
+                .accessibilityHint("Veröffentlicht die geprüfte Karte im Gast-Web.")
             }
         }
         .padding(.horizontal, KitchenLinkV2Spacing.large)

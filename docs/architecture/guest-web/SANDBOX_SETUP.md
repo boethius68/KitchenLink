@@ -56,7 +56,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **fünf** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **sechs** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -65,6 +65,7 @@ Es gibt **fünf** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260718010000_guest_web_submit_order_race_fix.sql` | Race-safe RPC (KL-WEB-003) |
 | `supabase/migrations/20260719000000_menu_items_tag.sql` | Menü-Tag-Feld und Seed für den Supabase-Leseweg (KL-WEB-004) |
 | `supabase/migrations/20260719100000_operator_cloud_orders.sql` | Betreiber: venue_staff, Staff-Lese-Policies, Status-RPC, Hub-Presence (KL-CLOUD-001) |
+| `supabase/migrations/20260719200000_operator_publish_menu.sql` | Betreiber-RPC zum Veröffentlichen einer gescannten Karte (KL-MENU-005) |
 
 ### Weg A — über die CLI (empfohlen)
 
@@ -253,6 +254,31 @@ App alle 15 s einen Heartbeat nach `venue_hub_presence` (inklusive der lokalen
 Hub-URL). Bleibt der Heartbeat > 45 s aus, blendet das Gast-Web den Hinweis
 „Online-Bestellung gerade nicht möglich" ein und verweist auf die lokale
 Bestellseite im Restaurant-WLAN.
+
+---
+
+## 6.2 Gescannte Karte online veröffentlichen (KL-MENU-005)
+
+Die Scan-zu-Publish-Brücke bringt eine geprüfte, gescannte Speisekarte in die
+Supabase-Venue, sodass sie auf dem Gast-Web erscheint. Voraussetzung ist das
+Betreiber-Konto aus 6.1 (dieselbe Anmeldung; eine bestehende Sitzung genügt).
+
+1. Migration `20260719200000_operator_publish_menu.sql` anwenden (Abschnitt 2).
+2. In der App eine Speisekarte scannen/importieren und im Prüf-Dialog
+   („Import prüfen") alle offenen Einträge klären.
+3. Sobald die Karte klarläuft, unten **„Online veröffentlichen"** wählen. Bei
+   vorhandener Betreiber-Sitzung genügt ein Tap; sonst einmal E-Mail + Passwort
+   des Betreiber-Kontos eingeben. Es werden keine technischen Verbindungsdaten
+   abgefragt.
+4. Bestätigung: das Sheet meldet „Karte ist online" mit der Live-URL
+   (`kitchenlink.luneq.eu/alte-muehle/menu`). Die Gastkarte wird durch die
+   ISR-Zwischenspeicherung in der Regel innerhalb einer Minute aktualisiert.
+
+**Semantik:** Ein veröffentlichter Scan **ersetzt** die aktive Karte der Venue
+vollständig (kein Merge). Der eingebaute Sandbox-Seed (8 Demo-Artikel) wird
+dadurch durch die gescannte Karte abgelöst. Der Schreibweg läuft nur über die
+staff-gated RPC `operator_publish_menu`; die Menü-Tabellen bleiben ohne direkte
+Client-Schreib-Policy.
 
 ---
 

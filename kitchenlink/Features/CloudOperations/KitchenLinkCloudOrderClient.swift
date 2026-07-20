@@ -191,7 +191,10 @@ enum KitchenLinkCloudServiceError: LocalizedError, Equatable {
     }
 }
 
-protocol KitchenLinkCloudTransport: Sendable {
+/// Nur Anmeldung und Sitzungserneuerung. Schmal genug, dass Nebenpfade wie die
+/// Menü-Veröffentlichung (KL-MENU-005) davon abhängen können, ohne die vollen
+/// Bestell-Methoden zu benötigen. `KitchenLinkCloudTransport` verfeinert es.
+protocol KitchenLinkCloudAuthenticating: Sendable {
     func signIn(
         config: KitchenLinkCloudConfig,
         email: String,
@@ -202,7 +205,9 @@ protocol KitchenLinkCloudTransport: Sendable {
         config: KitchenLinkCloudConfig,
         refreshToken: String
     ) async throws -> KitchenLinkCloudSession
+}
 
+protocol KitchenLinkCloudTransport: KitchenLinkCloudAuthenticating {
     func resolveVenue(
         config: KitchenLinkCloudConfig,
         slug: String
@@ -449,6 +454,25 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
         function: String,
         body: [String: String?]
     ) async throws -> Data {
+        try await rpcData(
+            config: config,
+            accessToken: urlSessionSession.accessToken,
+            function: function,
+            bodyData: try JSONEncoder().encode(body)
+        )
+    }
+
+    /// Gemeinsamer RPC-POST für Bodies mit beliebiger (auch verschachtelter)
+    /// Struktur. `rpc` reicht ein flaches `[String: String?]` durch; die
+    /// Menü-Veröffentlichung reicht eine JSON-kodierte Nutzlast mit
+    /// eingebettetem `p_menu` durch.
+    func rpcData(
+        config: KitchenLinkCloudConfig,
+        accessToken: String,
+        function: String,
+        bodyData: Data,
+        timeout: TimeInterval = 10
+    ) async throws -> Data {
         guard let baseURL = config.baseURL else {
             throw KitchenLinkCloudServiceError.invalidConfiguration
         }
@@ -456,14 +480,11 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 10
+        request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(config.anonKey, forHTTPHeaderField: "apikey")
-        request.setValue(
-            "Bearer \(urlSessionSession.accessToken)",
-            forHTTPHeaderField: "Authorization"
-        )
-        request.httpBody = try JSONEncoder().encode(body)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = bodyData
 
         let (data, response) = try await session.data(for: request)
         try validate(response: response, data: data)
@@ -500,6 +521,39 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
             status: http.statusCode,
             message: message ?? "Cloud-Fehler (HTTP \(http.statusCode))"
         )
+    }
+}
+
+/// KL-MENU-005: dieselbe Transport-Implementierung bedient auch die
+/// Menü-Veröffentlichung. Die RPC `operator_publish_menu` erwartet ein
+/// verschachteltes `p_menu`-JSON, daher der Encodable-Body statt des flachen
+/// `[String: String?]`.
+extension URLSessionKitchenLinkCloudTransport: KitchenLinkMenuPublishTransport {
+    func publishMenu(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        menu: KitchenLinkPublishMenu
+    ) async throws -> KitchenLinkMenuPublishReceipt {
+        struct PublishBody: Encodable {
+            let p_venue_slug: String
+            let p_menu: KitchenLinkPublishMenu
+        }
+        let bodyData = try JSONEncoder().encode(
+            PublishBody(p_venue_slug: venueSlug, p_menu: menu)
+        )
+        let data = try await rpcData(
+            config: config,
+            accessToken: session.accessToken,
+            function: "operator_publish_menu",
+            bodyData: bodyData,
+            timeout: 15
+        )
+        guard let rows = try? JSONDecoder().decode([KitchenLinkMenuPublishReceipt].self, from: data),
+              let receipt = rows.first else {
+            throw KitchenLinkCloudServiceError.invalidResponse
+        }
+        return receipt
     }
 }
 
