@@ -700,20 +700,22 @@ Grenze wie KL-WEB-002/KL-CLOUD-001) — aufzuloesen durch die reale Abnahme
 
 ### KL-SCAN-002 - Import-Qualitaetsrunden mit Review-Umgebung
 
-**Status:** Runde 1 ausgewertet (20. Juli 2026): Nutzer-Feedback erhalten,
-vollstaendige Befundliste mit belegten Ursachen in
-`docs/test-fixtures/scanner-benchmark/ROUND_01_FINDINGS.md`. Kernbefund: die
-OCR verliert nichts Wesentliches (inkl. Spalten-Koordinaten, Menuestruktur,
-`pro Person`-Preis) — der lokale Regel-Parser ist der Engpass (kein
-2D-Layout-Verstaendnis, keine Semantik fuer Set-Menues/Zweisprachigkeit/
-Deckseiten/Variantenspalten). Der im Code vorhandene KI-Pfad
-(`parseSectionsWithLLM`: Seitenbilder + OCR an ein Vision-LLM, derzeit
-OpenAI) ist die geforderte „intelligente Erfassung"; die Review-Umgebung
-kann jetzt beide Pipelines im selben Report umschaltbar vergleichen
-(`KITCHENLINK_OPENAI_API_KEY=... ./scripts/run-import-review.sh`). Runde 2
-(der reale Vergleichslauf) wartet auf den API-Key bzw. die
-Anbieter-Entscheidung des Nutzers. Prozessregel seit Runde 1: der Agent
-verifiziert jeden Lauf zuerst selbst vollstaendig (QUALITY_TARGETS.md §2).
+**Status:** Runden 1–4 abgeschlossen (20. Juli 2026). Der KI-Textpfad
+(OpenCode Zen Free-Modell `big-pickle`, keylos/kostenlos, Textmodus mit
+koordinaten-annotierten OCR-Zeilen) schlaegt den Regel-Parser klar und ist
+der neue Default. Belegte Befunde je Runde in
+`ROUND_01..04_FINDINGS.md`; Kernpunkte: R1 — Engpass ist der Regel-Parser,
+nicht die OCR; R2 — keyloser Free-Zugang, Reasoning-Antworten, JSON-Reparatur,
+Teilergebnisse; R3 — Set-/Gang-Menues als ein bepreister Eintrag, `per_person`,
+German-quote-JSON-Reparatur, Retry-auf-JSON-Fehler (alle Karten laufen
+vollstaendig); R4 — Vision gemessen (funktioniert, aber Timeout-anfaellig →
+Textmodus bleibt Default, Vision Opt-in). Offen (Runde 5, abnehmender Ertrag):
+preislose Set-Menue-Gang-Reste (kosmetisch, unpubliziert; Ursache: lokale
+`unpricedCandidates` im KI-Modus), Streupreise, Kategorienschnitt. Prozessregel
+seit R1: Agent verifiziert jeden Lauf zuerst selbst (QUALITY_TARGETS.md §2).
+Verifikation: komplette `kitchenlinkTests`-Suite 207/0, 5 JSON-Repair-Tests.
+**Empfehlung:** guter Zwischenstand; hoehere Prioritaet haben die realen
+Produkt-Abnahmen (KL-MENU-005 §6.2, KL-CLOUD-001 §6.1).
 **Abhaengigkeit:** KL-SCAN-001 (Fixtures + Benchmark), KL-MENU-003/004
 (Draft-Pipeline); motiviert durch Nutzerbefund nach KL-MENU-005 („Namen passen
 groesstenteils, aber nicht alle")

@@ -19,16 +19,18 @@
 #   Mit OpenAI direkt:
 #     KITCHENLINK_OPENAI_API_KEY=sk-... ./scripts/run-import-review.sh
 #
-#   Mit OpenCode Zen, kostenlos und OHNE Key (Free-Modelle brauchen keine
-#   Auth; Standardmodell big-pickle -> mimo-v2.5, kann Text und Vision):
+#   Mit OpenCode Zen, kostenlos und OHNE Key (Free-Modelle brauchen keine Auth;
+#   Standardmodell big-pickle -> mimo-v2.5; Default = Textmodus mit
+#   Koordinaten-OCR, der zuverlässig alle Seiten schafft):
 #     KITCHENLINK_OPENCODE_FREE=1 ./scripts/run-import-review.sh
+#
+#   Vision explizit (höhere Einzelseiten-Qualität, aber langsam/Timeout-anfällig
+#   auf dem Free-Tier):
+#     KITCHENLINK_LLM_SEND_IMAGES=1 KITCHENLINK_OPENCODE_FREE=1 \
+#       ./scripts/run-import-review.sh
 #
 #   Mit OpenCode-Zen-Key (falls doch ein gültiger Key vorliegt):
 #     KITCHENLINK_OPENCODE_API_KEY=... ./scripts/run-import-review.sh
-#
-#   Anderes Free-Modell / Textmodus, falls ein Modell keine Bilder versteht:
-#     KITCHENLINK_LLM_MODEL=deepseek-v4-flash-free KITCHENLINK_LLM_SEND_IMAGES=0 \
-#       KITCHENLINK_OPENCODE_FREE=1 ./scripts/run-import-review.sh
 #
 #   Beliebiges anderes OpenAI-kompatibles Gateway:
 #     KITCHENLINK_LLM_BASE_URL=https://.../v1 KITCHENLINK_LLM_MODEL=... \
@@ -83,10 +85,17 @@ fi
 # Keyloser Free-Modus: OpenCode Zen bedient die Free-Modelle ohne Auth. Ohne
 # Key wird KEIN Authorization-Header gesendet (ein falscher Key würde 401
 # auslösen). KITCHENLINK_OPENCODE_FREE=1 aktiviert das in einem Schritt.
+#
+# Default = TEXTMODUS: Runde-3-Messung zeigte, dass big-pickle im Bildmodus
+# regelmäßig in Timeouts läuft (Bilder+Reasoning > 26–45 s/Seite) und die
+# Coverage einbricht, während der Textmodus mit koordinaten-annotierten
+# OCR-Zeilen zuverlässig alle Seiten schafft. Vision explizit anfordern mit
+# KITCHENLINK_LLM_SEND_IMAGES=1 (höhere Einzelseiten-Qualität, aber langsam).
 if [[ "${KITCHENLINK_OPENCODE_FREE:-0}" == "1" ]]; then
   KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-https://opencode.ai/zen/v1}"
   KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-big-pickle}"
   KITCHENLINK_LLM_ALLOW_KEYLESS=1
+  KITCHENLINK_LLM_SEND_IMAGES="${KITCHENLINK_LLM_SEND_IMAGES:-0}"
 fi
 
 run_llm="false"

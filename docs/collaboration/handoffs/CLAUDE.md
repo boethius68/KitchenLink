@@ -26,6 +26,25 @@ Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
 
+## Session-Teil 15: KL-SCAN-002 Runde 4 — Vision gemessen, Textmodus als Default
+
+- **Vision funktioniert** (Kontrolltest: weißes Bild → 0 Artikel, Menüseite →
+  korrekte Gerichte; `image_tokens` meldet Zen als 0, ist aber nur Reporting).
+- **Voller Vergleich:** Vision-Qualität pro Seite minimal besser, aber
+  Timeouts (Bild+Reasoning > 26–45 s) brechen die Abdeckung ein (Lichtburg
+  5/7, Alexxanders 1/4) gegenüber Textmodus (7/7 bzw. 3/4).
+- **Entscheidung:** Textmodus mit Koordinaten-OCR ist der Free-Default
+  (`KITCHENLINK_OPENCODE_FREE=1` setzt jetzt `KITCHENLINK_LLM_SEND_IMAGES=0`
+  vor); Vision bleibt Opt-in (`=1`). Details:
+  `docs/test-fixtures/scanner-benchmark/ROUND_04_FINDINGS.md`.
+- **Set-Menü-Reste eingegrenzt:** die preislosen Gang-Fragmente im Draft kommen
+  im KI-Modus weiterhin aus `localParseResult.unpricedCandidates` (lokaler
+  Parser), nicht aus dem KI-Ergebnis — kosmetisch (preislos, unpubliziert),
+  sauberer Fix ist Runde-5-Material.
+- **Empfehlung:** guter Zwischenstand nach vier Runden; abnehmender Ertrag.
+  Zurück zum Produktfaden (reale Abnahmen KL-MENU-005 §6.2 / KL-CLOUD-001 §6.1,
+  Tisch-Kontext im Gast-Web) ist der höherwertige nächste Schritt.
+
 ## Session-Teil 14: KL-SCAN-002 Runde 3 — KI-Pfad gehärtet
 
 Auf „mach direkt weiter" die vier offenen Runde-2-Punkte angegangen; die zwei

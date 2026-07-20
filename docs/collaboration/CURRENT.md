@@ -405,9 +405,17 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   (plus any user-supplied menus) through the real local OCR pipeline and opens
   an HTML report — original page with evidence overlays next to the parsed
   result, automatic issue flags, per-entry OK/Falsch feedback with export for
-  the agent. The first run already surfaces real findings (legend codes inside
-  descriptions and names, duplicated description fragments, OCR confusions).
-  Parser fixes start with round 1 once the user returns the first feedback
-  export.
+  the agent. Rounds 1–4 are done (`ROUND_01..04_FINDINGS.md`): the decisive
+  result is that the AI path — the free OpenCode Zen model `big-pickle`,
+  keyless and free, in **text mode with coordinate-annotated OCR lines** —
+  clearly beats the rule parser (allergen codes separated, descriptions and
+  columns kept, set/course menus captured as one priced item with `per_person`,
+  robust JSON handling via a German-quote-aware repair plus a retry). Vision was
+  measured and works but is timeout-prone on the free tier, so text mode is the
+  default (`OPENCODE_FREE=1` sets `SEND_IMAGES=0`; vision is opt-in). The rule
+  parser stays the offline fallback and benchmark base. Remaining items are
+  polish with diminishing returns (priceless set-menu course fragments, stray
+  prices); the higher-value next step is the real product acceptances
+  (KL-MENU-005 §6.2, KL-CLOUD-001 §6.1) and a table context in the guest web.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.
