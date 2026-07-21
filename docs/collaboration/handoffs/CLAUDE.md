@@ -145,9 +145,34 @@ Damit ist die Kette Editor/Import → Payload → RPC → DB → Gast-Web durchg
   gespielt werden (Nutzer-Workflow, SANDBOX_SETUP §6.2); lokal verifiziert, real
   noch nicht angewandt. Erst danach zeigt das Gast-Web bei ECHTEN (statt Sandbox-)
   Karten Legende + Varianten.
-- Import-Dubletten auf zweisprachigen Karten (140, v. a. Ristorante Italia) und
-  Per-Item-Code-Vollständigkeit (~51 % karteübergreifend) bleiben offen; die
-  Legende selbst wird jetzt erfasst.
+### E. Zweisprachige Dubletten entfernt (erledigt, an echten Daten verifiziert)
+
+Ursache aus dem realen Report (Ristorante Italia) belegt: die Karte druckt erst
+den kompletten deutschen Teil, dann denselben auf Englisch. Die Sektionstitel
+weichen ab („Antipasti - Vorspeisen" vs „Antipasti - Starters"), also führt
+`mergeImportedSections` sie nicht zusammen — jedes Gericht doppelt (44 Sektionen,
+263 Artikel, ~90 exakte Dubletten).
+
+- Neue `MenuImportService.dropMirroredSections` (in beide LLM-Pfade eingehängt,
+  nach Merge/Legende): verwirft eine Sektion, wenn sie ein Spiegel einer früheren
+  ist — zwei konservative Signale: (1) exakte Namensgleichheit aller Gerichte
+  (kind|Name|Preis); (2) identische Preis-Multimenge (+ kind) ab 5 Gerichten
+  (fängt übersetzte Namen wie „Orange juice" = „Orangensaft"). Unter 5 Gerichten
+  nur Namens-Signal, damit kleine Sektionen mit zufällig gleichen Preisen (z. B.
+  Rot-/Weißweine) NICHT fälschlich verschwinden.
+- **Verifiziert an den echten Report-Daten** (Simulation der exakten Logik):
+  44→29 Sektionen, 263→159 Artikel (104 Dubletten entfernt), KEINE deutsche
+  Sektion fälschlich verworfen (der Weißwein-False-Positive der naiven
+  Preisvariante ist durch das ≥5-Gate ausgeschlossen). 5 neue Swift-Unit-Tests
+  (beide Signale + Sicherheitsfälle) grün; Suite 216/0/2.
+- Rest: wenige kleine (1–2-Artikel-)Übersetzungssektionen bleiben bewusst als
+  Dublette stehen (sicherer als Fehl-Löschen); im Review leicht zu entfernen.
+
+### Weiterhin offen
+
+- Per-Item-Code-Vollständigkeit (~51 % karteübergreifend) ist modellabhängig; der
+  Prompt fordert die Codes bereits scharf. Verbesserung braucht Messläufe über
+  den echten Korpus.
 
 ## Session-Teil 16: KL-SCAN-002 Runde 5 — Vision zuverlässig gemacht
 

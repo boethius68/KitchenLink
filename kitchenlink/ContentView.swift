@@ -4859,7 +4859,9 @@ enum MenuImportService {
         }
 
         let effectiveLegend = mergeLegends(local: allergenLegend, llm: root.legend)
-        let mappedSections = mapLLMSections(root.sections, allergenLegend: effectiveLegend)
+        let mappedSections = dropMirroredSections(
+            mapLLMSections(root.sections, allergenLegend: effectiveLegend)
+        )
         guard !mappedSections.isEmpty else {
             return LLMParseOutcome(sections: nil, message: "KI-Reflexion lieferte keine nutzbaren Menüdaten.")
         }
@@ -4968,6 +4970,10 @@ enum MenuImportService {
                 collectedSections[index].allergenLegend = finalLegend
             }
         }
+
+        // Gespiegelte Sektionen zweisprachiger Karten entfernen (deutscher Teil
+        // gefolgt vom englischen mit identischen Gerichten/Preisen).
+        collectedSections = dropMirroredSections(collectedSections)
 
         if let authFailure {
             return LLMParseOutcome(
@@ -5504,6 +5510,65 @@ enum MenuImportService {
             }
         }
 
+        return result
+    }
+
+    /// Entfernt gespiegelte Sektionen zweisprachiger Karten. Viele Karten führen
+    /// erst den kompletten deutschen Teil und danach denselben Teil auf Englisch
+    /// (z. B. „Antipasti - Vorspeisen" … dann „Antipasti - Starters" …). Weil die
+    /// Sektionstitel abweichen, führt `mergeImportedSections` sie nicht zusammen
+    /// und jedes Gericht erscheint doppelt.
+    ///
+    /// Zwei Spiegel-Signale, beide bewusst konservativ (nie ein echtes Gericht
+    /// verlieren):
+    /// 1. Namens-Spiegel: ALLE Gerichte (kind|Name|Preis) kamen bereits in
+    ///    früheren Sektionen vor — trifft Karten mit sprachneutralen (z. B.
+    ///    italienischen) Gerichtsnamen.
+    /// 2. Preis-Spiegel: identische Preis-Multimenge (+ kind) zu einer früheren,
+    ///    noch nicht gespiegelten Sektion — trifft übersetzte Namen („Orange
+    ///    juice" = „Orangensaft") bei gleichem Preis. Nur ab `minPriceMirrorItems`
+    ///    Gerichten, weil kleine Sektionen zufällig dieselben Preise haben können
+    ///    (z. B. zwei Weine); darunter greift nur der exakte Namens-Spiegel.
+    static func dropMirroredSections(_ sections: [MenuSectionData]) -> [MenuSectionData] {
+        let minPriceMirrorItems = 5
+
+        func itemKey(_ item: MenuItemData) -> String {
+            "\(item.kind.rawValue)|\(normalizedForMatching(item.name))|\(item.priceCents)"
+        }
+        func priceSignature(_ section: MenuSectionData) -> String {
+            let prices = section.items.map { $0.priceCents }.sorted()
+            return "\(section.kind.rawValue)|\(prices.map(String.init).joined(separator: ","))"
+        }
+
+        var seenItemKeys: Set<String> = []
+        // Preis-Signaturen bereits behaltener Sektionen; jede kann nur EINEN
+        // Spiegel absorbieren (1:1-Zuordnung deutsch↔englisch).
+        var availablePriceSignatures: [(signature: String, used: Bool)] = []
+        var result: [MenuSectionData] = []
+
+        for section in sections {
+            let keys = section.items.map(itemKey)
+            guard !keys.isEmpty else { continue }
+
+            let isNameMirror = keys.allSatisfy { seenItemKeys.contains($0) }
+
+            var isPriceMirror = false
+            if !isNameMirror, section.items.count >= minPriceMirrorItems {
+                let signature = priceSignature(section)
+                if let index = availablePriceSignatures.firstIndex(where: {
+                    !$0.used && $0.signature == signature
+                }) {
+                    availablePriceSignatures[index].used = true
+                    isPriceMirror = true
+                }
+            }
+
+            if isNameMirror || isPriceMirror { continue } // Spiegel -> verwerfen
+
+            result.append(section)
+            for key in keys { seenItemKeys.insert(key) }
+            availablePriceSignatures.append((priceSignature(section), false))
+        }
         return result
     }
 
