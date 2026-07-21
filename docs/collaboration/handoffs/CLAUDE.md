@@ -188,6 +188,23 @@ Allergen-Feature ist das Erfinden von Codes gefährlicher als Weglassen; ein
 Prompt-Push zum Zahlen-Hochtreiben wäre ein Sicherheits-Rückschritt. KEINE
 Änderung vorgenommen (Befund dokumentiert).
 
+### G. „Beispielkarte läuft nur lokal" — diagnostiziert (Test-Bug, kein App-Fehler)
+
+Nutzerbeobachtung: Beispielkarte-Import läuft nur lokal. Reproduziert (UI-Probe),
+Ursache gefunden: der Code-Default ist korrekt KI-an — auf FRISCH deinstallierter
+App zeigt der Demo-Import „KI strukturiert das Menü…" (Probe grün). Mein erstes
+„lokal"-Ergebnis war Test-Verschmutzung: `MenuImportReviewHarnessTests` (Zeile
+~274) machte `setLLMEnabled(true); defer { setLLMEnabled(false) }` und ließ so den
+GETEILTEN UserDefaults-Schalter auf false — ein späterer App-Start im selben
+Simulator sah fälschlich „KI aus". Fix: vorherigen Wert sichern und
+wiederherstellen. Suite 216/0/2.
+
+Für das Nutzergerät heißt das: entweder veralteter Build (vor `ebca8f3`, wo der
+KI-Pfad einen Key brauchte) ODER der KI-Schalter steht auf aus. Lösung: frischen
+Build installieren (App vorher löschen → räumt einen evtl. gespeicherten
+false-Schalter mit ab); Schalter „KI-Erfassung für Import nutzen" an, Key-Feld
+leer (= kostenlose KI).
+
 ## Session-Teil 16: KL-SCAN-002 Runde 5 — Vision zuverlässig gemacht
 
 Nutzer-Korrektur (zu Recht): der KI-Pfad soll das Bild direkt analysieren;

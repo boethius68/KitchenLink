@@ -271,8 +271,13 @@ final class MenuImportReviewHarnessTests: XCTestCase {
         var llmError: String?
         if runLLM {
             if MenuImportService.hasConfiguredLLMAPIKey() {
+                // Vorherigen Zustand sichern und wiederherstellen — NICHT hart auf
+                // false setzen, sonst bleibt der geteilte UserDefaults-Schalter
+                // deaktiviert und ein späterer App-Start (oder anderer Test) sieht
+                // fälschlich „KI aus".
+                let previousLLMEnabled = MenuImportService.isLLMEnabled()
                 MenuImportService.setLLMEnabled(true)
-                defer { MenuImportService.setLLMEnabled(false) }
+                defer { MenuImportService.setLLMEnabled(previousLLMEnabled) }
                 do {
                     let llmResult = try await MenuImportService.importMenu(
                         from: images,
