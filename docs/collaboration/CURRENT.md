@@ -4,11 +4,15 @@
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Latest material integration:** The direct `main` import consolidation retires
-the visible legacy product sandbox and duplicate review, brings its useful
-visual/structured coverage into the current V2 review and guest preview, and
-adds a deterministic three-page full-coverage fixture alongside two real
-difficult cards. PR #27 remains the latest merged network slice and stabilizes
+**Latest material integration:** The semantic food-declaration collection now
+covers all 14 EU allergens, the relevant German loose-food additive statements,
+consumer notices and dynamic E numbers. Compact code-native icons are available
+in the current iOS menu paths and guest web; guests can tap every declaration
+for unambiguous text and source-code details. The preceding direct `main` import
+consolidation retired the visible legacy product sandbox and duplicate review,
+brought its useful structured coverage into V2, and added a deterministic
+full-coverage fixture alongside two real difficult cards. PR #27 remains the
+latest merged network slice and stabilizes
 the foreground iPhone Hub across WLAN loss and local IPv4 changes.
 PR #25 remains the underlying iPhone-hosted vertical slice, PR #23 the operator
 workflow, PR #22 fixed the first iPhone-LAN blocker and PR #20 introduced
@@ -96,6 +100,14 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
 - The review and guest preview show food/drink/total counts, descriptions,
   allergen/additive symbols, variants/options and compact quantity controls in
   the current design language.
+- The food-declaration catalog now distinguishes the complete 14-item EU
+  allergen set from German additive statements, consumer notices and dynamic
+  E numbers. Source legends take precedence over non-standard house codes;
+  former numeric 1–14 codes remain read-compatible but are not presented as a
+  universal legal code system. Every compact icon opens a clear-text detail in
+  the iOS guest preview and guest web.
+- Research scope, mapping rules, sources and the legal display boundary are
+  documented in `docs/discovery/food-declarations/ICON_CATALOG_RESEARCH.md`.
 - Structured price basis now survives payload mapping, draft review, human
   correction, conversion and local persistence; included `0,00 EUR` choices
   likewise remain available instead of being discarded.

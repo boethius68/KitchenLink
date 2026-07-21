@@ -2,9 +2,54 @@
 
 **Updated:** 22 July 2026
 **Branch:** `main`
-**Status:** Import-Oberflaeche auf den aktuellen V2-Pfad konsolidiert;
-strukturierte Darstellung und drei komplementaere Testkarten implementiert,
-Build, Unit-Suite, UI-Smokes und lokale Importverifikation gruen
+**Status:** Semantische Icon-Kollektion fuer Allergene und Zusatzstoffe in iOS
+und Gast-Web integriert; Build, Tests, UI-End-to-End und visuelle Pruefung gruen
+
+## Latest Continuation (22. Juli 2026, KL-MENU-007)
+
+- `ICON_CATALOG_RESEARCH.md` trennt die vollstaendige EU-14-Allergenliste von
+  den einschlaegigen deutschen Zusatzstoff-Kennzeichnungstexten, separaten
+  Verbraucherhinweisen und der dynamischen EU-Positivliste der E-Nummern.
+- Ein gemeinsamer semantischer Katalog fuer iOS und Gast-Web ersetzt die
+  fruehere missverstaendliche Annahme universeller Zahlencodes. Quelllegenden
+  sind fuer Hauscodes massgeblich; alte 1–14-Werte bleiben nur als lesbarer
+  Fallback erhalten. Knoblauch und Zwiebel sind nicht mehr Teil der
+  Standard-Allergenauswahl.
+- Skalierbare, code-native Piktogramme decken alle 14 Allergene sowie
+  Zusatzstoff- und Hinweisgruppen ab. Aehre, Milchkarton und Ei sind nach der
+  lokalen Fixture-Haeufigkeit besonders konkret gestaltet.
+- Einzelne Symbole sind in der iOS-Gastvorschau, im aktuellen Import-Review und
+  im Gast-Web kompakt dargestellt und antippbar. Das Detail zeigt Klartext,
+  Gruppe, Quellcode, Erlaeuterung und die Grenze, dass das Icon die
+  Pflichtkennzeichnung nicht ersetzt.
+- Der manuelle iOS-Editor verwendet dieselbe vollstaendige Auswahl. Sein
+  adaptives Auswahlraster loeste im UI-Test unter iOS 26 eine rekursive
+  `UICollectionView`-Layoutberechnung aus und wurde durch ein stabiles
+  zweispaltiges SwiftUI-`Grid` ersetzt.
+
+## Verification (KL-MENU-007)
+
+- Generischer iOS-Simulator-Build ohne Code-Signing: **bestanden**.
+- Komplettes `kitchenlinkTests`-Target auf iPhone 17 Pro / iOS 26.5:
+  **228 bestanden, 2 bewusst uebersprungen, 0 fehlgeschlagen**.
+- Gezielter UI-End-to-End-Test vom manuellen Editor ueber die Gastvorschau bis
+  zum antippbaren Gluten-Detail: **bestanden**; kompakte und grosse Glyphen
+  anhand der Test-Screenshots visuell geprueft.
+- Gast-Web: Typecheck, Lint, **73/73 Tests** und Produktions-Build:
+  **bestanden**. Mobile Browserpruefung bei 390 x 844 inklusive antippbarem
+  Gluten-Dialog: **bestanden**, keine Browserfehler oder Warnungen.
+- `git diff --check`: **bestanden**.
+
+## Remaining Risk (KL-MENU-007)
+
+- Piktogramme ergaenzen Pflichtangaben nur. Betreiber bleiben fuer Stoff,
+  Schwellenwert, Ausnahme und exakten Wortlaut verantwortlich; die Recherche
+  ist keine Rechtsberatung.
+- Freie Quelllegendtexte werden heuristisch semantisch zugeordnet. Unbekannte
+  Hauscodes bleiben deshalb bewusst als Quellhinweis sichtbar, statt eine
+  falsche rechtliche Bedeutung zu erfinden.
+- Das Gast-Web wurde lokal geprueft, aber nicht deployt. Die oeffentliche
+  Sandbox erhaelt die neue Kollektion erst mit dem naechsten `main`-Deployment.
 
 ## Latest Continuation (22. Juli 2026, KL-MENU-006)
 

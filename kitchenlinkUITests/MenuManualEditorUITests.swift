@@ -63,8 +63,17 @@ final class MenuManualEditorUITests: XCTestCase {
         if preview.waitForExistence(timeout: 5) {
             scrollUntilHittable(preview, in: app)
             preview.tap()
-            XCTAssertTrue(app.navigationBars["Vorschau"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.navigationBars["Menü testen"].waitForExistence(timeout: 5))
             attach(app, "editor-03-guest-preview")
+
+            let glutenBadge = app.buttons["foodDeclaration.badge.a"].firstMatch
+            XCTAssertTrue(glutenBadge.waitForExistence(timeout: 5), "Tappbares Gluten-Piktogramm fehlt in der Gäste-Vorschau")
+            scrollUntilHittable(glutenBadge, in: app)
+            attach(app, "editor-03b-allergen-badge")
+            glutenBadge.tap()
+            XCTAssertTrue(app.staticTexts["foodDeclaration.detail.title"].waitForExistence(timeout: 5))
+            XCTAssertEqual(app.staticTexts["foodDeclaration.detail.title"].label, "Glutenhaltiges Getreide")
+            attach(app, "editor-04-allergen-detail")
         }
     }
 

@@ -18,9 +18,10 @@ struct MenuManualEditorView: View {
     @EnvironmentObject private var store: KitchenLinkStore
 
     @State private var sections: [MenuSectionData] = []
-    /// Karteweite Legende für nicht-standardisierte Codes (Standardcodes a–p /
-    /// 1–14 liefert die App ohnehin). Wird beim Sichern in jede Sektion
-    /// geschrieben, damit die Icon-Anzeige jeden Code zuordnen kann.
+    /// Karteweite Legende für nicht-standardisierte Hauscodes. Die 14
+    /// EU-Allergene, die relevanten Kennzeichnungstexte und E-Nummern liefert
+    /// die App ohnehin. Beim Sichern wird die Legende in jede Sektion
+    /// geschrieben, damit die Icon-Anzeige jeden Quellcode zuordnen kann.
     @State private var menuLegend: [String: String] = [:]
     @State private var loaded = false
     @State private var showPublish = false
@@ -375,10 +376,9 @@ struct MenuEditorItemEditor: View {
 
 // MARK: - Allergen picker
 
-/// Auswahl der Allergen-/Zusatzstoff-Codes. Standardcodes (EU-Allergene a–p und
-/// Zusatzstoffe 1–14) liefert die App mit Symbol und Klartext; zusätzlich lassen
-/// sich Hauscodes mit eigener Bedeutung anlegen, die in die karteweite Legende
-/// wandern.
+/// Auswahl der 14 EU-Hauptallergene, der für lose Ware einschlägigen
+/// Zusatzstoffangaben und weiterer Verbraucherhinweise. Hauscodes aus einer
+/// bestehenden Kartenlegende bleiben zusätzlich möglich.
 struct MenuEditorAllergenPicker: View {
     @Binding var codes: [String]
     @Binding var menuLegend: [String: String]
@@ -386,18 +386,17 @@ struct MenuEditorAllergenPicker: View {
     @State private var customCode = ""
     @State private var customMeaning = ""
 
-    private let columns = [GridItem(.adaptive(minimum: 104), spacing: 8)]
-
     var body: some View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
             group(title: "Allergene", codeList: MenuEditorCodes.standardAllergens)
-            group(title: "Zusatzstoffe", codeList: MenuEditorCodes.standardAdditives)
+            group(title: "Zusatzstoffhinweise", codeList: MenuEditorCodes.standardAdditives)
+            group(title: "Weitere Hinweise", codeList: MenuEditorCodes.additionalNotices)
 
             if !customCodes.isEmpty {
                 Text("Eigene Codes")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
                     ForEach(customCodes, id: \.self) { code in
                         chip(code: code, title: menuLegend[code] ?? "Code \(code.uppercased())")
                     }
@@ -414,9 +413,22 @@ struct MenuEditorAllergenPicker: View {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-                ForEach(codeList, id: \.self) { code in
-                    chip(code: code, title: AllergenCatalog.definitionsByCode[code]?.title ?? "Code \(code.uppercased())")
+            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 8) {
+                ForEach(Array(stride(from: 0, to: codeList.count, by: 2)), id: \.self) { index in
+                    GridRow {
+                        chip(
+                            code: codeList[index],
+                            title: AllergenCatalog.definitionsByCode[codeList[index]]?.title ?? "Code \(codeList[index].uppercased())"
+                        )
+                        if index + 1 < codeList.count {
+                            chip(
+                                code: codeList[index + 1],
+                                title: AllergenCatalog.definitionsByCode[codeList[index + 1]]?.title ?? "Code \(codeList[index + 1].uppercased())"
+                            )
+                        } else {
+                            Color.clear
+                        }
+                    }
                 }
             }
         }
@@ -428,16 +440,17 @@ struct MenuEditorAllergenPicker: View {
         return Button {
             toggle(code)
         } label: {
-            HStack(spacing: 5) {
-                Image(systemName: definition?.icon ?? "questionmark.circle.fill")
-                    .font(.caption2)
+            HStack(spacing: 8) {
+                FoodDeclarationGlyphView(glyph: definition?.glyph ?? .unknown, size: 24)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(code.uppercased())
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
                     Text(title)
-                        .font(.system(size: 9))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .font(.system(size: 11, weight: .semibold))
+                        .lineLimit(2)
+                    if code.count <= 4 {
+                        Text("Code \(code.uppercased())")
+                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 if selected {
                     Image(systemName: "checkmark")
@@ -446,7 +459,7 @@ struct MenuEditorAllergenPicker: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
             .background(
                 (selected ? KitchenLinkV2Palette.Brand.grape.opacity(0.18) : KitchenLinkV2Palette.Surface.recessed),
                 in: RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -458,7 +471,7 @@ struct MenuEditorAllergenPicker: View {
             .foregroundStyle(selected ? KitchenLinkV2Palette.Brand.grape : KitchenLinkV2Palette.Content.secondary)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(title), Code \(code.uppercased())")
+        .accessibilityLabel(code.count <= 4 ? "\(title), Code \(code.uppercased())" : title)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
@@ -486,7 +499,7 @@ struct MenuEditorAllergenPicker: View {
     }
 
     private var customCodes: [String] {
-        let standard = Set(MenuEditorCodes.standardAllergens + MenuEditorCodes.standardAdditives)
+        let standard = Set(MenuEditorCodes.standardAllergens + MenuEditorCodes.standardAdditives + MenuEditorCodes.additionalNotices)
         return codes.filter { !standard.contains($0) }
     }
 
@@ -620,8 +633,9 @@ struct MenuEditorPreviewView: View {
 
 /// Reine Hilfslogik für den kombinierten Allergen-Code-String eines Gerichts.
 enum MenuEditorCodes {
-    static let standardAllergens = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"]
-    static let standardAdditives = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
+    static let standardAllergens = AllergenCatalog.standardAllergens.map(\.code)
+    static let standardAdditives = AllergenCatalog.standardAdditives.map(\.code)
+    static let additionalNotices = AllergenCatalog.additionalNotices.map(\.code)
 
     /// Zerlegt "a,c,g" in ["a","c","g"] (klein, getrimmt, ohne Dubletten,
     /// Reihenfolge erhalten).

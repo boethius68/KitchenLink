@@ -184,10 +184,10 @@ describe("mapVenueRowToGuestVenue", () => {
     const item = venue?.menu.find((i) => i.id === "kuerbissuppe");
 
     // Legende hat Vorrang, unbekannter Code fällt auf den Standard-Katalog zurück.
-    expect(item?.allergens).toEqual([
-      { code: "a", label: "Dinkelmehl" },
-      { code: "g", label: "Milch" },
-      { code: "2", label: "mit Konservierungsstoff" },
+    expect(item?.allergens?.map(({ code, label, glyph, group }) => ({ code, label, glyph, group }))).toEqual([
+      { code: "a", label: "Dinkelmehl", glyph: "wheat", group: "allergen" },
+      { code: "g", label: "Milch", glyph: "milk", group: "allergen" },
+      { code: "2", label: "mit Konservierungsstoff", glyph: "preservative", group: "sourceNotice" },
     ]);
     // Leere Variante entfällt, Reihenfolge und kind bleiben erhalten.
     expect(item?.variants).toEqual([

@@ -219,7 +219,8 @@ struct MenuImportDraftReviewView: View {
 
                     MenuImportDraftDeclarationBadges(
                         declarations: entry.declarations,
-                        legend: MenuImportDraftConverter.documentLegend(from: model.draft.declarations)
+                        legend: MenuImportDraftConverter.documentLegend(from: model.draft.declarations),
+                        allowsIndividualDetails: false
                     )
 
                     MenuImportDraftOptionsSummary(optionGroups: entry.optionGroups)
@@ -548,7 +549,8 @@ struct MenuImportEntryDetailView: View {
                 MenuImportDraftDeclarationBadges(
                     declarations: entry.declarations,
                     legend: MenuImportDraftConverter.documentLegend(from: model.draft.declarations),
-                    showsTextClaims: true
+                    showsTextClaims: true,
+                    allowsIndividualDetails: true
                 )
 
                 MenuImportDraftOptionsSummary(
@@ -789,6 +791,8 @@ private struct MenuImportDraftDeclarationBadges: View {
     let declarations: [MenuImportDeclaration]
     let legend: [String: String]
     var showsTextClaims = false
+    var allowsIndividualDetails = false
+    @State private var selectedDefinition: AllergenDefinition?
 
     private var codeString: String {
         declarations
@@ -817,7 +821,18 @@ private struct MenuImportDraftDeclarationBadges: View {
                                 for: codeString,
                                 customTitles: legend.isEmpty ? nil : legend
                             )) { definition in
-                                AllergenBadgeView(definition: definition)
+                                if allowsIndividualDetails {
+                                    Button {
+                                        selectedDefinition = definition
+                                    } label: {
+                                        AllergenBadgeView(definition: definition)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .accessibilityHint("Zeigt die Bedeutung im Klartext")
+                                } else {
+                                    AllergenBadgeView(definition: definition)
+                                }
                             }
                         }
                     }
@@ -831,6 +846,9 @@ private struct MenuImportDraftDeclarationBadges: View {
                             .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                     }
                 }
+            }
+            .sheet(item: $selectedDefinition) { definition in
+                FoodDeclarationDetailView(definition: definition)
             }
         }
     }

@@ -137,6 +137,22 @@ append-only; superseded decisions are marked rather than deleted.
 - This consolidates sandbox UX; it does not authorize production activation,
   live payments or removal of the remaining demo/simulation capabilities.
 
+## Food Declaration Icons (approved 22 July 2026)
+
+- The shared collection covers all 14 EU allergens, the relevant German
+  loose-food additive statements, separate consumer notices and dynamic
+  E-number declarations. Garlic and onion are not presented as standard EU
+  allergens.
+- Icons are compact orientation aids, not a replacement for mandatory wording.
+  Guests can tap each individual icon to see its clear text, group, source code
+  and a short explanation.
+- A source menu's legend is authoritative for non-standard house codes.
+  Historical numeric 1–14 declarations remain readable as a compatibility
+  fallback, but KitchenLink does not present them as a universal legal code
+  system.
+- The implementation remains a sandbox aid. Operators remain responsible for
+  the correct substance, threshold, exception and legally required wording.
+
 ## Collaboration Governance
 
 - **Agent parity:** Claude Code and Codex work as equal technical collaborators.

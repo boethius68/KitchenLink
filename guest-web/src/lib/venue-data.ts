@@ -7,7 +7,7 @@
  * gemäß Blueprint auch nach Cloud-Anbindung erhalten.
  */
 
-import type { GuestAllergen } from "./allergen-catalog";
+import { resolveAllergens, type GuestAllergen } from "./allergen-catalog";
 
 export type { GuestAllergen } from "./allergen-catalog";
 
@@ -55,10 +55,7 @@ export const sandboxVenues: GuestVenue[] = [
         description: "Mit Ingwer, Kürbiskernöl und Bauernbrot",
         priceCents: 690,
         kind: "food",
-        allergens: [
-          { code: "g", label: "Milch / Laktose" },
-          { code: "i", label: "Sellerie" },
-        ],
+        allergens: resolveAllergens(["g", "i"], null),
         variants: [
           { name: "Große Portion", priceCents: 890, kind: "portion" },
         ],
@@ -86,11 +83,7 @@ export const sandboxVenues: GuestVenue[] = [
         description: "Kartoffel-Gurken-Salat und Preiselbeeren",
         priceCents: 2180,
         kind: "food",
-        allergens: [
-          { code: "a", label: "Glutenhaltiges Getreide" },
-          { code: "c", label: "Eier" },
-          { code: "g", label: "Milch / Laktose" },
-        ],
+        allergens: resolveAllergens(["a", "c", "g"], null),
         variants: [
           { name: "Pommes statt Salat", priceCents: 150, kind: "extra" },
         ],

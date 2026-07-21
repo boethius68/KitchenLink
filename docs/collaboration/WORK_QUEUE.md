@@ -784,6 +784,32 @@ Dokumentation
 - Abschlussnachweis: komplette Unit-Suite, gezielte Import-UI-Smokes,
   14-Seiten-Gold-Benchmark und lokaler 17-Seiten-OCR-/Review-Lauf bestanden.
 
+### KL-MENU-007 - Semantische Icons fuer Allergene und Zusatzstoffe
+
+**Status:** Erledigt (22. Juli 2026, direkt auf `main`)
+**Abhaengigkeit:** KL-MENU-006
+**Schreibbereich:** Deklarationskatalog und -darstellung in iOS und Gast-Web,
+gezielte Tests sowie Recherche- und Kollaborationsdokumentation
+
+**Ergebnis**
+
+- Der gemeinsame semantische Katalog umfasst alle 14 EU-Allergene, die
+  einschlaegigen deutschen Zusatzstoff-Kennzeichnungstexte, getrennte
+  Verbraucherhinweise und dynamische E-Nummern.
+- Kompakte, code-native Piktogramme priorisieren die in der 17-seitigen
+  Testkarte haeufigsten Allergene Gluten, Milch und Ei, ohne Information nur
+  ueber Farbe zu vermitteln.
+- Jedes einzelne Symbol ist im iOS-Gastvorschaupfad und im Gast-Web antippbar
+  und zeigt Klartext, Gruppe, Quellcode und Erlaeuterung. 44-Punkt-Touchziele
+  und zugaengliche Namen bleiben erhalten.
+- Quelllegenden ueberschreiben nicht-standardisierte Hauscodes semantisch.
+  Historische Zahlencodes bleiben lesbar, werden aber nicht mehr als
+  universelles Rechtssystem dargestellt; Knoblauch und Zwiebel gehoeren nicht
+  zur EU-14-Standardauswahl.
+- Abschlussnachweis: iOS-Build, 228 Tests (2 bewusst uebersprungen), gezielter
+  UI-End-to-End-Smoke, Web-Typecheck, Lint, 73 Tests, Produktions-Build sowie
+  mobile visuelle Browserpruefung bestanden.
+
 ## Abgeschlossene Web-Straenge
 
 ### KL-WEB-003 - Gast-Web-Sandbox in Betrieb nehmen (Deploy + echte Tests)

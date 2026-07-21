@@ -28,7 +28,7 @@ import {
   type HubAvailability,
 } from "@/lib/hub-presence";
 import { getSupabase } from "@/lib/supabase-client";
-import type { GuestMenuItem, GuestVenue } from "@/lib/venue-data";
+import type { GuestAllergen, GuestMenuItem, GuestVenue } from "@/lib/venue-data";
 
 interface GuestMenuCardProps {
   venue: GuestVenue;
@@ -237,6 +237,8 @@ function variantKindLabel(kind: "portion" | "extra" | "variant"): string {
 }
 
 function MenuRow({ item, quantity, onIncrement, onDecrement }: MenuRowProps) {
+  const [selectedDeclaration, setSelectedDeclaration] = useState<GuestAllergen | null>(null);
+
   return (
     <li className="kl-menu-row">
       <div className="kl-menu-row-info">
@@ -252,17 +254,21 @@ function MenuRow({ item, quantity, onIncrement, onDecrement }: MenuRowProps) {
         {item.allergens && item.allergens.length > 0 && (
           <ul className="kl-allergen-row" aria-label="Allergene und Zusatzstoffe">
             {item.allergens.map((allergen) => (
-              <li
-                key={allergen.code}
-                className="kl-allergen-badge"
-                title={allergen.label}
-              >
-                <span className="kl-allergen-code kl-type-meta" aria-hidden="true">
-                  {allergen.code.toUpperCase()}
-                </span>
-                <span className="kl-allergen-label kl-type-meta">
-                  {allergen.label}
-                </span>
+              <li key={allergen.code} className="kl-allergen-entry">
+                <button
+                  type="button"
+                  className={`kl-allergen-badge kl-allergen-badge-${allergen.group}`}
+                  onClick={() => setSelectedDeclaration(allergen)}
+                  aria-label={`${allergen.label}. ${allergen.groupLabel}. Details anzeigen`}
+                  title={allergen.label}
+                >
+                  <FoodDeclarationIcon declaration={allergen} />
+                  {allergen.code.length <= 4 && (
+                    <span className="kl-allergen-code" aria-hidden="true">
+                      {allergen.code.toUpperCase()}
+                    </span>
+                  )}
+                </button>
               </li>
             ))}
           </ul>
@@ -325,7 +331,151 @@ function MenuRow({ item, quantity, onIncrement, onDecrement }: MenuRowProps) {
           </button>
         </div>
       )}
+      {selectedDeclaration && (
+        <FoodDeclarationDialog
+          declaration={selectedDeclaration}
+          onClose={() => setSelectedDeclaration(null)}
+        />
+      )}
     </li>
+  );
+}
+
+function FoodDeclarationDialog({
+  declaration,
+  onClose,
+}: {
+  declaration: GuestAllergen;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="kl-declaration-backdrop"
+      onClick={onClose}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") onClose();
+      }}
+    >
+      <section
+        className="kl-declaration-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`kl-declaration-title-${declaration.code}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className={`kl-declaration-hero kl-allergen-badge-${declaration.group}`}>
+          <FoodDeclarationIcon declaration={declaration} />
+        </div>
+        <p className="kl-declaration-group kl-type-meta">{declaration.groupLabel}</p>
+        <h2 id={`kl-declaration-title-${declaration.code}`} className="kl-type-section">
+          {declaration.label}
+        </h2>
+        <p className="kl-declaration-code kl-type-meta">
+          Code der Speisekarte: <span className="kl-tabular">{declaration.code.toUpperCase()}</span>
+        </p>
+        <p className="kl-declaration-detail kl-type-secondary">{declaration.detail}</p>
+        <p className="kl-declaration-note kl-type-meta">
+          Das Symbol ergänzt die schriftliche Kennzeichnung. Bei Allergien oder
+          Unverträglichkeiten bitte das Restaurantpersonal ansprechen.
+        </p>
+        <button
+          type="button"
+          className="kl-secondary-button kl-type-button"
+          onClick={onClose}
+          autoFocus
+        >
+          Fertig
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function FoodDeclarationIcon({ declaration }: { declaration: GuestAllergen }) {
+  const common = {
+    viewBox: "0 0 24 24",
+    className: "kl-declaration-icon",
+    "aria-hidden": true,
+  } as const;
+  const strokeProps = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  switch (declaration.glyph) {
+    case "wheat":
+      return <svg {...common} {...strokeProps}><path d="M12 21V4M12 7 8 5.5M12 10l4-2M12 13l-4-2M12 16l4-2M8 5.5c0 2 1.7 3 4 3M16 8c0 2-1.7 3-4 3M8 11c0 2 1.7 3 4 3M16 14c0 2-1.7 3-4 3" /></svg>;
+    case "crustacean":
+      return <svg {...common} {...strokeProps}><path d="M19 7c-3-5-10-4-12-1-4 5 0 12 5 12 4 0 6-2 6-5M8 7l7 8m-3-10 6 6m0-5 4-3m-4 4 4 1" /><circle cx="17" cy="6" r="1" fill="currentColor" stroke="none" /></svg>;
+    case "egg":
+      return <svg {...common} {...strokeProps}><path d="M12 2.5C8 5 5 10 5 15a7 7 0 0 0 14 0c0-5-3-10-7-12.5Z" /><circle cx="12" cy="14.5" r="3" fill="currentColor" stroke="none" /></svg>;
+    case "fish":
+      return <svg {...common} {...strokeProps}><path d="M3 12c4-7 10-6 14-4l4-3-1 7 1 7-4-3c-4 2-10 3-14-4Z" /><circle cx="8.5" cy="10" r="1" fill="currentColor" stroke="none" /></svg>;
+    case "peanut":
+      return <svg {...common} {...strokeProps}><path d="M7 4c-4 3-1 7 3 8-2 4 2 10 6 8s1-7-2-9c2-4-3-10-7-7Zm0 3 10 10m-6-12-4 5m10 3-4 6" /></svg>;
+    case "soy":
+      return <svg {...common} {...strokeProps}><path d="M4 17C7 7 15 3 20 6c-2 10-10 15-16 11Z" /><circle cx="8.5" cy="14" r="1.5" fill="currentColor" stroke="none" /><circle cx="13" cy="10.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="17" cy="8" r="1.4" fill="currentColor" stroke="none" /></svg>;
+    case "milk":
+      return <svg {...common} {...strokeProps}><path d="m6 7 4-4 8 3v15H6V7Zm0 0 8 2 4-3M14 9v12M10 3v5" /></svg>;
+    case "treeNut":
+      return <svg {...common} {...strokeProps}><path d="M12 6c-5 1-7 4-7 7a7 7 0 0 0 14 0c0-3-2-6-7-7ZM7 8h10m-5-2 2-4" /></svg>;
+    case "celery":
+      return <svg {...common} {...strokeProps}><path d="m8 21 2-13m2 13V6m4 15-2-13M6 21h12" /><path d="M10 8C5 9 4 4 8 3c3-1 4 2 4 4 0-4 5-7 7-3 2 4-3 5-5 4" fill="currentColor" stroke="none" /></svg>;
+    case "mustard":
+      return <svg {...common} {...strokeProps}><path d="M7 4h10l1 3H6l1-3Zm-1 3h12v14H6V7Z" /><circle cx="12" cy="14" r="3" fill="currentColor" stroke="none" /></svg>;
+    case "sesame":
+      return <svg {...common} {...strokeProps}><ellipse cx="8" cy="12" rx="2.5" ry="4.5" /><ellipse cx="13" cy="8" rx="2.5" ry="4.5" /><ellipse cx="16" cy="16" rx="2.5" ry="4.5" /></svg>;
+    case "sulfite":
+      return <FormulaIcon text="SO₂" />;
+    case "lupin":
+      return <svg {...common} {...strokeProps}><path d="M12 21V7" /><circle cx="12" cy="5" r="3" fill="currentColor" stroke="none" /><circle cx="8.5" cy="9" r="2.5" fill="currentColor" stroke="none" /><circle cx="15.5" cy="10" r="2.5" fill="currentColor" stroke="none" /><circle cx="9.5" cy="14" r="2" fill="currentColor" stroke="none" /><circle cx="14.5" cy="15" r="2" fill="currentColor" stroke="none" /></svg>;
+    case "mollusc":
+      return <svg {...common} {...strokeProps}><path d="M4 19C3 10 7 4 12 4s9 6 8 15H4Zm8-14v14M8 6l1 13m7-13-1 13M5 19h14" /></svg>;
+    case "nitrite": return <FormulaIcon text="NO₂" />;
+    case "nitrate": return <FormulaIcon text="NO₃" />;
+    case "curingSalts": return <FormulaIcon text="N₂" />;
+    case "phosphate": return <FormulaIcon text="PO₄" />;
+    case "phenylalanine": return <FormulaIcon text="Phe" small />;
+    case "polyols": return <FormulaIcon text="10%" small />;
+    case "quinine": return <FormulaIcon text="Q" />;
+    case "genericAdditive": return <FormulaIcon text="E" />;
+    case "colorant":
+      return <svg {...common} {...strokeProps}><path d="M12 3a9 9 0 1 0 0 18h2a2 2 0 0 0 0-4h-1a2 2 0 0 1 0-4h8" /><circle cx="8" cy="9" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none" /><circle cx="16" cy="9" r="1.3" fill="currentColor" stroke="none" /></svg>;
+    case "preservative":
+      return <svg {...common} {...strokeProps}><path d="M7 4h10v3l2 2v12H5V9l2-2V4Zm0 3h10" /></svg>;
+    case "antioxidant":
+      return <svg {...common} {...strokeProps}><path d="m12 3 8 3v6c0 5-3 8-8 10-5-2-8-5-8-10V6l8-3Zm0 4v10m-4-5h8" /></svg>;
+    case "flavorEnhancer":
+      return <svg {...common} {...strokeProps}><path d="M4 16c4-4 12-4 16 0M6 12c3-3 9-3 12 0M9 8c2-2 4-2 6 0" /></svg>;
+    case "blackened":
+      return <svg {...common}><circle cx="12" cy="12" r="8" fill="currentColor" /><path d="M12 4a8 8 0 0 0 0 16Z" fill="var(--kl-surface-card)" /></svg>;
+    case "waxed":
+      return <svg {...common} {...strokeProps}><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Zm6 10 .8 2.2L21 16l-2.2.8L18 19l-.8-2.2L15 16l2.2-.8L18 13Z" /></svg>;
+    case "sweetener":
+      return <svg {...common} {...strokeProps}><path d="m5 8 7-4 7 4v8l-7 4-7-4V8Zm0 0 7 4 7-4m-7 4v8" /></svg>;
+    case "tableSweetener":
+      return <svg {...common} {...strokeProps}><path d="M4 15c4 4 12 4 16 0-4-2-12-2-16 0Zm8-2V4m-3 3h6" /></svg>;
+    case "caffeine":
+      return <svg {...common} {...strokeProps}><path d="M5 8h12v6a6 6 0 0 1-12 0V8Zm12 2h2a3 3 0 0 1 0 6h-2M7 21h10M8 4c1 1 1 2 0 3m4-3c1 1 1 2 0 3" /></svg>;
+    case "liquorice":
+      return <svg {...common} {...strokeProps}><path d="M12 4a8 8 0 1 1-8 8c0-4 3-6 6-6 4 0 6 3 6 6 0 2-2 4-4 4s-4-2-4-4 2-3 4-3c2 0 3 1 3 3" /></svg>;
+    case "notice":
+      return <svg {...common} {...strokeProps}><path d="M4 5h16v12H9l-5 4V5Zm4 4h8m-8 4h5" /></svg>;
+    default:
+      return <FormulaIcon text="?" />;
+  }
+}
+
+function FormulaIcon({ text, small = false }: { text: string; small?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="kl-declaration-icon" aria-hidden="true">
+      <text x="12" y="13" textAnchor="middle" dominantBaseline="middle" className={small ? "kl-icon-formula-small" : "kl-icon-formula"}>
+        {text}
+      </text>
+    </svg>
   );
 }
 

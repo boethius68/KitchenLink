@@ -1,36 +1,67 @@
 import { describe, expect, it } from "vitest";
-import { resolveAllergens } from "@/lib/allergen-catalog";
+import {
+  ADDITIONAL_NOTICES,
+  STANDARD_ADDITIVES,
+  STANDARD_ALLERGENS,
+  resolveAllergens,
+} from "@/lib/allergen-catalog";
 
-describe("resolveAllergens", () => {
-  it("bevorzugt die Karten-Legende vor dem Standard-Katalog", () => {
-    const result = resolveAllergens(["a"], { a: "Hausmehl" });
-    expect(result).toEqual([{ code: "a", label: "Hausmehl" }]);
+describe("food declaration catalog", () => {
+  it("enthält genau die 14 EU-Hauptallergene ohne Knoblauch/Zwiebel als Standard", () => {
+    expect(STANDARD_ALLERGENS).toHaveLength(14);
+    expect(STANDARD_ALLERGENS.map((item) => item.code)).toEqual(
+      "abcdefghijklmn".split(""),
+    );
+    expect(STANDARD_ALLERGENS.some((item) => /Knoblauch|Zwiebel/.test(item.label))).toBe(false);
   });
 
-  it("fällt auf den Standard-Katalog zurück, wenn die Legende den Code nicht führt", () => {
+  it("enthält alle 14 LMZDV-Angabefälle und getrennte Verbraucherhinweise", () => {
+    expect(STANDARD_ADDITIVES).toHaveLength(14);
+    expect(ADDITIONAL_NOTICES.map((item) => item.code)).toContain("chininhaltig");
+    expect(ADDITIONAL_NOTICES.map((item) => item.code)).toContain("koffeinwarnung");
+  });
+
+  it("bevorzugt die Karten-Legende und leitet daraus das semantische Icon ab", () => {
+    const result = resolveAllergens(["1"], { "1": "Milch und Laktose" });
+    expect(result[0]).toMatchObject({
+      code: "1",
+      label: "Milch und Laktose",
+      glyph: "milk",
+      group: "allergen",
+    });
+  });
+
+  it("fällt auf den Katalog zurück, wenn die Legende einen Code nicht führt", () => {
     const result = resolveAllergens(["g", "2"], {});
-    expect(result).toEqual([
-      { code: "g", label: "Milch / Laktose" },
-      { code: "2", label: "mit Konservierungsstoff" },
+    expect(result.map(({ code, label, glyph }) => ({ code, label, glyph }))).toEqual([
+      { code: "g", label: "Milch einschließlich Laktose", glyph: "milk" },
+      { code: "2", label: "mit Konservierungsstoff", glyph: "preservative" },
     ]);
   });
 
-  it("normalisiert Groß-Keys der Legende und Codes auf Kleinbuchstaben", () => {
-    const result = resolveAllergens(["A"], { A: "Weizen" });
-    expect(result).toEqual([{ code: "a", label: "Weizen" }]);
+  it("priorisiert die im Testkorpus häufigsten, eindeutigen Icons", () => {
+    const result = resolveAllergens(["i", "c", "g", "a"], null);
+    expect(result.map((item) => item.code)).toEqual(["a", "g", "c", "i"]);
   });
 
-  it("entfernt Dubletten und leere Codes, behält die Reihenfolge", () => {
-    const result = resolveAllergens(["a", "a", "", "  ", "c"], null);
-    expect(result.map((r) => r.code)).toEqual(["a", "c"]);
+  it("stellt konkrete E-Nummern neutral dar, ohne eine statische Stoffliste vorzutäuschen", () => {
+    expect(resolveAllergens(["E621"], null)[0]).toMatchObject({
+      code: "e621",
+      label: "Zusatzstoff E621",
+      glyph: "genericAdditive",
+      group: "additive",
+    });
   });
 
-  it("kennzeichnet unbekannte Codes generisch statt sie zu verwerfen", () => {
-    const result = resolveAllergens(["z"], {});
-    expect(result).toEqual([{ code: "z", label: "Code Z" }]);
+  it("normalisiert Groß-Keys, entfernt Dubletten und hält unbekannte Hauscodes", () => {
+    const result = resolveAllergens(["A", "a", "", "z"], { A: "Weizen" });
+    expect(result.map((item) => ({ code: item.code, label: item.label }))).toEqual([
+      { code: "a", label: "Weizen" },
+      { code: "z", label: "Code Z" },
+    ]);
   });
 
-  it("verträgt fehlende Codes/Legende", () => {
+  it("verträgt fehlende Codes und Legenden", () => {
     expect(resolveAllergens(null, null)).toEqual([]);
     expect(resolveAllergens(undefined, undefined)).toEqual([]);
   });

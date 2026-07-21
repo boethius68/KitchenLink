@@ -683,7 +683,8 @@ private enum AllergenCodeParser {
         "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"
     ]
 
-    static func tokens(from rawCodes: String) -> [String] {
+    static func tokens(from rawCodes: String, additionalAllowedTokens: Set<String> = []) -> [String] {
+        let additionalAllowedTokens = Set(additionalAllowedTokens.map { $0.lowercased() })
         let normalized = normalizeSuperscriptCharacters(in: rawCodes).lowercased()
         let candidate = normalized
             .replacingOccurrences(of: #"[.;:/|]"#, with: ",", options: .regularExpression)
@@ -697,7 +698,7 @@ private enum AllergenCodeParser {
         var tokens: [String] = []
         for part in parts {
             let canonical = canonicalizeToken(part)
-            if isAllowedToken(canonical) {
+            if isAllowedToken(canonical, additionalAllowedTokens: additionalAllowedTokens) {
                 tokens.append(canonical)
                 continue
             }
@@ -707,7 +708,7 @@ private enum AllergenCodeParser {
 
         var deduped: [String] = []
         var seen: Set<String> = []
-        for token in tokens where isAllowedToken(token) {
+        for token in tokens where isAllowedToken(token, additionalAllowedTokens: additionalAllowedTokens) {
             guard !seen.contains(token) else { continue }
             seen.insert(token)
             deduped.append(token)
@@ -878,7 +879,13 @@ private enum AllergenCodeParser {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func isAllowedToken(_ token: String) -> Bool {
+    private static func isAllowedToken(_ token: String, additionalAllowedTokens: Set<String> = []) -> Bool {
+        if additionalAllowedTokens.contains(token) || AllergenCatalog.canonicalCodes.contains(token) {
+            return true
+        }
+        if token.range(of: #"^e[0-9]{3,4}[a-z]?$"#, options: .regularExpression) != nil {
+            return true
+        }
         if allowedLetterCodes.contains(token) {
             return true
         }
@@ -1067,182 +1074,335 @@ enum PriceFormatter {
     }
 }
 
+enum FoodDeclarationGroup: String, CaseIterable, Sendable {
+    case allergen
+    case additive
+    case consumerNotice
+    case sourceNotice
+
+    var title: String {
+        switch self {
+        case .allergen: "EU-Hauptallergen"
+        case .additive: "Zusatzstoffhinweis"
+        case .consumerNotice: "Verbraucherhinweis"
+        case .sourceNotice: "Angabe der Speisekarte"
+        }
+    }
+
+    var pluralTitle: String {
+        switch self {
+        case .allergen: "EU-Hauptallergene"
+        case .additive: "Zusatzstoffhinweise"
+        case .consumerNotice: "Weitere Verbraucherhinweise"
+        case .sourceNotice: "Weitere Angaben der Speisekarte"
+        }
+    }
+
+    var order: Int {
+        switch self {
+        case .allergen: 0
+        case .additive: 1
+        case .consumerNotice: 2
+        case .sourceNotice: 3
+        }
+    }
+}
+
 struct AllergenDefinition: Identifiable {
     let code: String
     let title: String
-    let icon: String
+    let glyph: FoodDeclarationGlyph
     let tint: Color
+    let group: FoodDeclarationGroup
+    let detail: String
+    let sortPriority: Int
 
     var id: String { code }
+
+    var shortDisplayCode: String? {
+        code.count <= 4 ? code.uppercased() : nil
+    }
+
+    func usingSource(code: String, title: String) -> AllergenDefinition {
+        AllergenDefinition(
+            code: code,
+            title: title,
+            glyph: glyph,
+            tint: tint,
+            group: group,
+            detail: detail,
+            sortPriority: sortPriority
+        )
+    }
 }
 
 enum AllergenCatalog {
-    static let definitionsByCode: [String: AllergenDefinition] = [
-        "a": AllergenDefinition(code: "a", title: "Glutenhaltiges Getreide", icon: "leaf", tint: .orange),
-        "b": AllergenDefinition(code: "b", title: "Krebstiere", icon: "fish", tint: .cyan),
-        "c": AllergenDefinition(code: "c", title: "Eier", icon: "circle.grid.2x2.fill", tint: .yellow),
-        "d": AllergenDefinition(code: "d", title: "Fisch", icon: "fish.fill", tint: .blue),
-        "e": AllergenDefinition(code: "e", title: "Erdnüsse", icon: "bolt.heart", tint: .brown),
-        "f": AllergenDefinition(code: "f", title: "Soja", icon: "circle.hexagongrid.fill", tint: .green),
-        "g": AllergenDefinition(code: "g", title: "Milch / Laktose", icon: "drop.fill", tint: .mint),
-        "h": AllergenDefinition(code: "h", title: "Schalenfrüchte (Nüsse)", icon: "circle.dashed", tint: .teal),
-        "i": AllergenDefinition(code: "i", title: "Sellerie", icon: "leaf.fill", tint: .green),
-        "j": AllergenDefinition(code: "j", title: "Senf", icon: "flame.fill", tint: .yellow),
-        "k": AllergenDefinition(code: "k", title: "Sesamsamen", icon: "smallcircle.filled.circle.fill", tint: .orange),
-        "l": AllergenDefinition(code: "l", title: "Schwefeldioxid / Sulfite", icon: "aqi.medium", tint: .purple),
-        "m": AllergenDefinition(code: "m", title: "Lupinen", icon: "sparkles", tint: .indigo),
-        "n": AllergenDefinition(code: "n", title: "Weichtiere", icon: "tortoise.fill", tint: .blue),
-        "o": AllergenDefinition(code: "o", title: "Knoblauch", icon: "fork.knife", tint: .orange),
-        "p": AllergenDefinition(code: "p", title: "Zwiebeln", icon: "circle.grid.cross.fill", tint: .orange),
-        "1": AllergenDefinition(code: "1", title: "mit Farbstoff", icon: "paintpalette.fill", tint: .pink),
-        "2": AllergenDefinition(code: "2", title: "mit Konservierungsstoff", icon: "archivebox.fill", tint: .gray),
-        "3": AllergenDefinition(code: "3", title: "mit Antioxidationsmittel", icon: "shield.lefthalf.filled", tint: .gray),
-        "4": AllergenDefinition(code: "4", title: "mit Geschmacksverstärker", icon: "waveform.path.ecg", tint: .red),
-        "5": AllergenDefinition(code: "5", title: "geschwefelt", icon: "cloud.fill", tint: .purple),
-        "6": AllergenDefinition(code: "6", title: "geschwärzt", icon: "moon.fill", tint: .black),
-        "7": AllergenDefinition(code: "7", title: "gewachst", icon: "drop.triangle.fill", tint: .mint),
-        "8": AllergenDefinition(code: "8", title: "mit Phosphat", icon: "atom", tint: .blue),
-        "9": AllergenDefinition(code: "9", title: "mit Süßungsmittel", icon: "heart.circle.fill", tint: .pink),
-        "10": AllergenDefinition(code: "10", title: "enthält eine Phenylalaninquelle", icon: "exclamationmark.triangle.fill", tint: .orange),
-        "11": AllergenDefinition(code: "11", title: "koffeinhaltig", icon: "bolt.fill", tint: .brown),
-        "12": AllergenDefinition(code: "12", title: "chininhaltig", icon: "cross.case.fill", tint: .blue),
-        "13": AllergenDefinition(code: "13", title: "alkoholhaltig", icon: "wineglass.fill", tint: .purple),
-        "14": AllergenDefinition(code: "14", title: "taurin-haltig", icon: "hare.fill", tint: .red)
+    private static let allergenDetail = "Dieses Allergen gehört zu den 14 kennzeichnungspflichtigen Hauptallergenen der EU."
+    private static let additiveDetail = "Diese Formulierung gehört zu den Zusatzstoffangaben für lose Ware nach § 5 LMZDV."
+    private static let sourceDetail = "Die Bedeutung dieses Codes stammt aus der Legende der Speisekarte und ist kein einheitlicher gesetzlicher Code."
+
+    static let standardAllergens: [AllergenDefinition] = [
+        definition("a", "Glutenhaltiges Getreide", .wheat, .orange, .allergen, allergenDetail, 0),
+        definition("b", "Krebstiere", .crustacean, .cyan, .allergen, allergenDetail, 11),
+        definition("c", "Eier", .egg, .yellow, .allergen, allergenDetail, 2),
+        definition("d", "Fisch", .fish, .blue, .allergen, allergenDetail, 5),
+        definition("e", "Erdnüsse", .peanut, .brown, .allergen, allergenDetail, 4),
+        definition("f", "Sojabohnen", .soy, .green, .allergen, allergenDetail, 6),
+        definition("g", "Milch einschließlich Laktose", .milk, .mint, .allergen, allergenDetail, 1),
+        definition("h", "Schalenfrüchte (Nüsse)", .treeNut, .teal, .allergen, allergenDetail, 3),
+        definition("i", "Sellerie", .celery, .green, .allergen, allergenDetail, 8),
+        definition("j", "Senf", .mustard, .yellow, .allergen, allergenDetail, 7),
+        definition("k", "Sesamsamen", .sesame, .orange, .allergen, allergenDetail, 9),
+        definition("l", "Schwefeldioxid / Sulfite", .sulfite, .purple, .allergen, "Kennzeichnungspflichtig oberhalb des in Anhang II der LMIV festgelegten Schwellenwerts.", 10),
+        definition("m", "Lupinen", .lupin, .indigo, .allergen, allergenDetail, 12),
+        definition("n", "Weichtiere", .mollusc, .blue, .allergen, allergenDetail, 13)
     ]
 
+    static let standardAdditives: [AllergenDefinition] = [
+        definition("farbstoff", "mit Farbstoff", .colorant, .pink, .additive, additiveDetail, 100),
+        definition("konserviert", "mit Konservierungsstoff / konserviert", .preservative, .gray, .additive, additiveDetail, 101),
+        definition("antioxidationsmittel", "mit Antioxidationsmittel", .antioxidant, .teal, .additive, additiveDetail, 102),
+        definition("nitritpoekelsalz", "mit Nitritpökelsalz", .nitrite, .red, .additive, additiveDetail, 103),
+        definition("nitrat", "mit Nitrat", .nitrate, .red, .additive, additiveDetail, 104),
+        definition("nitritundnitrat", "mit Nitritpökelsalz und Nitrat", .curingSalts, .red, .additive, additiveDetail, 105),
+        definition("geschmacksverstaerker", "mit Geschmacksverstärker", .flavorEnhancer, .orange, .additive, additiveDetail, 106),
+        definition("geschwaerzt", "geschwärzt", .blackened, .gray, .additive, additiveDetail, 107),
+        definition("gewachst", "gewachst", .waxed, .mint, .additive, additiveDetail, 108),
+        definition("phosphat", "mit Phosphat", .phosphate, .blue, .additive, additiveDetail, 109),
+        definition("suessungsmittel", "mit Süßungsmittel(n)", .sweetener, .pink, .additive, additiveDetail, 110),
+        definition("tafelsuesse", "auf der Grundlage von …", .tableSweetener, .pink, .additive, "Bei Tafelsüßen wird der verwendete Süßstoff im Wortlaut ergänzt.", 111),
+        definition("phenylalanin", "enthält eine Phenylalaninquelle", .phenylalanine, .orange, .additive, "Vorgeschriebener Hinweis bei Aspartam/Aspartam-Acesulfamsalz entsprechend der Kennzeichnungsregeln.", 112),
+        definition("polyole", "kann bei übermäßigem Verzehr abführend wirken", .polyols, .orange, .additive, "Vorgeschriebener Hinweis bei Lebensmitteln mit mehr als 10 % zugesetzten mehrwertigen Alkoholen.", 113)
+    ]
+
+    static let additionalNotices: [AllergenDefinition] = [
+        definition("chininhaltig", "chininhaltig", .quinine, .blue, .consumerNotice, "Verbraucherhinweis für chininhaltige Getränke beziehungsweise Aromen nach § 5 AromenDV.", 200),
+        definition("koffeinhaltig", "koffeinhaltig", .caffeine, .brown, .consumerNotice, "Hinweis der Speisekarte auf Koffein; der je nach Produkt vorgeschriebene Wortlaut bleibt maßgeblich.", 201),
+        definition("koffeinwarnung", "erhöhter Koffeingehalt", .caffeine, .brown, .consumerNotice, "Für bestimmte Getränke und Lebensmittel verlangt Anhang III LMIV einen erweiterten Warnhinweis.", 202),
+        definition("lakritz", "enthält Süßholz", .liquorice, .purple, .consumerNotice, "Hinweis für bestimmte Lebensmittel mit Glycyrrhizinsäure beziehungsweise Ammoniumglycyrrhizinat.", 203),
+        definition("lakritzblutdruck", "enthält Süßholz – bei hohem Blutdruck übermäßigen Verzehr vermeiden", .liquorice, .purple, .consumerNotice, "Erweiterter Hinweis bei Überschreiten der in Anhang III LMIV genannten Schwellenwerte.", 204)
+    ]
+
+    /// Rückwärtskompatibilität für Karten ohne erkannte Legende. Zahlen bleiben
+    /// sichtbar, werden im Editor aber nicht mehr als vermeintlicher Standard
+    /// angeboten. Sobald eine Quellenlegende vorliegt, bestimmt deren Wortlaut
+    /// Piktogramm und Bedeutung.
+    static let legacyDefinitionsByCode: [String: AllergenDefinition] = [
+        "1": legacy("1", "mit Farbstoff", .colorant, .pink),
+        "2": legacy("2", "mit Konservierungsstoff", .preservative, .gray),
+        "3": legacy("3", "mit Antioxidationsmittel", .antioxidant, .teal),
+        "4": legacy("4", "mit Geschmacksverstärker", .flavorEnhancer, .orange),
+        "5": legacy("5", "geschwefelt", .sulfite, .purple),
+        "6": legacy("6", "geschwärzt", .blackened, .gray),
+        "7": legacy("7", "gewachst", .waxed, .mint),
+        "8": legacy("8", "mit Phosphat", .phosphate, .blue),
+        "9": legacy("9", "mit Süßungsmittel", .sweetener, .pink),
+        "10": legacy("10", "enthält eine Phenylalaninquelle", .phenylalanine, .orange),
+        "11": legacy("11", "koffeinhaltig", .caffeine, .brown),
+        "12": legacy("12", "chininhaltig", .quinine, .blue),
+        "13": legacy("13", "alkoholhaltig", .notice, .purple),
+        "14": legacy("14", "taurinhaltig", .notice, .red)
+    ]
+
+    static let definitionsByCode: [String: AllergenDefinition] = {
+        var result = Dictionary(uniqueKeysWithValues: (standardAllergens + standardAdditives + additionalNotices).map { ($0.code, $0) })
+        result.merge(legacyDefinitionsByCode) { current, _ in current }
+        return result
+    }()
+
+    static let canonicalCodes = Set((standardAdditives + additionalNotices).map(\.code))
+
     static func definitions(for rawCodes: String, customTitles: [String: String]? = nil) -> [AllergenDefinition] {
-        var tokens = AllergenCodeParser.tokens(from: rawCodes)
-        if let customTitles, !customTitles.isEmpty {
-            // Zeige einen Code, wenn ihn die Karten-Legende erklärt ODER es ein
-            // bekannter Standard-Code ist (EU-Allergen a–p, Zusatzstoff 1–14).
-            // So verschwindet ein Standard-Allergen nicht, nur weil die erkannte
-            // Legende ihn mal nicht aufführt; unbekannter Zeichen-Müll ohne
-            // Legendeneintrag bleibt weiterhin gefiltert.
-            let allowed = Set(customTitles.keys.map { $0.lowercased() })
-            tokens = tokens.filter {
-                let token = $0.lowercased()
-                return allowed.contains(token) || definitionsByCode[token] != nil
-            }
-        }
+        let normalizedTitles = Dictionary(uniqueKeysWithValues: (customTitles ?? [:]).map { ($0.key.lowercased(), $0.value) })
+        let tokens = AllergenCodeParser.tokens(
+            from: rawCodes,
+            additionalAllowedTokens: Set(normalizedTitles.keys)
+        )
 
         var seen: Set<String> = []
-        var result: [AllergenDefinition] = []
-
-        for token in tokens {
-            guard !seen.contains(token) else { continue }
+        var indexedResult: [(index: Int, definition: AllergenDefinition)] = []
+        for (index, token) in tokens.enumerated() where !seen.contains(token) {
             seen.insert(token)
-
-            if let customTitle = customTitles?[token], !customTitle.isEmpty {
-                result.append(definition(fromLegendTitle: customTitle, code: token))
+            let resolved: AllergenDefinition
+            if let customTitle = normalizedTitles[token], !customTitle.isEmpty {
+                resolved = definition(fromLegendTitle: customTitle, code: token)
             } else if let mapped = definitionsByCode[token] {
-                result.append(mapped)
-            } else {
-                result.append(
-                    AllergenDefinition(
-                        code: token,
-                        title: "Code \(token.uppercased())",
-                        icon: "questionmark.circle.fill",
-                        tint: .gray
-                    )
+                resolved = mapped
+            } else if token.range(of: #"^e[0-9]{3,4}[a-z]?$"#, options: .regularExpression) != nil {
+                resolved = definition(
+                    token,
+                    "Zusatzstoff \(token.uppercased())",
+                    .genericAdditive,
+                    .gray,
+                    .additive,
+                    "Konkrete E-Nummer aus der Speisekarte. Für Funktion und Verwendung ist die Kartenlegende beziehungsweise Produktinformation maßgeblich.",
+                    150
                 )
+            } else {
+                resolved = definition(token, "Code \(token.uppercased())", .unknown, .gray, .sourceNotice, sourceDetail, 300)
             }
+            indexedResult.append((index, resolved))
         }
-        return result
+
+        return indexedResult.sorted {
+            if $0.definition.sortPriority != $1.definition.sortPriority {
+                return $0.definition.sortPriority < $1.definition.sortPriority
+            }
+            return $0.index < $1.index
+        }.map(\.definition)
     }
 
-    private static func definition(fromLegendTitle title: String, code: String) -> AllergenDefinition {
+    static func definition(fromLegendTitle title: String, code: String) -> AllergenDefinition {
         let normalized = title
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "de_DE"))
             .lowercased()
 
-        if normalized.contains("fisch") {
-            return AllergenDefinition(code: code, title: title, icon: "fish.fill", tint: .blue)
-        }
-        if normalized.contains("milch") || normalized.contains("laktose") {
-            return AllergenDefinition(code: code, title: title, icon: "drop.fill", tint: .mint)
-        }
-        if normalized.contains("krebstier") || normalized.contains("garnel") || normalized.contains("scampi") {
-            return AllergenDefinition(code: code, title: title, icon: "fish", tint: .cyan)
-        }
-        if normalized.contains("ei") || normalized.contains("eier") {
-            return AllergenDefinition(code: code, title: title, icon: "circle.grid.2x2.fill", tint: .yellow)
-        }
-        if normalized.contains("senf") {
-            return AllergenDefinition(code: code, title: title, icon: "flame.fill", tint: .yellow)
-        }
-        if normalized.contains("sesam") {
-            return AllergenDefinition(code: code, title: title, icon: "smallcircle.filled.circle.fill", tint: .orange)
-        }
-        if normalized.contains("sellerie") {
-            return AllergenDefinition(code: code, title: title, icon: "leaf.fill", tint: .green)
-        }
-        if normalized.contains("knoblauch") || normalized.contains("zwiebel") {
-            return AllergenDefinition(code: code, title: title, icon: "fork.knife", tint: .orange)
-        }
-        if normalized.contains("erdnuss") || normalized.contains("nuss") {
-            return AllergenDefinition(code: code, title: title, icon: "bolt.heart", tint: .brown)
-        }
-        if normalized.contains("soja") {
-            return AllergenDefinition(code: code, title: title, icon: "circle.hexagongrid.fill", tint: .green)
-        }
-        if normalized.contains("gluten") || normalized.contains("getreide") {
-            return AllergenDefinition(code: code, title: title, icon: "leaf", tint: .orange)
-        }
-        if normalized.contains("konserv") {
-            return AllergenDefinition(code: code, title: title, icon: "archivebox.fill", tint: .gray)
-        }
-        if normalized.contains("farbstoff") {
-            return AllergenDefinition(code: code, title: title, icon: "paintpalette.fill", tint: .pink)
-        }
-        if normalized.contains("antioxid") {
-            return AllergenDefinition(code: code, title: title, icon: "shield.lefthalf.filled", tint: .gray)
-        }
-        if normalized.contains("geschmacksverst") {
-            return AllergenDefinition(code: code, title: title, icon: "waveform.path.ecg", tint: .red)
-        }
-        if normalized.contains("geschwefelt") {
-            return AllergenDefinition(code: code, title: title, icon: "cloud.fill", tint: .purple)
-        }
-        if normalized.contains("geschwarz") {
-            return AllergenDefinition(code: code, title: title, icon: "moon.fill", tint: .black)
-        }
-        if normalized.contains("phosphor") || normalized.contains("phosphat") {
-            return AllergenDefinition(code: code, title: title, icon: "atom", tint: .blue)
-        }
-        if normalized.contains("sussungsmittel") || normalized.contains("suessungsmittel") {
-            return AllergenDefinition(code: code, title: title, icon: "heart.circle.fill", tint: .pink)
-        }
-        if normalized.contains("alkohol") {
-            return AllergenDefinition(code: code, title: title, icon: "wineglass.fill", tint: .purple)
-        }
-        if normalized.contains("koffein") {
-            return AllergenDefinition(code: code, title: title, icon: "bolt.fill", tint: .brown)
-        }
+        let matches: [(Bool, AllergenDefinition)] = [
+            (normalized.contains("gluten") || normalized.contains("getreide") || normalized.contains("weizen"), standardAllergens[0]),
+            (normalized.contains("krebstier") || normalized.contains("garnel") || normalized.contains("scampi") || normalized.contains("krabbe"), standardAllergens[1]),
+            (normalized == "ei" || normalized.contains("eier") || normalized.contains("eiprodukt"), standardAllergens[2]),
+            (normalized.contains("fisch"), standardAllergens[3]),
+            (normalized.contains("erdnuss"), standardAllergens[4]),
+            (normalized.contains("soja"), standardAllergens[5]),
+            (normalized.contains("milch") || normalized.contains("laktose"), standardAllergens[6]),
+            (normalized.contains("schalenfrucht") || normalized.contains("nuss") || normalized.contains("mandel"), standardAllergens[7]),
+            (normalized.contains("sellerie"), standardAllergens[8]),
+            (normalized.contains("senf"), standardAllergens[9]),
+            (normalized.contains("sesam"), standardAllergens[10]),
+            (normalized.contains("sulfit") || normalized.contains("schwefeldioxid") || normalized.contains("geschwefelt"), standardAllergens[11]),
+            (normalized.contains("lupin"), standardAllergens[12]),
+            (normalized.contains("weichtier") || normalized.contains("mollusk") || normalized.contains("muschel"), standardAllergens[13]),
+            (normalized.contains("farbstoff"), standardAdditives[0]),
+            (normalized.contains("konserv"), standardAdditives[1]),
+            (normalized.contains("antioxid"), standardAdditives[2]),
+            (normalized.contains("nitrit") && normalized.contains("nitrat"), standardAdditives[5]),
+            (normalized.contains("nitrit"), standardAdditives[3]),
+            (normalized.contains("nitrat"), standardAdditives[4]),
+            (normalized.contains("geschmacksverst"), standardAdditives[6]),
+            (normalized.contains("geschwarz"), standardAdditives[7]),
+            (normalized.contains("gewachst"), standardAdditives[8]),
+            (normalized.contains("phosphat") || normalized.contains("phosphor"), standardAdditives[9]),
+            (normalized.contains("grundlage von"), standardAdditives[11]),
+            (normalized.contains("phenylalanin") || normalized.contains("aspartam"), standardAdditives[12]),
+            (normalized.contains("abfuhr") || normalized.contains("polyol") || normalized.contains("mehrwertige alkohole"), standardAdditives[13]),
+            (normalized.contains("sussungsmittel") || normalized.contains("suessungsmittel"), standardAdditives[10]),
+            (normalized.contains("chinin"), additionalNotices[0]),
+            (normalized.contains("koffein"), additionalNotices[1]),
+            (normalized.contains("susholz") || normalized.contains("suessholz") || normalized.contains("lakritz"), additionalNotices[3])
+        ]
 
-        if let mapped = definitionsByCode[code] {
-            return AllergenDefinition(code: code, title: title, icon: mapped.icon, tint: mapped.tint)
+        if let matched = matches.first(where: \.0)?.1 {
+            return matched.usingSource(code: code, title: title)
         }
-        return AllergenDefinition(code: code, title: title, icon: "questionmark.circle.fill", tint: .gray)
+        if let mapped = definitionsByCode[code] {
+            return mapped.usingSource(code: code, title: title)
+        }
+        return definition(code, title, .notice, .gray, .sourceNotice, sourceDetail, 300)
+    }
+
+    private static func definition(
+        _ code: String,
+        _ title: String,
+        _ glyph: FoodDeclarationGlyph,
+        _ tint: Color,
+        _ group: FoodDeclarationGroup,
+        _ detail: String,
+        _ priority: Int
+    ) -> AllergenDefinition {
+        AllergenDefinition(
+            code: code,
+            title: title,
+            glyph: glyph,
+            tint: tint,
+            group: group,
+            detail: detail,
+            sortPriority: priority
+        )
+    }
+
+    private static func legacy(
+        _ code: String,
+        _ title: String,
+        _ glyph: FoodDeclarationGlyph,
+        _ tint: Color
+    ) -> AllergenDefinition {
+        definition(code, title, glyph, tint, .sourceNotice, sourceDetail, 250)
     }
 }
 
 struct AllergenBadgeView: View {
     let definition: AllergenDefinition
+    var size: CGFloat = 36
 
     var body: some View {
-        VStack(spacing: 1) {
-            Image(systemName: definition.icon)
-                .font(.caption2)
-            Text(definition.code.uppercased())
-                .font(.system(size: 9, weight: .bold, design: .rounded))
+        ZStack(alignment: .bottomTrailing) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(definition.tint.opacity(0.14))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(definition.tint.opacity(0.38), lineWidth: 1)
+                }
+
+            FoodDeclarationGlyphView(glyph: definition.glyph, size: size * 0.61)
+                .foregroundStyle(.primary)
+
+            if let shortCode = definition.shortDisplayCode {
+                Text(shortCode)
+                    .font(.system(size: min(9, max(7, size * 0.21)), weight: .black, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .padding(3)
+            }
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .background(definition.tint.opacity(0.15))
-        .foregroundStyle(definition.tint)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(definition.title), Code \(definition.code.uppercased())")
+    }
+}
+
+struct FoodDeclarationDetailView: View {
+    let definition: AllergenDefinition
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 18) {
+                AllergenBadgeView(definition: definition, size: 72)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 6) {
+                    Text(definition.group.title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(definition.title)
+                        .font(.title3.weight(.bold))
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("foodDeclaration.detail.title")
+                    Text("Code der Speisekarte: \(definition.code.uppercased())")
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(definition.detail)
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+
+                Text("Das Symbol ergänzt die schriftliche Kennzeichnung. Bei Allergien oder Unverträglichkeiten bitte das Restaurantpersonal ansprechen.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .navigationTitle("Kennzeichnung")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .kitchenSurface()
     }
 }
 
@@ -1250,21 +1410,37 @@ struct AllergenLegendView: View {
     let definitions: [AllergenDefinition]
     @Environment(\.dismiss) private var dismiss
 
+    private var populatedGroups: [(FoodDeclarationGroup, [AllergenDefinition])] {
+        FoodDeclarationGroup.allCases
+            .sorted { $0.order < $1.order }
+            .compactMap { group in
+                let entries = definitions.filter { $0.group == group }
+                return entries.isEmpty ? nil : (group, entries)
+            }
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                Section("Bedeutung der Codes") {
-                    ForEach(definitions) { definition in
-                        HStack(spacing: 10) {
-                            AllergenBadgeView(definition: definition)
-                            Text(definition.title)
-                                .font(.subheadline)
+                ForEach(populatedGroups, id: \.0) { group, entries in
+                    Section(group.pluralTitle) {
+                        ForEach(entries) { definition in
+                            HStack(spacing: 12) {
+                                AllergenBadgeView(definition: definition)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(definition.title)
+                                        .font(.subheadline.weight(.medium))
+                                    Text("Code \(definition.code.uppercased())")
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 2)
                         }
-                        .padding(.vertical, 2)
                     }
                 }
             }
-            .navigationTitle("Allergen-Legende")
+            .navigationTitle("Kennzeichnungen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -1281,11 +1457,18 @@ struct AllergenLegendView: View {
 struct AllergenBadgesRow: View {
     let rawCodes: String
     let legendByCode: [String: String]?
+    let allowsIndividualDetails: Bool
     @State private var showLegend = false
+    @State private var selectedDefinition: AllergenDefinition?
 
-    init(rawCodes: String, legendByCode: [String: String]? = nil) {
+    init(
+        rawCodes: String,
+        legendByCode: [String: String]? = nil,
+        allowsIndividualDetails: Bool = true
+    ) {
         self.rawCodes = rawCodes
         self.legendByCode = legendByCode
+        self.allowsIndividualDetails = allowsIndividualDetails
     }
 
     private var definitions: [AllergenDefinition] {
@@ -1294,29 +1477,45 @@ struct AllergenBadgesRow: View {
 
     var body: some View {
         if !definitions.isEmpty {
-            HStack(spacing: 6) {
-                ForEach(definitions.prefix(6)) { definition in
-                    AllergenBadgeView(definition: definition)
+            HStack(spacing: 2) {
+                ForEach(definitions.prefix(5)) { definition in
+                    if allowsIndividualDetails {
+                        Button {
+                            selectedDefinition = definition
+                        } label: {
+                            AllergenBadgeView(definition: definition)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                        .accessibilityIdentifier("foodDeclaration.badge.\(definition.code)")
+                        .accessibilityHint("Zeigt die Bedeutung im Klartext")
+                    } else {
+                        AllergenBadgeView(definition: definition)
+                            .frame(minWidth: 40, minHeight: 40)
+                    }
                 }
 
-                if definitions.count > 6 {
-                    Text("+\(definitions.count - 6)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                if definitions.count > 5 {
+                    Button {
+                        showLegend = true
+                    } label: {
+                        Text("+\(definitions.count - 5)")
+                            .font(.caption2.weight(.bold))
+                            .frame(width: 34, height: 34)
+                            .background(KitchenTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                            .foregroundStyle(KitchenTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel("Alle \(definitions.count) Kennzeichnungen anzeigen")
                 }
-
-                Button {
-                    showLegend = true
-                } label: {
-                    Image(systemName: "info.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(KitchenTheme.accent)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Allergen-Legende anzeigen")
             }
             .sheet(isPresented: $showLegend) {
                 AllergenLegendView(definitions: definitions)
+            }
+            .sheet(item: $selectedDefinition) { definition in
+                FoodDeclarationDetailView(definition: definition)
             }
         }
     }
