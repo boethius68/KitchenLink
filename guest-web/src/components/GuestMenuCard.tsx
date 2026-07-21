@@ -225,6 +225,17 @@ interface MenuRowProps {
   onDecrement: () => void;
 }
 
+function variantKindLabel(kind: "portion" | "extra" | "variant"): string {
+  switch (kind) {
+    case "portion":
+      return "Portion";
+    case "extra":
+      return "Extra";
+    default:
+      return "Variante";
+  }
+}
+
 function MenuRow({ item, quantity, onIncrement, onDecrement }: MenuRowProps) {
   return (
     <li className="kl-menu-row">
@@ -238,6 +249,42 @@ function MenuRow({ item, quantity, onIncrement, onDecrement }: MenuRowProps) {
           )}
         </div>
         <p className="kl-type-secondary">{item.description}</p>
+        {item.allergens && item.allergens.length > 0 && (
+          <ul className="kl-allergen-row" aria-label="Allergene und Zusatzstoffe">
+            {item.allergens.map((allergen) => (
+              <li
+                key={allergen.code}
+                className="kl-allergen-badge"
+                title={allergen.label}
+              >
+                <span className="kl-allergen-code kl-type-meta" aria-hidden="true">
+                  {allergen.code.toUpperCase()}
+                </span>
+                <span className="kl-allergen-label kl-type-meta">
+                  {allergen.label}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {item.variants && item.variants.length > 0 && (
+          <ul className="kl-variant-list">
+            {item.variants.map((variant, index) => (
+              <li
+                key={`${variant.kind}-${index}`}
+                className="kl-variant-row kl-type-meta"
+              >
+                <span className="kl-variant-name">
+                  {variantKindLabel(variant.kind)}: {variant.name}
+                </span>
+                <span className="kl-tabular">
+                  {variant.kind === "extra" ? "+" : ""}
+                  {formatEuro(variant.priceCents)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="kl-menu-row-price kl-type-primary kl-tabular">
           {formatEuro(item.priceCents)}
         </div>

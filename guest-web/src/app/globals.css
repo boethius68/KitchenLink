@@ -184,6 +184,53 @@ button {
   color: var(--kl-text-primary);
 }
 
+/* Allergen-/Zusatzstoff-Kennzeichnung: kompakte Pillen mit Code + Klartext,
+   damit die Codes nie kryptisch bleiben. */
+.kl-allergen-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kl-space-1);
+  list-style: none;
+  margin: var(--kl-space-2) 0 0;
+  padding: 0;
+}
+
+.kl-allergen-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.125rem var(--kl-space-2);
+  background: var(--kl-surface-recessed);
+  color: var(--kl-text-secondary);
+}
+
+.kl-allergen-code {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Varianten/Portionen/Extras: schmale Zeilen unter der Beschreibung. */
+.kl-variant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  list-style: none;
+  margin: var(--kl-space-2) 0 0;
+  padding: 0;
+}
+
+.kl-variant-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--kl-space-2);
+  color: var(--kl-text-secondary);
+}
+
+.kl-variant-name {
+  min-width: 0;
+}
+
 /* Mengensteuerung: umrandet auf heller Flaeche (border-control), traubig
    im Text, nie Zitrone (§5), Ziele >= 44px (§8). Referenz 6c Screen 2. */
 .kl-stepper {

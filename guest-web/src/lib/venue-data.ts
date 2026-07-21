@@ -7,7 +7,20 @@
  * gemäß Blueprint auch nach Cloud-Anbindung erhalten.
  */
 
+import type { GuestAllergen } from "./allergen-catalog";
+
+export type { GuestAllergen } from "./allergen-catalog";
+
 export type GuestMenuItemKind = "food" | "drink";
+
+export type GuestVariantKind = "portion" | "extra" | "variant";
+
+/** Eine Auswahloption eines Artikels (Portion, Extra oder Variante). */
+export interface GuestVariantOption {
+  name: string;
+  priceCents: number;
+  kind: GuestVariantKind;
+}
 
 export interface GuestMenuItem {
   id: string;
@@ -17,6 +30,10 @@ export interface GuestMenuItem {
   description: string;
   priceCents: number;
   kind: GuestMenuItemKind;
+  /** Aufgelöste Allergen-/Zusatzstoff-Kennzeichnung (Code + Klartext). */
+  allergens?: GuestAllergen[];
+  /** Varianten/Portionen/Extras des Artikels. */
+  variants?: GuestVariantOption[];
 }
 
 export interface GuestVenue {
@@ -38,6 +55,13 @@ export const sandboxVenues: GuestVenue[] = [
         description: "Mit Ingwer, Kürbiskernöl und Bauernbrot",
         priceCents: 690,
         kind: "food",
+        allergens: [
+          { code: "g", label: "Milch / Laktose" },
+          { code: "i", label: "Sellerie" },
+        ],
+        variants: [
+          { name: "Große Portion", priceCents: 890, kind: "portion" },
+        ],
       },
       {
         id: "flammkuchen",
@@ -62,6 +86,14 @@ export const sandboxVenues: GuestVenue[] = [
         description: "Kartoffel-Gurken-Salat und Preiselbeeren",
         priceCents: 2180,
         kind: "food",
+        allergens: [
+          { code: "a", label: "Glutenhaltiges Getreide" },
+          { code: "c", label: "Eier" },
+          { code: "g", label: "Milch / Laktose" },
+        ],
+        variants: [
+          { name: "Pommes statt Salat", priceCents: 150, kind: "extra" },
+        ],
       },
       {
         id: "zander",

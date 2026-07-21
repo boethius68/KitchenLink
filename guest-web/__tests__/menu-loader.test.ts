@@ -167,4 +167,39 @@ describe("mapVenueRowToGuestVenue", () => {
     expect(mapVenueRowToGuestVenue({ ...row(), slug: "" })).toBeNull();
     expect(mapVenueRowToGuestVenue({ ...row(), name: "" })).toBeNull();
   });
+
+  it("löst Allergen-Codes gegen die Kategorie-Legende auf und mappt Varianten", () => {
+    const r = row();
+    const category = r.menus[0].menu_categories[0];
+    category.allergen_legend = { a: "Dinkelmehl", g: "Milch" };
+    const suppe = category.menu_items[0];
+    suppe.allergen_codes = ["a", "g", "2"]; // "2" nicht in Legende -> Standard-Katalog
+    suppe.variant_options = [
+      { name: "Groß", price_cents: 890, kind: "portion" },
+      { name: "   ", price_cents: 100, kind: "portion" }, // leerer Name -> raus
+      { name: "extra Brot", price_cents: 150, kind: "extra" },
+    ];
+
+    const venue = mapVenueRowToGuestVenue(r);
+    const item = venue?.menu.find((i) => i.id === "kuerbissuppe");
+
+    // Legende hat Vorrang, unbekannter Code fällt auf den Standard-Katalog zurück.
+    expect(item?.allergens).toEqual([
+      { code: "a", label: "Dinkelmehl" },
+      { code: "g", label: "Milch" },
+      { code: "2", label: "mit Konservierungsstoff" },
+    ]);
+    // Leere Variante entfällt, Reihenfolge und kind bleiben erhalten.
+    expect(item?.variants).toEqual([
+      { name: "Groß", priceCents: 890, kind: "portion" },
+      { name: "extra Brot", priceCents: 150, kind: "extra" },
+    ]);
+  });
+
+  it("liefert leere Allergen-/Varianten-Listen, wenn nichts hinterlegt ist", () => {
+    const venue = mapVenueRowToGuestVenue(row());
+    const item = venue?.menu.find((i) => i.id === "flammkuchen");
+    expect(item?.allergens).toEqual([]);
+    expect(item?.variants).toEqual([]);
+  });
 });

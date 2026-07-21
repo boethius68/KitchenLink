@@ -17,7 +17,13 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { GuestMenuItem, GuestMenuItemKind, GuestVenue } from "./venue-data";
+import type {
+  GuestMenuItem,
+  GuestMenuItemKind,
+  GuestVariantOption,
+  GuestVenue,
+} from "./venue-data";
+import { resolveAllergens } from "./allergen-catalog";
 
 /** Rohe Venue-Zeile mit eingebettetem Menü, wie sie Supabase-js aus dem
  *  embedded-select zurückgibt (snake_case aus der DB). */
@@ -29,6 +35,8 @@ export interface VenueWithMenuRow {
     menu_categories: Array<{
       kind: string | null;
       sort_order: number | null;
+      /** Allergen-/Zusatzstoff-Legende dieser Kategorie (Code→Klartext). */
+      allergen_legend?: Record<string, unknown> | null;
       menu_items: Array<{
         slug: string | null;
         name: string | null;
@@ -38,9 +46,41 @@ export interface VenueWithMenuRow {
         tag: string | null;
         available: boolean | null;
         sort_order: number | null;
+        /** Allergen-/Zusatzstoff-Codes des Artikels. */
+        allergen_codes?: (string | null)[] | null;
+        /** Varianten/Portionen/Extras als jsonb-Array. */
+        variant_options?: unknown;
       }>;
     }>;
   }>;
+}
+
+/** Defensives Mapping der jsonb-Varianten auf den Gast-Typ: nur Objekte mit
+ *  nicht-leerem Namen und nicht-negativem Preis; kind auf portion|extra|variant
+ *  normalisiert. */
+function mapVariantOptions(raw: unknown): GuestVariantOption[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const result: GuestVariantOption[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const record = entry as Record<string, unknown>;
+    const name = typeof record.name === "string" ? record.name.trim() : "";
+    const priceCents =
+      typeof record.price_cents === "number" && Number.isInteger(record.price_cents)
+        ? record.price_cents
+        : 0;
+    if (!name || priceCents < 0) {
+      continue;
+    }
+    const kind =
+      record.kind === "portion" || record.kind === "extra" ? record.kind : "variant";
+    result.push({ name, priceCents, kind });
+  }
+  return result;
 }
 
 /**
@@ -86,6 +126,10 @@ export function mapVenueRowToGuestVenue(row: VenueWithMenuRow): GuestVenue | nul
             description: mi.description ?? "",
             priceCents: mi.price_cents,
             kind,
+            // Codes gegen die Kategorie-Legende (+ Standard-Katalog) auflösen,
+            // sodass jeder Code mit Klartext erscheint.
+            allergens: resolveAllergens(mi.allergen_codes, category.allergen_legend),
+            variants: mapVariantOptions(mi.variant_options),
           },
           categorySortOrder: category.sort_order ?? Number.MAX_SAFE_INTEGER,
           itemSortOrder: mi.sort_order ?? Number.MAX_SAFE_INTEGER,
@@ -137,7 +181,7 @@ export async function fetchVenueBySlugFromSupabase(
   const { data, error } = await supabase
     .from("venues")
     .select(
-      "slug, name, menus!inner(active, menu_categories(menu_items(slug, name, description, price_cents, kind, tag, available, sort_order), kind, sort_order))",
+      "slug, name, menus!inner(active, menu_categories(allergen_legend, menu_items(slug, name, description, price_cents, kind, tag, available, sort_order, allergen_codes, variant_options), kind, sort_order))",
     )
     .eq("slug", slug)
     .maybeSingle();

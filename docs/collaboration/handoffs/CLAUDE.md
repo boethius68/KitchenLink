@@ -114,15 +114,37 @@ auch bis in die DB.
   Paar weg) und Varianten (leere raus, ungültiges kind→variant) korrekt; Defaults
   `{}`/`[]`; Replace-Semantik und „genau eine aktive Karte" intakt.
 
+### D. Gast-Web zeigt Legende + Varianten (erledigt, verifiziert)
+
+Das Gast-Web (`guest-web/`, Next.js 16, liegt DOCH in diesem Repo) rendert die
+neuen Felder jetzt.
+
+- `guest-web/src/lib/allergen-catalog.ts` (neu): Standard-Code→Klartext
+  (a–p, 1–14, identisch zur iOS-App) + `resolveAllergens(codes, legend)` —
+  Karten-Legende hat Vorrang, Standard-Katalog füllt Lücken, Keys/Codes klein
+  normalisiert.
+- `menu-loader.ts`: Select um `allergen_legend` (Kategorie) sowie
+  `allergen_codes` + `variant_options` (Artikel) erweitert; beim Mappen werden
+  die Codes gegen die Kategorie-Legende aufgelöst und die Varianten defensiv
+  (leere raus, kind normalisiert) übernommen.
+- `venue-data.ts`: `GuestMenuItem` um `allergens` + `variants`; zwei
+  Sandbox-Artikel angereichert (Demo).
+- `GuestMenuCard.tsx` + `globals.css`: Allergen-Pillen (Code + Klartext) und
+  Varianten-/Portions-/Extra-Zeilen unter der Beschreibung.
+- **Verifiziert:** typecheck + lint + 71 Vitest-Tests grün (neue Loader- und
+  Katalog-Tests); Dev-Render Desktop und Mobile (Badges brechen sauber um);
+  Production-Build (SSG `/alte-muehle/menu`) grün. Screenshots zeigen
+  „G Milch / Laktose", „A Glutenhaltiges Getreide" usw. + „Portion: Große
+  Portion", „Extra: Pommes statt Salat +1,50 €".
+
+Damit ist die Kette Editor/Import → Payload → RPC → DB → Gast-Web durchgängig.
+
 ### Offen / nächster Schritt
 
-- **Gast-Web-Rendering (separates Repo, `guest-web/`):** die DB trägt jetzt
-  Legende + Varianten; das Gast-Web muss `menu_categories.allergen_legend` und
-  `menu_items.variant_options` noch anzeigen (Icons/Klartext + Optionen). Nicht
-  in diesem Repo — als Folgearbeit dort einplanen.
 - **Migration anwenden:** `20260721120000` muss noch auf die Supabase-DB
   gespielt werden (Nutzer-Workflow, SANDBOX_SETUP §6.2); lokal verifiziert, real
-  noch nicht angewandt.
+  noch nicht angewandt. Erst danach zeigt das Gast-Web bei ECHTEN (statt Sandbox-)
+  Karten Legende + Varianten.
 - Import-Dubletten auf zweisprachigen Karten (140, v. a. Ristorante Italia) und
   Per-Item-Code-Vollständigkeit (~51 % karteübergreifend) bleiben offen; die
   Legende selbst wird jetzt erfasst.
