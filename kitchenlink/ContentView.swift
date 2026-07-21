@@ -1108,8 +1108,16 @@ private enum AllergenCatalog {
     static func definitions(for rawCodes: String, customTitles: [String: String]? = nil) -> [AllergenDefinition] {
         var tokens = AllergenCodeParser.tokens(from: rawCodes)
         if let customTitles, !customTitles.isEmpty {
+            // Zeige einen Code, wenn ihn die Karten-Legende erklärt ODER es ein
+            // bekannter Standard-Code ist (EU-Allergen a–p, Zusatzstoff 1–14).
+            // So verschwindet ein Standard-Allergen nicht, nur weil die erkannte
+            // Legende ihn mal nicht aufführt; unbekannter Zeichen-Müll ohne
+            // Legendeneintrag bleibt weiterhin gefiltert.
             let allowed = Set(customTitles.keys.map { $0.lowercased() })
-            tokens = tokens.filter { allowed.contains($0.lowercased()) }
+            tokens = tokens.filter {
+                let token = $0.lowercased()
+                return allowed.contains(token) || definitionsByCode[token] != nil
+            }
         }
 
         var seen: Set<String> = []
@@ -4068,6 +4076,7 @@ enum MenuImportService {
     Du bist ein präziser Parser für deutsche Speisekarten.
     Gib ausschließlich JSON zurück, ohne Markdown, exakt in diesem Schema:
     {
+      "legend": { "a": "Glutenhaltiges Getreide", "g": "Milch/Laktose", "2": "mit Konservierungsstoff" },
       "sections": [
         {
           "title": "string",
@@ -4094,9 +4103,18 @@ enum MenuImportService {
     Regeln:
     - Erfasse ALLE Artikel; nutze bei mehrspaltigem Layout die x/y-Koordinaten
       der OCR-Zeilen, damit linke und rechte Spalte korrekt getrennt werden.
+    - LEGENDE (WICHTIG): Speisekarten führen die Allergen-/Zusatzstoff-Kürzel in
+      einer Legende auf (oft am Seitenrand, in einer Fußzeile oder auf einer
+      eigenen Seite), z. B. "a = Glutenhaltiges Getreide", "1 Farbstoff". Erfasse
+      diese Zuordnung Code→Klartext VOLLSTÄNDIG in "legend". Verwende exakt die
+      Codes wie auf der Karte (Kleinbuchstabe bzw. Ziffer). JEDER Code, den du an
+      einem Artikel in "allergen_codes" verwendest, MUSS in "legend" erklärt sein.
+      Steht keine Legende auf den Bildern, gib "legend": {} zurück und erfinde
+      KEINE Bedeutungen.
     - Allergen-/Zusatzstoff-Kürzel (nachgestellte Buchstaben wie "a,c,g" oder
-      Ziffern) gehören AUSSCHLIESSLICH in allergen_codes, NIEMALS in name oder
-      description.
+      Ziffern, hoch- oder tiefgestellt) MÜSSEN pro Artikel VOLLSTÄNDIG in
+      allergen_codes erfasst werden — auch ein einzelner Buchstabe. Sie gehören
+      AUSSCHLIESSLICH in allergen_codes, NIEMALS in name oder description.
     - Set-/Gang-Menüs (feste Menüs mit Vorspeise/Hauptgang/Dessert, evtl.
       Wahlgänge mit "oder"/"or"): als EINEN Eintrag mit dem Menüpreis, die Gänge
       in "courses" auflisten (z. B. "Vorspeise: Antipasti | Hauptgang (Wahl):
@@ -4425,20 +4443,36 @@ enum MenuImportService {
 
     private struct LLMMenuRoot: Decodable {
         let sections: [LLMSectionPayload]
+        /// Aus dem Bild gelesene Allergen-/Zusatzstoff-Legende (Code→Klartext).
+        /// Leer, wenn die Karte keine Legende führt. Diese KI-Legende ist
+        /// zuverlässiger als die lokale OCR-Heuristik, weil das Modell das Bild
+        /// direkt liest.
+        let legend: [String: String]
 
         enum CodingKeys: String, CodingKey {
             case sections
             case menu
+            case legend
+            case allergenLegend
+            case legende
         }
 
         init(from decoder: Decoder) throws {
-            if let container = try? decoder.container(keyedBy: CodingKeys.self),
+            let container = try? decoder.container(keyedBy: CodingKeys.self)
+
+            if let container {
+                self.legend = Self.decodeLegend(from: container)
+            } else {
+                self.legend = [:]
+            }
+
+            if let container,
                let sections = try? container.decode([LLMSectionPayload].self, forKey: .sections) {
                 self.sections = sections
                 return
             }
 
-            if let container = try? decoder.container(keyedBy: CodingKeys.self),
+            if let container,
                let sections = try? container.decode([LLMSectionPayload].self, forKey: .menu) {
                 self.sections = sections
                 return
@@ -4449,6 +4483,69 @@ enum MenuImportService {
                 return
             }
             self.sections = []
+        }
+
+        /// Nimmt die Legende sowohl als Objekt ({"a":"…"}) als auch als
+        /// Array von {code,label|name|meaning|text|title}-Paaren entgegen und
+        /// liefert eine normalisierte Zuordnung mit klein geschriebenen Codes.
+        private static func decodeLegend(
+            from container: KeyedDecodingContainer<CodingKeys>
+        ) -> [String: String] {
+            for key: CodingKeys in [.legend, .allergenLegend, .legende] {
+                if let object = try? container.decode([String: String].self, forKey: key) {
+                    return normalizeLegend(object)
+                }
+                if let pairs = try? container.decode([LLMLegendPair].self, forKey: key) {
+                    var mapping: [String: String] = [:]
+                    for pair in pairs {
+                        guard let code = pair.code, let label = pair.label else { continue }
+                        mapping[code] = label
+                    }
+                    return normalizeLegend(mapping)
+                }
+            }
+            return [:]
+        }
+
+        private static func normalizeLegend(_ raw: [String: String]) -> [String: String] {
+            var result: [String: String] = [:]
+            for (rawCode, rawLabel) in raw {
+                let code = rawCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let label = rawLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !code.isEmpty, !label.isEmpty else { continue }
+                result[code] = label
+            }
+            return result
+        }
+    }
+
+    /// Ein Legenden-Eintrag in Array-Form; deckt die gängigen Feldnamen ab, die
+    /// verschiedene Modelle für Code und Bedeutung wählen.
+    private struct LLMLegendPair: Decodable {
+        let code: String?
+        let label: String?
+
+        enum CodingKeys: String, CodingKey {
+            case code, key, symbol, id
+            case label, name, meaning, text, title, value, description
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            code = Self.firstString(container, [.code, .key, .symbol, .id])
+            label = Self.firstString(container, [.label, .name, .meaning, .text, .title, .value, .description])
+        }
+
+        private static func firstString(
+            _ container: KeyedDecodingContainer<CodingKeys>,
+            _ keys: [CodingKeys]
+        ) -> String? {
+            for key in keys {
+                if let value = try? container.decode(String.self, forKey: key), !value.isEmpty {
+                    return value
+                }
+            }
+            return nil
         }
     }
 
@@ -4761,7 +4858,8 @@ enum MenuImportService {
             }
         }
 
-        let mappedSections = mapLLMSections(root.sections, allergenLegend: allergenLegend)
+        let effectiveLegend = mergeLegends(local: allergenLegend, llm: root.legend)
+        let mappedSections = mapLLMSections(root.sections, allergenLegend: effectiveLegend)
         guard !mappedSections.isEmpty else {
             return LLMParseOutcome(sections: nil, message: "KI-Reflexion lieferte keine nutzbaren Menüdaten.")
         }
@@ -4778,8 +4876,11 @@ enum MenuImportService {
     }
 
     private enum LLMPageResult {
-        case sections([MenuSectionData])
-        case empty
+        case sections([MenuSectionData], legend: [String: String])
+        /// Keine Artikel auf der Seite (Deck-/Info-/reine Legendenseite). Trägt
+        /// eine evtl. dort stehende Legende trotzdem mit, denn die Legende steht
+        /// oft auf genau so einer artikel-losen Seite.
+        case empty(legend: [String: String])
         case failed(String)
     }
 
@@ -4836,13 +4937,18 @@ enum MenuImportService {
         var successfulPages = 0
         var emptyPages = 0
         var authFailure: String?
+        // Legende kann auf einer beliebigen (oft eigenen) Seite stehen; über alle
+        // Seiten vereinen und am Ende auf die ganze Karte anwenden.
+        var unionLegend: [String: String] = [:]
 
         for idx in 0..<totalPages {
             switch results[idx] ?? .failed("kein Ergebnis") {
-            case .sections(let secs):
+            case .sections(let secs, let legend):
                 collectedSections = mergeImportedSections(collectedSections, with: secs)
+                unionLegend = mergeLegends(local: unionLegend, llm: legend)
                 successfulPages += 1
-            case .empty:
+            case .empty(let legend):
+                unionLegend = mergeLegends(local: unionLegend, llm: legend)
                 emptyPages += 1
             case .failed(let message):
                 if message.localizedCaseInsensitiveContains("401")
@@ -4850,6 +4956,16 @@ enum MenuImportService {
                     authFailure = message
                 }
                 pageErrors.append("Seite \(idx + 1): \(message)")
+            }
+        }
+
+        // Vereinte KI-Legende mit der lokalen OCR-Legende zusammenführen und auf
+        // ALLE Sektionen anwenden — auch die, deren Codes auf einer anderen Seite
+        // als die Legende standen. So können die Icons jeden Code zuordnen.
+        let finalLegend = mergeLegends(local: allergenLegend, llm: unionLegend)
+        if !finalLegend.isEmpty {
+            for index in collectedSections.indices {
+                collectedSections[index].allergenLegend = finalLegend
             }
         }
 
@@ -4992,8 +5108,9 @@ enum MenuImportService {
         }
 
         let mappedSections = mapLLMSections(root.sections, allergenLegend: allergenLegend)
-        // Leere Seite (Deck-/Info-/Zierseite) ist kein Fehler.
-        return mappedSections.isEmpty ? .empty : .sections(mappedSections)
+        // Leere Seite (Deck-/Info-/Zierseite) ist kein Fehler. Die von der KI auf
+        // dieser Seite gelesene Legende wird mitgegeben und karteweit vereint.
+        return mappedSections.isEmpty ? .empty(legend: root.legend) : .sections(mappedSections, legend: root.legend)
     }
 
     private struct LLMCallOutcome {
@@ -5225,6 +5342,20 @@ enum MenuImportService {
         }.joined(separator: "\n")
 
         return String(formatted.prefix(42_000))
+    }
+
+    /// Vereint die lokal per OCR erkannte Legende mit der von der KI direkt aus
+    /// dem Bild gelesenen Legende. Die KI-Legende hat Vorrang (sie liest die
+    /// Karte unmittelbar), die lokale Erkennung füllt nur fehlende Codes.
+    private static func mergeLegends(local: [String: String], llm: [String: String]) -> [String: String] {
+        var result = local
+        for (rawCode, rawLabel) in llm {
+            let code = rawCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let label = rawLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !code.isEmpty, !label.isEmpty else { continue }
+            result[code] = label
+        }
+        return result
     }
 
     private static func makeLegendSummary(_ legend: [String: String]) -> String {
