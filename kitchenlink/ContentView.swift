@@ -507,7 +507,7 @@ enum MenuItemKind: String, CaseIterable, Codable {
     }
 }
 
-struct MenuItemData: Identifiable, Codable {
+struct MenuItemData: Identifiable, Codable, Equatable {
     let id: String
     var name: String
     var description: String
@@ -595,7 +595,7 @@ enum MenuItemOptionKind: String, CaseIterable, Codable {
     }
 }
 
-struct MenuItemVariant: Identifiable, Codable {
+struct MenuItemVariant: Identifiable, Codable, Equatable {
     let id: String
     var name: String
     var priceCents: Int
@@ -624,7 +624,7 @@ struct MenuItemVariant: Identifiable, Codable {
     }
 }
 
-struct MenuSectionData: Identifiable, Codable {
+struct MenuSectionData: Identifiable, Codable, Equatable {
     let id: String
     var title: String
     var subtitle: String
@@ -1048,7 +1048,7 @@ enum DemoMenuFactory {
     }
 }
 
-private enum PriceFormatter {
+enum PriceFormatter {
     static let formatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -1062,7 +1062,7 @@ private enum PriceFormatter {
     }
 }
 
-private struct AllergenDefinition: Identifiable {
+struct AllergenDefinition: Identifiable {
     let code: String
     let title: String
     let icon: String
@@ -1071,7 +1071,7 @@ private struct AllergenDefinition: Identifiable {
     var id: String { code }
 }
 
-private enum AllergenCatalog {
+enum AllergenCatalog {
     static let definitionsByCode: [String: AllergenDefinition] = [
         "a": AllergenDefinition(code: "a", title: "Glutenhaltiges Getreide", icon: "leaf", tint: .orange),
         "b": AllergenDefinition(code: "b", title: "Krebstiere", icon: "fish", tint: .cyan),
@@ -1221,7 +1221,7 @@ private enum AllergenCatalog {
     }
 }
 
-private struct AllergenBadgeView: View {
+struct AllergenBadgeView: View {
     let definition: AllergenDefinition
 
     var body: some View {
@@ -1241,7 +1241,7 @@ private struct AllergenBadgeView: View {
     }
 }
 
-private struct AllergenLegendView: View {
+struct AllergenLegendView: View {
     let definitions: [AllergenDefinition]
     @Environment(\.dismiss) private var dismiss
 
@@ -1273,7 +1273,7 @@ private struct AllergenLegendView: View {
     }
 }
 
-private struct AllergenBadgesRow: View {
+struct AllergenBadgesRow: View {
     let rawCodes: String
     let legendByCode: [String: String]?
     @State private var showLegend = false
@@ -1317,7 +1317,7 @@ private struct AllergenBadgesRow: View {
     }
 }
 
-private struct MenuItemOptionsListView: View {
+struct MenuItemOptionsListView: View {
     let options: [MenuItemVariant]
 
     private var orderedOptions: [MenuItemVariant] {

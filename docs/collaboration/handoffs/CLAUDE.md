@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 19 July 2026 (Nacht)
+**Updated:** 21 July 2026 (Session-Teil 17: Allergen-Legende-Fix + manueller Editor)
+**Zuvor:** 19 July 2026 (Nacht)
 **Branch:** `main` (Main-Only-Modus seit 19. Juli 2026, `DECISIONS.md`)
 **Status:** Zwei Straenge in dieser Session: (1) Scan-zu-Publish-Bruecke
 (KL-MENU-005) implementiert — Migration, Publish-Client/-Model/-Sheet,
@@ -25,6 +26,80 @@ KL-MENU-005 (§6.2). Details in Session-Teil 10 bis 12.
 Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
+
+## Session-Teil 17: Allergen-Legende aus dem Bild + manueller Karten-Editor
+
+Zwei zusammenhängende Stränge, beide verifiziert und in `main` (`87ccb34`
+für den Fix, Editor-Commit folgt).
+
+### A. Allergen-Legende: KI liest sie jetzt direkt aus dem Bild
+
+Nutzer-Befund (zu Recht): die Allergen-Icons waren schlechter als in der Alpha.
+Ursache im Code bestätigt: das KI-Schema hatte **kein Legenden-Feld**; die
+einzige Legendenquelle war die lokale OCR-Heuristik `detectAllergenLegend`.
+Scheiterte die, blieb `section.allergenLegend` leer und die Icons konnten Codes
+nicht zuordnen. (Ehrliche Einordnung: Alte Kanzlei, die ich fälschlich als
+„perfekt" bezeichnet hatte, druckt gar keine Legende — „Bitte fragen Sie unser
+Serviceteam" —, die 0 erfassten Codes waren dort also korrekt; ich hatte es nur
+nie überprüft.)
+
+Fix in `kitchenlink/ContentView.swift`:
+- Prompt/Schema um `legend` (Code→Klartext) erweitert; jeder an einem Artikel
+  genutzte Code muss in der Legende erklärt sein; Per-Item-Code-Regel geschärft.
+- `LLMMenuRoot` dekodiert die Legende liberal (Objekt- ODER Array-Form, gängige
+  Feldnamen), normalisiert Keys auf Kleinbuchstaben.
+- `mergeLegends`: KI-Legende hat Vorrang, lokale OCR-Legende füllt Lücken.
+- Page-by-Page: Legende jeder Seite (auch reiner Legendenseiten OHNE Artikel →
+  `.empty(legend:)`) wird karteweit vereint und auf ALLE Sektionen geschrieben.
+- `AllergenCatalog.definitions`: Standard-EU-Codes (a–p, 1–14) rendern als Icon
+  auch dann, wenn die erkannte Legende sie mal nicht auflistet; unbekannter
+  Zeichen-Müll ohne Legendeneintrag bleibt gefiltert.
+
+**Verifiziert:** direkter Gateway-Probe mit dem NEUEN Prompt auf einer echten
+Karte (pizzeria-zum-italiener) — big-pickle liefert jetzt das `legend`-Feld
+exakt mit der gedruckten Karten-Legende (A=glutenhaltiges Getreide, B=Krebstiere
+…). Beweis in `/tmp/kl-legend-probe-proof.txt`. Harness-Lauf end-to-end grün
+(Deklarationen tragen die karten-eigene Legendenformulierung, 56/92 Artikel mit
+Codes). Build grün, Unit-Suite 208/0/2.
+
+### B. Manueller Speisekarten-Editor (Grundlage für den Import)
+
+Nutzer-Vorgabe: erst den Editor vollständig ausbauen, damit klar ist, was der
+Import abbilden muss. Der Editor arbeitet auf demselben leichten Modell
+(`MenuSectionData`), das der Import erzeugt und `MenuPublishSheet` konsumiert —
+Import und Handeingabe konvergieren so auf ein Modell und denselben Publish-Weg.
+
+- **NEU** `kitchenlink/Features/MenuEditor/MenuManualEditorView.swift`:
+  Kategorien (anlegen/sortieren/löschen), Gerichte (Name, Beschreibung, Preis in
+  €→Cent, Art Essen/Getränk), Varianten/Portionen/Extras, sowie Allergen-/
+  Zusatzstoff-Auswahl als EINHEITLICHE App-Icons (Standardcodes a–p/1–14 aus
+  `AllergenCatalog`, plus Hauscodes mit eigener Bedeutung in die karteweite
+  Legende). Live-Vorschau „wie für Gäste" (dieselbe `AllergenBadgesRow`).
+  Auto-Persistenz über `KitchenLinkStore`, Übergabe an `MenuPublishSheet`.
+- `KitchenLinkStore.updateMenuSections(_:)` (persistiert, erlaubt leere Karte
+  während der Bearbeitung).
+- Einstieg im Betreiber-Home: Button „Karte von Hand bearbeiten"
+  (`business.editMenuManually`).
+- Zugriffsebenen in `ContentView.swift` von `private` auf intern geweitet, damit
+  der Editor sie wiederverwendet: `PriceFormatter`, `AllergenCatalog`,
+  `AllergenDefinition`, `AllergenBadgeView`, `AllergenLegendView`,
+  `AllergenBadgesRow`, `MenuItemOptionsListView`. `MenuSectionData`,
+  `MenuItemData`, `MenuItemVariant` sind jetzt `Equatable` (für Change-Tracking).
+- **NEU** `kitchenlinkUITests/MenuManualEditorUITests.swift`: fährt Kategorie →
+  Gericht → Name/Preis → Allergen-Code → Gäste-Vorschau real durch. Grün (1/1),
+  drei Screenshots belegen die Icon-Auswahl (A ausgewählt, mit Symbol+Klartext).
+
+### Offen / nächster Schritt
+
+- **Publish-Vertrag lückenhaft:** `KitchenLinkPublishMenu.Item` überträgt nur
+  `allergen_codes`, NICHT die Legende und NICHT Varianten/Portionen/Extras. Der
+  Betreiber pflegt beides im Editor, aber ans Gast-Web geht es noch nicht.
+  Nächster sinnvoller Schritt: `operator_publish_menu`/`p_menu` + Gast-Web um
+  Legende und Varianten erweitern, dann erst hat der Editor (und der Import)
+  volle Wirkung beim Gast.
+- Import-Dubletten auf zweisprachigen Karten (140, v. a. Ristorante Italia) und
+  Per-Item-Code-Vollständigkeit (~51 % karteübergreifend) bleiben offen; die
+  Legende selbst wird jetzt erfasst.
 
 ## Session-Teil 16: KL-SCAN-002 Runde 5 — Vision zuverlässig gemacht
 

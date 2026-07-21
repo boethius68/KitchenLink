@@ -221,6 +221,14 @@ final class KitchenLinkStore: ObservableObject {
         persistMenuSections()
     }
 
+    /// Übernimmt die vom manuellen Editor bearbeitete Karte. Anders als
+    /// `replaceMenu(with:)` erlaubt dies auch eine (vorübergehend) leere Karte,
+    /// damit der Betreiber Kategorien vollständig löschen und neu aufbauen kann.
+    func updateMenuSections(_ sections: [MenuSectionData]) {
+        menuSections = sections
+        persistMenuSections()
+    }
+
     func appendMenu(with sections: [MenuSectionData]) {
         guard !sections.isEmpty else { return }
         menuSections.append(contentsOf: sections)

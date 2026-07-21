@@ -116,6 +116,14 @@ struct KitchenLinkV2BusinessHomeView: View {
                 }
                 .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
                 .accessibilityIdentifier("business.choosePhotos")
+
+                NavigationLink {
+                    MenuManualEditorView()
+                } label: {
+                    Label("Karte von Hand bearbeiten", systemImage: "square.and.pencil")
+                }
+                .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                .accessibilityIdentifier("business.editMenuManually")
             }
 
             HStack(spacing: KitchenLinkV2Spacing.small) {
