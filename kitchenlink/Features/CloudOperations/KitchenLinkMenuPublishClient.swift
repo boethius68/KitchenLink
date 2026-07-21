@@ -26,7 +26,18 @@ struct KitchenLinkPublishMenu: Codable, Equatable {
     struct Category: Codable, Equatable {
         var name: String
         var kind: String
+        /// Allergen-/Zusatzstoff-Legende (Code→Klartext) dieser Kategorie. Landet
+        /// in `menu_categories.allergen_legend`, damit das Gast-Web die Codes zu
+        /// einheitlichen Icons/Klartext auflösen kann.
+        var allergenLegend: [String: String]
         var items: [Item]
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case kind
+            case allergenLegend = "allergen_legend"
+            case items
+        }
     }
 
     struct Item: Codable, Equatable {
@@ -36,6 +47,9 @@ struct KitchenLinkPublishMenu: Codable, Equatable {
         var priceCents: Int
         var kind: String
         var allergenCodes: [String]
+        /// Varianten/Portionen/Extras des Artikels. Landet in
+        /// `menu_items.variant_options`.
+        var variantOptions: [VariantOption]
 
         enum CodingKeys: String, CodingKey {
             case slug
@@ -44,6 +58,20 @@ struct KitchenLinkPublishMenu: Codable, Equatable {
             case priceCents = "price_cents"
             case kind
             case allergenCodes = "allergen_codes"
+            case variantOptions = "variant_options"
+        }
+    }
+
+    /// Eine Auswahloption eines Artikels (Portion, Extra oder Variante).
+    struct VariantOption: Codable, Equatable {
+        var name: String
+        var priceCents: Int
+        var kind: String
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case priceCents = "price_cents"
+            case kind
         }
     }
 
@@ -85,18 +113,50 @@ enum KitchenLinkMenuPublishPayload {
                     description: item.description,
                     priceCents: item.priceCents,
                     kind: item.kind.rawValue,
-                    allergenCodes: allergenCodes(from: item)
+                    allergenCodes: allergenCodes(from: item),
+                    variantOptions: variantOptions(from: item)
                 )
             }
             guard !items.isEmpty else { return nil }
             return KitchenLinkPublishMenu.Category(
                 name: section.title,
                 kind: section.kind.rawValue,
+                allergenLegend: normalizedLegend(section.allergenLegend),
                 items: items
             )
         }
 
         return KitchenLinkPublishMenu(categories: categories)
+    }
+
+    /// Bereinigt die Legende: klein geschriebene, getrimmte Codes auf
+    /// nicht-leere Klartexte. So bleibt `allergen_legend` konsistent mit den
+    /// (klein geschriebenen) Codes in `allergen_codes`.
+    static func normalizedLegend(_ legend: [String: String]?) -> [String: String] {
+        guard let legend else { return [:] }
+        var result: [String: String] = [:]
+        for (rawCode, rawTitle) in legend {
+            let code = rawCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let title = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !code.isEmpty, !title.isEmpty else { continue }
+            result[code] = title
+        }
+        return result
+    }
+
+    /// Übersetzt die Varianten/Portionen/Extras eines Artikels in die
+    /// Veröffentlichungs-Form. Leere Namen oder negative Preise werden
+    /// ausgelassen.
+    static func variantOptions(from item: MenuItemData) -> [KitchenLinkPublishMenu.VariantOption] {
+        item.variants.compactMap { variant in
+            let name = variant.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, variant.priceCents >= 0 else { return nil }
+            return KitchenLinkPublishMenu.VariantOption(
+                name: name,
+                priceCents: variant.priceCents,
+                kind: variant.kind.rawValue
+            )
+        }
     }
 
     /// Erzeugt einen URL-tauglichen Slug aus einem Artikelnamen. Deutsche

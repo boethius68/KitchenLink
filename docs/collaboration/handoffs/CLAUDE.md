@@ -89,14 +89,40 @@ Import und Handeingabe konvergieren so auf ein Modell und denselben Publish-Weg.
   Gericht → Name/Preis → Allergen-Code → Gäste-Vorschau real durch. Grün (1/1),
   drei Screenshots belegen die Icon-Auswahl (A ausgewählt, mit Symbol+Klartext).
 
+### C. Publish-Vertrag um Legende + Varianten erweitert (erledigt, verifiziert)
+
+Der Editor pflegt Legende und Varianten — jetzt überträgt der Publish-Weg sie
+auch bis in die DB.
+
+- `KitchenLinkPublishMenu`: `Category.allergen_legend` (Objekt) und
+  `Item.variant_options` (Array `{name, price_cents, kind}`) ergänzt; der Builder
+  füllt sie aus `MenuSectionData.allergenLegend` bzw. `MenuItemData.variants`
+  (Legenden-Keys klein normalisiert, leere Varianten/Preise ausgelassen).
+- Migration `20260721120000_operator_publish_menu_legend_variants.sql`: ersetzt
+  additiv die RPC, sodass sie beide Felder in die bereits vorhandenen Spalten
+  `menu_categories.allergen_legend` / `menu_items.variant_options` schreibt
+  (typ-gesichert, Legenden-Keys klein, `kind` auf portion|extra|variant
+  normalisiert, leere Varianten weg).
+- **Latenter Bug gefixt:** die RPC referenzierte `menu_id` mehrdeutig (OUT-Spalte
+  der RETURNS TABLE vs. Tabellenspalte). Die erste Fassung (20260719200000)
+  wurde real nie ausgeführt, daher unentdeckt; sie wäre beim ersten echten
+  Publish an `delete ... where menu_id = v_menu_id` gescheitert. Fix per
+  `#variable_conflict use_column`.
+- **Verifiziert:** neue Payload-Tests grün (Unit-Suite 211/0/2); die Migration
+  FUNKTIONAL gegen ein lokales Postgres 16 geprüft (throwaway-Cluster, Stubs für
+  `auth.uid()`/`is_venue_staff`): RPC schreibt Legende (Groß-Key→klein, leeres
+  Paar weg) und Varianten (leere raus, ungültiges kind→variant) korrekt; Defaults
+  `{}`/`[]`; Replace-Semantik und „genau eine aktive Karte" intakt.
+
 ### Offen / nächster Schritt
 
-- **Publish-Vertrag lückenhaft:** `KitchenLinkPublishMenu.Item` überträgt nur
-  `allergen_codes`, NICHT die Legende und NICHT Varianten/Portionen/Extras. Der
-  Betreiber pflegt beides im Editor, aber ans Gast-Web geht es noch nicht.
-  Nächster sinnvoller Schritt: `operator_publish_menu`/`p_menu` + Gast-Web um
-  Legende und Varianten erweitern, dann erst hat der Editor (und der Import)
-  volle Wirkung beim Gast.
+- **Gast-Web-Rendering (separates Repo, `guest-web/`):** die DB trägt jetzt
+  Legende + Varianten; das Gast-Web muss `menu_categories.allergen_legend` und
+  `menu_items.variant_options` noch anzeigen (Icons/Klartext + Optionen). Nicht
+  in diesem Repo — als Folgearbeit dort einplanen.
+- **Migration anwenden:** `20260721120000` muss noch auf die Supabase-DB
+  gespielt werden (Nutzer-Workflow, SANDBOX_SETUP §6.2); lokal verifiziert, real
+  noch nicht angewandt.
 - Import-Dubletten auf zweisprachigen Karten (140, v. a. Ristorante Italia) und
   Per-Item-Code-Vollständigkeit (~51 % karteübergreifend) bleiben offen; die
   Legende selbst wird jetzt erfasst.

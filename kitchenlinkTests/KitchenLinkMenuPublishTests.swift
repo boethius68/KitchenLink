@@ -187,6 +187,79 @@ private func session(access: String, refresh: String = "rt") -> KitchenLinkCloud
     #expect(published.allergenCodes == ["a", "c"])
 }
 
+@Test func buildCarriesAllergenLegendAndVariants() {
+    let pizza = MenuItemData(
+        id: "i1",
+        name: "Pizza Speciale",
+        description: "Tomate, Mozzarella",
+        priceCents: 1290,
+        kind: .food,
+        variants: [
+            MenuItemVariant(id: "v1", name: "Klein", priceCents: 990, kind: .portion),
+            MenuItemVariant(id: "v2", name: "mit Käserand", priceCents: 200, kind: .extra)
+        ],
+        allergenCodes: "a,g"
+    )
+    let sections = [
+        MenuSectionData(
+            id: "s1", title: "Pizza", subtitle: "", kind: .food,
+            items: [pizza],
+            allergenLegend: ["A": "Glutenhaltiges Getreide", "g": "Milch"]
+        )
+    ]
+    let payload = KitchenLinkMenuPublishPayload.build(from: sections)
+    let category = payload.categories[0]
+    // Legenden-Keys werden klein geschrieben (konsistent zu allergen_codes).
+    #expect(category.allergenLegend == ["a": "Glutenhaltiges Getreide", "g": "Milch"])
+
+    let published = category.items[0]
+    #expect(published.variantOptions.count == 2)
+    #expect(published.variantOptions[0].name == "Klein")
+    #expect(published.variantOptions[0].priceCents == 990)
+    #expect(published.variantOptions[0].kind == "portion")
+    #expect(published.variantOptions[1].kind == "extra")
+}
+
+@Test func buildDropsEmptyVariantNamesAndDefaultsEmptyLegend() {
+    let soup = MenuItemData(
+        id: "i1", name: "Tagessuppe", description: "", priceCents: 500, kind: .food,
+        variants: [
+            MenuItemVariant(id: "v1", name: "   ", priceCents: 100, kind: .portion), // leer -> raus
+            MenuItemVariant(id: "v2", name: "Groß", priceCents: 300, kind: .portion)
+        ],
+        allergenCodes: nil
+    )
+    // section() erzeugt eine Sektion ohne Legende -> normalisiert zu {}.
+    let payload = KitchenLinkMenuPublishPayload.build(from: [
+        section(id: "s1", title: "Küche", kind: .food, items: [soup])
+    ])
+    #expect(payload.categories[0].allergenLegend.isEmpty)
+    #expect(payload.categories[0].items[0].variantOptions.map(\.name) == ["Groß"])
+}
+
+@Test func payloadEncodesSnakeCaseContractKeys() throws {
+    let sections = [
+        MenuSectionData(
+            id: "s1", title: "Pizza", subtitle: "", kind: .food,
+            items: [
+                MenuItemData(
+                    id: "i1", name: "Pizza", description: "", priceCents: 1290, kind: .food,
+                    variants: [MenuItemVariant(id: "v1", name: "Klein", priceCents: 990, kind: .portion)],
+                    allergenCodes: "a"
+                )
+            ],
+            allergenLegend: ["a": "Gluten"]
+        )
+    ]
+    let payload = KitchenLinkMenuPublishPayload.build(from: sections)
+    let data = try JSONEncoder().encode(payload)
+    let json = String(decoding: data, as: UTF8.self)
+    #expect(json.contains("\"allergen_legend\""))
+    #expect(json.contains("\"variant_options\""))
+    #expect(json.contains("\"price_cents\""))
+    #expect(json.contains("\"allergen_codes\""))
+}
+
 // MARK: - Model
 
 private func onePayload() -> KitchenLinkPublishMenu {
