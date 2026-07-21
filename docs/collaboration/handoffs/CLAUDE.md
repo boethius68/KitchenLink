@@ -168,11 +168,25 @@ weichen ab („Antipasti - Vorspeisen" vs „Antipasti - Starters"), also führt
 - Rest: wenige kleine (1–2-Artikel-)Übersetzungssektionen bleiben bewusst als
   Dublette stehen (sicherer als Fehl-Löschen); im Review leicht zu entfernen.
 
-### Weiterhin offen
+### F. Per-Item-Code-Vollständigkeit untersucht — KEIN Bug (Messartefakt)
 
-- Per-Item-Code-Vollständigkeit (~51 % karteübergreifend) ist modellabhängig; der
-  Prompt fordert die Codes bereits scharf. Verbesserung braucht Messläufe über
-  den echten Korpus.
+Statt am Prompt zu drehen, erst an den echten Report-Daten gemessen (16 Karten):
+- Die „~51 %" werden von Karten ohne gedruckte Codes gezogen: Alte Kanzlei (0 %),
+  hafenrestaurant (4 %), zum-franziskaner (18 %) verweisen im Quelltext
+  ausdrücklich auf eine separate Allergiker-Liste („liegt an der Rezeption
+  bereit"). 0–4 % sind dort KORREKT.
+- Bei code-DRUCKENDEN Karten ~62 %, inkl. legitim code-loser Artikel (Getränke,
+  Weine, einfache Gerichte).
+- Kreuz-Check an der code-dichtesten Karte (ristorante-italia, 114
+  OCR-Code-Zeilen): von 89 Items ohne Code haben nur 6 einen „Code" in der
+  Quelle — alle 6 sind False Positives (nachgestelltes „l" = Liter-Einheit, kein
+  Allergen „l"). Die KI hat sie KORREKT nicht erfasst. → praktisch KEINE echten
+  Drops.
+
+Schluss: das Per-Item-Code-Verhalten ist korrekt und bewusst konservativ. Für ein
+Allergen-Feature ist das Erfinden von Codes gefährlicher als Weglassen; ein
+Prompt-Push zum Zahlen-Hochtreiben wäre ein Sicherheits-Rückschritt. KEINE
+Änderung vorgenommen (Befund dokumentiert).
 
 ## Session-Teil 16: KL-SCAN-002 Runde 5 — Vision zuverlässig gemacht
 
