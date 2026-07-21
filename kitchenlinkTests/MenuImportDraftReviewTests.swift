@@ -108,9 +108,23 @@ struct MenuImportDraftReviewTests {
         #expect(schnitzel.variants.count == 1)
         #expect(schnitzel.variants.first?.priceCents == 200)
         #expect(schnitzel.variants.first?.kind == .extra)
+        #expect(schnitzel.priceBasis == "per_item")
 
         let legend = try #require(sections.first?.allergenLegend)
         #expect(legend["a"] == "Gluten")
+    }
+
+    @Test
+    func converterKeepsPerPersonPriceBasis() throws {
+        var draft = reviewableDraft()
+        draft.sections[0].entries[0].offers[0].basis = "per_person"
+
+        let item = try #require(
+            MenuImportDraftConverter.convert(draft).flatMap(\.items).first {
+                $0.name == "Wiener Schnitzel"
+            }
+        )
+        #expect(item.priceBasis == "per_person")
     }
 
     // MARK: - Review model
@@ -189,6 +203,29 @@ struct MenuImportDraftReviewTests {
         #expect(offer.evidence.method == .human)
         #expect(!offer.evidence.isLocated)
         #expect(entry.reviewState == .edited)
+    }
+
+    @Test @MainActor
+    func humanCorrectedPricePreservesPerPersonBasis() throws {
+        var draft = reviewableDraft()
+        draft.sections[0].entries[2].offers = [
+            MenuImportOffer(
+                id: "menu-price",
+                priceKind: .fixed,
+                amountCents: 3_990,
+                currencyCode: "EUR",
+                rawPrice: "39,90",
+                basis: "per_person",
+                evidence: evidence(id: "menu-price-evidence")
+            ),
+        ]
+        let model = MenuImportDraftReviewModel(draft: draft)
+
+        model.setEntryPrice("entry-unpriced", cents: 4_190)
+
+        let corrected = try #require(model.entry(withID: "entry-unpriced")?.offers.first)
+        #expect(corrected.amountCents == 4_190)
+        #expect(corrected.basis == "per_person")
     }
 
     @Test @MainActor

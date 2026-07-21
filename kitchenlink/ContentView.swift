@@ -515,6 +515,7 @@ struct MenuItemData: Identifiable, Codable, Equatable {
     var kind: MenuItemKind
     var variants: [MenuItemVariant]
     var allergenCodes: String?
+    var priceBasis: String?
 
     init(
         id: String,
@@ -523,7 +524,8 @@ struct MenuItemData: Identifiable, Codable, Equatable {
         priceCents: Int,
         kind: MenuItemKind,
         variants: [MenuItemVariant] = [],
-        allergenCodes: String? = nil
+        allergenCodes: String? = nil,
+        priceBasis: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -532,6 +534,7 @@ struct MenuItemData: Identifiable, Codable, Equatable {
         self.kind = kind
         self.variants = variants
         self.allergenCodes = allergenCodes
+        self.priceBasis = priceBasis
     }
 
     enum CodingKeys: String, CodingKey {
@@ -542,6 +545,7 @@ struct MenuItemData: Identifiable, Codable, Equatable {
         case kind
         case variants
         case allergenCodes
+        case priceBasis
     }
 
     init(from decoder: Decoder) throws {
@@ -553,6 +557,7 @@ struct MenuItemData: Identifiable, Codable, Equatable {
         kind = try container.decode(MenuItemKind.self, forKey: .kind)
         variants = try container.decodeIfPresent([MenuItemVariant].self, forKey: .variants) ?? []
         allergenCodes = try container.decodeIfPresent(String.self, forKey: .allergenCodes)
+        priceBasis = try container.decodeIfPresent(String.self, forKey: .priceBasis)
     }
 
     var displayName: String {
@@ -5425,7 +5430,7 @@ enum MenuImportService {
 
                 let options = deduplicateOptions(itemPayload.options.compactMap { option in
                     let optionName = sanitizeImportedTitle(option.name)
-                    guard !optionName.isEmpty, option.priceCents > 0 else { return nil }
+                    guard !optionName.isEmpty else { return nil }
                     return MenuItemVariant(
                         id: "import-option-\(UUID().uuidString)",
                         name: optionName,
@@ -5442,7 +5447,8 @@ enum MenuImportService {
                         priceCents: itemPayload.priceCents,
                         kind: itemKind,
                         variants: options,
-                        allergenCodes: codes
+                        allergenCodes: codes,
+                        priceBasis: itemPayload.priceBasis
                     )
                 )
             }

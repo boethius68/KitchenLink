@@ -122,6 +122,21 @@ append-only; superseded decisions are marked rather than deleted.
 - The user's Xcode working copy is `/Users/test/Developments/
   kitchenlink-claude` on `main`.
 
+## Import Consolidation (approved 22 July 2026)
+
+- The current V2 import and review flow is the only visible product path. The
+  former legacy product sandbox, design switch and duplicate import review are
+  retired from navigation once their useful behavior is represented in V2.
+- The current review and guest preview must retain the useful legacy coverage:
+  food/drink/total counters, structured allergen and additive symbols,
+  descriptions, variants/options and a space-efficient quantity control.
+- The in-app fixture picker exposes exactly three complementary cards: one
+  deterministic KitchenLink full-coverage menu plus two difficult real-world
+  menus. Historical benchmark fixtures remain stable and separate from this
+  product-facing selection.
+- This consolidates sandbox UX; it does not authorize production activation,
+  live payments or removal of the remaining demo/simulation capabilities.
+
 ## Collaboration Governance
 
 - **Agent parity:** Claude Code and Codex work as equal technical collaborators.

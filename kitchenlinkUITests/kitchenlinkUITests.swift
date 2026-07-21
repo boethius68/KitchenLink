@@ -31,14 +31,9 @@ final class kitchenlinkUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["business.welcomeTitle"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["business.scanMenu"].exists)
 
-        // Legacy- und Sandbox-Zugänge liegen eingeklappt hinter
-        // „Entwicklung & Demo" und bleiben dort erreichbar.
-        let devTools = app.buttons["business.devTools"]
-        XCTAssertTrue(devTools.waitForExistence(timeout: 5))
-        scrollTo(devTools, in: app)
-        devTools.tap()
-        XCTAssertTrue(app.buttons["business.openLegacySandbox"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["business.useLegacyDesign"].exists)
+        XCTAssertFalse(app.buttons["business.devTools"].exists)
+        XCTAssertFalse(app.buttons["business.openLegacySandbox"].exists)
+        XCTAssertFalse(app.buttons["business.useLegacyDesign"].exists)
 
         scrollTo(app.buttons["business.choosePhotos"], in: app)
         app.buttons["business.choosePhotos"].tap()
@@ -92,22 +87,62 @@ final class kitchenlinkUITests: XCTestCase {
     }
 
     @MainActor
-    func testLegacyDesignCanReturnToV2Preview() throws {
+    func testRetiredLegacyLaunchArgumentStillShowsCurrentProduct() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--kitchenlink-design-legacy"]
         app.launch()
 
-        XCTAssertTrue(app.buttons["business.useV2Design"].waitForExistence(timeout: 5))
-        app.buttons["business.useV2Design"].tap()
+        XCTAssertTrue(app.staticTexts["business.welcomeTitle"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["business.scanMenu"].exists)
+        XCTAssertFalse(app.buttons["business.useV2Design"].exists)
+        XCTAssertFalse(app.buttons["business.useLegacyDesign"].exists)
+        XCTAssertFalse(app.buttons["business.openLegacySandbox"].exists)
+    }
 
-        XCTAssertTrue(app.staticTexts["business.welcomeTitle"].waitForExistence(timeout: 3))
+    @MainActor
+    func testImportOffersThreeDocumentedTestMenus() throws {
+        let app = XCUIApplication()
+        app.launch()
 
-        let devTools = app.buttons["business.devTools"]
-        XCTAssertTrue(devTools.waitForExistence(timeout: 5))
-        scrollTo(devTools, in: app)
-        devTools.tap()
-        XCTAssertTrue(app.buttons["business.useLegacyDesign"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["business.openLegacySandbox"].exists)
+        let choosePhotos = app.buttons["business.choosePhotos"]
+        XCTAssertTrue(choosePhotos.waitForExistence(timeout: 5))
+        scrollTo(choosePhotos, in: app)
+        choosePhotos.tap()
+
+        let demoFixture = app.buttons["menuImport.demoFixture"]
+        XCTAssertTrue(demoFixture.waitForExistence(timeout: 3))
+        scrollTo(demoFixture, in: app)
+        demoFixture.tap()
+
+        XCTAssertTrue(app.navigationBars["Testkarte wählen"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["menuImport.demoFixture.kitchenlink-pruefkueche"].exists)
+        XCTAssertTrue(app.buttons["menuImport.demoFixture.lichtburg-berlin"].exists)
+        XCTAssertTrue(app.buttons["menuImport.demoFixture.alexxanders-chemnitz"].exists)
+    }
+
+    @MainActor
+    func testGuestPreviewUsesCountersAndCompactQuantityControl() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let manualEditor = app.buttons["business.editMenuManually"]
+        XCTAssertTrue(manualEditor.waitForExistence(timeout: 5))
+        scrollTo(manualEditor, in: app)
+        manualEditor.tap()
+
+        let preview = app.buttons["menuEditor.preview"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 3))
+        scrollTo(preview, in: app)
+        preview.tap()
+
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Getränke:'")).firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Speisen:'")).firstMatch.exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Gesamt:'")).firstMatch.exists)
+
+        let addButton = app.buttons["Hinzufügen"].firstMatch
+        XCTAssertTrue(addButton.exists)
+        addButton.tap()
+        XCTAssertTrue(app.buttons["menuPreview.selection"].waitForExistence(timeout: 2))
     }
 
     @MainActor

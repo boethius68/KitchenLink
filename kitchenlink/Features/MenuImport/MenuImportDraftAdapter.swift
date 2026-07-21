@@ -212,6 +212,10 @@ struct MenuImportDraftAdapter {
             cents: item.priceCents,
             id: "\(idPrefix)-offer",
             kind: .fixed,
+            basis: Self.normalizedPriceBasis(
+                item.priceBasis,
+                description: item.description
+            ),
             matcher: matcher,
             near: nameLine,
             fallbackLines: fallbackLines
@@ -283,7 +287,12 @@ struct MenuImportDraftAdapter {
                     preferredPage: itemLine?.pageIndex
                 )
                 let choicePrefix = "\(groupPrefix)-choice-\(choiceIndex)"
-                let priceKind: MenuImportPriceKind = kind == .extra ? .delta : .fixed
+                let priceKind: MenuImportPriceKind
+                if variant.priceCents == 0 {
+                    priceKind = .included
+                } else {
+                    priceKind = kind == .extra ? .delta : .fixed
+                }
                 let offer = makeOffer(
                     cents: variant.priceCents,
                     id: "\(choicePrefix)-offer",
@@ -326,6 +335,7 @@ struct MenuImportDraftAdapter {
         cents: Int,
         id: String,
         kind: MenuImportPriceKind,
+        basis: String = "per_item",
         matcher: EvidenceMatcher,
         near line: MenuImportOCRLine?,
         fallbackLines: [MenuImportOCRLine]
@@ -338,7 +348,7 @@ struct MenuImportDraftAdapter {
                 deltaCents: kind == .delta ? cents : nil,
                 currencyCode: "EUR",
                 rawPrice: match.rawPrice,
-                basis: "per_item",
+                basis: basis,
                 evidence: match.line.evidence(methodDetail: "local-rule-price")
             )
         }
@@ -359,9 +369,25 @@ struct MenuImportDraftAdapter {
             deltaCents: kind == .delta ? cents : nil,
             currencyCode: "EUR",
             rawPrice: formatted,
-            basis: "per_item",
+            basis: basis,
             evidence: fallback
         )
+    }
+
+    private static func normalizedPriceBasis(
+        _ rawBasis: String?,
+        description: String
+    ) -> String {
+        let explicit = rawBasis?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        if explicit?.contains("person") == true {
+            return "per_person"
+        }
+        if description.localizedCaseInsensitiveContains("pro Person") {
+            return "per_person"
+        }
+        return "per_item"
     }
 
     private func makeDescription(

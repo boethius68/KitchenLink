@@ -1,0 +1,37 @@
+{
+  "fixture_id": "kitchenlink-pruefkueche",
+  "version": 1,
+  "pages": 3,
+  "expected": {
+    "categories": 9,
+    "items": 23,
+    "food_items": 16,
+    "drink_items": 7,
+    "items_with_descriptions": 23,
+    "items_with_codes": 22,
+    "items_with_options": 14,
+    "set_menus": 1,
+    "per_person_prices": 1
+  },
+  "required_capabilities": [
+    "allergens",
+    "additives",
+    "categories",
+    "descriptions",
+    "foodAndDrinks",
+    "variants",
+    "setMenu"
+  ],
+  "legend_codes": [
+    "a", "b", "c", "d", "f", "g", "h", "i", "j", "l", "o",
+    "1", "2", "5", "6", "8", "9", "11", "12", "13"
+  ],
+  "anchor_items": [
+    "Wiener Schnitzel",
+    "Prüfküchen-Burger",
+    "Veganes Kokoscurry",
+    "Menü Abendbrise",
+    "Cola Zero",
+    "Riesling trocken"
+  ]
+}

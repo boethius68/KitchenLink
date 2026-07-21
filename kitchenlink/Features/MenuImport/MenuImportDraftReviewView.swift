@@ -77,6 +77,8 @@ struct MenuImportDraftReviewView: View {
                 KitchenLinkV2Palette.Surface.base
                     .ignoresSafeArea()
 
+                MenuImportDraftBackdrop()
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xLarge) {
                         summary
@@ -121,15 +123,23 @@ struct MenuImportDraftReviewView: View {
     }
 
     private var summary: some View {
-        let entries = model.sections.flatMap(\.entries)
+        let entries = model.sections.flatMap(\.entries).filter { $0.reviewState != .rejected }
         let unresolved = model.unresolvedEntryIDs.count
+        let foodCount = entries.filter { $0.kind == MenuItemKind.food.rawValue }.count
+        let drinkCount = entries.filter { $0.kind == MenuItemKind.drink.rawValue }.count
 
-        return VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
+        return VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
             Text("Erkannter Entwurf")
                 .font(KitchenLinkV2Typography.display)
                 .foregroundStyle(KitchenLinkV2Palette.Content.primary)
 
-            Text("\(entries.count) Einträge · \(unresolved) zu klären")
+            MenuImportDraftMetricsRow(
+                foodCount: foodCount,
+                drinkCount: drinkCount,
+                totalCount: entries.count
+            )
+
+            Text("\(unresolved) zu klären")
                 .font(KitchenLinkV2Typography.primaryLine)
                 .foregroundStyle(unresolved > 0
                     ? KitchenLinkV2Palette.Urgency.waitingText
@@ -145,27 +155,46 @@ struct MenuImportDraftReviewView: View {
     }
 
     private func sectionBlock(_ section: MenuImportSection) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(section.title.value)
-                .font(KitchenLinkV2Typography.section)
-                .foregroundStyle(KitchenLinkV2Palette.Content.primary)
-                .padding(.bottom, KitchenLinkV2Spacing.small)
+        KitchenLinkV2Card(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: KitchenLinkV2Spacing.small) {
+                    Image(systemName: sectionIcon(for: section))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    Text(section.title.value)
+                        .font(KitchenLinkV2Typography.section)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                    Spacer()
+                    Text("\(section.entries.filter { $0.reviewState != .rejected }.count)")
+                        .font(KitchenLinkV2Typography.meta)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                        .kitchenLinkV2TabularNumbers()
+                }
+                .padding(KitchenLinkV2Spacing.large)
 
-            ForEach(Array(section.entries.enumerated()), id: \.element.id) { index, entry in
-                entryRow(entry)
-                if index < section.entries.count - 1 {
-                    Divider().overlay(KitchenLinkV2Palette.Border.subtle)
+                ForEach(Array(section.entries.enumerated()), id: \.element.id) { index, entry in
+                    if index > 0 {
+                        Divider().overlay(KitchenLinkV2Palette.Border.subtle)
+                    }
+                    entryRow(entry)
+                        .padding(.horizontal, KitchenLinkV2Spacing.large)
                 }
             }
         }
+    }
+
+    private func sectionIcon(for section: MenuImportSection) -> String {
+        let drinkCount = section.entries.filter { $0.kind == MenuItemKind.drink.rawValue }.count
+        let foodCount = section.entries.filter { $0.kind == MenuItemKind.food.rawValue }.count
+        return drinkCount > foodCount ? MenuItemKind.drink.icon : MenuItemKind.food.icon
     }
 
     private func entryRow(_ entry: MenuImportEntry) -> some View {
         Button {
             selectedEntry = SelectedEntry(id: entry.id)
         } label: {
-            HStack(spacing: KitchenLinkV2Spacing.medium) {
-                VStack(alignment: .leading, spacing: 1) {
+            HStack(alignment: .top, spacing: KitchenLinkV2Spacing.medium) {
+                VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
                     Text(entry.name.value)
                         .font(KitchenLinkV2Typography.primaryLine)
                         .foregroundStyle(entry.reviewState == .rejected
@@ -178,6 +207,22 @@ struct MenuImportDraftReviewView: View {
                     Text(stateLine(for: entry))
                         .font(KitchenLinkV2Typography.meta)
                         .foregroundStyle(stateColor(for: entry))
+
+                    if let description = entry.description?.value,
+                       !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(description)
+                            .font(KitchenLinkV2Typography.secondaryLine)
+                            .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                            .lineLimit(3)
+                            .multilineTextAlignment(.leading)
+                    }
+
+                    MenuImportDraftDeclarationBadges(
+                        declarations: entry.declarations,
+                        legend: MenuImportDraftConverter.documentLegend(from: model.draft.declarations)
+                    )
+
+                    MenuImportDraftOptionsSummary(optionGroups: entry.optionGroups)
                 }
 
                 Spacer(minLength: KitchenLinkV2Spacing.small)
@@ -191,7 +236,7 @@ struct MenuImportDraftReviewView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(KitchenLinkV2Palette.Content.muted)
             }
-            .padding(.vertical, KitchenLinkV2Spacing.medium)
+            .padding(.vertical, KitchenLinkV2Spacing.large)
             .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
@@ -323,6 +368,7 @@ struct MenuImportEntryDetailView: View {
                         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xLarge) {
                             evidenceBlock(for: entry)
                             reasonsBlock(for: entry)
+                            structureBlock(for: entry)
                             correctionBlock(for: entry)
                             resolutionBlock(for: entry)
                         }
@@ -462,6 +508,61 @@ struct MenuImportEntryDetailView: View {
                             .font(KitchenLinkV2Typography.secondaryLine)
                             .foregroundStyle(KitchenLinkV2Palette.Content.primary)
                             .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Detected structure
+
+    @ViewBuilder
+    private func structureBlock(for entry: MenuImportEntry) -> some View {
+        let hasDescription = !(entry.description?.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let hasStructure = hasDescription
+            || !entry.declarations.isEmpty
+            || !entry.optionGroups.isEmpty
+            || !entry.bundleComponents.isEmpty
+            || entry.offers.contains { $0.basis == "per_person" }
+
+        if hasStructure {
+            VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+                Text("ERKANNTE DETAILS")
+                    .font(KitchenLinkV2Typography.meta)
+                    .tracking(1.35)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+
+                if let description = entry.description?.value, hasDescription {
+                    Text(description)
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if entry.offers.contains(where: { $0.basis == "per_person" }) {
+                    Label("Preis pro Person", systemImage: "person.2.fill")
+                        .font(KitchenLinkV2Typography.meta)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                }
+
+                MenuImportDraftDeclarationBadges(
+                    declarations: entry.declarations,
+                    legend: MenuImportDraftConverter.documentLegend(from: model.draft.declarations),
+                    showsTextClaims: true
+                )
+
+                MenuImportDraftOptionsSummary(
+                    optionGroups: entry.optionGroups,
+                    showsAllChoices: true
+                )
+
+                if !entry.bundleComponents.isEmpty {
+                    VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
+                        ForEach(entry.bundleComponents, id: \.id) { component in
+                            Label(component.title.value, systemImage: "list.bullet.indent")
+                                .font(KitchenLinkV2Typography.secondaryLine)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                        }
                     }
                 }
             }
@@ -638,5 +739,210 @@ struct MenuImportEntryDetailView: View {
                 model.setEntryPrice(entryID, cents: cents)
             }
         }
+    }
+}
+
+private struct MenuImportDraftMetricsRow: View {
+    let foodCount: Int
+    let drinkCount: Int
+    let totalCount: Int
+
+    var body: some View {
+        HStack(spacing: KitchenLinkV2Spacing.small) {
+            metric(title: "Getränke", count: drinkCount, icon: MenuItemKind.drink.icon)
+            metric(title: "Speisen", count: foodCount, icon: MenuItemKind.food.icon)
+            metric(title: "Gesamt", count: totalCount, icon: "square.grid.2x2.fill")
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func metric(title: String, count: Int, icon: String) -> some View {
+        VStack(spacing: KitchenLinkV2Spacing.xSmall) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+            Text("\(count)")
+                .font(KitchenLinkV2Typography.section)
+                .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                .kitchenLinkV2TabularNumbers()
+            Text(title)
+                .font(KitchenLinkV2Typography.meta)
+                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity, minHeight: 72)
+        .background(
+            KitchenLinkV2Palette.Surface.raised,
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title): \(count)")
+    }
+}
+
+private struct MenuImportDraftDeclarationBadges: View {
+    let declarations: [MenuImportDeclaration]
+    let legend: [String: String]
+    var showsTextClaims = false
+
+    private var codeString: String {
+        declarations
+            .compactMap(\.localCode)
+            .map { $0.lowercased() }
+            .uniquedPreservingOrder()
+            .joined(separator: ",")
+    }
+
+    private var textClaims: [String] {
+        declarations.compactMap { declaration in
+            guard declaration.localCode == nil else { return nil }
+            let text = declaration.rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.isEmpty ? nil : text
+        }
+        .uniquedPreservingOrder()
+    }
+
+    var body: some View {
+        if !codeString.isEmpty || (showsTextClaims && !textClaims.isEmpty) {
+            VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
+                if !codeString.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(AllergenCatalog.definitions(
+                                for: codeString,
+                                customTitles: legend.isEmpty ? nil : legend
+                            )) { definition in
+                                AllergenBadgeView(definition: definition)
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Erkannte Allergene und Zusatzstoffe")
+                }
+
+                if showsTextClaims {
+                    ForEach(textClaims, id: \.self) { claim in
+                        Label(claim, systemImage: "leaf.fill")
+                            .font(KitchenLinkV2Typography.meta)
+                            .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct MenuImportDraftOptionsSummary: View {
+    let optionGroups: [MenuImportOptionGroup]
+    var showsAllChoices = false
+
+    private struct ChoiceSummary: Identifiable {
+        let group: MenuImportOptionGroup
+        let choice: MenuImportChoice
+        var id: String { choice.id }
+    }
+
+    private var choices: [ChoiceSummary] {
+        optionGroups.flatMap { group in
+            group.choices.map { ChoiceSummary(group: group, choice: $0) }
+        }
+    }
+
+    var body: some View {
+        if !choices.isEmpty {
+            VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
+                if showsAllChoices {
+                    ForEach(optionGroups, id: \.id) { group in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(group.title.value)
+                                .font(KitchenLinkV2Typography.meta)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                            ForEach(group.choices, id: \.id) { choice in
+                                Label(choiceLine(choice), systemImage: optionIcon(choice.kind))
+                                    .font(KitchenLinkV2Typography.secondaryLine)
+                                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                            }
+                        }
+                    }
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: KitchenLinkV2Spacing.small) {
+                            ForEach(Array(choices.prefix(4))) { pair in
+                                Label(pair.choice.name.value, systemImage: optionIcon(pair.choice.kind))
+                                    .font(KitchenLinkV2Typography.meta)
+                                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                                    .padding(.horizontal, KitchenLinkV2Spacing.small)
+                                    .padding(.vertical, KitchenLinkV2Spacing.xSmall)
+                                    .background(
+                                        KitchenLinkV2Palette.Surface.recessed,
+                                        in: RoundedRectangle(
+                                            cornerRadius: KitchenLinkV2Radius.label,
+                                            style: .continuous
+                                        )
+                                    )
+                            }
+
+                            if choices.count > 4 {
+                                Text("+\(choices.count - 4)")
+                                    .font(KitchenLinkV2Typography.meta)
+                                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func choiceLine(_ choice: MenuImportChoice) -> String {
+        guard let offer = choice.offers.first else { return choice.name.value }
+        let price: String?
+        switch offer.priceKind {
+        case .fixed:
+            price = offer.amountCents.map { PriceFormatter.string(cents: $0) }
+        case .delta:
+            price = offer.deltaCents.map {
+                let prefix = $0 >= 0 ? "+" : ""
+                return prefix + PriceFormatter.string(cents: $0)
+            }
+        default:
+            price = offer.rawPrice.isEmpty ? nil : offer.rawPrice
+        }
+        return [choice.name.value, price].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private func optionIcon(_ rawKind: String) -> String {
+        (MenuItemOptionKind(rawValue: rawKind) ?? .variant).icon
+    }
+}
+
+private struct MenuImportDraftBackdrop: View {
+    var body: some View {
+        GeometryReader { proxy in
+            Circle()
+                .fill(KitchenLinkV2Palette.Brand.grape.opacity(0.045))
+                .frame(width: proxy.size.width)
+                .offset(x: -proxy.size.width * 0.58, y: -proxy.size.height * 0.08)
+
+            RoundedRectangle(cornerRadius: 90, style: .continuous)
+                .fill(KitchenLinkV2Palette.Brand.grape.opacity(0.03))
+                .frame(width: proxy.size.width * 0.8, height: proxy.size.height * 0.3)
+                .rotationEffect(.degrees(-10))
+                .offset(x: proxy.size.width * 0.55, y: proxy.size.height * 0.7)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+private extension Array where Element == String {
+    func uniquedPreservingOrder() -> [String] {
+        var seen: Set<String> = []
+        return filter { seen.insert($0).inserted }
     }
 }

@@ -1,6 +1,6 @@
 # KitchenLink Work Queue
 
-**Stand:** 19. Juli 2026
+**Stand:** 22. Juli 2026
 **Phase:** Integrierte Sandbox mit oeffentlichem Gast-Web
 
 Diese Queue enthaelt sowohl die abgeschlossene Aufbauhistorie als auch aktuelle
@@ -758,6 +758,31 @@ Beschreibungsfragmente, OCR-Verwechslungen (`)`/`J`, `l`/`1`).
 Feedback -> Agent uebersetzt in Parser-Fixes + Gold-Baseline-Anker ->
 Benchmark + Unit-Suite gruen -> naechster Lauf zeigt Fortschritt. Parser-Fixes
 selbst sind bewusst NICHT Teil des Umgebungsbaus; sie beginnen mit Runde 1.
+
+### KL-MENU-006 - Import-Oberflaeche konsolidieren und Testabdeckung verbreitern
+
+**Status:** Erledigt (22. Juli 2026, direkt auf `main`)
+**Abhaengigkeit:** KL-MENU-004, KL-SCAN-002
+**Schreibbereich:** App-/Import-/Editor-Views, Demo-Fixtures, gezielte Tests und
+Dokumentation
+
+**Ergebnis**
+
+- Der V2-Import oeffnet die draft-native Pruefung direkt. Sichtbare
+  Legacy-Sandbox-, Designwechsel- und doppelte Review-Einstiege sind entfernt.
+- Pruefung und Gaeste-Vorschau zeigen die zuvor fehlende strukturierte Ebene:
+  drei Speisen-/Getraenke-/Gesamtzaehler, Beschreibungen, einheitliche
+  Allergen-/Zusatzstoffsymbole, Varianten/Extras und kompakte Mengensteuerung.
+- Die App bietet genau drei dokumentierte Testkarten. Eine reproduzierbare
+  KitchenLink-Pruefkueche deckt auf drei Seiten alle wichtigen Felder ab;
+  Lichtburg und Alexxanders bleiben als reale schwierige Layouts erhalten.
+- Die historische 14-Seiten-Gold-Baseline wurde nicht umgedeutet oder
+  aufgeweicht. Der Batch-Review nimmt die neue Vollabdeckung additiv auf.
+- Der strukturierte Preisbezug `per_person` und enthaltene Nullpreis-Optionen
+  bleiben jetzt durch Mapping, Draft, Review, Konvertierung und Persistenz
+  erhalten.
+- Abschlussnachweis: komplette Unit-Suite, gezielte Import-UI-Smokes,
+  14-Seiten-Gold-Benchmark und lokaler 17-Seiten-OCR-/Review-Lauf bestanden.
 
 ## Abgeschlossene Web-Straenge
 

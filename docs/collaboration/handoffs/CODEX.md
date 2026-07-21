@@ -1,10 +1,64 @@
 # Codex Handoff
 
-**Updated:** 19 July 2026
-**Branch:** `codex/local-hub-discovery`
-**Status:** Native Hub-Erkennung auf dem iPhone bestaetigt; zweiter
-Navigations-/QR-Performance-Fix in Draft-PR #29 verifiziert, signiert gebaut
-und wegen erschoepftem Codex-Geraeteaktionskontingent noch nicht installiert
+**Updated:** 22 July 2026
+**Branch:** `main`
+**Status:** Import-Oberflaeche auf den aktuellen V2-Pfad konsolidiert;
+strukturierte Darstellung und drei komplementaere Testkarten implementiert,
+Build, Unit-Suite, UI-Smokes und lokale Importverifikation gruen
+
+## Latest Continuation (22. Juli 2026, KL-MENU-006)
+
+- Der Root startet nur noch die aktuelle V2-Business-App. Der sichtbare
+  Legacy-Sandbox-Einstieg, der Designwechsel und der doppelte alte
+  Import-Review wurden entfernt; Scanner, Fotos und Fixtures fuehren direkt in
+  `MenuImportDraftReviewView`.
+- Der Draft-Review zeigt Speisen-, Getraenke- und Gesamtzaehler, dekorativen
+  Hintergrund, Beschreibungen, strukturierte Allergene/Zusatzstoffe,
+  Varianten/Extras, Preisbasis und Bundle-Details. Eine manuelle
+  Preiskorrektur behaelt jetzt `per_person` bei; kostenlose Optionen bleiben
+  als enthaltene Auswahl erhalten.
+- `MenuImportGuestPreviewView` ist die gemeinsame aktuelle Vorschau fuer Import
+  und manuellen Editor. Sie enthaelt die drei filterbaren Zaehler, die
+  einheitlichen Deklarationssymbole und eine kompakte Mengensteuerung mit
+  weiterhin 44-Punkt-Touchzielen.
+- Der App-Picker bietet exakt drei Karten: die deterministische dreiseitige
+  KitchenLink-Pruefkueche sowie Lichtburg und Alexxanders. Die Pruefkueche wird
+  durch `scripts/generate_demo_test_menu.py` reproduzierbar erzeugt und besitzt
+  eine maschinenlesbare Truth-Datei. Die historische Gold-Baseline bleibt bei
+  ihren bisherigen drei realen Karten; der menschliche Review bekommt die
+  Pruefkueche additiv.
+
+## Verification (KL-MENU-006)
+
+- Generischer iOS-Build ohne Code-Signing: **bestanden**.
+- Komplettes `kitchenlinkTests`-Target auf iPhone-17-Pro-Simulator:
+  **bestanden**, 2 absichtlich gegatete Harness-Tests uebersprungen,
+  0 fehlgeschlagen.
+- Alle drei generierten Seiten visuell auf Lesbarkeit, Randbeschnitt und
+  vorgesehene Feldabdeckung geprueft.
+- Gezielte UI-Smokes fuer entfernte Altpfade, exakt drei Fixtures, Zaehler und
+  kompakte Mengensteuerung: **bestanden**.
+- Historischer Scanner-Gold-Benchmark ueber 14 Seiten: **bestanden**.
+- Lokaler Apple-Vision-/Regel-Review ueber 17 Seiten:
+  **bestanden** (`run-20260722-005204`); die Prüfküche liefert 157 OCR-Zeilen,
+  darunter `39,90 € pro Person`, beide Nullpreis-Optionen und die vorgesehenen
+  groß gesetzten Deklarationscodes.
+- Ein erster kompletter keyloser KI-Textreview (`run-20260722-003922`) erkannte
+  9/9 Kategorien, 23/23 Artikel, 16/7 Speisen/Getränke, 23/23 Beschreibungen
+  und 22/22 deklarierte Artikel. Die dabei gefundenen Verluste von
+  `price_basis` und Nullpreis-Optionen sind behoben und regressionstestgeschützt.
+
+## Remaining Risk (KL-MENU-006)
+
+- Der lokale Diagnoseparser ist keine Produktionsalternative zum strukturierten
+  KI-Pfad und übersegmentiert die absichtlich dichte Prüfküche; seine Aufgabe
+  bleibt OCR-/Overlay-Diagnose und der stabile historische Gold-Benchmark.
+- Eine erneute externe Vision-Auswertung der finalen Bilder wurde nicht
+  durchgeführt, weil die dafür nötige Bildübertragung nicht ausdrücklich
+  freigegeben war. Sie ist für den lokalen Abschluss nicht erforderlich.
+- Das Gangmenü bleibt korrekt ein `per_person`-Artikel mit vollständiger
+  Beschreibung. Die optionale Zerlegung einzelner Gänge in
+  `bundleComponents` bleibt eine spätere Ausbaustufe.
 
 ## Latest Continuation (19. Juli 2026, sofortige Local-Service-Navigation)
 

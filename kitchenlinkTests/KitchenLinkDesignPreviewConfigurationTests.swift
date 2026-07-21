@@ -2,23 +2,25 @@ import Testing
 @testable import kitchenlink
 
 struct KitchenLinkDesignPreviewConfigurationTests {
-    @Test func v2IsTheDefaultPreview() {
-        #expect(KitchenLinkDesignPreviewConfiguration.initialVariant(arguments: []) == .v2)
+    @Test func appearanceIsUnforcedByDefault() {
+        #expect(KitchenLinkDesignPreviewConfiguration.forcedAppearance(arguments: []) == nil)
     }
 
-    @Test func legacyLaunchArgumentOverridesThePreview() {
-        let arguments = ["KitchenLink", KitchenLinkDesignPreviewConfiguration.legacyLaunchArgument]
-
-        #expect(KitchenLinkDesignPreviewConfiguration.initialVariant(arguments: arguments) == .legacy)
-    }
-
-    @Test func explicitV2KeepsThePreviewEnabled() {
+    @Test func lastAppearanceArgumentWins() {
         let arguments = [
             "KitchenLink",
-            KitchenLinkDesignPreviewConfiguration.legacyLaunchArgument,
-            KitchenLinkDesignPreviewConfiguration.v2LaunchArgument
+            KitchenLinkDesignPreviewConfiguration.darkAppearanceLaunchArgument,
+            KitchenLinkDesignPreviewConfiguration.lightAppearanceLaunchArgument,
         ]
+        #expect(KitchenLinkDesignPreviewConfiguration.forcedAppearance(arguments: arguments) == .light)
+    }
 
-        #expect(KitchenLinkDesignPreviewConfiguration.initialVariant(arguments: arguments) == .v2)
+    @Test func demoSeedArgumentsRemainIndependent() {
+        #expect(KitchenLinkDesignPreviewConfiguration.shouldSeedDemoService(arguments: [
+            KitchenLinkDesignPreviewConfiguration.demoServiceLaunchArgument,
+        ]))
+        #expect(!KitchenLinkDesignPreviewConfiguration.shouldSeedDemoInventory(arguments: [
+            KitchenLinkDesignPreviewConfiguration.demoServiceLaunchArgument,
+        ]))
     }
 }

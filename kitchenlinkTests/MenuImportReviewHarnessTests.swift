@@ -178,7 +178,7 @@ final class MenuImportReviewHarnessTests: XCTestCase {
         let runLLM = request.runLLM == true
 
         // 1. Eingebaute Fixtures (dieselbe Quelle wie der Benchmark).
-        for fixture in DemoMenuFixtures.all {
+        for fixture in DemoMenuFixtures.reviewFixtures {
             let images = DemoMenuFixtures.images(for: fixture)
             XCTAssertEqual(images.count, fixture.pageCount, "Fixture \(fixture.id) unvollständig")
             let snapshot = try await process(

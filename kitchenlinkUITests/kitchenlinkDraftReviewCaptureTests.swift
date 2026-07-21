@@ -28,26 +28,14 @@ final class kitchenlinkDraftReviewCaptureTests: XCTestCase {
         XCTAssertTrue(app.buttons["menuImport.demoFixture"].waitForExistence(timeout: 5))
         app.buttons["menuImport.demoFixture"].tap()
 
-        let fixtureChoice = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH 'Alexxanders'")
-        ).firstMatch
+        let fixtureChoice = app.buttons["menuImport.demoFixture.alexxanders-chemnitz"]
         XCTAssertTrue(fixtureChoice.waitForExistence(timeout: 5))
         fixtureChoice.tap()
 
-        // The legacy review sheet auto-presents once the import finishes.
-        let legacySheetButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS 'Menü ersetzen' OR label CONTAINS 'Sandbox-Menü verwenden'")
-        ).firstMatch
-        XCTAssertTrue(legacySheetButton.waitForExistence(timeout: 300))
-        app.swipeDown(velocity: .fast)
-
-        let reviewDraftButton = app.buttons["menuImport.reviewDraft"]
-        XCTAssertTrue(reviewDraftButton.waitForExistence(timeout: 10))
-        scrollUntilHittable(reviewDraftButton, in: app)
-        reviewDraftButton.tap()
-
+        // The product-native draft review now opens directly; the duplicate
+        // legacy preview no longer sits in front of it.
         let nextOpenButton = app.buttons["draftReview.nextOpen"]
-        XCTAssertTrue(nextOpenButton.waitForExistence(timeout: 10))
+        XCTAssertTrue(nextOpenButton.waitForExistence(timeout: 300))
         XCTAssertFalse(app.buttons["draftReview.convert"].exists)
         attachScreenshot(of: app, named: "draft-review-open-items")
 

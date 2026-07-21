@@ -60,6 +60,7 @@ struct MenuManualEditorView: View {
                     } label: {
                         Label("Vorschau wie für Gäste", systemImage: "eye")
                     }
+                    .accessibilityIdentifier("menuEditor.preview")
                     Button(role: .destructive) {
                         showResetConfirm = true
                     } label: {
@@ -602,52 +603,16 @@ struct MenuEditorPriceField: View {
 struct MenuEditorPreviewView: View {
     let sections: [MenuSectionData]
     let menuLegend: [String: String]
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(sections) { section in
-                    Section(section.title.isEmpty ? "Ohne Titel" : section.title) {
-                        if section.items.isEmpty {
-                            Text("—").foregroundStyle(.secondary)
-                        }
-                        ForEach(section.items) { item in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(item.displayName)
-                                        .font(.body.weight(.semibold))
-                                    Spacer()
-                                    Text(PriceFormatter.string(cents: item.priceCents))
-                                        .font(.subheadline)
-                                        .monospacedDigit()
-                                }
-                                if !item.description.isEmpty {
-                                    Text(item.description)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                                if let codes = item.resolvedAllergenCodes, !codes.isEmpty {
-                                    AllergenBadgesRow(rawCodes: codes, legendByCode: menuLegend.isEmpty ? nil : menuLegend)
-                                }
-                                if !item.variants.isEmpty {
-                                    MenuItemOptionsListView(options: item.variants)
-                                }
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Vorschau")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fertig") { dismiss() }
-                }
-            }
-        }
-        .tint(KitchenLinkV2Palette.Brand.grape)
+        MenuImportGuestPreviewView(
+            sections: sections.map { section in
+                var copy = section
+                copy.allergenLegend = menuLegend.isEmpty ? section.allergenLegend : menuLegend
+                return copy
+            },
+            title: "Vorschau der Speisekarte"
+        )
     }
 }
 

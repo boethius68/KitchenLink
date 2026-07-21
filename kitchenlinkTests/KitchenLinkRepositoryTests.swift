@@ -24,7 +24,8 @@ struct KitchenLinkRepositoryTests {
                         variants: [
                             MenuItemVariant(id: "variant-large", name: "Groß", priceCents: 200, kind: .portion)
                         ],
-                        allergenCodes: "13"
+                        allergenCodes: "13",
+                        priceBasis: "per_item"
                     )
                 ],
                 importConfidence: 0.9,
@@ -40,6 +41,7 @@ struct KitchenLinkRepositoryTests {
         #expect(loadedSections.first?.items.count == 1)
         #expect(loadedSections.first?.items.first?.name == "Kitchen Spritz")
         #expect(loadedSections.first?.items.first?.variants.first?.name == "Groß")
+        #expect(loadedSections.first?.items.first?.priceBasis == "per_item")
     }
 
     @Test

@@ -7,7 +7,6 @@ struct MenuImportEntryView: View {
     @EnvironmentObject private var store: KitchenLinkStore
 
     let autoStartScanner: Bool
-    let usesV2Design: Bool
 
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var showDocumentScanner = false
@@ -19,23 +18,21 @@ struct MenuImportEntryView: View {
     @State private var importedPages: [UIImage] = []
     @State private var draftReviewModel: MenuImportDraftReviewModel?
     @State private var showDraftReview = false
-    @State private var showImportPreview = false
+    @State private var showMenuPreview = false
     @State private var menuWasApplied = false
-    @State private var showLegacySandbox = false
 
     private var importedItemCount: Int {
         importedSections.reduce(0) { $0 + $1.items.count }
     }
 
-    init(autoStartScanner: Bool, usesV2Design: Bool = true) {
+    init(autoStartScanner: Bool) {
         self.autoStartScanner = autoStartScanner
-        self.usesV2Design = usesV2Design
     }
 
     var body: some View {
-        entryContent
+        v2EntryContent
             .accessibilityIdentifier("menuImport.entry")
-            .navigationTitle(usesV2Design ? "Speisekarte scannen" : "Speisekarte importieren")
+            .navigationTitle("Speisekarte scannen")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showDocumentScanner) {
                 MenuDocumentScannerView { images in
@@ -46,28 +43,24 @@ struct MenuImportEntryView: View {
                 }
                 .ignoresSafeArea()
             }
-            .sheet(isPresented: $showImportPreview) {
-                MenuImportReviewView(sections: importedSections) {
-                    store.replaceMenu(with: importedSections)
-                    menuWasApplied = true
-                    importStatusMessage = "Das erkannte Menü ist jetzt in der lokalen Sandbox aktiv."
-                    showImportPreview = false
-                }
-            }
             .sheet(isPresented: $showDraftReview) {
                 if let draftReviewModel {
                     MenuImportDraftReviewView(
                         model: draftReviewModel,
                         pages: importedPages
                     ) { reviewedSections in
+                        importedSections = reviewedSections
                         store.replaceMenu(with: reviewedSections)
                         menuWasApplied = true
                         importStatusMessage = "Das geprüfte Menü ist jetzt in der lokalen Sandbox aktiv."
                     }
                 }
             }
-            .fullScreenCover(isPresented: $showLegacySandbox) {
-                LegacySandboxSheet()
+            .sheet(isPresented: $showMenuPreview) {
+                MenuImportGuestPreviewView(
+                    sections: store.menuSections,
+                    title: importedDraft?.sourceDocument.displayName ?? "Importierte Speisekarte"
+                )
             }
             .onAppear {
                 guard autoStartScanner, !didHandleAutoStart else { return }
@@ -80,38 +73,6 @@ struct MenuImportEntryView: View {
                     await loadSelectedPhotos(items)
                 }
             }
-    }
-
-    @ViewBuilder
-    private var entryContent: some View {
-        if usesV2Design {
-            v2EntryContent
-        } else {
-            legacyEntryContent
-        }
-    }
-
-    private var legacyEntryContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                introCard
-                sourceActions
-
-                if importInProgress || importStatusMessage != nil {
-                    statusCard
-                }
-
-                if !importedSections.isEmpty {
-                    resultCard
-                }
-            }
-            .frame(maxWidth: 680)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 18)
-            .frame(maxWidth: .infinity)
-        }
-        .scrollIndicators(.hidden)
-        .kitchenSurface()
     }
 
     private var v2EntryContent: some View {
@@ -250,130 +211,22 @@ struct MenuImportEntryView: View {
 
                 if menuWasApplied {
                     Button("Import erneut prüfen") {
-                        showImportPreview = true
+                        showDraftReview = true
                     }
                     .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
                     .accessibilityIdentifier("menuImport.reviewResult")
 
                     Button("Mit diesem Menü testen") {
-                        showLegacySandbox = true
+                        showMenuPreview = true
                     }
                     .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
                     .accessibilityIdentifier("menuImport.testMenu")
                 } else {
                     Button("Ergebnis prüfen") {
-                        showImportPreview = true
+                        showDraftReview = true
                     }
                     .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
                     .accessibilityIdentifier("menuImport.reviewResult")
-                }
-
-                if draftReviewModel != nil {
-                    Button {
-                        showDraftReview = true
-                    } label: {
-                        Label("Evidenz prüfen (Entwurf)", systemImage: "doc.text.magnifyingglass")
-                    }
-                    .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
-                    .accessibilityIdentifier("menuImport.reviewDraft")
-                    .accessibilityHint("Zeigt jeden Eintrag mit Originalausschnitt, Rohtext und Preiszustand vor der Übernahme.")
-                }
-            }
-        }
-    }
-
-    private var introCard: some View {
-        KitchenCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top) {
-                    Image(systemName: "doc.text.viewfinder")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(KitchenTheme.brand)
-                    Spacer()
-                    Text("SCHRITT 1")
-                        .font(.caption2.weight(.black))
-                        .tracking(1.2)
-                        .foregroundStyle(KitchenTheme.brandDark)
-                }
-
-                Text("Zeig uns deine Karte")
-                    .font(.title2.bold())
-                Text("Scanne alle Seiten möglichst gerade und bei gutem Licht. Vor dem Speichern kannst du Kategorien, Artikel, Preise und Erkennungswarnungen prüfen.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var sourceActions: some View {
-        VStack(spacing: 12) {
-            Button {
-                presentScanner()
-            } label: {
-                Label("Dokumentkamera öffnen", systemImage: "camera.viewfinder")
-            }
-            .buttonStyle(KitchenPrimaryButtonStyle())
-            .disabled(importInProgress)
-
-            PhotosPicker(
-                selection: $selectedPhotoItems,
-                maxSelectionCount: 24,
-                matching: .images
-            ) {
-                Label("Menüfotos auswählen", systemImage: "photo.stack")
-            }
-            .buttonStyle(KitchenSecondaryButtonStyle())
-            .disabled(importInProgress)
-
-            MenuDemoFixturePicker(isDisabled: importInProgress) { fixture in
-                startDemoImport(fixture)
-            }
-        }
-    }
-
-    private var statusCard: some View {
-        KitchenCard {
-            VStack(alignment: .leading, spacing: 10) {
-                if importInProgress {
-                    MenuImportWhooshView()
-                }
-
-                if let importStatusMessage {
-                    Text(importStatusMessage)
-                        .font(.subheadline)
-                        .foregroundStyle(importInProgress ? .secondary : .primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-
-    private var resultCard: some View {
-        KitchenCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Label(
-                    "\(importedSections.count) Kategorien, \(importedItemCount) Artikel",
-                    systemImage: menuWasApplied ? "checkmark.seal.fill" : "sparkles"
-                )
-                .font(.headline)
-                .foregroundStyle(menuWasApplied ? KitchenTheme.brand : KitchenTheme.accent)
-
-                Text(menuWasApplied
-                     ? "Der Import ist lokal gespeichert. Öffne die Sandbox, um das Menü im Bestellablauf zu testen."
-                     : "Prüfe das erkannte Menü, bevor es die aktuellen Sandbox-Daten ersetzt.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Button(menuWasApplied ? "Import erneut prüfen" : "Ergebnis prüfen") {
-                    showImportPreview = true
-                }
-                .buttonStyle(KitchenSecondaryButtonStyle())
-
-                if menuWasApplied {
-                    Button("Mit diesem Menü testen") {
-                        showLegacySandbox = true
-                    }
-                    .buttonStyle(KitchenPrimaryButtonStyle())
                 }
             }
         }
@@ -427,7 +280,7 @@ struct MenuImportEntryView: View {
                 importedDraft = result.draft
                 draftReviewModel = MenuImportDraftReviewModel(draft: result.draft)
                 importStatusMessage = "Import abgeschlossen. \(MenuImportService.lastImportDiagnostics())"
-                showImportPreview = true
+                showDraftReview = true
             } catch MenuImportService.ImportError.noMenuItemsDetected {
                 importStatusMessage = "Keine Artikel erkannt. Bitte klarere, gerade aufgenommene Seiten verwenden."
             } catch {
@@ -487,26 +340,119 @@ struct MenuImportEntryView: View {
 private struct MenuDemoFixturePicker: View {
     let isDisabled: Bool
     let onSelect: (DemoMenuFixture) -> Void
+    @State private var showsFixtureSelection = false
 
     var body: some View {
-        Menu {
-            ForEach(DemoMenuFixtures.all) { fixture in
-                Button {
-                    onSelect(fixture)
-                } label: {
-                    Label(
-                        fixture.title + " · " + String(fixture.pageCount) + " Seiten",
-                        systemImage: "doc.text"
-                    )
-                }
-            }
+        Button {
+            showsFixtureSelection = true
         } label: {
             Label("Beispielkarte testen", systemImage: "doc.text.magnifyingglass")
         }
         .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
         .disabled(isDisabled)
         .accessibilityIdentifier("menuImport.demoFixture")
-        .accessibilityHint("Wählt eine mitgelieferte Speisekarte für den Scanner-Test aus.")
+        .accessibilityHint("Zeigt drei Karten mit dokumentierter Testabdeckung.")
+        .sheet(isPresented: $showsFixtureSelection) {
+            DemoMenuFixtureSelectionView { fixture in
+                showsFixtureSelection = false
+                onSelect(fixture)
+            }
+        }
+    }
+}
+
+private struct DemoMenuFixtureSelectionView: View {
+    let onSelect: (DemoMenuFixture) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    private let columns = [GridItem(.adaptive(minimum: 108), spacing: 6)]
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                KitchenLinkV2Palette.Surface.base
+                    .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.large) {
+                        Text("Die drei Karten ergänzen sich: eine kontrollierte Vollabdeckung plus zwei reale, schwierige Layouts.")
+                            .font(KitchenLinkV2Typography.secondaryLine)
+                            .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        ForEach(DemoMenuFixtures.selectable) { fixture in
+                            fixtureButton(fixture)
+                        }
+                    }
+                    .frame(maxWidth: 680)
+                    .padding(KitchenLinkV2Spacing.large)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .navigationTitle("Testkarte wählen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+            }
+        }
+        .tint(KitchenLinkV2Palette.Brand.grape)
+    }
+
+    private func fixtureButton(_ fixture: DemoMenuFixture) -> some View {
+        Button {
+            onSelect(fixture)
+        } label: {
+            KitchenLinkV2Card {
+                VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+                    HStack(alignment: .top, spacing: KitchenLinkV2Spacing.medium) {
+                        Image(systemName: fixture.isSynthetic ? "checkmark.seal.fill" : "doc.text.image")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                            .frame(width: 40, height: 40)
+                            .background(KitchenLinkV2Palette.Surface.recessed, in: Circle())
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(fixture.title)
+                                .font(KitchenLinkV2Typography.primaryLine)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                            Text("\(fixture.subtitle) · \(fixture.pageCount) Seiten")
+                                .font(KitchenLinkV2Typography.meta)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                                .multilineTextAlignment(.leading)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    }
+
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
+                        ForEach(fixture.coverage, id: \.self) { capability in
+                            Text(capability.title)
+                                .font(KitchenLinkV2Typography.meta)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                                .padding(.horizontal, KitchenLinkV2Spacing.small)
+                                .padding(.vertical, KitchenLinkV2Spacing.xSmall)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    KitchenLinkV2Palette.Surface.recessed,
+                                    in: RoundedRectangle(
+                                        cornerRadius: KitchenLinkV2Radius.label,
+                                        style: .continuous
+                                    )
+                                )
+                        }
+                    }
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("menuImport.demoFixture.\(fixture.id)")
+        .accessibilityHint("Startet den Import dieser Beispielkarte.")
     }
 }
 

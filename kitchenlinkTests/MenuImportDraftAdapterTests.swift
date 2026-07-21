@@ -130,6 +130,73 @@ struct MenuImportDraftAdapterTests {
         #expect(draft.validate().isValid)
     }
 
+    @Test
+    func adapterPreservesExplicitPerPersonPriceBasis() throws {
+        let item = MenuItemData(
+            id: "legacy-set-menu",
+            name: "Menü Abendbrise",
+            description: "Drei Gänge",
+            priceCents: 3_990,
+            kind: .food,
+            priceBasis: "per_person"
+        )
+        let draft = adapter.makeDraft(
+            sourceDocument: source(),
+            legacySections: [menuSection(items: [item])],
+            ocrLines: [
+                line("Menü Abendbrise", x: 0.10, y: 0.70),
+                line("39,90 € pro Person", x: 0.72, y: 0.70),
+            ],
+            unpricedCandidates: []
+        )
+
+        let offer = try #require(draft.sections.first?.entries.first?.offers.first)
+        #expect(offer.basis == "per_person")
+        #expect(offer.rawPrice == "39,90")
+    }
+
+    @Test
+    func includedOptionKeepsItsZeroPriceThroughDraftAndConversion() throws {
+        let item = MenuItemData(
+            id: "legacy-pasta",
+            name: "Pasta Arrabbiata",
+            description: "Pikante Tomatensauce",
+            priceCents: 1_350,
+            kind: .food,
+            variants: [
+                MenuItemVariant(
+                    id: "without-parmesan",
+                    name: "ohne Parmesan",
+                    priceCents: 0,
+                    kind: .variant
+                ),
+            ]
+        )
+        let draft = adapter.makeDraft(
+            sourceDocument: source(),
+            legacySections: [menuSection(items: [item])],
+            ocrLines: [
+                line("Pasta Arrabbiata", x: 0.10, y: 0.70),
+                line("13,50", x: 0.80, y: 0.70),
+                line("ohne Parmesan 0,00", x: 0.10, y: 0.64),
+            ],
+            unpricedCandidates: []
+        )
+
+        let offer = try #require(
+            draft.sections.first?.entries.first?.optionGroups.first?.choices.first?.offers.first
+        )
+        #expect(offer.priceKind == .included)
+        #expect(offer.amountCents == nil)
+        #expect(draft.validate().isValid)
+
+        let converted = try #require(
+            MenuImportDraftConverter.convert(draft).first?.items.first?.variants.first
+        )
+        #expect(converted.name == "ohne Parmesan")
+        #expect(converted.priceCents == 0)
+    }
+
     private let adapter = MenuImportDraftAdapter()
 
     private func source() -> MenuImportSourceDocument {

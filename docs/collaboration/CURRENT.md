@@ -1,15 +1,15 @@
 # KitchenLink Current State
 
-**Updated:** 19 July 2026
+**Updated:** 22 July 2026
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Latest material integration:** PR #27
-(`codex/iphone-hub-network-recovery` -> `main`) stabilizes the foreground
-iPhone Hub across WLAN loss and local IPv4 changes. Listener, port, loopback
-operator path and SQLite event log stay active while the guest URL and QR code
-disappear into an explicit waiting state and return automatically with the
-current WLAN address. The real WLAN-off/on acceptance passed on 19 July 2026.
+**Latest material integration:** The direct `main` import consolidation retires
+the visible legacy product sandbox and duplicate review, brings its useful
+visual/structured coverage into the current V2 review and guest preview, and
+adds a deterministic three-page full-coverage fixture alongside two real
+difficult cards. PR #27 remains the latest merged network slice and stabilizes
+the foreground iPhone Hub across WLAN loss and local IPv4 changes.
 PR #25 remains the underlying iPhone-hosted vertical slice, PR #23 the operator
 workflow, PR #22 fixed the first iPhone-LAN blocker and PR #20 introduced
 commit-before-ACK. Local guest ordering during cloud failure remains a required
@@ -83,16 +83,26 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
 - A functioning SwiftUI sandbox prototype exists.
 - The 4a `Ruhe` tokens, type roles, status semantics, surfaces and controls now
   exist alongside the legacy theme in `KitchenLinkDesignSystemV2.swift`.
-- The internal build starts in a switchable V2 business home and scan/import
-  flow. `--kitchenlink-design-legacy` opens the previous presentation directly;
-  both variants retain a visible route to the other one.
+- The internal build starts directly in the current V2 business home and
+  scan/import flow. The legacy design switch and product-sandbox entry are
+  retired; their useful import behavior now lives in the V2 path.
 - The selected Working-v1 symbol and outlined wordmark are bundled as local
   light/dark vector assets recolored to grape and lemon. No runtime font or
   network dependency was added.
-- Document camera, photo selection, OCR, review, local menu replacement and the
-  complete legacy product sandbox continue to use the existing implementation.
-- Three real multi-page menu fixtures can now be selected directly from the scan
-  entry and use the same local OCR, review and import path as uploaded photos.
+- Document camera, photo selection, OCR, draft review and local menu replacement
+  stay on the existing sandbox-safe implementation. Import now opens the
+  draft-native review directly instead of detouring through the duplicate old
+  review.
+- The review and guest preview show food/drink/total counts, descriptions,
+  allergen/additive symbols, variants/options and compact quantity controls in
+  the current design language.
+- Structured price basis now survives payload mapping, draft review, human
+  correction, conversion and local persistence; included `0,00 EUR` choices
+  likewise remain available instead of being discarded.
+- Exactly three complementary multi-page fixtures can be selected directly:
+  the deterministic three-page KitchenLink Prüfküche plus the real Lichtburg
+  and Alexxanders cards. The historical Scheune/Lichtburg/Alexxanders set stays
+  unchanged for the 14-page gold benchmark.
 - A reproducible 14-page scanner benchmark now protects 23 section and 46 item
   anchors in both the legacy result and the import draft. The draft retains all
   46 item-name anchors, including two Lichtburg names whose prices Vision does
@@ -108,7 +118,8 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
 - The local Apple Vision/rule scanner now creates `[MenuSectionData]` and a
   `MenuImportDraft` from the same OCR pass. Source type, document fingerprint,
   raw OCR text, page, normalized bounding box, confidence, raw price and review
-  state are carried into the draft; the old sandbox preview remains active.
+  state are carried into the draft; the current draft review is the only
+  product-facing review path.
 - Pending title blocks that the price-required legacy model used to discard are
   retained as unpriced `needsReview` entries. The current fixtures produce seven
   such candidates for Lichtburg and two for Alexxanders; they include both real
@@ -121,8 +132,9 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   explicit batch action accepts only unresolved entries with a usable fixed
   price; unpriced candidates remain open for individual correction or rejection.
 - Conversion stays locked until every candidate is resolved and writes only to
-  the existing local sandbox menu. The complete unit/UI suites and the 14-page
-  scanner benchmark passed before integration.
+  the existing local sandbox menu. The complete unit suite, targeted import UI
+  smokes, the 14-page scanner benchmark and a local 17-page OCR/review run all
+  pass on the consolidated implementation.
 - `kitchenlinkTests/KitchenLinkOfflineOrderFlowTests.swift` (KL-QA-002) covers
   the local offline order flow: guest-to-owner delivery, the full lifecycle
   chain, guest tracking, all 36 status-transition combinations, persistence

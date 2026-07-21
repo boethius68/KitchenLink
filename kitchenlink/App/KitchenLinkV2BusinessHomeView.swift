@@ -2,11 +2,6 @@ import SwiftUI
 
 struct KitchenLinkV2BusinessHomeView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var showsDevelopmentTools = false
-
-    let menuSectionCount: Int
-    let onOpenSandbox: () -> Void
-    let onUseLegacyDesign: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -22,7 +17,6 @@ struct KitchenLinkV2BusinessHomeView: View {
                         introduction
                         scanStage
                         operationsAccess
-                        developmentSection
                     }
                     .frame(maxWidth: 680)
                     .padding(.horizontal, KitchenLinkV2Spacing.large)
@@ -102,7 +96,7 @@ struct KitchenLinkV2BusinessHomeView: View {
 
             VStack(spacing: KitchenLinkV2Spacing.medium) {
                 NavigationLink {
-                    MenuImportEntryView(autoStartScanner: true, usesV2Design: true)
+                    MenuImportEntryView(autoStartScanner: true)
                 } label: {
                     Label("Speisekarte scannen", systemImage: "viewfinder")
                 }
@@ -110,7 +104,7 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .accessibilityIdentifier("business.scanMenu")
 
                 NavigationLink {
-                    MenuImportEntryView(autoStartScanner: false, usesV2Design: true)
+                    MenuImportEntryView(autoStartScanner: false)
                 } label: {
                     Label("Fotos auswählen", systemImage: "photo.on.rectangle.angled")
                 }
@@ -244,110 +238,6 @@ struct KitchenLinkV2BusinessHomeView: View {
         .contentShape(Rectangle())
     }
 
-    /// Entwicklungs- und Demo-Zugänge, standardmäßig eingeklappt: die
-    /// Startseite zeigt nur die Produktwege (Scan + Betrieb). Die bisherigen
-    /// Sandbox- und Legacy-Pfade bleiben vollständig erreichbar — nur eben
-    /// hinter einem klaren „Entwicklung & Demo"-Aufklapper statt als
-    /// gleichrangige Karten (Usability-Leitplanke, DECISIONS.md). Bewusst
-    /// ein expliziter Button statt DisclosureGroup, damit das Ziel einen
-    /// stabilen Accessibility-Identifier trägt.
-    private var developmentSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation { showsDevelopmentTools.toggle() }
-            } label: {
-                HStack(spacing: KitchenLinkV2Spacing.small) {
-                    Text("Entwicklung & Demo")
-                        .font(KitchenLinkV2Typography.meta)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
-                    Spacer(minLength: 0)
-                    Image(systemName: showsDevelopmentTools ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
-                        .accessibilityHidden(true)
-                }
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Entwicklung und Demo ein- oder ausklappen")
-            .accessibilityIdentifier("business.devTools")
-
-            if showsDevelopmentTools {
-                VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.large) {
-                    sandboxAccess
-                    previewSwitch
-                }
-                .padding(.top, KitchenLinkV2Spacing.small)
-            }
-        }
-        .padding(.horizontal, KitchenLinkV2Spacing.large)
-        .padding(.vertical, KitchenLinkV2Spacing.xSmall)
-        .background(
-            KitchenLinkV2Palette.Surface.raised.opacity(0.6),
-            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
-        )
-    }
-
-    private var sandboxAccess: some View {
-        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
-            HStack(alignment: .top, spacing: KitchenLinkV2Spacing.medium) {
-                Image(systemName: "shippingbox")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
-                    .frame(width: 40, height: 40)
-                    .background(KitchenLinkV2Palette.Surface.recessed, in: Circle())
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
-                    Text("Bestehende Produktsandbox")
-                        .font(KitchenLinkV2Typography.primaryLine)
-                    Text("Bestellen, Küche, Zahlungen und Betreiberfunktionen bleiben weiter testbar.")
-                        .font(KitchenLinkV2Typography.secondaryLine)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            Divider()
-                .overlay(KitchenLinkV2Palette.Border.subtle)
-
-            HStack(spacing: KitchenLinkV2Spacing.medium) {
-                Text("\(menuSectionCount) Menükategorien geladen")
-                    .font(KitchenLinkV2Typography.meta)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
-                    .kitchenLinkV2TabularNumbers()
-
-                Spacer()
-
-                Button("Sandbox öffnen", action: onOpenSandbox)
-                    .font(KitchenLinkV2Typography.meta)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.primary)
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("business.openLegacySandbox")
-            }
-        }
-        .padding(.horizontal, KitchenLinkV2Spacing.large)
-        .padding(.vertical, KitchenLinkV2Spacing.medium)
-        .background(
-            KitchenLinkV2Palette.Surface.raised,
-            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
-                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
-        }
-    }
-
-    private var previewSwitch: some View {
-        Button(action: onUseLegacyDesign) {
-            Label("Bisherige Ansicht öffnen", systemImage: "arrow.uturn.backward")
-                .font(KitchenLinkV2Typography.meta)
-                .frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
-        .accessibilityIdentifier("business.useLegacyDesign")
-    }
 }
 
 private struct V2MenuScanIllustration: View {

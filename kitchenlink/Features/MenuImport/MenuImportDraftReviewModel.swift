@@ -160,6 +160,7 @@ final class MenuImportDraftReviewModel: ObservableObject {
     func setEntryPrice(_ entryID: String, cents: Int?) {
         mutateEntry(entryID) { entry in
             if let cents {
+                let existingBasis = entry.offers.first?.basis ?? "per_item"
                 entry.offers = [
                     MenuImportOffer(
                         id: "\(entry.id)-review-offer",
@@ -167,7 +168,7 @@ final class MenuImportDraftReviewModel: ObservableObject {
                         amountCents: cents,
                         currencyCode: "EUR",
                         rawPrice: MenuImportPriceText.euro(cents: cents),
-                        basis: "per_item",
+                        basis: existingBasis,
                         evidence: MenuImportEvidence(
                             rawText: MenuImportPriceText.euro(cents: cents),
                             pageIndex: entry.name.evidence.pageIndex,
@@ -324,6 +325,8 @@ enum MenuImportDraftConverter {
                     priceCents = offer.amountCents
                 case .delta:
                     priceCents = offer.deltaCents
+                case .included, .free:
+                    priceCents = 0
                 default:
                     priceCents = nil
                 }
@@ -348,7 +351,8 @@ enum MenuImportDraftConverter {
             priceCents: cents,
             kind: MenuItemKind(rawValue: entry.kind) ?? .food,
             variants: variants,
-            allergenCodes: codes.isEmpty ? nil : codes.joined(separator: ",")
+            allergenCodes: codes.isEmpty ? nil : codes.joined(separator: ","),
+            priceBasis: entry.offers.first(where: { $0.priceKind == .fixed })?.basis
         )
     }
 
