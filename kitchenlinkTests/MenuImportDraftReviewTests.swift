@@ -108,10 +108,41 @@ struct MenuImportDraftReviewTests {
         #expect(schnitzel.variants.count == 1)
         #expect(schnitzel.variants.first?.priceCents == 200)
         #expect(schnitzel.variants.first?.kind == .extra)
+        #expect(schnitzel.variants.first?.selectionMode == "quantity")
+        #expect(schnitzel.variants.first?.freeSelectionCount == 1)
+        #expect(schnitzel.variants.first?.allowsRepeats == true)
         #expect(schnitzel.priceBasis == "per_item")
 
         let legend = try #require(sections.first?.allergenLegend)
         #expect(legend["a"] == "Gluten")
+    }
+
+    @Test
+    func guestPricingHonorsFreeAndRepeatedSelections() {
+        let sauce = MenuItemVariant(
+            id: "sauce",
+            name: "Sauce",
+            priceCents: 100,
+            kind: .extra,
+            priceKind: .delta,
+            groupID: "sauces",
+            minimumSelections: 0,
+            maximumSelections: 3,
+            selectionMode: "quantity",
+            freeSelectionCount: 1,
+            allowsRepeats: true
+        )
+        let item = MenuItemData(
+            id: "burger",
+            name: "Burger",
+            description: "",
+            priceCents: 1_000,
+            kind: .food,
+            variants: [sauce]
+        )
+
+        #expect(MenuImportConfigurationPricing.unitPrice(item: item, selectedOptions: [sauce]) == 1_000)
+        #expect(MenuImportConfigurationPricing.unitPrice(item: item, selectedOptions: [sauce, sauce]) == 1_100)
     }
 
     @Test
@@ -276,7 +307,13 @@ struct MenuImportDraftReviewTests {
                     id: "group-extras",
                     title: text("Extras", id: "t-extras"),
                     order: 0,
-                    selectionRule: MenuImportSelectionRule(mode: "unknown"),
+                    selectionRule: MenuImportSelectionRule(
+                        minimum: 0,
+                        maximum: 3,
+                        freeSelectionCount: 1,
+                        mode: "quantity",
+                        allowsRepeats: true
+                    ),
                     choices: [
                         MenuImportChoice(
                             id: "choice-cheese",

@@ -10,8 +10,9 @@ struct MenuImportGuestPreviewView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var filter: MenuImportPreviewFilter = .all
-    @State private var quantities: [String: Int] = [:]
+    @State private var cartLines: [MenuImportCartLine] = []
     @State private var showsSelection = false
+    @State private var configurationItem: MenuItemData?
 
     private var allItems: [MenuItemData] {
         sections.flatMap(\.items)
@@ -26,13 +27,11 @@ struct MenuImportGuestPreviewView: View {
     }
 
     private var totalSelectedCount: Int {
-        quantities.values.reduce(0, +)
+        cartLines.reduce(0) { $0 + $1.quantity }
     }
 
     private var totalSelectedPrice: Int {
-        allItems.reduce(0) { result, item in
-            result + item.priceCents * quantities[item.id, default: 0]
-        }
+        cartLines.reduce(0) { $0 + $1.lineTotalCents }
     }
 
     var body: some View {
@@ -73,8 +72,13 @@ struct MenuImportGuestPreviewView: View {
             .sheet(isPresented: $showsSelection) {
                 MenuImportSelectionSheet(
                     items: allItems,
-                    quantities: $quantities
+                    cartLines: $cartLines
                 )
+            }
+            .sheet(item: $configurationItem) { item in
+                MenuImportConfigurationSheet(item: item) { selectedOptions in
+                    add(item, selectedOptions: selectedOptions)
+                }
             }
         }
         .tint(KitchenLinkV2Palette.Brand.grape)
@@ -92,7 +96,7 @@ struct MenuImportGuestPreviewView: View {
                 .foregroundStyle(KitchenLinkV2Palette.Content.primary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Allergene, Zusatzstoffe, Varianten und Mengen lassen sich hier direkt im neuen Produktstand prüfen.")
+            Text("So sehen Gäste die importierte Karte und stellen ihre Bestellung zusammen.")
                 .font(KitchenLinkV2Typography.secondaryLine)
                 .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -136,15 +140,19 @@ struct MenuImportGuestPreviewView: View {
                         Divider().overlay(KitchenLinkV2Palette.Border.subtle)
                     }
                     itemRow(item, legend: section.allergenLegend)
-                        .padding(KitchenLinkV2Spacing.large)
+                        .padding(.horizontal, KitchenLinkV2Spacing.large)
+                        .padding(.vertical, KitchenLinkV2Spacing.medium)
                 }
             }
         }
     }
 
     private func itemRow(_ item: MenuItemData, legend: [String: String]?) -> some View {
-        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
-            HStack(alignment: .firstTextBaseline, spacing: KitchenLinkV2Spacing.medium) {
+        let hasDeclarations = !(item.resolvedAllergenCodes?.isEmpty ?? true)
+        let usesInlineAdd = !hasDeclarations && item.variants.isEmpty && quantity(for: item.id) == 0
+
+        return VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
+            HStack(alignment: .top, spacing: KitchenLinkV2Spacing.medium) {
                 Text(item.displayName)
                     .font(KitchenLinkV2Typography.primaryLine)
                     .foregroundStyle(KitchenLinkV2Palette.Content.primary)
@@ -152,15 +160,26 @@ struct MenuImportGuestPreviewView: View {
 
                 Spacer(minLength: KitchenLinkV2Spacing.small)
 
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(PriceFormatter.string(cents: item.priceCents))
-                        .font(KitchenLinkV2Typography.primaryLine)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
-                        .kitchenLinkV2TabularNumbers()
-                    if item.priceBasis == "per_person" {
-                        Text("pro Person")
-                            .font(KitchenLinkV2Typography.meta)
-                            .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                HStack(alignment: .top, spacing: KitchenLinkV2Spacing.small) {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(PriceFormatter.string(cents: item.priceCents))
+                            .font(KitchenLinkV2Typography.primaryLine)
+                            .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                            .kitchenLinkV2TabularNumbers()
+                        if item.priceBasis == "per_person" {
+                            Text("pro Person")
+                                .font(KitchenLinkV2Typography.meta)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                        }
+                    }
+
+                    if usesInlineAdd {
+                        MenuImportCompactQuantityControl(
+                            quantity: 0,
+                            accessibilityContext: item.displayName,
+                            onDecrease: {},
+                            onIncrease: { add(item, selectedOptions: []) }
+                        )
                     }
                 }
             }
@@ -169,22 +188,40 @@ struct MenuImportGuestPreviewView: View {
                 Text(item.description)
                     .font(KitchenLinkV2Typography.secondaryLine)
                     .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if let codes = item.resolvedAllergenCodes, !codes.isEmpty {
-                AllergenBadgesRow(rawCodes: codes, legendByCode: legend)
-            }
+            if !usesInlineAdd {
+                HStack(alignment: .center, spacing: KitchenLinkV2Spacing.small) {
+                    if let codes = item.resolvedAllergenCodes, !codes.isEmpty {
+                        AllergenBadgesRow(
+                            rawCodes: codes,
+                            legendByCode: legend,
+                            displayMode: .compact(maxVisible: 3)
+                        )
+                    }
 
-            MenuItemOptionsListView(options: item.variants)
+                    Spacer(minLength: KitchenLinkV2Spacing.small)
 
-            HStack {
-                Spacer()
-                MenuImportCompactQuantityControl(
-                    quantity: quantities[item.id, default: 0],
-                    onDecrease: { decrease(item.id) },
-                    onIncrease: { increase(item.id) }
-                )
+                    if item.variants.isEmpty {
+                        MenuImportCompactQuantityControl(
+                            quantity: quantity(for: item.id),
+                            accessibilityContext: item.displayName,
+                            onDecrease: { decrease(item.id) },
+                            onIncrease: { add(item, selectedOptions: []) }
+                        )
+                    } else {
+                        MenuImportConfigurationControl(
+                            itemID: item.id,
+                            itemName: item.displayName,
+                            quantity: quantity(for: item.id),
+                            onDecrease: { decrease(item.id) },
+                            onConfigure: { configurationItem = item }
+                        )
+                    }
+                }
+                .frame(minHeight: 44)
             }
         }
     }
@@ -207,17 +244,41 @@ struct MenuImportGuestPreviewView: View {
         .accessibilityIdentifier("menuPreview.selection")
     }
 
-    private func increase(_ itemID: String) {
-        quantities[itemID] = min(99, quantities[itemID, default: 0] + 1)
+    private func quantity(for itemID: String) -> Int {
+        cartLines
+            .filter { $0.itemID == itemID }
+            .reduce(0) { $0 + $1.quantity }
     }
 
     private func decrease(_ itemID: String) {
-        let next = quantities[itemID, default: 0] - 1
-        if next > 0 {
-            quantities[itemID] = next
+        guard let index = cartLines.lastIndex(where: { $0.itemID == itemID }) else { return }
+        if cartLines[index].quantity > 1 {
+            cartLines[index].quantity -= 1
         } else {
-            quantities[itemID] = nil
+            cartLines.remove(at: index)
         }
+    }
+
+    private func add(_ item: MenuItemData, selectedOptions: [MenuItemVariant]) {
+        let optionIDs = selectedOptions.map(\.id).sorted()
+        let lineID = MenuImportCartLine.id(itemID: item.id, optionIDs: optionIDs)
+        if let index = cartLines.firstIndex(where: { $0.id == lineID }) {
+            cartLines[index].quantity = min(99, cartLines[index].quantity + 1)
+            return
+        }
+
+        cartLines.append(
+            MenuImportCartLine(
+                itemID: item.id,
+                optionIDs: optionIDs,
+                optionNames: selectedOptions.map(\.name),
+                unitPriceCents: MenuImportConfigurationPricing.unitPrice(
+                    item: item,
+                    selectedOptions: selectedOptions
+                ),
+                quantity: 1
+            )
+        )
     }
 }
 
@@ -295,6 +356,8 @@ private struct MenuImportCountButton: View {
 
 struct MenuImportCompactQuantityControl: View {
     let quantity: Int
+    var accessibilityContext: String? = nil
+    var canIncrease: Bool = true
     let onDecrease: () -> Void
     let onIncrease: () -> Void
 
@@ -306,6 +369,7 @@ struct MenuImportCompactQuantityControl: View {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
+            .disabled(!canIncrease)
             .foregroundStyle(KitchenLinkV2Palette.Content.primary)
             .background(
                 KitchenLinkV2Palette.Surface.recessed,
@@ -316,6 +380,7 @@ struct MenuImportCompactQuantityControl: View {
                     .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1)
             }
             .accessibilityLabel("Hinzufügen")
+            .accessibilityHint(accessibilityHint)
         } else {
             HStack(spacing: 0) {
                 quantityButton(systemImage: "minus", label: "Entfernen", action: onDecrease)
@@ -323,7 +388,12 @@ struct MenuImportCompactQuantityControl: View {
                     .font(KitchenLinkV2Typography.primaryLine)
                     .frame(minWidth: 32)
                     .kitchenLinkV2TabularNumbers()
-                quantityButton(systemImage: "plus", label: "Hinzufügen", action: onIncrease)
+                quantityButton(
+                    systemImage: "plus",
+                    label: "Hinzufügen",
+                    isDisabled: !canIncrease,
+                    action: onIncrease
+                )
             }
             .background(
                 KitchenLinkV2Palette.Surface.recessed,
@@ -340,6 +410,7 @@ struct MenuImportCompactQuantityControl: View {
     private func quantityButton(
         systemImage: String,
         label: String,
+        isDisabled: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -348,50 +419,550 @@ struct MenuImportCompactQuantityControl: View {
                 .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
+        .disabled(isDisabled)
         .foregroundStyle(KitchenLinkV2Palette.Content.primary)
         .accessibilityLabel(label)
+        .accessibilityHint(accessibilityHint)
+    }
+
+    private var accessibilityHint: String {
+        guard let accessibilityContext, !accessibilityContext.isEmpty else { return "" }
+        return "Ändert die Menge für \(accessibilityContext)"
+    }
+}
+
+private struct MenuImportConfigurationControl: View {
+    let itemID: String
+    let itemName: String
+    let quantity: Int
+    let onDecrease: () -> Void
+    let onConfigure: () -> Void
+
+    var body: some View {
+        if quantity == 0 {
+            Button(action: onConfigure) {
+                HStack(spacing: 6) {
+                    Text("Auswählen")
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                }
+                .font(KitchenLinkV2Typography.primaryButton)
+                .frame(minHeight: 44)
+                .padding(.horizontal, 12)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+            .background(
+                KitchenLinkV2Palette.Surface.recessed,
+                in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.compact, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenLinkV2Radius.compact, style: .continuous)
+                    .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1)
+            }
+            .accessibilityIdentifier("menuPreview.configure.\(itemID)")
+            .accessibilityHint("Auswahl für \(itemName) öffnen")
+        } else {
+            HStack(spacing: 0) {
+                Button(action: onDecrease) {
+                    Image(systemName: "minus")
+                        .font(.system(size: 14, weight: .bold))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Entfernen")
+                .accessibilityHint("Verringert die Menge für \(itemName)")
+                .accessibilityIdentifier("menuPreview.configure.\(itemID).decrease")
+
+                Text("\(quantity)")
+                    .font(KitchenLinkV2Typography.primaryLine)
+                    .frame(minWidth: 28)
+                    .kitchenLinkV2TabularNumbers()
+
+                Button(action: onConfigure) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Weitere Auswahl hinzufügen")
+                .accessibilityHint("Auswahl für \(itemName) öffnen")
+                .accessibilityIdentifier("menuPreview.configure.\(itemID).increase")
+            }
+            .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+            .background(
+                KitchenLinkV2Palette.Surface.recessed,
+                in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.compact, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenLinkV2Radius.compact, style: .continuous)
+                    .stroke(KitchenLinkV2Palette.Border.control, lineWidth: 1)
+            }
+        }
+    }
+}
+
+private struct MenuImportCartLine: Identifiable, Equatable {
+    let id: String
+    let itemID: String
+    let optionIDs: [String]
+    let optionNames: [String]
+    let unitPriceCents: Int
+    var quantity: Int
+
+    init(
+        itemID: String,
+        optionIDs: [String],
+        optionNames: [String],
+        unitPriceCents: Int,
+        quantity: Int
+    ) {
+        self.id = Self.id(itemID: itemID, optionIDs: optionIDs)
+        self.itemID = itemID
+        self.optionIDs = optionIDs
+        self.optionNames = optionNames
+        self.unitPriceCents = unitPriceCents
+        self.quantity = quantity
+    }
+
+    var lineTotalCents: Int {
+        unitPriceCents * quantity
+    }
+
+    static func id(itemID: String, optionIDs: [String]) -> String {
+        ([itemID] + optionIDs.sorted()).joined(separator: "::")
+    }
+}
+
+private struct MenuImportOptionGroupModel: Identifiable {
+    let id: String
+    let title: String?
+    let minimumSelections: Int
+    let maximumSelections: Int
+    let selectionMode: String
+    let freeSelectionCount: Int
+    let allowsRepeats: Bool
+    var options: [MenuItemVariant]
+
+    var isSingleSelection: Bool { selectionMode == "single" || maximumSelections == 1 }
+}
+
+private enum MenuImportOptionGrouping {
+    static func groups(for item: MenuItemData) -> [MenuImportOptionGroupModel] {
+        var groups: [MenuImportOptionGroupModel] = []
+
+        for option in item.variants {
+            let key = option.groupID ?? (option.kind == .extra ? "legacy-extra" : "legacy-choice")
+            if let index = groups.firstIndex(where: { $0.id == key }) {
+                groups[index].options.append(option)
+                continue
+            }
+
+            let groupOptionCount = item.variants.filter { candidate in
+                let candidateKey = candidate.groupID
+                    ?? (candidate.kind == .extra ? "legacy-extra" : "legacy-choice")
+                return candidateKey == key
+            }.count
+            let selectionMode = normalizedSelectionMode(option.selectionMode, kind: option.kind)
+            let fallbackMaximum = selectionMode == "single" ? 1 : max(1, groupOptionCount)
+            let maximum = max(1, option.maximumSelections ?? fallbackMaximum)
+            groups.append(
+                MenuImportOptionGroupModel(
+                    id: key,
+                    title: guestFacingTitle(option.groupTitle),
+                    minimumSelections: max(0, option.minimumSelections ?? 0),
+                    maximumSelections: maximum,
+                    selectionMode: selectionMode,
+                    freeSelectionCount: max(0, option.freeSelectionCount ?? 0),
+                    allowsRepeats: option.allowsRepeats ?? false,
+                    options: [option]
+                )
+            )
+        }
+
+        return groups
+    }
+
+    private static func normalizedSelectionMode(
+        _ rawMode: String?,
+        kind: MenuItemOptionKind
+    ) -> String {
+        switch rawMode?.lowercased() {
+        case "single": return "single"
+        case "multiple": return "multiple"
+        case "quantity": return "quantity"
+        default: return kind == .extra ? "multiple" : "single"
+        }
+    }
+
+    private static func guestFacingTitle(_ rawTitle: String?) -> String? {
+        guard let title = rawTitle?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !title.isEmpty else { return nil }
+        let genericWords: Set<String> = [
+            "variante", "varianten", "option", "optionen",
+            "extra", "extras", "portion", "portionen"
+        ]
+        let words = title
+            .lowercased()
+            .components(separatedBy: CharacterSet.letters.inverted)
+            .filter { !$0.isEmpty }
+        return !words.isEmpty && words.allSatisfy(genericWords.contains) ? nil : title
+    }
+}
+
+enum MenuImportConfigurationPricing {
+    static func unitPrice(item: MenuItemData, selectedOptions: [MenuItemVariant]) -> Int {
+        let fixedPrice = item.variants.first { candidate in
+            candidate.priceKind == .fixed && selectedOptions.contains(where: { $0.id == candidate.id })
+        }?.priceCents
+        let deltas = MenuImportOptionGrouping.groups(for: item).reduce(0) { total, group in
+            let groupOptionIDs = Set(group.options.map(\.id))
+            let selectedInGroup = selectedOptions.filter { groupOptionIDs.contains($0.id) }
+            let deltaPrices = selectedInGroup
+                .filter { $0.priceKind == .delta }
+                .map(\.priceCents)
+                .sorted()
+            let includedCount = selectedInGroup.filter {
+                $0.priceKind == .included || $0.priceKind == .free
+            }.count
+            let waivedDeltaCount = group.selectionMode == "single"
+                ? 0
+                : max(0, group.freeSelectionCount - includedCount)
+            return total + deltaPrices
+                .dropFirst(min(waivedDeltaCount, deltaPrices.count))
+                .reduce(0, +)
+        }
+        return max(0, (fixedPrice ?? item.priceCents) + deltas)
+    }
+}
+
+private struct MenuImportConfigurationSheet: View {
+    let item: MenuItemData
+    let onAdd: ([MenuItemVariant]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedOptionIDs: [String] = []
+
+    private var groups: [MenuImportOptionGroupModel] {
+        MenuImportOptionGrouping.groups(for: item)
+    }
+
+    private var selectedOptions: [MenuItemVariant] {
+        let optionsByID = Dictionary(uniqueKeysWithValues: item.variants.map { ($0.id, $0) })
+        return selectedOptionIDs.compactMap { optionsByID[$0] }
+    }
+
+    private var canAdd: Bool {
+        let fixedSelectionCount = selectedOptions.filter { $0.priceKind == .fixed }.count
+        return fixedSelectionCount <= 1 && groups.allSatisfy { group in
+            let groupOptionIDs = Set(group.options.map(\.id))
+            let selectedInGroup = selectedOptionIDs.filter { groupOptionIDs.contains($0) }
+            let hasInvalidRepeat = !group.allowsRepeats
+                && Set(selectedInGroup).count != selectedInGroup.count
+            return !hasInvalidRepeat
+                && selectedInGroup.count >= group.minimumSelections
+                && selectedInGroup.count <= group.maximumSelections
+        }
+    }
+
+    private var unitPriceCents: Int {
+        MenuImportConfigurationPricing.unitPrice(item: item, selectedOptions: selectedOptions)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.large) {
+                    if !item.description.isEmpty, item.description != "Automatisch importiert" {
+                        Text(item.description)
+                            .font(KitchenLinkV2Typography.secondaryLine)
+                            .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    }
+
+                    ForEach(groups) { group in
+                        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
+                            if let title = group.title {
+                                Text(title)
+                                    .font(KitchenLinkV2Typography.meta)
+                                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                                    .textCase(.uppercase)
+                            }
+
+                            if group.selectionMode != "single", group.freeSelectionCount > 0 {
+                                Text(
+                                    group.freeSelectionCount == 1
+                                        ? "1 Auswahl inklusive, danach Aufpreis"
+                                        : "\(group.freeSelectionCount) Auswahlen inklusive, danach Aufpreis"
+                                )
+                                .font(KitchenLinkV2Typography.meta)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                            }
+
+                            ForEach(group.options) { option in
+                                optionButton(option, in: group)
+                            }
+
+                            if group.minimumSelections > 0,
+                               selectedCount(in: group) < group.minimumSelections {
+                                Text("Bitte noch auswählen")
+                                    .font(KitchenLinkV2Typography.meta)
+                                    .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                            }
+                        }
+                    }
+                }
+                .padding(KitchenLinkV2Spacing.large)
+            }
+            .navigationTitle(item.displayName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                Button {
+                    onAdd(selectedOptions)
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text("Hinzufügen")
+                        Spacer()
+                        Text(PriceFormatter.string(cents: unitPriceCents))
+                            .kitchenLinkV2TabularNumbers()
+                    }
+                }
+                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                .disabled(!canAdd)
+                .padding(.horizontal, KitchenLinkV2Spacing.large)
+                .padding(.vertical, KitchenLinkV2Spacing.small)
+                .background(.thinMaterial)
+                .accessibilityIdentifier("menuPreview.configuration.add")
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .tint(KitchenLinkV2Palette.Brand.grape)
+    }
+
+    @ViewBuilder
+    private func optionButton(
+        _ option: MenuItemVariant,
+        in group: MenuImportOptionGroupModel
+    ) -> some View {
+        if group.allowsRepeats, !group.isSingleSelection, option.priceKind != .fixed {
+            repeatableOptionRow(option, in: group)
+        } else {
+            let isSelected = selectedOptionIDs.contains(option.id)
+            Button {
+                toggle(option, in: group)
+            } label: {
+                HStack(spacing: KitchenLinkV2Spacing.medium) {
+                    Image(systemName: selectionIcon(isSelected: isSelected, single: group.isSingleSelection))
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(isSelected ? KitchenLinkV2Palette.Brand.grape : KitchenLinkV2Palette.Content.muted)
+                        .accessibilityHidden(true)
+
+                    Text(option.name)
+                        .font(KitchenLinkV2Typography.primaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                        .multilineTextAlignment(.leading)
+
+                    Spacer(minLength: KitchenLinkV2Spacing.small)
+
+                    Text(optionPrice(option, in: group))
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                        .kitchenLinkV2TabularNumbers()
+                }
+                .frame(minHeight: 44)
+                .padding(.horizontal, KitchenLinkV2Spacing.medium)
+                .background(
+                    isSelected
+                        ? KitchenLinkV2Palette.Brand.grape.opacity(0.08)
+                        : KitchenLinkV2Palette.Surface.raised,
+                    in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.compact, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: KitchenLinkV2Radius.compact, style: .continuous)
+                        .stroke(
+                            isSelected ? KitchenLinkV2Palette.Brand.grape : KitchenLinkV2Palette.Border.subtle,
+                            lineWidth: 1
+                        )
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(option.name), \(optionPrice(option, in: group))")
+            .accessibilityValue(isSelected ? "Ausgewählt" : "Nicht ausgewählt")
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .accessibilityIdentifier("menuPreview.configuration.option.\(option.id)")
+        }
+    }
+
+    private func repeatableOptionRow(
+        _ option: MenuItemVariant,
+        in group: MenuImportOptionGroupModel
+    ) -> some View {
+        let count = selectedOptionIDs.filter { $0 == option.id }.count
+        return HStack(spacing: KitchenLinkV2Spacing.medium) {
+            HStack(spacing: KitchenLinkV2Spacing.medium) {
+                Text(option.name)
+                    .font(KitchenLinkV2Typography.primaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                    .multilineTextAlignment(.leading)
+
+                Spacer(minLength: KitchenLinkV2Spacing.small)
+
+                Text(optionPrice(option, in: group))
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .kitchenLinkV2TabularNumbers()
+            }
+
+            MenuImportCompactQuantityControl(
+                quantity: count,
+                accessibilityContext: option.name,
+                canIncrease: selectedCount(in: group) < group.maximumSelections,
+                onDecrease: { changeRepeatCount(for: option, in: group, delta: -1) },
+                onIncrease: { changeRepeatCount(for: option, in: group, delta: 1) }
+            )
+        }
+        .frame(minHeight: 44)
+        .padding(.leading, KitchenLinkV2Spacing.medium)
+        .background(
+            count > 0
+                ? KitchenLinkV2Palette.Brand.grape.opacity(0.08)
+                : KitchenLinkV2Palette.Surface.raised,
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.compact, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.compact, style: .continuous)
+                .stroke(
+                    count > 0 ? KitchenLinkV2Palette.Brand.grape : KitchenLinkV2Palette.Border.subtle,
+                    lineWidth: 1
+                )
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("menuPreview.configuration.option.\(option.id)")
+    }
+
+    private func toggle(_ option: MenuItemVariant, in group: MenuImportOptionGroupModel) {
+        if selectedOptionIDs.contains(option.id) {
+            if !group.isSingleSelection || group.minimumSelections == 0 {
+                selectedOptionIDs.removeAll { $0 == option.id }
+            }
+            return
+        }
+
+        if option.priceKind == .fixed {
+            let otherFixedIDs = Set(
+                item.variants
+                    .filter { $0.id != option.id && $0.priceKind == .fixed }
+                    .map(\.id)
+            )
+            selectedOptionIDs.removeAll { otherFixedIDs.contains($0) }
+        }
+
+        if group.isSingleSelection {
+            let siblingIDs = Set(group.options.map(\.id))
+            selectedOptionIDs.removeAll { siblingIDs.contains($0) }
+            selectedOptionIDs.append(option.id)
+        } else if selectedCount(in: group) < group.maximumSelections {
+            selectedOptionIDs.append(option.id)
+        }
+    }
+
+    private func changeRepeatCount(
+        for option: MenuItemVariant,
+        in group: MenuImportOptionGroupModel,
+        delta: Int
+    ) {
+        if delta < 0 {
+            guard let index = selectedOptionIDs.lastIndex(of: option.id) else { return }
+            selectedOptionIDs.remove(at: index)
+        } else if selectedCount(in: group) < group.maximumSelections {
+            selectedOptionIDs.append(option.id)
+        }
+    }
+
+    private func selectedCount(in group: MenuImportOptionGroupModel) -> Int {
+        let groupOptionIDs = Set(group.options.map(\.id))
+        return selectedOptionIDs.filter { groupOptionIDs.contains($0) }.count
+    }
+
+    private func selectionIcon(isSelected: Bool, single: Bool) -> String {
+        if single {
+            return isSelected ? "largecircle.fill.circle" : "circle"
+        }
+        return isSelected ? "checkmark.square.fill" : "square"
+    }
+
+    private func optionPrice(
+        _ option: MenuItemVariant,
+        in group: MenuImportOptionGroupModel
+    ) -> String {
+        switch option.priceKind {
+        case .fixed:
+            return PriceFormatter.string(cents: option.priceCents)
+        case .delta:
+            let prefix = group.selectionMode != "single" && group.freeSelectionCount > 0
+                ? "danach +"
+                : "+"
+            return prefix + PriceFormatter.string(cents: option.priceCents)
+        case .included, .free:
+            return "inklusive"
+        }
     }
 }
 
 private struct MenuImportSelectionSheet: View {
     let items: [MenuItemData]
-    @Binding var quantities: [String: Int]
+    @Binding var cartLines: [MenuImportCartLine]
     @Environment(\.dismiss) private var dismiss
 
-    private var selectedItems: [MenuItemData] {
-        items.filter { quantities[$0.id, default: 0] > 0 }
+    private var itemsByID: [String: MenuItemData] {
+        Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+    }
+
+    private var selectedLines: [MenuImportCartLine] {
+        cartLines.filter { $0.quantity > 0 }
     }
 
     private var totalPrice: Int {
-        selectedItems.reduce(0) { result, item in
-            result + item.priceCents * quantities[item.id, default: 0]
-        }
+        selectedLines.reduce(0) { $0 + $1.lineTotalCents }
     }
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(selectedItems) { item in
-                        HStack(spacing: KitchenLinkV2Spacing.medium) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.displayName)
-                                    .font(KitchenLinkV2Typography.primaryLine)
-                                HStack(spacing: 4) {
-                                    Text(PriceFormatter.string(cents: item.priceCents))
-                                    if item.priceBasis == "per_person" {
-                                        Text("pro Person")
+                    ForEach(selectedLines) { line in
+                        if let item = itemsByID[line.itemID] {
+                            HStack(spacing: KitchenLinkV2Spacing.medium) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.displayName)
+                                        .font(KitchenLinkV2Typography.primaryLine)
+                                    if !line.optionNames.isEmpty {
+                                        Text(line.optionNames.joined(separator: " · "))
+                                            .font(KitchenLinkV2Typography.meta)
+                                            .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                                     }
+                                    HStack(spacing: 4) {
+                                        Text(PriceFormatter.string(cents: line.unitPriceCents))
+                                        if item.priceBasis == "per_person" {
+                                            Text("pro Person")
+                                        }
+                                    }
+                                        .font(KitchenLinkV2Typography.meta)
+                                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                                 }
-                                .font(KitchenLinkV2Typography.meta)
-                                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                                Spacer()
+                                MenuImportCompactQuantityControl(
+                                    quantity: line.quantity,
+                                    accessibilityContext: item.displayName,
+                                    onDecrease: { decrease(line.id) },
+                                    onIncrease: { increase(line.id) }
+                                )
                             }
-                            Spacer()
-                            MenuImportCompactQuantityControl(
-                                quantity: quantities[item.id, default: 0],
-                                onDecrease: { decrease(item.id) },
-                                onIncrease: { increase(item.id) }
-                            )
                         }
                     }
                 } header: {
@@ -421,16 +992,17 @@ private struct MenuImportSelectionSheet: View {
         .tint(KitchenLinkV2Palette.Brand.grape)
     }
 
-    private func increase(_ itemID: String) {
-        quantities[itemID] = min(99, quantities[itemID, default: 0] + 1)
+    private func increase(_ lineID: String) {
+        guard let index = cartLines.firstIndex(where: { $0.id == lineID }) else { return }
+        cartLines[index].quantity = min(99, cartLines[index].quantity + 1)
     }
 
-    private func decrease(_ itemID: String) {
-        let next = quantities[itemID, default: 0] - 1
-        if next > 0 {
-            quantities[itemID] = next
+    private func decrease(_ lineID: String) {
+        guard let index = cartLines.firstIndex(where: { $0.id == lineID }) else { return }
+        if cartLines[index].quantity > 1 {
+            cartLines[index].quantity -= 1
         } else {
-            quantities[itemID] = nil
+            cartLines.remove(at: index)
         }
     }
 }

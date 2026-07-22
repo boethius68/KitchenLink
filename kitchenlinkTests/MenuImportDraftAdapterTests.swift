@@ -195,6 +195,9 @@ struct MenuImportDraftAdapterTests {
         )
         #expect(converted.name == "ohne Parmesan")
         #expect(converted.priceCents == 0)
+        #expect(converted.priceKind == .included)
+        #expect(converted.groupID?.contains("group") == true)
+        #expect(converted.groupTitle == "Varianten")
     }
 
     private let adapter = MenuImportDraftAdapter()

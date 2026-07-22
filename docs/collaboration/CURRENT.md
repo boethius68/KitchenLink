@@ -4,14 +4,18 @@
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
-**Latest material integration:** The semantic food-declaration collection now
-covers all 14 EU allergens, the relevant German loose-food additive statements,
-consumer notices and dynamic E numbers. Compact code-native icons are available
-in the current iOS menu paths and guest web; guests can tap every declaration
-for unambiguous text and source-code details. The preceding direct `main` import
-consolidation retired the visible legacy product sandbox and duplicate review,
-brought its useful structured coverage into V2, and added a deterministic
-full-coverage fixture alongside two real difficult cards. PR #27 remains the
+**Latest material integration:** The current iOS preview and guest web now use
+a dense ordering-first menu: declarations are limited to three 26-point visual
+badges plus `+N` in one accessory row, simple add actions sit beside the price,
+and generic `Variante`/`Option` headings are suppressed. Configurable dishes
+open a focused choice sheet; the cart keeps each configuration separately and
+shows only the guest-facing choice names. New V2 publish/order RPCs preserve
+option groups, free-choice allowances and repeatable quantities, then calculate
+one fixed price plus the remaining deltas authoritatively, with selected
+options snapshotted on the order item. The preceding semantic
+food-declaration collection covers all 14 EU allergens, the relevant German
+loose-food additive statements, consumer notices and dynamic E numbers; every
+icon remains tappable for clear text. PR #27 remains the
 latest merged network slice and stabilizes
 the foreground iPhone Hub across WLAN loss and local IPv4 changes.
 PR #25 remains the underlying iPhone-hosted vertical slice, PR #23 the operator
@@ -97,9 +101,10 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   stay on the existing sandbox-safe implementation. Import now opens the
   draft-native review directly instead of detouring through the duplicate old
   review.
-- The review and guest preview show food/drink/total counts, descriptions,
-  allergen/additive symbols, variants/options and compact quantity controls in
-  the current design language.
+- The review and guest preview show food/drink/total counts and dense menu rows.
+  Declaration visuals are 26 points, limited to three plus `+N`, while their
+  touch targets remain accessible. Generic variant/option labels are omitted;
+  configurable dishes use a focused selection sheet and configured cart lines.
 - The food-declaration catalog now distinguishes the complete 14-item EU
   allergen set from German additive statements, consumer notices and dynamic
   E numbers. Source legends take precedence over non-standard house codes;
@@ -344,11 +349,18 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   401 refresh) and `MenuPublishSheet` from the review flow (email/password
   only, explicit replace warning, success card with the live URL). Auth is
   shared with the order transport through the narrow
-  `KitchenLinkCloudAuthenticating` protocol. `tag`/`variant_options` are not
-  published yet (documented follow-up). Verified: app build green, full
+  `KitchenLinkCloudAuthenticating` protocol. KL-MENU-008 now publishes rich
+  `variant_options` through `operator_publish_menu_v2` and submits opaque
+  option IDs through `guest_web_submit_order_v2`. The database validates group
+  limits, free allowances and repeatable quantities, recomputes one fixed price
+  plus remaining deltas, and snapshots the selection into
+  `order_items.selected_options`. Checkout attempts now remain idempotent only
+  across their own retries, so identical later orders stay independent. `tag`
+  remains a follow-up. Verified: app build green, full
   `kitchenlinkTests` target 0 failures incl. 11 new publish tests. Pending:
   apply the migration and run one real publish against the instance
-  (`SANDBOX_SETUP.md` §6.2) — the RPC SQL has not run against real Postgres
+  (`SANDBOX_SETUP.md` §6.2) — all eight migrations and V2 behavior passed in a
+  temporary local PostgreSQL instance, but not yet against the public project
   (same boundary as KL-WEB-002/KL-CLOUD-001).
 - `kitchenlink/Features/Inventory/` contains the Swift stock foundation from
   KL-INVENTORY-001 and the read-only operator surface from KL-INVENTORY-002:
@@ -411,17 +423,18 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
 - **Guest web:** production-grade hosting, PWA/offline behavior and retention
   for orphaned anonymous users remain open. Hostinger is selected only for the
   current sandbox; Supabase menu loading and authoritative sandbox ordering are
-  already live.
+  already live. The local code now expects migration `20260722120000` for
+  configured V2 orders; that migration has not been deployed by this task.
 - **Cloud order loop (KL-CLOUD-001):** merged into `main`, waiting for the user
   to apply migration `20260719100000` plus the operator account
   (SANDBOX_SETUP.md §6.1) and to run the real web-to-iPhone acceptance. A guest
   status page in the web remains a follow-up.
 - **Scan-to-publish (KL-MENU-005):** implemented on `main`. Waiting for the user
-  to apply migration `20260719200000` and run one real publish against the
+  to apply migrations through `20260722120000` and run one real publish against the
   instance (SANDBOX_SETUP.md §6.2). This is the second half of the core pitch:
-  paper menu → scan → review → live guest card. Open follow-ups: publishing
-  `tag`/`variant_options`, additive menu editing (currently full replace), and a
-  table context in the guest web.
+  paper menu → scan → review → live guest card. Rich option groups are now part
+  of the publish contract; open follow-ups are `tag`, additive menu editing
+  (currently full replace), and a table context in the guest web.
 - **Import quality rounds (KL-SCAN-002):** after the first real scan comparison
   the user required an iterative quality workflow (categories from card titles,
   variants/sizes/descriptions, structured allergen mapping via the card legend

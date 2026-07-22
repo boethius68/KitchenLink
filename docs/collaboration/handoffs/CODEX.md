@@ -2,9 +2,73 @@
 
 **Updated:** 22 July 2026
 **Branch:** `main`
-**Status:** Semantische Icon-Kollektion fuer Allergene und Zusatzstoffe in iOS
-und Gast-Web integriert; Zentrierungsfix verifiziert, Build, Tests, UI-End-to-End
-und visuelle Pruefung gruen
+**Status:** Dichte, bestellbare Gast-Speisekarte in iOS und Gast-Web umgesetzt;
+Konfigurationspreise und Auswahlregeln serverseitig autoritativ verifiziert
+
+## Latest Continuation (22. Juli 2026, KL-MENU-008)
+
+- Die Speisekartenzeilen priorisieren jetzt Uebersicht: hoechstens drei
+  26-Punkt-Deklarationssymbole plus `+N` teilen sich eine einzige Zubehoerzeile
+  mit der Bestellaktion. Bei einfachen, noch nicht gewaehlten Artikeln ohne
+  Kennzeichnungen sitzt das Plus direkt beim Preis; Beschreibungen bleiben auf
+  zwei Zeilen begrenzt.
+- Statische Listen mit Praefixen wie `Variante:`, `Option:` oder `Extra:` sind
+  aus der Gastkarte entfernt. Nur semantische Gruppentitel wie `Groesse` oder
+  `Dazu` bleiben in der Auswahl sichtbar; kombinierte generische Titel werden
+  ebenfalls unterdrueckt.
+- Konfigurierbare Gerichte oeffnen in iOS und Gast-Web eine fokussierte Auswahl
+  mit Radio-, Mehrfach- oder Mengenlogik, Pflicht- und Maximalregeln,
+  Freiauswahlen sowie sofort aktualisiertem Preis. Der Warenkorb fuehrt gleiche
+  Gerichte mit unterschiedlichen Auswahlen als getrennte, einzeln regelbare
+  Zeilen und zeigt nur die gewaehlten Namen.
+- `MenuItemVariant` und der Publish-Payload behalten Preisart, Gruppen-ID/-Titel
+  und die vollstaendige Auswahlregel. Wiederholbare Optionen bleiben als
+  wiederholte IDs erhalten. Das Gast-Web sendet ausschliesslich opake Option-IDs
+  an `guest_web_submit_order_v2`.
+- Migration `20260722120000_guest_menu_configurations.sql` fuegt
+  `order_items.selected_options`, `operator_publish_menu_v2` und
+  `guest_web_submit_order_v2` hinzu. Die Datenbank validiert Gruppen und IDs,
+  berechnet reihenfolgeunabhaengig genau einen Festpreis plus die nach
+  Freiauswahlen verbleibenden Aufpreise und speichert die Auswahl als
+  unveraenderlichen Snapshot.
+- Jeder Checkout erhaelt eine zufaellige Attempt-ID, die nur fuer Retries dieses
+  Versuchs stabil bleibt. Dadurch koennen zwei Gaeste — oder derselbe Gast
+  spaeter — denselben Warenkorb als zwei echte Bestellungen absenden. Die RPC
+  gibt Replays zusaetzlich nur an den urspruenglichen `created_by` zurueck.
+- Alle Webdialoge setzen und halten den Tastaturfokus und stellen ihn beim
+  Schliessen wieder her. Das Hauptzeilen-Minus folgt der zuletzt geaenderten
+  Konfiguration; im Warenkorb bleibt jede Zeile direkt steuerbar.
+- VoiceOver erhaelt ausgewaehlte/nicht ausgewaehlte Zustaende, gerichtsspezifische
+  Hinweise und eindeutige Konfigurations-IDs; die visuellen Touchziele bleiben
+  trotz kleiner Piktogramme ausreichend gross.
+
+## Verification (KL-MENU-008)
+
+- iOS-Simulator-Build auf iPhone 17 Pro / iOS 26.5: **bestanden**.
+- Komplettes `kitchenlinkTests`-Target: **bestanden**, inklusive der erweiterten
+  Import-/Publish-Vertragstests; nur die zwei bewusst gegateten Harness-Tests
+  wurden uebersprungen.
+- Bestehender UI-Smoke fuer Zaehler, Vorschau-Navigation und kompaktes
+  Hinzufuegen auf einem frischen iPhone-17e-Simulator: **bestanden**.
+- Gast-Web: Typecheck, Lint, **83/83 Tests** und Produktions-Build: **bestanden**.
+- Mobile Browserpruefung bei 390 x 844: kompakte Deklarationszeile, fokussierte
+  Groessenauswahl, Preiswechsel 6,90 -> 8,90 Euro sowie konfigurierter Warenkorb
+  visuell und interaktiv bestanden.
+- Alle acht Migrationen wurden in einer temporaeren lokalen PostgreSQL-Instanz
+  kompiliert. Der finale Verhaltenstest veroeffentlichte eine wiederholbare
+  Saucenauswahl, berechnete bei `1 inklusive` zweimal Sauce korrekt, speicherte
+  beide Vorkommen und unterschied zwei identische Bestellungen verschiedener
+  Gaeste. Retry, Fremd-Key-Abwehr, nicht wiederholbare Duplikate und zwei
+  unvereinbare Pflicht-Festpreisgruppen wurden ebenfalls geprueft.
+
+## Remaining Risk (KL-MENU-008)
+
+- Die neue Migration und das aktualisierte Gast-Web wurden nicht auf die
+  oeffentliche Sandbox ausgerollt. Vor einem Deployment muessen Datenbank und
+  Web gemeinsam auf V2 gehoben werden; der bestehende V1-Pfad bleibt additiv
+  erhalten.
+- Die iOS-Gastvorschau bleibt eine lokale Sandbox-Simulation und sendet keine
+  Bestellung. Der produktnaehere End-to-End-Bestellpfad liegt im Gast-Web.
 
 ## Latest Continuation (22. Juli 2026, Icon-Ausrichtung)
 

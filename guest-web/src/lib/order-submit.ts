@@ -1,7 +1,7 @@
 /**
  * Bestellübermittlung an die autoritative Grenze (ADR-001 §6, §7).
  *
- * Der Browser ruft ausschließlich die RPC `guest_web_submit_order` auf und
+ * Der Browser ruft ausschließlich die RPC `guest_web_submit_order_v2` auf und
  * schreibt nie direkt in Bestelltabellen. Vor der Bestellung erfolgt Supabase
  * Anonymous Sign-in (DECISIONS.md Guest Web, ADR-001 §6.3): nur ein anonym
  * eingelogter User (`authenticated` + `is_anonymous`) darf eine Bestellung
@@ -10,7 +10,8 @@
  *
  * Die Preise werden nur clientseitig zur Anzeige gebildet (cart.ts). Die
  * autoritative Neubepreisung läuft serverseitig in der RPC aus
- * `menu_items.price_cents` (ADR-001 §6.1) und wird dem Client nicht vertraut.
+ * `menu_items.price_cents` plus den gespeicherten Auswahlregeln (ADR-001 §6.1)
+ * und wird dem Client nicht vertraut.
  *
  * Auth- und RPC-Aufrufe laufen über die injizierbare `OrderBackend`-Schnitt-
  * stelle, sodass die hier geprüfte Logik (Idempotenz-Key, Inhaltskonflikt,
@@ -19,7 +20,7 @@
  * die echten Aufrufe und schlägt ohne laufende Instanz fehl.
  */
 
-import type { Cart } from "./cart";
+import { cartLines, type Cart } from "./cart";
 import type { GuestVenue } from "./venue-data";
 import type { OrderAck } from "./order-ack";
 import { toOrderAck } from "./order-ack";
@@ -28,6 +29,7 @@ import { toOrderAck } from "./order-ack";
 export interface SubmitItem {
   slug: string;
   quantity: number;
+  option_ids: string[];
 }
 
 /** Rohe Rückgabe der RPC (Spaltennamen wie in der Migration). */
@@ -69,27 +71,56 @@ export type SubmitErrorCode =
   | "anonymous_sign_in_failed"
   | "idempotency_conflict"
   | "unknown_item"
+  | "unknown_option"
+  | "invalid_selection"
   | "unavailable_item"
   | "unknown_venue"
   | "unauthenticated"
   | "rpc_error"
   | "invalid_response";
 
-/** Bewusst determinierter Idempotenz-Key (keine Zufälligkeit): gleiche Cart +
- *  gleiche Venue + gleicher Note/Modus => gleicher Key, sodass ein versehent-
- *  liches Doppelklicken dieselbe Order reproduziert. Die Zeitkomponente wird
- *  NICHT einbezogen; bewusst, damit Netzwerk-Retries sicher idempotent sind. */
-export function buildIdempotencyKey(parts: {
+/** Neue, zufällige Kennung für genau einen Checkout-Versuch. Der Aufrufer hält
+ *  sie über Netzwerk-Retries stabil und verwirft sie nach einer Bestätigung. */
+export function createOrderAttemptID(): string {
+  return globalThis.crypto.randomUUID();
+}
+
+/** Der zufällige Versuch verhindert Kollisionen zwischen Gästen und echten
+ *  Nachbestellungen. Der kanonische Inhalt schützt zusätzlich vor mehrdeutigen
+ *  Trennzeichen und erzeugt einen kurzen Key unterhalb des Serverlimits. */
+export async function buildIdempotencyKey(parts: {
+  attemptID: string;
   venueSlug: string;
   items: SubmitItem[];
   serviceMode: ServiceMode;
   customerNote: string;
-}): string {
-  const itemToken = [...parts.items]
-    .sort((a, b) => a.slug.localeCompare(b.slug))
-    .map((item) => `${item.slug}:${item.quantity}`)
-    .join(",");
-  return `gw|${parts.venueSlug}|${parts.serviceMode}|${itemToken}|${parts.customerNote}`;
+}): Promise<string> {
+  const items = [...parts.items]
+    .sort((a, b) => {
+      const left = JSON.stringify([a.slug, [...a.option_ids].sort()]);
+      const right = JSON.stringify([b.slug, [...b.option_ids].sort()]);
+      return left.localeCompare(right);
+    })
+    .map((item) => ({
+      slug: item.slug,
+      quantity: item.quantity,
+      option_ids: [...item.option_ids].sort(),
+    }));
+  const canonical = JSON.stringify({
+    attemptID: parts.attemptID,
+    venueSlug: parts.venueSlug,
+    serviceMode: parts.serviceMode,
+    customerNote: parts.customerNote,
+    items,
+  });
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(canonical),
+  );
+  const hex = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `gw2-${hex}`;
 }
 
 /** Normiert den Warenkorb + Venue in die RPC-Positionen (slug aus venue-data). */
@@ -97,17 +128,21 @@ export function cartToSubmitItems(
   cart: Cart,
   venue: GuestVenue,
 ): SubmitItem[] {
-  return venue.menu
-    .map((item) => ({
-      slug: item.id,
-      quantity: cart[item.id] ?? 0,
-    }))
-    .filter((item) => item.quantity > 0);
+  const knownItems = new Set(venue.menu.map(({ id }) => id));
+  return cartLines(cart)
+    .filter((line) => knownItems.has(line.itemID))
+    .map((line) => ({
+      slug: line.itemID,
+      quantity: line.quantity,
+      option_ids: [...line.optionIDs].sort(),
+    }));
 }
 
 const ERROR_CODE_PATTERNS: ReadonlyArray<{ match: RegExp; code: SubmitErrorCode }> = [
   { match: /idempotency_conflict/i, code: "idempotency_conflict" },
   { match: /unknown_item/i, code: "unknown_item" },
+  { match: /unknown_option/i, code: "unknown_option" },
+  { match: /invalid_selection|selection_required|selection_limit/i, code: "invalid_selection" },
   { match: /unavailable_item/i, code: "unavailable_item" },
   { match: /unknown_venue/i, code: "unknown_venue" },
   { match: /unauthenticated/i, code: "unauthenticated" },
@@ -140,6 +175,7 @@ function errorMessage(error: unknown): string {
 export interface SubmitOrderArgs {
   venue: GuestVenue;
   cart: Cart;
+  attemptID: string;
   serviceMode?: ServiceMode;
   customerNote?: string;
   backend: OrderBackend | null;
@@ -182,12 +218,18 @@ export async function submitOrder(
     };
   }
 
-  const idempotencyKey = buildIdempotencyKey({
-    venueSlug: venue.slug,
-    items,
-    serviceMode,
-    customerNote,
-  });
+  let idempotencyKey: string;
+  try {
+    idempotencyKey = await buildIdempotencyKey({
+      attemptID: args.attemptID,
+      venueSlug: venue.slug,
+      items,
+      serviceMode,
+      customerNote,
+    });
+  } catch (error) {
+    return { ok: false, code: "rpc_error", message: errorMessage(error) };
+  }
 
   let row: OrderRpcRow;
   try {

@@ -195,8 +195,34 @@ private func session(access: String, refresh: String = "rt") -> KitchenLinkCloud
         priceCents: 1290,
         kind: .food,
         variants: [
-            MenuItemVariant(id: "v1", name: "Klein", priceCents: 990, kind: .portion),
-            MenuItemVariant(id: "v2", name: "mit Käserand", priceCents: 200, kind: .extra)
+            MenuItemVariant(
+                id: "v1",
+                name: "Klein",
+                priceCents: 990,
+                kind: .portion,
+                priceKind: .fixed,
+                groupID: "size",
+                groupTitle: "Größe",
+                minimumSelections: 1,
+                maximumSelections: 1,
+                selectionMode: "single",
+                freeSelectionCount: 0,
+                allowsRepeats: false
+            ),
+            MenuItemVariant(
+                id: "v2",
+                name: "mit Käserand",
+                priceCents: 200,
+                kind: .extra,
+                priceKind: .delta,
+                groupID: "toppings",
+                groupTitle: "Dazu",
+                minimumSelections: 0,
+                maximumSelections: 2,
+                selectionMode: "quantity",
+                freeSelectionCount: 1,
+                allowsRepeats: true
+            )
         ],
         allergenCodes: "a,g"
     )
@@ -217,7 +243,21 @@ private func session(access: String, refresh: String = "rt") -> KitchenLinkCloud
     #expect(published.variantOptions[0].name == "Klein")
     #expect(published.variantOptions[0].priceCents == 990)
     #expect(published.variantOptions[0].kind == "portion")
+    #expect(published.variantOptions[0].priceKind == "fixed")
+    #expect(published.variantOptions[0].groupID == "size")
+    #expect(published.variantOptions[0].groupTitle == "Größe")
+    #expect(published.variantOptions[0].minimumSelections == 1)
+    #expect(published.variantOptions[0].maximumSelections == 1)
+    #expect(published.variantOptions[0].selectionMode == "single")
+    #expect(published.variantOptions[0].freeSelectionCount == 0)
+    #expect(published.variantOptions[0].allowsRepeats == false)
     #expect(published.variantOptions[1].kind == "extra")
+    #expect(published.variantOptions[1].priceKind == "delta")
+    #expect(published.variantOptions[1].groupID == "toppings")
+    #expect(published.variantOptions[1].maximumSelections == 2)
+    #expect(published.variantOptions[1].selectionMode == "quantity")
+    #expect(published.variantOptions[1].freeSelectionCount == 1)
+    #expect(published.variantOptions[1].allowsRepeats == true)
 }
 
 @Test func buildDropsEmptyVariantNamesAndDefaultsEmptyLegend() {
@@ -244,7 +284,15 @@ private func session(access: String, refresh: String = "rt") -> KitchenLinkCloud
             items: [
                 MenuItemData(
                     id: "i1", name: "Pizza", description: "", priceCents: 1290, kind: .food,
-                    variants: [MenuItemVariant(id: "v1", name: "Klein", priceCents: 990, kind: .portion)],
+                    variants: [MenuItemVariant(
+                        id: "v1",
+                        name: "Klein",
+                        priceCents: 990,
+                        kind: .portion,
+                        selectionMode: "single",
+                        freeSelectionCount: 0,
+                        allowsRepeats: false
+                    )],
                     allergenCodes: "a"
                 )
             ],
@@ -258,6 +306,11 @@ private func session(access: String, refresh: String = "rt") -> KitchenLinkCloud
     #expect(json.contains("\"variant_options\""))
     #expect(json.contains("\"price_cents\""))
     #expect(json.contains("\"allergen_codes\""))
+    #expect(json.contains("\"price_kind\""))
+    #expect(json.contains("\"selection_mode\""))
+    #expect(json.contains("\"free_selection_count\""))
+    #expect(json.contains("\"allows_repeats\""))
+    #expect(json.contains("\"id\""))
 }
 
 // MARK: - Model

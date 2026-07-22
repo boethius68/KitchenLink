@@ -3,7 +3,7 @@
  *
  * Status entsteht ausschließlich aus der Serverantwort, nie optimistisch. Der
  * Gast sieht „Eingegangen“ erst, wenn der autoritative Knoten (hier die RPC
- * `guest_web_submit_order`) die Bestellung dauerhaft gespeichert und per ACK
+ * `guest_web_submit_order_v2`) die Bestellung dauerhaft gespeichert und per ACK
  * bestätigt hat. Vorher gilt ein eindeutiger „übermitteln“/„warten“-Zustand
  * ohne falsche Bestätigung (ADR-001 §5.3, Blueprint §16.2).
  *
@@ -20,7 +20,7 @@ export type OrderStatus =
   | "served"
   | "canceled";
 
-/** ACK-Record, deckungsgleich mit der Rückgabe von guest_web_submit_order. */
+/** ACK-Record, deckungsgleich mit der Rückgabe von guest_web_submit_order_v2. */
 export interface OrderAck {
   orderId: string;
   status: OrderStatus;
@@ -30,7 +30,7 @@ export interface OrderAck {
   idempotentReplay: boolean;
 }
 
-/** Rohe Rückgabe der RPC guest_web_submit_order (Spaltennamen wie in der
+/** Rohe Rückgabe der RPC guest_web_submit_order_v2 (Spaltennamen wie in der
  *  Migration). Wird von order-submit und order-ack geteilt. */
 export interface OrderRpcRowLike {
   order_id: string | null;

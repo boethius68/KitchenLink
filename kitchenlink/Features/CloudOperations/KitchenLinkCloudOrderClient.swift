@@ -525,7 +525,7 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
 }
 
 /// KL-MENU-005: dieselbe Transport-Implementierung bedient auch die
-/// Menü-Veröffentlichung. Die RPC `operator_publish_menu` erwartet ein
+/// Menü-Veröffentlichung. Die RPC `operator_publish_menu_v2` erwartet ein
 /// verschachteltes `p_menu`-JSON, daher der Encodable-Body statt des flachen
 /// `[String: String?]`.
 extension URLSessionKitchenLinkCloudTransport: KitchenLinkMenuPublishTransport {
@@ -545,7 +545,7 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkMenuPublishTransport {
         let data = try await rpcData(
             config: config,
             accessToken: session.accessToken,
-            function: "operator_publish_menu",
+            function: "operator_publish_menu_v2",
             bodyData: bodyData,
             timeout: 15
         )

@@ -4,7 +4,7 @@
  * - signInAnonymously vor der Bestellung (ADR-001 §6.3, DECISIONS.md Guest
  *   Web). Ohne laufende Supabase-Instanz schlägt das zur Laufzeit fehl (für
  *   die Sandbox in Ordnung, siehe ORDER_GATE.md).
- * - Aufruf der RPC guest_web_submit_order; der Browser hat keinen direkten
+ * - Aufruf der RPC guest_web_submit_order_v2; der Browser hat keinen direkten
  *   Schreibpfad in Bestelltabellen.
  */
 
@@ -46,7 +46,7 @@ export function createSupabaseOrderBackend(
       serviceMode: ServiceMode;
       customerNote: string;
     }): Promise<OrderRpcRow> {
-      const { data, error } = await supabase.rpc("guest_web_submit_order", {
+      const { data, error } = await supabase.rpc("guest_web_submit_order_v2", {
         p_venue_slug: venueSlug,
         p_idempotency_key: idempotencyKey,
         p_items: items,

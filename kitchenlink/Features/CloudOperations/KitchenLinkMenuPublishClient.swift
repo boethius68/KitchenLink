@@ -8,7 +8,7 @@ import Foundation
 /// Papierkarte scannen, prüfen und Minuten später bestellen Gäste per QR.
 ///
 /// Der Schreibweg läuft ausschließlich über die SECURITY-DEFINER-RPC
-/// `operator_publish_menu` (Migration `20260719200000`), die genau wie die
+/// `operator_publish_menu_v2` (Migration `20260722120000`), die genau wie die
 /// Bestell- und Status-RPCs staff-gated ist. Authentifizierung und
 /// Sitzungspersistenz teilen sich die Typen mit `KitchenLinkCloudOrderClient`
 /// (`KitchenLinkCloudConfig`, `KitchenLinkCloudSession`,
@@ -64,14 +64,32 @@ struct KitchenLinkPublishMenu: Codable, Equatable {
 
     /// Eine Auswahloption eines Artikels (Portion, Extra oder Variante).
     struct VariantOption: Codable, Equatable {
+        var id: String
         var name: String
         var priceCents: Int
         var kind: String
+        var priceKind: String
+        var groupID: String?
+        var groupTitle: String?
+        var minimumSelections: Int?
+        var maximumSelections: Int?
+        var selectionMode: String?
+        var freeSelectionCount: Int?
+        var allowsRepeats: Bool?
 
         enum CodingKeys: String, CodingKey {
+            case id
             case name
             case priceCents = "price_cents"
             case kind
+            case priceKind = "price_kind"
+            case groupID = "group_id"
+            case groupTitle = "group_title"
+            case minimumSelections = "minimum_selections"
+            case maximumSelections = "maximum_selections"
+            case selectionMode = "selection_mode"
+            case freeSelectionCount = "free_selection_count"
+            case allowsRepeats = "allows_repeats"
         }
     }
 
@@ -152,9 +170,18 @@ enum KitchenLinkMenuPublishPayload {
             let name = variant.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty, variant.priceCents >= 0 else { return nil }
             return KitchenLinkPublishMenu.VariantOption(
+                id: variant.id,
                 name: name,
                 priceCents: variant.priceCents,
-                kind: variant.kind.rawValue
+                kind: variant.kind.rawValue,
+                priceKind: variant.priceKind.rawValue,
+                groupID: variant.groupID,
+                groupTitle: variant.groupTitle,
+                minimumSelections: variant.minimumSelections,
+                maximumSelections: variant.maximumSelections,
+                selectionMode: variant.selectionMode,
+                freeSelectionCount: variant.freeSelectionCount,
+                allowsRepeats: variant.allowsRepeats
             )
         }
     }

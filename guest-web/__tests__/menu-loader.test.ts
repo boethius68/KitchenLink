@@ -175,7 +175,17 @@ describe("mapVenueRowToGuestVenue", () => {
     const suppe = category.menu_items[0];
     suppe.allergen_codes = ["a", "g", "2"]; // "2" nicht in Legende -> Standard-Katalog
     suppe.variant_options = [
-      { name: "Groß", price_cents: 890, kind: "portion" },
+      {
+        id: "suppe-gross",
+        name: "Groß",
+        price_cents: 890,
+        kind: "portion",
+        price_kind: "fixed",
+        group_id: "groesse",
+        group_title: "Größe",
+        minimum_selections: 1,
+        maximum_selections: 1,
+      },
       { name: "   ", price_cents: 100, kind: "portion" }, // leerer Name -> raus
       { name: "extra Brot", price_cents: 150, kind: "extra" },
     ];
@@ -191,8 +201,28 @@ describe("mapVenueRowToGuestVenue", () => {
     ]);
     // Leere Variante entfällt, Reihenfolge und kind bleiben erhalten.
     expect(item?.variants).toEqual([
-      { name: "Groß", priceCents: 890, kind: "portion" },
-      { name: "extra Brot", priceCents: 150, kind: "extra" },
+      {
+        id: "suppe-gross",
+        name: "Groß",
+        priceCents: 890,
+        kind: "portion",
+        priceKind: "fixed",
+        groupID: "groesse",
+        groupTitle: "Größe",
+        minimumSelections: 1,
+        maximumSelections: 1,
+      },
+      {
+        id: "legacy-2",
+        name: "extra Brot",
+        priceCents: 150,
+        kind: "extra",
+        priceKind: "delta",
+        groupID: undefined,
+        groupTitle: undefined,
+        minimumSelections: undefined,
+        maximumSelections: undefined,
+      },
     ]);
   });
 

@@ -40,7 +40,7 @@ Cloud-Ressourcen an und committen keine Secrets.
 ### 1.1 Anonymous Sign-in aktivieren (zwingend)
 
 Ohne aktiven Anonymous Sign-in scheitert jede Bestellung, weil die RPC
-`guest_web_submit_order` einen anonym eingelogten User verlangt (ADR-001 §6.3,
+`guest_web_submit_order_v2` einen anonym eingelogten User verlangt (ADR-001 §6.3,
 DECISIONS.md Guest Web).
 
 - Dashboard → **Authentication** → **Providers** → **Anonymous** → **Enable**.
@@ -56,7 +56,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **sechs** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **acht** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -66,6 +66,8 @@ Es gibt **sechs** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260719000000_menu_items_tag.sql` | Menü-Tag-Feld und Seed für den Supabase-Leseweg (KL-WEB-004) |
 | `supabase/migrations/20260719100000_operator_cloud_orders.sql` | Betreiber: venue_staff, Staff-Lese-Policies, Status-RPC, Hub-Presence (KL-CLOUD-001) |
 | `supabase/migrations/20260719200000_operator_publish_menu.sql` | Betreiber-RPC zum Veröffentlichen einer gescannten Karte (KL-MENU-005) |
+| `supabase/migrations/20260721120000_operator_publish_menu_legend_variants.sql` | Publish-V1 um Kennzeichnungslegenden und Legacy-Varianten erweitert |
+| `supabase/migrations/20260722120000_guest_menu_configurations.sql` | Rich-Optionsvertrag, Publish-/Order-V2 und Auswahl-Snapshot (KL-MENU-008) |
 
 ### Weg A — über die CLI (empfohlen)
 
@@ -85,7 +87,7 @@ supabase db push
 
 ### Weg B — über den SQL-Editor
 
-Dashboard → **SQL Editor** → nacheinander die fünf Dateien aus
+Dashboard → **SQL Editor** → nacheinander die acht Dateien aus
 `supabase/migrations/` einfügen und **Run**. Reihenfolge einhalten.
 
 ### Verifikation des Schemas
@@ -263,7 +265,8 @@ Die Scan-zu-Publish-Brücke bringt eine geprüfte, gescannte Speisekarte in die
 Supabase-Venue, sodass sie auf dem Gast-Web erscheint. Voraussetzung ist das
 Betreiber-Konto aus 6.1 (dieselbe Anmeldung; eine bestehende Sitzung genügt).
 
-1. Migration `20260719200000_operator_publish_menu.sql` anwenden (Abschnitt 2).
+1. Alle Migrationen bis einschließlich
+   `20260722120000_guest_menu_configurations.sql` anwenden (Abschnitt 2).
 2. In der App eine Speisekarte scannen/importieren und im Prüf-Dialog
    („Import prüfen") alle offenen Einträge klären.
 3. Sobald die Karte klarläuft, unten **„Online veröffentlichen"** wählen. Bei
@@ -277,8 +280,10 @@ Betreiber-Konto aus 6.1 (dieselbe Anmeldung; eine bestehende Sitzung genügt).
 **Semantik:** Ein veröffentlichter Scan **ersetzt** die aktive Karte der Venue
 vollständig (kein Merge). Der eingebaute Sandbox-Seed (8 Demo-Artikel) wird
 dadurch durch die gescannte Karte abgelöst. Der Schreibweg läuft nur über die
-staff-gated RPC `operator_publish_menu`; die Menü-Tabellen bleiben ohne direkte
-Client-Schreib-Policy.
+staff-gated RPC `operator_publish_menu_v2`; die Menü-Tabellen bleiben ohne
+direkte Client-Schreib-Policy. Varianten, Portionen und Extras werden mit
+Preisart und Gruppenregeln veröffentlicht; der Gast sendet bei der Bestellung
+nur die gewählten Option-IDs, Preise werden serverseitig neu berechnet.
 
 ### KI-Erfassung des Scans (KL-SCAN-002, Datenfluss)
 

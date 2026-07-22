@@ -320,22 +320,35 @@ enum MenuImportDraftConverter {
             group.choices.compactMap { choice -> MenuItemVariant? in
                 guard let offer = choice.offers.first else { return nil }
                 let priceCents: Int?
+                let priceKind: MenuItemOptionPriceKind?
                 switch offer.priceKind {
                 case .fixed:
                     priceCents = offer.amountCents
+                    priceKind = .fixed
                 case .delta:
                     priceCents = offer.deltaCents
+                    priceKind = .delta
                 case .included, .free:
                     priceCents = 0
+                    priceKind = offer.priceKind == .free ? .free : .included
                 default:
                     priceCents = nil
+                    priceKind = nil
                 }
-                guard let priceCents else { return nil }
+                guard let priceCents, let priceKind else { return nil }
                 return MenuItemVariant(
                     id: choice.id,
                     name: choice.name.value,
                     priceCents: priceCents,
-                    kind: MenuItemOptionKind(rawValue: choice.kind) ?? .variant
+                    kind: MenuItemOptionKind(rawValue: choice.kind) ?? .variant,
+                    priceKind: priceKind,
+                    groupID: group.id,
+                    groupTitle: group.title.value,
+                    minimumSelections: group.selectionRule.minimum,
+                    maximumSelections: group.selectionRule.maximum,
+                    selectionMode: group.selectionRule.mode,
+                    freeSelectionCount: group.selectionRule.freeSelectionCount,
+                    allowsRepeats: group.selectionRule.allowsRepeats
                 )
             }
         }

@@ -600,17 +600,60 @@ enum MenuItemOptionKind: String, CaseIterable, Codable {
     }
 }
 
+enum MenuItemOptionPriceKind: String, Codable {
+    case fixed
+    case delta
+    case included
+    case free
+
+    static func legacyDefault(for kind: MenuItemOptionKind, priceCents: Int) -> Self {
+        if priceCents == 0 {
+            return .included
+        }
+        return kind == .extra ? .delta : .fixed
+    }
+}
+
 struct MenuItemVariant: Identifiable, Codable, Equatable {
     let id: String
     var name: String
     var priceCents: Int
     var kind: MenuItemOptionKind
+    var priceKind: MenuItemOptionPriceKind
+    var groupID: String?
+    var groupTitle: String?
+    var minimumSelections: Int?
+    var maximumSelections: Int?
+    var selectionMode: String?
+    var freeSelectionCount: Int?
+    var allowsRepeats: Bool?
 
-    init(id: String, name: String, priceCents: Int, kind: MenuItemOptionKind = .variant) {
+    init(
+        id: String,
+        name: String,
+        priceCents: Int,
+        kind: MenuItemOptionKind = .variant,
+        priceKind: MenuItemOptionPriceKind? = nil,
+        groupID: String? = nil,
+        groupTitle: String? = nil,
+        minimumSelections: Int? = nil,
+        maximumSelections: Int? = nil,
+        selectionMode: String? = nil,
+        freeSelectionCount: Int? = nil,
+        allowsRepeats: Bool? = nil
+    ) {
         self.id = id
         self.name = name
         self.priceCents = priceCents
         self.kind = kind
+        self.priceKind = priceKind ?? .legacyDefault(for: kind, priceCents: priceCents)
+        self.groupID = groupID
+        self.groupTitle = groupTitle
+        self.minimumSelections = minimumSelections
+        self.maximumSelections = maximumSelections
+        self.selectionMode = selectionMode
+        self.freeSelectionCount = freeSelectionCount
+        self.allowsRepeats = allowsRepeats
     }
 
     enum CodingKeys: String, CodingKey {
@@ -618,6 +661,14 @@ struct MenuItemVariant: Identifiable, Codable, Equatable {
         case name
         case priceCents
         case kind
+        case priceKind
+        case groupID
+        case groupTitle
+        case minimumSelections
+        case maximumSelections
+        case selectionMode
+        case freeSelectionCount
+        case allowsRepeats
     }
 
     init(from decoder: Decoder) throws {
@@ -626,6 +677,15 @@ struct MenuItemVariant: Identifiable, Codable, Equatable {
         name = try container.decode(String.self, forKey: .name)
         priceCents = try container.decode(Int.self, forKey: .priceCents)
         kind = try container.decodeIfPresent(MenuItemOptionKind.self, forKey: .kind) ?? .variant
+        priceKind = try container.decodeIfPresent(MenuItemOptionPriceKind.self, forKey: .priceKind)
+            ?? .legacyDefault(for: kind, priceCents: priceCents)
+        groupID = try container.decodeIfPresent(String.self, forKey: .groupID)
+        groupTitle = try container.decodeIfPresent(String.self, forKey: .groupTitle)
+        minimumSelections = try container.decodeIfPresent(Int.self, forKey: .minimumSelections)
+        maximumSelections = try container.decodeIfPresent(Int.self, forKey: .maximumSelections)
+        selectionMode = try container.decodeIfPresent(String.self, forKey: .selectionMode)
+        freeSelectionCount = try container.decodeIfPresent(Int.self, forKey: .freeSelectionCount)
+        allowsRepeats = try container.decodeIfPresent(Bool.self, forKey: .allowsRepeats)
     }
 }
 
@@ -1333,13 +1393,14 @@ enum AllergenCatalog {
 struct AllergenBadgeView: View {
     let definition: AllergenDefinition
     var size: CGFloat = 36
+    var cornerRadius: CGFloat = 10
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(definition.tint.opacity(0.14))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .stroke(definition.tint.opacity(0.38), lineWidth: 1)
                 }
 
@@ -1457,55 +1518,78 @@ struct AllergenLegendView: View {
 }
 
 struct AllergenBadgesRow: View {
+    enum DisplayMode {
+        case standard
+        case compact(maxVisible: Int = 3)
+    }
+
     let rawCodes: String
     let legendByCode: [String: String]?
     let allowsIndividualDetails: Bool
+    let displayMode: DisplayMode
     @State private var showLegend = false
     @State private var selectedDefinition: AllergenDefinition?
 
     init(
         rawCodes: String,
         legendByCode: [String: String]? = nil,
-        allowsIndividualDetails: Bool = true
+        allowsIndividualDetails: Bool = true,
+        displayMode: DisplayMode = .standard
     ) {
         self.rawCodes = rawCodes
         self.legendByCode = legendByCode
         self.allowsIndividualDetails = allowsIndividualDetails
+        self.displayMode = displayMode
     }
 
     private var definitions: [AllergenDefinition] {
         AllergenCatalog.definitions(for: rawCodes, customTitles: legendByCode)
     }
 
+    private var visibleLimit: Int {
+        switch displayMode {
+        case .standard:
+            return 5
+        case .compact(let maxVisible):
+            return max(1, maxVisible)
+        }
+    }
+
     var body: some View {
         if !definitions.isEmpty {
             HStack(spacing: 2) {
-                ForEach(definitions.prefix(5)) { definition in
+                ForEach(definitions.prefix(visibleLimit)) { definition in
                     if allowsIndividualDetails {
                         Button {
                             selectedDefinition = definition
                         } label: {
-                            AllergenBadgeView(definition: definition)
+                            badge(for: definition)
                         }
                         .buttonStyle(.plain)
-                        .frame(minWidth: 44, minHeight: 44)
+                        .frame(
+                            minWidth: 44,
+                            minHeight: 44
+                        )
                         .contentShape(Rectangle())
                         .accessibilityIdentifier("foodDeclaration.badge.\(definition.code)")
                         .accessibilityHint("Zeigt die Bedeutung im Klartext")
                     } else {
-                        AllergenBadgeView(definition: definition)
+                        badge(for: definition)
                             .frame(minWidth: 40, minHeight: 40)
                     }
                 }
 
-                if definitions.count > 5 {
+                if definitions.count > visibleLimit {
                     Button {
                         showLegend = true
                     } label: {
-                        Text("+\(definitions.count - 5)")
+                        Text("+\(definitions.count - visibleLimit)")
                             .font(.caption2.weight(.bold))
-                            .frame(width: 34, height: 34)
-                            .background(KitchenTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                            .frame(width: compactBadgeSize ?? 34, height: compactBadgeSize ?? 34)
+                            .background(
+                                KitchenTheme.accent.opacity(0.1),
+                                in: RoundedRectangle(cornerRadius: compactBadgeSize == nil ? 10 : 8)
+                            )
                             .foregroundStyle(KitchenTheme.accent)
                     }
                     .buttonStyle(.plain)
@@ -1519,6 +1603,20 @@ struct AllergenBadgesRow: View {
             .sheet(item: $selectedDefinition) { definition in
                 FoodDeclarationDetailView(definition: definition)
             }
+        }
+    }
+
+    private var compactBadgeSize: CGFloat? {
+        if case .compact = displayMode { return 26 }
+        return nil
+    }
+
+    @ViewBuilder
+    private func badge(for definition: AllergenDefinition) -> some View {
+        if let compactBadgeSize {
+            AllergenBadgeView(definition: definition, size: compactBadgeSize, cornerRadius: 8)
+        } else {
+            AllergenBadgeView(definition: definition)
         }
     }
 }

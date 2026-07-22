@@ -8,7 +8,7 @@
  *
  * LASTENDE INVARIANTE: `GuestMenuItem.id` ist der `menu_items.slug`, NICHT die
  * UUID. `order-submit.ts:cartToSubmitItems` schickt `item.id` als Bestell-Slug
- * an die RPC `guest_web_submit_order`; die RPC löst über `menu_items.slug`
+ * an die RPC `guest_web_submit_order_v2`; die RPC löst über `menu_items.slug`
  * auf. Würden wir hier die UUID setzen, ginge jede Bestellung kaputt
  * (`guest_web_unknown_item`).
  *
@@ -63,7 +63,8 @@ function mapVariantOptions(raw: unknown): GuestVariantOption[] {
     return [];
   }
   const result: GuestVariantOption[] = [];
-  for (const entry of raw) {
+  const seenIDs = new Set<string>();
+  for (const [index, entry] of raw.entries()) {
     if (!entry || typeof entry !== "object") {
       continue;
     }
@@ -78,9 +79,62 @@ function mapVariantOptions(raw: unknown): GuestVariantOption[] {
     }
     const kind =
       record.kind === "portion" || record.kind === "extra" ? record.kind : "variant";
-    result.push({ name, priceCents, kind });
+    const rawID = typeof record.id === "string" ? record.id.trim() : "";
+    const id = rawID || `legacy-${index}`;
+    if (seenIDs.has(id)) {
+      continue;
+    }
+    seenIDs.add(id);
+
+    const fallbackPriceKind =
+      priceCents === 0 ? "included" : kind === "extra" ? "delta" : "fixed";
+    const priceKind =
+      record.price_kind === "fixed" ||
+      record.price_kind === "delta" ||
+      record.price_kind === "included" ||
+      record.price_kind === "free"
+        ? record.price_kind
+        : fallbackPriceKind;
+    const groupID =
+      typeof record.group_id === "string" && record.group_id.trim()
+        ? record.group_id.trim()
+        : undefined;
+    const groupTitle =
+      typeof record.group_title === "string" && record.group_title.trim()
+        ? record.group_title.trim()
+        : undefined;
+    const minimumSelections = nonNegativeInteger(record.minimum_selections);
+    const maximumSelections = nonNegativeInteger(record.maximum_selections);
+    const selectionMode = typeof record.selection_mode === "string"
+      ? record.selection_mode.trim().toLocaleLowerCase("de-DE")
+      : undefined;
+    const freeSelectionCount = nonNegativeInteger(record.free_selection_count);
+    const allowsRepeats = typeof record.allows_repeats === "boolean"
+      ? record.allows_repeats
+      : undefined;
+
+    result.push({
+      id,
+      name,
+      priceCents,
+      kind,
+      priceKind,
+      groupID,
+      groupTitle,
+      minimumSelections,
+      maximumSelections,
+      selectionMode,
+      freeSelectionCount,
+      allowsRepeats,
+    });
   }
   return result;
+}
+
+function nonNegativeInteger(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
+    ? value
+    : undefined;
 }
 
 /**

@@ -548,9 +548,32 @@ struct MenuEditorVariantsEditor: View {
                         }
                     }
                     .labelsHidden()
+                    .onChange(of: variant.kind) { oldKind, newKind in
+                        let oldDefault = MenuItemOptionPriceKind.legacyDefault(
+                            for: oldKind,
+                            priceCents: variant.priceCents
+                        )
+                        if variant.priceKind == oldDefault {
+                            variant.priceKind = .legacyDefault(
+                                for: newKind,
+                                priceCents: variant.priceCents
+                            )
+                        }
+                    }
                     Spacer()
                     MenuEditorPriceField(cents: $variant.priceCents)
                         .frame(maxWidth: 90)
+                        .onChange(of: variant.priceCents) { oldPrice, newPrice in
+                            // Positive Preisänderungen behalten die explizite
+                            // Semantik (z. B. Delta statt Gesamtpreis). Nur der
+                            // Wechsel von/zu kostenlos braucht eine neue Ableitung.
+                            if (oldPrice == 0) != (newPrice == 0) {
+                                variant.priceKind = .legacyDefault(
+                                    for: variant.kind,
+                                    priceCents: newPrice
+                                )
+                            }
+                        }
                     Text("€").foregroundStyle(.secondary)
                 }
             }

@@ -14,12 +14,22 @@ export type { GuestAllergen } from "./allergen-catalog";
 export type GuestMenuItemKind = "food" | "drink";
 
 export type GuestVariantKind = "portion" | "extra" | "variant";
+export type GuestOptionPriceKind = "fixed" | "delta" | "included" | "free";
 
 /** Eine Auswahloption eines Artikels (Portion, Extra oder Variante). */
 export interface GuestVariantOption {
+  id: string;
   name: string;
   priceCents: number;
   kind: GuestVariantKind;
+  priceKind: GuestOptionPriceKind;
+  groupID?: string;
+  groupTitle?: string;
+  minimumSelections?: number;
+  maximumSelections?: number;
+  selectionMode?: string;
+  freeSelectionCount?: number;
+  allowsRepeats?: boolean;
 }
 
 export interface GuestMenuItem {
@@ -57,7 +67,17 @@ export const sandboxVenues: GuestVenue[] = [
         kind: "food",
         allergens: resolveAllergens(["g", "i"], null),
         variants: [
-          { name: "Große Portion", priceCents: 890, kind: "portion" },
+          {
+            id: "suppe-gross",
+            name: "Große Portion",
+            priceCents: 890,
+            kind: "portion",
+            priceKind: "fixed",
+            groupID: "suppe-groesse",
+            groupTitle: "Größe",
+            minimumSelections: 0,
+            maximumSelections: 1,
+          },
         ],
       },
       {
@@ -85,7 +105,34 @@ export const sandboxVenues: GuestVenue[] = [
         kind: "food",
         allergens: resolveAllergens(["a", "c", "g"], null),
         variants: [
-          { name: "Pommes statt Salat", priceCents: 150, kind: "extra" },
+          {
+            id: "schnitzel-pommes",
+            name: "Pommes statt Salat",
+            priceCents: 150,
+            kind: "extra",
+            priceKind: "delta",
+            groupID: "schnitzel-dazu",
+            groupTitle: "Dazu",
+            minimumSelections: 0,
+            maximumSelections: 1,
+            selectionMode: "single",
+            freeSelectionCount: 0,
+            allowsRepeats: false,
+          },
+          {
+            id: "schnitzel-sauce",
+            name: "Bratensauce",
+            priceCents: 100,
+            kind: "extra",
+            priceKind: "delta",
+            groupID: "schnitzel-saucen",
+            groupTitle: "Saucen",
+            minimumSelections: 0,
+            maximumSelections: 3,
+            selectionMode: "quantity",
+            freeSelectionCount: 1,
+            allowsRepeats: true,
+          },
         ],
       },
       {

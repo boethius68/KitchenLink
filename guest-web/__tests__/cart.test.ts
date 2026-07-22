@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_QUANTITY,
+  cartLineID,
   decrement,
+  decrementLastConfiguration,
   emptyCart,
   formatEuro,
   increment,
   itemCount,
+  quantityForItem,
   setQuantity,
   totalCents,
 } from "@/lib/cart";
@@ -13,74 +16,88 @@ import { sandboxVenues } from "@/lib/venue-data";
 
 const menu = sandboxVenues[0].menu;
 
-describe("setQuantity", () => {
-  it("stores clamped integer quantities", () => {
-    expect(setQuantity(emptyCart, "a", 3)).toEqual({ a: 3 });
-    expect(setQuantity(emptyCart, "a", 2.9)).toEqual({ a: 2 });
-    expect(setQuantity(emptyCart, "a", MAX_QUANTITY + 10)).toEqual({
-      a: MAX_QUANTITY,
+describe("configured cart lines", () => {
+  it("stores clamped integer quantities without mutating the previous cart", () => {
+    const id = cartLineID("a");
+    const cart = setQuantity(emptyCart, "a", 2.9);
+    expect(cart).toEqual({
+      [id]: { id, itemID: "a", optionIDs: [], quantity: 2 },
     });
+    increment(cart, "a");
+    expect(cart[id].quantity).toBe(2);
+    expect(setQuantity(emptyCart, "a", MAX_QUANTITY + 10)[id].quantity).toBe(
+      MAX_QUANTITY,
+    );
   });
 
-  it("removes entries at zero and below", () => {
+  it("removes entries at zero and leaves an absent line untouched", () => {
     const cart = setQuantity(emptyCart, "a", 2);
     expect(setQuantity(cart, "a", 0)).toEqual({});
-    expect(setQuantity(cart, "a", -5)).toEqual({});
-  });
-
-  it("returns the same cart when removing an absent item", () => {
     expect(setQuantity(emptyCart, "missing", 0)).toBe(emptyCart);
   });
 
-  it("does not mutate the previous cart", () => {
-    const cart = setQuantity(emptyCart, "a", 1);
-    increment(cart, "a");
-    expect(cart).toEqual({ a: 1 });
-  });
-});
+  it("keeps two configurations of the same article separate", () => {
+    let cart = increment(emptyCart, "kuerbissuppe", []);
+    cart = increment(cart, "kuerbissuppe", ["suppe-gross"]);
+    cart = increment(cart, "kuerbissuppe", ["suppe-gross"]);
 
-describe("increment/decrement", () => {
-  it("walks quantities up and down", () => {
-    let cart = increment(emptyCart, "a");
-    cart = increment(cart, "a");
-    expect(cart).toEqual({ a: 2 });
-    cart = decrement(cart, "a");
-    expect(cart).toEqual({ a: 1 });
-    cart = decrement(cart, "a");
-    expect(cart).toEqual({});
+    expect(Object.values(cart)).toHaveLength(2);
+    expect(quantityForItem(cart, "kuerbissuppe")).toBe(3);
+    expect(itemCount(cart)).toBe(3);
+
+    cart = decrementLastConfiguration(cart, "kuerbissuppe");
+    expect(quantityForItem(cart, "kuerbissuppe")).toBe(2);
+    cart = decrement(cart, "kuerbissuppe", []);
+    expect(quantityForItem(cart, "kuerbissuppe")).toBe(1);
   });
 
-  it("keeps the cart empty when decrementing an absent item", () => {
-    expect(decrement(emptyCart, "a")).toEqual({});
+  it("decrements the configuration that was touched most recently", () => {
+    let cart = increment(emptyCart, "kuerbissuppe", []);
+    cart = increment(cart, "kuerbissuppe", ["suppe-gross"]);
+    cart = increment(cart, "kuerbissuppe", []);
+
+    cart = decrementLastConfiguration(cart, "kuerbissuppe");
+    expect(cart[cartLineID("kuerbissuppe", [])].quantity).toBe(1);
+    expect(cart[cartLineID("kuerbissuppe", ["suppe-gross"])].quantity).toBe(1);
   });
 
-  it("caps increments at MAX_QUANTITY", () => {
-    const cart = setQuantity(emptyCart, "a", MAX_QUANTITY);
-    expect(increment(cart, "a")).toEqual({ a: MAX_QUANTITY });
+  it("preserves repeated option IDs for repeatable quantities", () => {
+    const cart = setQuantity(emptyCart, "a", 1, ["sauce", "sauce"]);
+    const line = cart[cartLineID("a", ["sauce", "sauce"])];
+    expect(line.optionIDs).toEqual(["sauce", "sauce"]);
   });
 });
 
 describe("totals", () => {
-  it("counts items across lines", () => {
-    let cart = setQuantity(emptyCart, menu[0].id, 2);
-    cart = setQuantity(cart, menu[1].id, 1);
-    expect(itemCount(cart)).toBe(3);
+  it("uses a fixed portion price instead of the base price", () => {
+    const cart = setQuantity(
+      emptyCart,
+      "kuerbissuppe",
+      2,
+      ["suppe-gross"],
+    );
+    expect(totalCents(cart, menu)).toBe(2 * 890);
   });
 
-  it("sums cents from menu prices only", () => {
-    let cart = setQuantity(emptyCart, menu[0].id, 2);
-    cart = setQuantity(cart, "unknown-item", 5);
-    expect(totalCents(cart, menu)).toBe(2 * menu[0].priceCents);
+  it("adds a selected price delta", () => {
+    const cart = setQuantity(
+      emptyCart,
+      "wiener-schnitzel",
+      1,
+      ["schnitzel-pommes"],
+    );
+    expect(totalCents(cart, menu)).toBe(2180 + 150);
   });
 
-  it("is zero for the empty cart", () => {
+  it("ignores unknown items and is zero for an empty cart", () => {
+    const cart = setQuantity(emptyCart, "unknown-item", 5);
+    expect(totalCents(cart, menu)).toBe(0);
     expect(totalCents(emptyCart, menu)).toBe(0);
   });
 });
 
 describe("formatEuro", () => {
   it("formats German euro amounts from cents", () => {
-    // Intl nutzt geschütztes Leerzeichen zwischen Betrag und Symbol.
     expect(formatEuro(1150).replace(/ /g, " ")).toBe("11,50 €");
     expect(formatEuro(0).replace(/ /g, " ")).toBe("0,00 €");
   });

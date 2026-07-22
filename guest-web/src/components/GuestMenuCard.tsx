@@ -1,19 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  cartLines,
   type Cart,
+  type CartLine,
   decrement,
+  decrementLastConfiguration,
   emptyCart,
   formatEuro,
   increment,
   itemCount,
+  quantityForItem,
   totalCents,
 } from "@/lib/cart";
 import {
+  configuredUnitPrice,
+  isValidConfiguration,
+  optionGroups,
+  selectedOptions,
+  type GuestOptionGroup,
+} from "@/lib/menu-options";
+import {
   createSupabaseOrderBackend,
 } from "@/lib/order-backend-supabase";
-import { submitOrder } from "@/lib/order-submit";
+import { createOrderAttemptID, submitOrder } from "@/lib/order-submit";
 import {
   acceptedState,
   errorState,
@@ -34,6 +45,58 @@ interface GuestMenuCardProps {
   venue: GuestVenue;
 }
 
+function useModalDialog<ElementType extends HTMLElement>(onClose: () => void) {
+  const dialogRef = useRef<ElementType>(null);
+  const closeRef = useRef(onClose);
+
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const focusable = () => [...dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )];
+    (focusable()[0] ?? dialog).focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const targets = focusable();
+      if (targets.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = targets[0];
+      const last = targets[targets.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener("keydown", handleKeyDown);
+    return () => {
+      dialog.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, []);
+
+  return dialogRef;
+}
+
 export function GuestMenuCard({ venue }: GuestMenuCardProps) {
   const [cart, setCart] = useState<Cart>(emptyCart);
   const [isSummaryOpen, setSummaryOpen] = useState(false);
@@ -44,6 +107,7 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
   // wird bei Erfolg sofort geleert, das Sheet soll aber weiterhin zeigen, was
   // bestaetigt wurde, statt auf 0,00 EUR zurueckzufallen.
   const [confirmedCart, setConfirmedCart] = useState<Cart | null>(null);
+  const orderAttemptRef = useRef<{ fingerprint: string; id: string } | null>(null);
   // Ist das Service-Geraet des Restaurants online? Ohne Presence-Daten bleibt
   // es bei "unknown" und die Cloud-Bestellung verhaelt sich wie bisher.
   const [hubAvailability, setHubAvailability] = useState<HubAvailability>({
@@ -133,9 +197,13 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
                 <MenuRow
                   key={item.id}
                   item={item}
-                  quantity={cart[item.id] ?? 0}
-                  onIncrement={() => setCart((c) => increment(c, item.id))}
-                  onDecrement={() => setCart((c) => decrement(c, item.id))}
+                  quantity={quantityForItem(cart, item.id)}
+                  onAdd={(optionIDs) =>
+                    setCart((current) => increment(current, item.id, optionIDs))
+                  }
+                  onDecrement={() =>
+                    setCart((current) => decrementLastConfiguration(current, item.id))
+                  }
                 />
               ))}
             </ul>
@@ -186,6 +254,12 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
           totalCents={submitState.kind === "accepted" ? submitState.ack.totalCents : total}
           localFallbackUrl={localFallback?.localGuestUrl ?? null}
           submitState={submitState}
+          onDecrementLine={(line) =>
+            setCart((current) => decrement(current, line.itemID, line.optionIDs))
+          }
+          onIncrementLine={(line) =>
+            setCart((current) => increment(current, line.itemID, line.optionIDs))
+          }
           onClose={() => {
             // Nach bestätigter Bestellung schließt das Sheet in den Ausgangs-
             // zustand; ein Fehler bleibt sichtbar, bis der Nutzer das Sheet
@@ -198,13 +272,30 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
           }}
           onSubmit={async () => {
             const cartAtSubmission = cart;
+            const fingerprint = JSON.stringify(
+              cartLines(cart)
+                .map((line) => ({
+                  id: line.id,
+                  quantity: line.quantity,
+                  optionIDs: [...line.optionIDs],
+                }))
+                .sort((left, right) => left.id.localeCompare(right.id)),
+            );
+            if (orderAttemptRef.current?.fingerprint !== fingerprint) {
+              orderAttemptRef.current = {
+                fingerprint,
+                id: createOrderAttemptID(),
+              };
+            }
             setSubmitState(submittingState());
             const result = await submitOrder({
               venue,
               cart,
+              attemptID: orderAttemptRef.current.id,
               backend: createSupabaseOrderBackend(),
             });
             if (result.ok) {
+              orderAttemptRef.current = null;
               setSubmitState(acceptedState(result.ack));
               setConfirmedCart(cartAtSubmission);
               setCart(emptyCart);
@@ -221,39 +312,52 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
 interface MenuRowProps {
   item: GuestMenuItem;
   quantity: number;
-  onIncrement: () => void;
+  onAdd: (optionIDs: string[]) => void;
   onDecrement: () => void;
 }
 
-function variantKindLabel(kind: "portion" | "extra" | "variant"): string {
-  switch (kind) {
-    case "portion":
-      return "Portion";
-    case "extra":
-      return "Extra";
-    default:
-      return "Variante";
-  }
-}
-
-function MenuRow({ item, quantity, onIncrement, onDecrement }: MenuRowProps) {
+function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
   const [selectedDeclaration, setSelectedDeclaration] = useState<GuestAllergen | null>(null);
+  const [isDeclarationListOpen, setDeclarationListOpen] = useState(false);
+  const [isConfigurationOpen, setConfigurationOpen] = useState(false);
+  const declarations = item.allergens ?? [];
+  const visibleDeclarations = declarations.slice(0, 3);
+  const hasChoices = (item.variants?.length ?? 0) > 0;
+  const usesInlineAdd = !hasChoices && declarations.length === 0 && quantity === 0;
 
   return (
     <li className="kl-menu-row">
       <div className="kl-menu-row-info">
-        <div className="kl-menu-row-name">
-          <span className="kl-type-primary">{item.name}</span>
-          {item.tag && (
-            <span className="kl-badge kl-badge-on-light kl-type-meta">
-              {item.tag}
-            </span>
-          )}
+        <div className="kl-menu-row-heading">
+          <div className="kl-menu-row-name">
+            <span className="kl-type-primary">{item.name}</span>
+            {item.tag && (
+              <span className="kl-badge kl-badge-on-light kl-type-meta">
+                {item.tag}
+              </span>
+            )}
+          </div>
+          <div className="kl-menu-row-trailing">
+            <div className="kl-menu-row-price kl-type-primary kl-tabular">
+              {formatEuro(item.priceCents)}
+            </div>
+            {usesInlineAdd && (
+              <button
+                type="button"
+                className="kl-add-button kl-inline-add-button kl-type-button"
+                onClick={() => onAdd([])}
+                aria-label={`${item.name} hinzufügen`}
+              >
+                +
+              </button>
+            )}
+          </div>
         </div>
         <p className="kl-type-secondary">{item.description}</p>
-        {item.allergens && item.allergens.length > 0 && (
+        {!usesInlineAdd && <div className="kl-menu-row-accessories">
+        {declarations.length > 0 && (
           <ul className="kl-allergen-row" aria-label="Allergene und Zusatzstoffe">
-            {item.allergens.map((allergen) => (
+            {visibleDeclarations.map((allergen) => (
               <li key={allergen.code} className="kl-allergen-entry">
                 <button
                   type="button"
@@ -271,73 +375,352 @@ function MenuRow({ item, quantity, onIncrement, onDecrement }: MenuRowProps) {
                 </button>
               </li>
             ))}
-          </ul>
-        )}
-        {item.variants && item.variants.length > 0 && (
-          <ul className="kl-variant-list">
-            {item.variants.map((variant, index) => (
-              <li
-                key={`${variant.kind}-${index}`}
-                className="kl-variant-row kl-type-meta"
-              >
-                <span className="kl-variant-name">
-                  {variantKindLabel(variant.kind)}: {variant.name}
-                </span>
-                <span className="kl-tabular">
-                  {variant.kind === "extra" ? "+" : ""}
-                  {formatEuro(variant.priceCents)}
-                </span>
+            {declarations.length > visibleDeclarations.length && (
+              <li className="kl-allergen-entry">
+                <button
+                  type="button"
+                  className="kl-allergen-more kl-type-meta"
+                  onClick={() => setDeclarationListOpen(true)}
+                  aria-label={`Alle ${declarations.length} Kennzeichnungen anzeigen`}
+                >
+                  +{declarations.length - visibleDeclarations.length}
+                </button>
               </li>
-            ))}
+            )}
           </ul>
         )}
-        <div className="kl-menu-row-price kl-type-primary kl-tabular">
-          {formatEuro(item.priceCents)}
-        </div>
+        <span className="kl-menu-accessory-spacer" aria-hidden="true" />
+        {quantity === 0 ? (
+          <button
+            type="button"
+            className={`kl-add-button kl-type-button${hasChoices ? " kl-configure-button" : ""}`}
+            onClick={() => hasChoices ? setConfigurationOpen(true) : onAdd([])}
+            aria-label={`${item.name} ${hasChoices ? "auswählen" : "hinzufügen"}`}
+          >
+            {hasChoices ? <><span>Auswählen</span><span aria-hidden="true">›</span></> : "+"}
+          </button>
+        ) : (
+          <div className="kl-stepper" role="group" aria-label={`Menge: ${item.name}`}>
+            <button
+              type="button"
+              className="kl-stepper-button kl-type-button"
+              onClick={onDecrement}
+              aria-label={`${item.name} verringern`}
+            >
+              −
+            </button>
+            <span
+              className="kl-stepper-quantity kl-type-primary kl-tabular"
+              aria-live="polite"
+            >
+              {quantity}
+            </span>
+            <button
+              type="button"
+              className="kl-stepper-button kl-type-button"
+              onClick={() => hasChoices ? setConfigurationOpen(true) : onAdd([])}
+              aria-label={`${item.name} ${hasChoices ? "erneut auswählen" : "erhöhen"}`}
+            >
+              +
+            </button>
+          </div>
+        )}
+        </div>}
       </div>
-      {/* Umrandete Mengensteuerung, traubenbasiert, nie Zitrone (§5). */}
-      {quantity === 0 ? (
-        <button
-          type="button"
-          className="kl-add-button kl-type-button"
-          onClick={onIncrement}
-          aria-label={`${item.name} hinzufügen`}
-        >
-          +
-        </button>
-      ) : (
-        <div className="kl-stepper" role="group" aria-label={`Menge: ${item.name}`}>
-          <button
-            type="button"
-            className="kl-stepper-button kl-type-button"
-            onClick={onDecrement}
-            aria-label={`${item.name} verringern`}
-          >
-            −
-          </button>
-          <span
-            className="kl-stepper-quantity kl-type-primary kl-tabular"
-            aria-live="polite"
-          >
-            {quantity}
-          </span>
-          <button
-            type="button"
-            className="kl-stepper-button kl-type-button"
-            onClick={onIncrement}
-            aria-label={`${item.name} erhöhen`}
-          >
-            +
-          </button>
-        </div>
-      )}
       {selectedDeclaration && (
         <FoodDeclarationDialog
           declaration={selectedDeclaration}
           onClose={() => setSelectedDeclaration(null)}
         />
       )}
+      {isDeclarationListOpen && (
+        <FoodDeclarationListDialog
+          declarations={declarations}
+          onSelect={(declaration) => {
+            setDeclarationListOpen(false);
+            setSelectedDeclaration(declaration);
+          }}
+          onClose={() => setDeclarationListOpen(false)}
+        />
+      )}
+      {isConfigurationOpen && (
+        <MenuConfigurationDialog
+          item={item}
+          onAdd={(optionIDs) => {
+            onAdd(optionIDs);
+            setConfigurationOpen(false);
+          }}
+          onClose={() => setConfigurationOpen(false)}
+        />
+      )}
     </li>
+  );
+}
+
+function MenuConfigurationDialog({
+  item,
+  onAdd,
+  onClose,
+}: {
+  item: GuestMenuItem;
+  onAdd: (optionIDs: string[]) => void;
+  onClose: () => void;
+}) {
+  const dialogRef = useModalDialog<HTMLElement>(onClose);
+  const groups = useMemo(() => optionGroups(item), [item]);
+  const [selectedIDs, setSelectedIDs] = useState<string[]>([]);
+  const optionIDs = selectedIDs;
+  const canAdd = isValidConfiguration(item, optionIDs);
+  const price = configuredUnitPrice(item, optionIDs);
+
+  const toggle = (optionID: string, group: GuestOptionGroup) => {
+    setSelectedIDs((current) => {
+      let next = [...current];
+      if (next.includes(optionID)) {
+        if (group.selectionMode !== "single" || group.minimumSelections === 0) {
+          next = next.filter((id) => id !== optionID);
+        }
+        return next;
+      }
+      const selectedOption = (item.variants ?? []).find(({ id }) => id === optionID);
+      if (selectedOption?.priceKind === "fixed") {
+        const fixedIDs = new Set(
+          (item.variants ?? [])
+            .filter(({ priceKind }) => priceKind === "fixed")
+            .map(({ id }) => id),
+        );
+        next = next.filter((id) => id === optionID || !fixedIDs.has(id));
+      }
+      if (group.maximumSelections === 1) {
+        const siblingIDs = new Set(group.options.map(({ id }) => id));
+        next = next.filter((id) => !siblingIDs.has(id));
+        next.push(optionID);
+      } else {
+        const siblingIDs = new Set(group.options.map(({ id }) => id));
+        const selectedInGroup = next.filter((id) => siblingIDs.has(id)).length;
+        if (selectedInGroup < group.maximumSelections) {
+          next.push(optionID);
+        }
+      }
+      return next;
+    });
+  };
+
+  const changeRepeatCount = (
+    optionID: string,
+    group: GuestOptionGroup,
+    delta: -1 | 1,
+  ) => {
+    setSelectedIDs((current) => {
+      const index = current.lastIndexOf(optionID);
+      if (delta < 0) {
+        if (index < 0) return current;
+        const next = [...current];
+        next.splice(index, 1);
+        return next;
+      }
+
+      const selectedOption = (item.variants ?? []).find(({ id }) => id === optionID);
+      if (selectedOption?.priceKind === "fixed") return current;
+      const siblingIDs = new Set(group.options.map(({ id }) => id));
+      const selectedInGroup = current.filter((id) => siblingIDs.has(id)).length;
+      if (selectedInGroup >= group.maximumSelections) return current;
+      return [...current, optionID];
+    });
+  };
+
+  return (
+    <div
+      className="kl-sheet-backdrop"
+      onClick={onClose}
+    >
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        className="kl-sheet kl-configuration-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`kl-config-title-${item.id}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="kl-configuration-heading">
+          <div>
+            <h2 id={`kl-config-title-${item.id}`} className="kl-type-section">
+              {item.name}
+            </h2>
+            {item.description && (
+              <p className="kl-type-secondary">{item.description}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            className="kl-icon-close kl-type-button"
+            onClick={onClose}
+            aria-label="Schließen"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="kl-configuration-groups">
+          {groups.map((group) => {
+            const groupIDs = new Set(group.options.map(({ id }) => id));
+            const selectedCount = selectedIDs.filter((id) => groupIDs.has(id)).length;
+            return (
+              <div className="kl-configuration-group" key={group.id}>
+                {group.title && (
+                  <p className="kl-configuration-group-title kl-type-meta">
+                    {group.title}
+                  </p>
+                )}
+                {group.selectionMode !== "single" && group.freeSelectionCount > 0 && (
+                  <p className="kl-choice-free kl-type-meta">
+                    {group.freeSelectionCount === 1
+                      ? "1 Auswahl inklusive, danach Aufpreis"
+                      : `${group.freeSelectionCount} Auswahlen inklusive, danach Aufpreis`}
+                  </p>
+                )}
+                {group.options.map((option) => {
+                  const optionCount = selectedIDs.filter((id) => id === option.id).length;
+                  const isSelected = optionCount > 0;
+                  const usesCounter = group.allowsRepeats && option.priceKind !== "fixed";
+                  if (usesCounter) {
+                    return (
+                      <div
+                        key={option.id}
+                        className={`kl-choice-row kl-choice-counter${isSelected ? " kl-choice-row-selected" : ""}`}
+                      >
+                        <span className="kl-type-primary">{option.name}</span>
+                        <span className="kl-choice-price kl-type-secondary kl-tabular">
+                          {optionPriceLabel(option, group)}
+                        </span>
+                        <div className="kl-choice-quantity" role="group" aria-label={`Menge ${option.name}`}>
+                          <button
+                            type="button"
+                            onClick={() => changeRepeatCount(option.id, group, -1)}
+                            disabled={optionCount === 0}
+                            aria-label={`${option.name} entfernen`}
+                          >
+                            −
+                          </button>
+                          <span className="kl-tabular" aria-live="polite">{optionCount}</span>
+                          <button
+                            type="button"
+                            onClick={() => changeRepeatCount(option.id, group, 1)}
+                            disabled={selectedCount >= group.maximumSelections}
+                            aria-label={`${option.name} hinzufügen`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <button
+                      type="button"
+                      key={option.id}
+                      className={`kl-choice-row${isSelected ? " kl-choice-row-selected" : ""}`}
+                      onClick={() => toggle(option.id, group)}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="kl-choice-mark" aria-hidden="true">
+                        {group.selectionMode === "single"
+                          ? isSelected ? "◉" : "○"
+                          : isSelected ? "☑" : "☐"}
+                      </span>
+                      <span className="kl-type-primary">{option.name}</span>
+                      <span className="kl-choice-price kl-type-secondary kl-tabular">
+                        {optionPriceLabel(option, group)}
+                      </span>
+                    </button>
+                  );
+                })}
+                {selectedCount < group.minimumSelections && (
+                  <p className="kl-choice-required kl-type-meta">Bitte noch auswählen</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          className="kl-primary-button kl-configuration-add kl-type-button"
+          disabled={!canAdd}
+          onClick={() => onAdd([...selectedIDs].sort())}
+        >
+          <span>Hinzufügen</span>
+          <span className="kl-tabular">{formatEuro(price)}</span>
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function optionPriceLabel(
+  option: NonNullable<GuestMenuItem["variants"]>[number],
+  group: GuestOptionGroup,
+): string {
+  switch (option.priceKind) {
+    case "fixed":
+      return formatEuro(option.priceCents);
+    case "delta":
+      return `${group.selectionMode !== "single" && group.freeSelectionCount > 0 ? "danach " : ""}+${formatEuro(option.priceCents)}`;
+    default:
+      return "inklusive";
+  }
+}
+
+function FoodDeclarationListDialog({
+  declarations,
+  onSelect,
+  onClose,
+}: {
+  declarations: GuestAllergen[];
+  onSelect: (declaration: GuestAllergen) => void;
+  onClose: () => void;
+}) {
+  const dialogRef = useModalDialog<HTMLElement>(onClose);
+  return (
+    <div className="kl-declaration-backdrop" onClick={onClose}>
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        className="kl-declaration-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kl-declaration-list-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="kl-declaration-list-title" className="kl-type-section">
+          Kennzeichnungen
+        </h2>
+        <div className="kl-declaration-list">
+          {declarations.map((declaration) => (
+            <button
+              type="button"
+              key={declaration.code}
+              className="kl-declaration-list-row"
+              onClick={() => onSelect(declaration)}
+            >
+              <span className={`kl-declaration-list-icon kl-allergen-badge-${declaration.group}`}>
+                <FoodDeclarationIcon declaration={declaration} />
+              </span>
+              <span>
+                <span className="kl-type-primary">{declaration.label}</span>
+                <span className="kl-declaration-list-meta kl-type-meta">
+                  {declaration.groupLabel}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+        <button type="button" className="kl-secondary-button kl-type-button" onClick={onClose}>
+          Fertig
+        </button>
+      </section>
+    </div>
   );
 }
 
@@ -348,15 +731,15 @@ function FoodDeclarationDialog({
   declaration: GuestAllergen;
   onClose: () => void;
 }) {
+  const dialogRef = useModalDialog<HTMLElement>(onClose);
   return (
     <div
       className="kl-declaration-backdrop"
       onClick={onClose}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") onClose();
-      }}
     >
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         className="kl-declaration-dialog"
         role="dialog"
         aria-modal="true"
@@ -382,7 +765,6 @@ function FoodDeclarationDialog({
           type="button"
           className="kl-secondary-button kl-type-button"
           onClick={onClose}
-          autoFocus
         >
           Fertig
         </button>
@@ -485,6 +867,8 @@ interface OrderSummarySheetProps {
   totalCents: number;
   localFallbackUrl: string | null;
   submitState: SubmitUiState;
+  onDecrementLine: (line: CartLine) => void;
+  onIncrementLine: (line: CartLine) => void;
   onClose: () => void;
   onSubmit: () => void | Promise<void>;
 }
@@ -495,10 +879,17 @@ function OrderSummarySheet({
   totalCents,
   localFallbackUrl,
   submitState,
+  onDecrementLine,
+  onIncrementLine,
   onClose,
   onSubmit,
 }: OrderSummarySheetProps) {
-  const lines = venue.menu.filter((item) => (cart[item.id] ?? 0) > 0);
+  const dialogRef = useModalDialog<HTMLDivElement>(onClose);
+  const itemsByID = new Map(venue.menu.map((item) => [item.id, item]));
+  const lines = cartLines(cart).flatMap((line) => {
+    const item = itemsByID.get(line.itemID);
+    return item ? [{ line, item }] : [];
+  });
   const isSubmitting = submitState.kind === "submitting";
   // Nach einer bestätigten Bestellung ist der Warenkorb geleert; ein erneuter
   // Klick würde "leerer Warenkorb" melden. Die Bestellung ist bereits raus —
@@ -513,13 +904,10 @@ function OrderSummarySheet({
     <div
       className="kl-sheet-backdrop"
       onClick={onClose}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          onClose();
-        }
-      }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="kl-order-summary-title"
@@ -530,15 +918,54 @@ function OrderSummarySheet({
           Deine Auswahl
         </h2>
         <ul className="kl-sheet-lines">
-          {lines.map((item) => {
-            const quantity = cart[item.id] ?? 0;
+          {lines.map(({ line, item }) => {
+            const choices = selectedOptions(item, line.optionIDs);
+            const unitPrice = configuredUnitPrice(item, line.optionIDs);
             return (
-              <li key={item.id} className="kl-sheet-line">
-                <span className="kl-type-secondary">
-                  <span className="kl-tabular">{quantity}×</span> {item.name}
+              <li key={line.id} className="kl-sheet-line">
+                <span className="kl-sheet-line-copy kl-type-secondary">
+                  <span>
+                    <span className="kl-tabular">{line.quantity}×</span> {item.name}
+                  </span>
+                  {choices.length > 0 && (
+                    <span className="kl-sheet-line-options kl-type-meta">
+                      {choices.map(({ name }) => name).join(" · ")}
+                    </span>
+                  )}
                 </span>
-                <span className="kl-type-primary kl-tabular">
-                  {formatEuro(quantity * item.priceCents)}
+                <span className="kl-sheet-line-trailing">
+                  <span className="kl-type-primary kl-tabular">
+                    {formatEuro(line.quantity * unitPrice)}
+                  </span>
+                  {!isAccepted && (
+                    <span
+                      className="kl-stepper kl-sheet-line-stepper"
+                      role="group"
+                      aria-label={`Menge: ${item.name}${choices.length > 0 ? `, ${choices.map(({ name }) => name).join(", ")}` : ""}`}
+                    >
+                      <button
+                        type="button"
+                        className="kl-stepper-button kl-type-button"
+                        onClick={() => onDecrementLine(line)}
+                        disabled={isSubmitting}
+                        aria-label="Diese Auswahl verringern"
+                      >
+                        −
+                      </button>
+                      <span className="kl-stepper-quantity kl-type-primary kl-tabular">
+                        {line.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        className="kl-stepper-button kl-type-button"
+                        onClick={() => onIncrementLine(line)}
+                        disabled={isSubmitting}
+                        aria-label="Diese Auswahl erhöhen"
+                      >
+                        +
+                      </button>
+                    </span>
+                  )}
                 </span>
               </li>
             );
