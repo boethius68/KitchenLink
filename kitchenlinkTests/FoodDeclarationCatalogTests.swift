@@ -31,6 +31,23 @@ struct FoodDeclarationCatalogTests {
         #expect(result.map(\.code) == ["a", "g", "c", "i"])
     }
 
+    @Test func alcoholUsesARecognizableDedicatedGlyph() {
+        let legacy = AllergenCatalog.definitions(for: "13")
+        let sourceLegend = AllergenCatalog.definitions(
+            for: "x",
+            customTitles: ["x": "mit Alkohol"]
+        )
+        let polyols = AllergenCatalog.definitions(
+            for: "y",
+            customTitles: ["y": "mehrwertige Alkohole"]
+        )
+
+        #expect(legacy.first?.glyph == .alcohol)
+        #expect(sourceLegend.first?.glyph == .alcohol)
+        #expect(sourceLegend.first?.title == "mit Alkohol")
+        #expect(polyols.first?.glyph == .polyols)
+    }
+
     @Test func concreteENumberGetsNeutralAdditiveIcon() {
         let result = AllergenCatalog.definitions(for: "E621")
         #expect(result.first?.code == "e621")

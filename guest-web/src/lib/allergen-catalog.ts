@@ -45,6 +45,7 @@ export type FoodDeclarationGlyph =
   | "quinine"
   | "caffeine"
   | "liquorice"
+  | "alcohol"
   | "genericAdditive"
   | "notice"
   | "unknown";
@@ -71,7 +72,7 @@ const ALLERGEN_DETAIL =
 const ADDITIVE_DETAIL =
   "Diese Formulierung gehört zu den Zusatzstoffangaben für lose Ware nach § 5 LMZDV.";
 const SOURCE_DETAIL =
-  "Die Bedeutung dieses Codes stammt aus der Legende der Speisekarte und ist kein einheitlicher gesetzlicher Code.";
+  "Diese Angabe stammt aus der Legende der Speisekarte.";
 
 function entry(
   code: string,
@@ -139,7 +140,7 @@ const LEGACY_CODES: readonly GuestAllergen[] = [
   entry("10", "enthält eine Phenylalaninquelle", "phenylalanine", "sourceNotice", 250, SOURCE_DETAIL),
   entry("11", "koffeinhaltig", "caffeine", "sourceNotice", 250, SOURCE_DETAIL),
   entry("12", "chininhaltig", "quinine", "sourceNotice", 250, SOURCE_DETAIL),
-  entry("13", "alkoholhaltig", "notice", "sourceNotice", 250, SOURCE_DETAIL),
+  entry("13", "alkoholhaltig", "alcohol", "sourceNotice", 250, "Dieses Produkt enthält Alkohol."),
   entry("14", "taurinhaltig", "notice", "sourceNotice", 250, SOURCE_DETAIL),
 ] as const;
 
@@ -206,6 +207,7 @@ function definitionFromLegend(code: string, label: string): GuestAllergen {
   if (text.includes("grundlage von")) return find(STANDARD_ADDITIVES, 11);
   if (/phenylalanin|aspartam/.test(text)) return find(STANDARD_ADDITIVES, 12);
   if (/abfuhr|polyol|mehrwertige alkohole/.test(text)) return find(STANDARD_ADDITIVES, 13);
+  if (text.includes("alkohol")) return withSource(LEGACY_CODES[12], code, label);
   if (/sussungsmittel|suessungsmittel/.test(text)) return find(STANDARD_ADDITIVES, 10);
   if (text.includes("chinin")) return find(ADDITIONAL_NOTICES, 0);
   if (text.includes("koffein")) return find(ADDITIONAL_NOTICES, 1);
@@ -247,7 +249,7 @@ export function resolveAllergens(
       });
       continue;
     }
-    result.push({ index, item: entry(code, `Code ${code.toUpperCase()}`, "unknown", "sourceNotice", 300, SOURCE_DETAIL) });
+    result.push({ index, item: entry(code, "Weitere Angabe der Speisekarte", "unknown", "sourceNotice", 300, SOURCE_DETAIL) });
   }
 
   return result

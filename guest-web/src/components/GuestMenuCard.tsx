@@ -323,7 +323,7 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
   const declarations = item.allergens ?? [];
   const visibleDeclarations = declarations.slice(0, 3);
   const hasChoices = (item.variants?.length ?? 0) > 0;
-  const usesInlineAdd = !hasChoices && declarations.length === 0 && quantity === 0;
+  const usesInlineAdd = quantity === 0;
 
   return (
     <li className="kl-menu-row">
@@ -345,16 +345,18 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
               <button
                 type="button"
                 className="kl-add-button kl-inline-add-button kl-type-button"
-                onClick={() => onAdd([])}
-                aria-label={`${item.name} hinzufügen`}
+                onClick={() => hasChoices ? setConfigurationOpen(true) : onAdd([])}
+                aria-label={`${item.name}: ${hasChoices ? "Auswahl öffnen" : "hinzufügen"}`}
+                aria-haspopup={hasChoices ? "dialog" : undefined}
+                aria-expanded={hasChoices ? isConfigurationOpen : undefined}
               >
-                +
+                <span aria-hidden="true">+</span>
               </button>
             )}
           </div>
         </div>
         <p className="kl-type-secondary">{item.description}</p>
-        {!usesInlineAdd && <div className="kl-menu-row-accessories">
+        {(declarations.length > 0 || quantity > 0) && <div className="kl-menu-row-accessories">
         {declarations.length > 0 && (
           <ul className="kl-allergen-row" aria-label="Allergene und Zusatzstoffe">
             {visibleDeclarations.map((allergen) => (
@@ -367,11 +369,6 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
                   title={allergen.label}
                 >
                   <FoodDeclarationIcon declaration={allergen} />
-                  {allergen.code.length <= 4 && (
-                    <span className="kl-allergen-code" aria-hidden="true">
-                      {allergen.code.toUpperCase()}
-                    </span>
-                  )}
                 </button>
               </li>
             ))}
@@ -390,16 +387,7 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
           </ul>
         )}
         <span className="kl-menu-accessory-spacer" aria-hidden="true" />
-        {quantity === 0 ? (
-          <button
-            type="button"
-            className={`kl-add-button kl-type-button${hasChoices ? " kl-configure-button" : ""}`}
-            onClick={() => hasChoices ? setConfigurationOpen(true) : onAdd([])}
-            aria-label={`${item.name} ${hasChoices ? "auswählen" : "hinzufügen"}`}
-          >
-            {hasChoices ? <><span>Auswählen</span><span aria-hidden="true">›</span></> : "+"}
-          </button>
-        ) : (
+        {quantity > 0 && (
           <div className="kl-stepper" role="group" aria-label={`Menge: ${item.name}`}>
             <button
               type="button"
@@ -753,9 +741,6 @@ function FoodDeclarationDialog({
         <h2 id={`kl-declaration-title-${declaration.code}`} className="kl-type-section">
           {declaration.label}
         </h2>
-        <p className="kl-declaration-code kl-type-meta">
-          Code der Speisekarte: <span className="kl-tabular">{declaration.code.toUpperCase()}</span>
-        </p>
         <p className="kl-declaration-detail kl-type-secondary">{declaration.detail}</p>
         <p className="kl-declaration-note kl-type-meta">
           Das Symbol ergänzt die schriftliche Kennzeichnung. Bei Allergien oder
@@ -844,6 +829,8 @@ function FoodDeclarationIcon({ declaration }: { declaration: GuestAllergen }) {
       return <svg {...common} {...strokeProps}><path d="M5 8h12v6a6 6 0 0 1-12 0V8Zm12 2h2a3 3 0 0 1 0 6h-2M7 21h10M8 4c1 1 1 2 0 3m4-3c1 1 1 2 0 3" /></svg>;
     case "liquorice":
       return <svg {...common} {...strokeProps}><path d="M12 4a8 8 0 1 1-8 8c0-4 3-6 6-6 4 0 6 3 6 6 0 2-2 4-4 4s-4-2-4-4 2-3 4-3c2 0 3 1 3 3" /></svg>;
+    case "alcohol":
+      return <svg {...common} {...strokeProps}><path d="M7 3h10l-1 7a4 4 0 0 1-8 0L7 3Z" /><path d="M8 8h8M12 14v7M8 21h8" /></svg>;
     case "notice":
       return <svg {...common} {...strokeProps}><path d="M4 5h16v12H9l-5 4V5Zm4 4h8m-8 4h5" /></svg>;
     default:

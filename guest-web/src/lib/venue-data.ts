@@ -162,6 +162,7 @@ export const sandboxVenues: GuestVenue[] = [
         description: "0,5 l, naturtrüb",
         priceCents: 450,
         kind: "drink",
+        allergens: resolveAllergens(["13"], null),
       },
     ],
   },

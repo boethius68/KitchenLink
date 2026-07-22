@@ -141,6 +141,9 @@ final class kitchenlinkUITests: XCTestCase {
 
         let addButton = app.buttons["Hinzufügen"].firstMatch
         XCTAssertTrue(addButton.exists)
+        XCTAssertFalse(app.buttons["Auswählen"].exists)
+        XCTAssertGreaterThanOrEqual(addButton.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(addButton.frame.height, 44)
         addButton.tap()
         XCTAssertTrue(app.buttons["menuPreview.selection"].waitForExistence(timeout: 2))
     }

@@ -90,9 +90,12 @@ Gestaltungsregeln:
 - einfarbige, skalierbare Linien-/Flächenpiktogramme statt Rasterbilder;
 - eine gemeinsame quadratische Grundfläche für ruhige, kompakte Zeilen;
 - keine Information nur über Farbe;
-- der Quellencode bleibt klein sichtbar, sofern er kurz genug ist;
+- die Iconfläche bleibt frei von Buchstaben- und Zahlencodes der Quellkarte;
 - jedes Piktogramm ist ein eigenes Bedienelement mit zugänglichem Namen;
-- Tippen öffnet Klartext, Gruppe, Quellencode und eine kurze Erläuterung;
+- Tippen öffnet Klartext, Gruppe und eine kurze Erläuterung, aber keinen
+  internen Quellencode;
+- alkoholhaltige Speisen und Getränke erhalten ein eindeutig erkennbares
+  Trinkglas statt eines generischen Hinweis- oder Sprechblasenmotivs;
 - eine Gesamtlegende bleibt für Artikel mit vielen Kennzeichnungen verfügbar.
 
 ## Primärquellen

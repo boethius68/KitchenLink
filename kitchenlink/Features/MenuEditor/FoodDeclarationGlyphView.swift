@@ -8,7 +8,7 @@ enum FoodDeclarationGlyph: String, Sendable {
     case celery, mustard, sesame, sulfite, lupin, mollusc
     case colorant, preservative, antioxidant, nitrite, nitrate, curingSalts
     case flavorEnhancer, blackened, waxed, phosphate, sweetener, tableSweetener
-    case phenylalanine, polyols, quinine, caffeine, liquorice
+    case phenylalanine, polyols, quinine, caffeine, liquorice, alcohol
     case genericAdditive, notice, unknown
 }
 
@@ -87,6 +87,11 @@ struct FoodDeclarationGlyphView: View {
                     .resizable()
                     .scaledToFit()
                     .padding(size * 0.08)
+            case .alcohol:
+                Image(systemName: "wineglass.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(size * 0.10)
             case .notice:
                 Image(systemName: "text.bubble.fill")
                     .resizable()

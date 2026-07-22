@@ -39,6 +39,21 @@ describe("food declaration catalog", () => {
     ]);
   });
 
+  it("zeigt alkoholhaltige Einträge als verständliches Alkohol-Piktogramm", () => {
+    expect(resolveAllergens(["13"], null)[0]).toMatchObject({
+      code: "13",
+      glyph: "alcohol",
+    });
+    expect(resolveAllergens(["x"], { x: "mit Alkohol" })[0]).toMatchObject({
+      code: "x",
+      label: "mit Alkohol",
+      glyph: "alcohol",
+    });
+    expect(resolveAllergens(["y"], { y: "mehrwertige Alkohole" })[0]).toMatchObject({
+      glyph: "polyols",
+    });
+  });
+
   it("priorisiert die im Testkorpus häufigsten, eindeutigen Icons", () => {
     const result = resolveAllergens(["i", "c", "g", "a"], null);
     expect(result.map((item) => item.code)).toEqual(["a", "g", "c", "i"]);
@@ -57,7 +72,7 @@ describe("food declaration catalog", () => {
     const result = resolveAllergens(["A", "a", "", "z"], { A: "Weizen" });
     expect(result.map((item) => ({ code: item.code, label: item.label }))).toEqual([
       { code: "a", label: "Weizen" },
-      { code: "z", label: "Code Z" },
+      { code: "z", label: "Weitere Angabe der Speisekarte" },
     ]);
   });
 

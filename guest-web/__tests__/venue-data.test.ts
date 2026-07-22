@@ -23,4 +23,11 @@ describe("sandbox venue fixture", () => {
     expect(getVenueBySlug("alte-muehle")?.name).toBe("Gasthaus Alte Mühle");
     expect(getVenueBySlug("unbekannt")).toBeUndefined();
   });
+
+  it("keeps an alcohol declaration in the visible guest fixture", () => {
+    const radler = sandboxVenues[0].menu.find((item) => item.id === "muehlen-radler");
+    expect(radler?.allergens).toEqual([
+      expect.objectContaining({ glyph: "alcohol", label: "alkoholhaltig" }),
+    ]);
+  });
 });

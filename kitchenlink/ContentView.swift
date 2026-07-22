@@ -1179,10 +1179,6 @@ struct AllergenDefinition: Identifiable {
 
     var id: String { code }
 
-    var shortDisplayCode: String? {
-        code.count <= 4 ? code.uppercased() : nil
-    }
-
     func usingSource(code: String, title: String) -> AllergenDefinition {
         AllergenDefinition(
             code: code,
@@ -1199,7 +1195,16 @@ struct AllergenDefinition: Identifiable {
 enum AllergenCatalog {
     private static let allergenDetail = "Dieses Allergen gehört zu den 14 kennzeichnungspflichtigen Hauptallergenen der EU."
     private static let additiveDetail = "Diese Formulierung gehört zu den Zusatzstoffangaben für lose Ware nach § 5 LMZDV."
-    private static let sourceDetail = "Die Bedeutung dieses Codes stammt aus der Legende der Speisekarte und ist kein einheitlicher gesetzlicher Code."
+    private static let sourceDetail = "Diese Angabe stammt aus der Legende der Speisekarte."
+    private static let alcoholNotice = definition(
+        "13",
+        "alkoholhaltig",
+        .alcohol,
+        .purple,
+        .sourceNotice,
+        "Dieses Produkt enthält Alkohol.",
+        250
+    )
 
     static let standardAllergens: [AllergenDefinition] = [
         definition("a", "Glutenhaltiges Getreide", .wheat, .orange, .allergen, allergenDetail, 0),
@@ -1260,7 +1265,7 @@ enum AllergenCatalog {
         "10": legacy("10", "enthält eine Phenylalaninquelle", .phenylalanine, .orange),
         "11": legacy("11", "koffeinhaltig", .caffeine, .brown),
         "12": legacy("12", "chininhaltig", .quinine, .blue),
-        "13": legacy("13", "alkoholhaltig", .notice, .purple),
+        "13": alcoholNotice,
         "14": legacy("14", "taurinhaltig", .notice, .red)
     ]
 
@@ -1299,7 +1304,7 @@ enum AllergenCatalog {
                     150
                 )
             } else {
-                resolved = definition(token, "Code \(token.uppercased())", .unknown, .gray, .sourceNotice, sourceDetail, 300)
+                resolved = definition(token, "Weitere Angabe der Speisekarte", .unknown, .gray, .sourceNotice, sourceDetail, 300)
             }
             indexedResult.append((index, resolved))
         }
@@ -1345,6 +1350,7 @@ enum AllergenCatalog {
             (normalized.contains("grundlage von"), standardAdditives[11]),
             (normalized.contains("phenylalanin") || normalized.contains("aspartam"), standardAdditives[12]),
             (normalized.contains("abfuhr") || normalized.contains("polyol") || normalized.contains("mehrwertige alkohole"), standardAdditives[13]),
+            (normalized.contains("alkohol"), alcoholNotice),
             (normalized.contains("sussungsmittel") || normalized.contains("suessungsmittel"), standardAdditives[10]),
             (normalized.contains("chinin"), additionalNotices[0]),
             (normalized.contains("koffein"), additionalNotices[1]),
@@ -1407,18 +1413,9 @@ struct AllergenBadgeView: View {
             FoodDeclarationGlyphView(glyph: definition.glyph, size: size * 0.61)
                 .foregroundStyle(.primary)
         }
-        .overlay(alignment: .bottomTrailing) {
-            if let shortCode = definition.shortDisplayCode {
-                Text(shortCode)
-                    .font(.system(size: min(9, max(7, size * 0.21)), weight: .black, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .padding(3)
-            }
-        }
-
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(definition.title), Code \(definition.code.uppercased())")
+        .accessibilityLabel(definition.title)
     }
 }
 
@@ -1440,9 +1437,6 @@ struct FoodDeclarationDetailView: View {
                         .font(.title3.weight(.bold))
                         .multilineTextAlignment(.center)
                         .accessibilityIdentifier("foodDeclaration.detail.title")
-                    Text("Code der Speisekarte: \(definition.code.uppercased())")
-                        .font(.footnote.monospaced())
-                        .foregroundStyle(.secondary)
                 }
 
                 Text(definition.detail)
@@ -1490,13 +1484,8 @@ struct AllergenLegendView: View {
                         ForEach(entries) { definition in
                             HStack(spacing: 12) {
                                 AllergenBadgeView(definition: definition)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(definition.title)
-                                        .font(.subheadline.weight(.medium))
-                                    Text("Code \(definition.code.uppercased())")
-                                        .font(.caption.monospaced())
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text(definition.title)
+                                    .font(.subheadline.weight(.medium))
                             }
                             .padding(.vertical, 2)
                         }

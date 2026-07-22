@@ -2,8 +2,47 @@
 
 **Updated:** 22 July 2026
 **Branch:** `main`
-**Status:** Dichte, bestellbare Gast-Speisekarte in iOS und Gast-Web umgesetzt;
-Konfigurationspreise und Auswahlregeln serverseitig autoritativ verifiziert
+**Status:** Dichte, gerichtszentrierte Gast-Speisekarte in iOS und Gast-Web
+umgesetzt; Quellcodes sind gastseitig vollstaendig entfernt
+
+## Latest Continuation (22. Juli 2026, Gastkarten-Hierarchie)
+
+- Die Speise steht wieder im Vordergrund: Noch nicht gewaehlte Artikel zeigen
+  nur ein kleines rundes Plus direkt neben dem Preis. Konfigurierbare Gerichte
+  oeffnen von dort ihre Auswahl; der breite `Auswaehlen`-Button und leere
+  Zubehoerzeilen sind entfernt.
+- Das sichtbare Plus bleibt 34 Punkte kompakt, besitzt in iOS und Gast-Web aber
+  eine echte 44-Punkt-Touchflaeche. Nach dem Hinzufuegen erscheinen die
+  Mengensteuerung und der Warenkorb wie bisher.
+- Buchstaben- und Zifferncodes aus Quellkarten erscheinen weder im Badge noch
+  in der antippbaren Detailansicht oder Legende. Der Gast sieht ausschliesslich
+  Piktogramm, Klartext, Gruppe und eine kurze Erklaerung.
+- Alkohol wird mit einem eindeutigen Weinglas statt der generischen
+  Sprechblase dargestellt. Der Altcode `13` und freie Legendtexte mit
+  `alkohol` werden darauf abgebildet; `mehrwertige Alkohole` bleiben bewusst
+  der eigenen Polyol-Kennzeichnung zugeordnet.
+- Die Radler-Fixture der Gast-Web-Sandbox enthaelt die Alkoholkennzeichnung,
+  damit diese Darstellung im regulaeren Testmenue sichtbar bleibt.
+
+## Verification (Gastkarten-Hierarchie)
+
+- Vollstaendiges `kitchenlinkTests`-Target auf iPhone 17 Pro / iOS 26.5:
+  **230 bestanden, 2 bewusst uebersprungen, 0 fehlgeschlagen**.
+- Gezielter iOS-UI-Smoke fuer Zaehler, fehlenden `Auswaehlen`-Button,
+  44-Punkt-Plus und Warenkorb: **bestanden** auf iPhone 17e / iOS 26.5.
+- Gast-Web: Typecheck, Lint, **85/85 Tests** und Produktions-Build:
+  **bestanden**.
+- Mobile Browserpruefung bei 320 x 844 und 390 x 844: kein horizontaler
+  Ueberlauf, alle Plus-Touchziele 44 x 44, Konfigurations- und Warenkorbfluss
+  bestanden. Der Alkohol-Dialog zeigt Weinglas und Klartext ohne Quellcode;
+  Browserkonsole ohne Fehler oder Warnungen.
+
+## Remaining Risk (Gastkarten-Hierarchie)
+
+- Das aktualisierte Gast-Web wurde lokal geprueft, aber noch nicht auf die
+  oeffentliche Sandbox ausgerollt.
+- Die native Gastkarte wurde funktional im Simulator verifiziert; die
+  subjektive Designabnahme auf einem echten iPhone bleibt beim Nutzer.
 
 ## Latest Continuation (22. Juli 2026, KL-MENU-008)
 
@@ -76,8 +115,9 @@ Konfigurationspreise und Auswahlregeln serverseitig autoritativ verifiziert
   der gemeinsamen `ZStack`-Ausrichtung und wirkten dadurch verkleinert und
   unausgewogen.
 - `FoodDeclarationGlyphView` verwendet jetzt eine zentrierte `ZStack`.
-  `AllergenBadgeView` richtet das Symbol ebenfalls zentriert aus und legt den
-  kurzen Quellcode separat als `bottomTrailing`-Overlay dar.
+  `AllergenBadgeView` richtet das Symbol ebenfalls zentriert aus. Der damals
+  noch vorhandene Quellcode-Overlay wurde mit der nachfolgenden
+  Gastkarten-Entscheidung vollstaendig entfernt.
 - Die Web-Badges waren bereits geometrisch zentriert; die mobile Browserpruefung
   bestaetigt die gleiche optische Mitte und unveraenderte 44-Punkt-Touchziele.
 
@@ -85,8 +125,8 @@ Konfigurationspreise und Auswahlregeln serverseitig autoritativ verifiziert
 
 - Gezielter `FoodDeclarationCatalogTests`-Lauf: **6/6 bestanden**.
 - Gezielter `MenuManualEditorUITests.testManualMenuEditorCoreFlow`: **bestanden**.
-- Die exportierten iOS-Screenshots zeigen das kleine Aehren-Symbol im Badge und
-  im Detaildialog mittig, waehrend der Code sauber unten rechts bleibt.
+- Die exportierten iOS-Screenshots bestaetigten die geometrische Zentrierung;
+  der spaeter entfernte Code ist kein Bestandteil des aktuellen Designs mehr.
 - Gast-Web bei 390 x 844: **visuell bestanden**; Symbole und Formeln sitzen
   mittig im Rahmen.
 
@@ -104,9 +144,9 @@ Konfigurationspreise und Auswahlregeln serverseitig autoritativ verifiziert
   Zusatzstoff- und Hinweisgruppen ab. Aehre, Milchkarton und Ei sind nach der
   lokalen Fixture-Haeufigkeit besonders konkret gestaltet.
 - Einzelne Symbole sind in der iOS-Gastvorschau, im aktuellen Import-Review und
-  im Gast-Web kompakt dargestellt und antippbar. Das Detail zeigt Klartext,
-  Gruppe, Quellcode, Erlaeuterung und die Grenze, dass das Icon die
-  Pflichtkennzeichnung nicht ersetzt.
+  im Gast-Web kompakt dargestellt und antippbar. Das aktuelle Detail zeigt
+  Klartext, Gruppe, Erlaeuterung und die Grenze, dass das Icon die
+  Pflichtkennzeichnung nicht ersetzt; Quellcodes bleiben intern.
 - Der manuelle iOS-Editor verwendet dieselbe vollstaendige Auswahl. Sein
   adaptives Auswahlraster loeste im UI-Test unter iOS 26 eine rekursive
   `UICollectionView`-Layoutberechnung aus und wurde durch ein stabiles
@@ -131,8 +171,9 @@ Konfigurationspreise und Auswahlregeln serverseitig autoritativ verifiziert
   Schwellenwert, Ausnahme und exakten Wortlaut verantwortlich; die Recherche
   ist keine Rechtsberatung.
 - Freie Quelllegendtexte werden heuristisch semantisch zugeordnet. Unbekannte
-  Hauscodes bleiben deshalb bewusst als Quellhinweis sichtbar, statt eine
-  falsche rechtliche Bedeutung zu erfinden.
+  Hauscodes erhalten gastseitig nur die neutrale Bezeichnung `Weitere Angabe
+  der Speisekarte`, statt einen technisch wirkenden Code oder eine falsche
+  rechtliche Bedeutung zu zeigen.
 - Das Gast-Web wurde lokal geprueft, aber nicht deployt. Die oeffentliche
   Sandbox erhaelt die neue Kollektion erst mit dem naechsten `main`-Deployment.
 

@@ -196,7 +196,30 @@ button {
 }
 
 .kl-inline-add-button {
+  position: relative;
+  width: 2.75rem;
   min-width: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+}
+
+.kl-inline-add-button::before {
+  content: "";
+  position: absolute;
+  width: 2.125rem;
+  height: 2.125rem;
+  border: 1px solid var(--kl-border-control);
+  border-radius: 50%;
+  background: var(--kl-surface-recessed);
+}
+
+.kl-inline-add-button > span {
+  position: relative;
+  z-index: 1;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .kl-menu-row-accessories {
@@ -293,17 +316,6 @@ button {
 
 .kl-icon-formula-small {
   font-size: 0.43rem;
-}
-
-.kl-allergen-code {
-  position: absolute;
-  right: 0.18rem;
-  bottom: 0.48rem;
-  font-size: 0.5rem;
-  line-height: 1;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  color: var(--kl-text-secondary);
 }
 
 .kl-allergen-more {
@@ -423,10 +435,6 @@ button {
   margin: var(--kl-space-1) 0;
 }
 
-.kl-declaration-code {
-  color: var(--kl-text-secondary);
-}
-
 .kl-declaration-detail {
   margin-top: var(--kl-space-4);
 }
@@ -467,15 +475,23 @@ button {
   flex: none;
 }
 
-.kl-configure-button {
-  width: auto;
-  gap: var(--kl-space-2);
-  padding: 0 var(--kl-space-3);
+.kl-add-button.kl-inline-add-button {
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
 }
 
 .kl-stepper-button:active,
 .kl-add-button:active {
   background: var(--kl-surface-recessed);
+}
+
+.kl-inline-add-button:active {
+  background: transparent;
+}
+
+.kl-inline-add-button:active::before {
+  background: var(--kl-surface-card);
 }
 
 .kl-stepper-quantity {

@@ -130,6 +130,11 @@ append-only; superseded decisions are marked rather than deleted.
 - The current review and guest preview must retain the useful legacy coverage:
   food/drink/total counters, structured allergen and additive symbols,
   descriptions, variants/options and a space-efficient quantity control.
+- In guest-facing menu rows, the dish and price lead visually. Every unselected
+  item uses only a compact circular plus beside the price; if choices are
+  required, that plus opens the configuration. Text actions such as
+  `Auswählen` do not occupy a separate row. The visual circle may be smaller
+  than its accessible 44-point touch target.
 - The in-app fixture picker exposes exactly three complementary cards: one
   deterministic KitchenLink full-coverage menu plus two difficult real-world
   menus. Historical benchmark fixtures remain stable and separate from this
@@ -144,8 +149,13 @@ append-only; superseded decisions are marked rather than deleted.
   E-number declarations. Garlic and onion are not presented as standard EU
   allergens.
 - Icons are compact orientation aids, not a replacement for mandatory wording.
-  Guests can tap each individual icon to see its clear text, group, source code
-  and a short explanation.
+  The compact surface contains only the semantic pictogram; source-menu letters
+  and numbers are not overlaid. Guests can tap each icon to see its clear text,
+  group and a short explanation, but no internal source code is shown or read
+  aloud anywhere in the guest experience.
+- Alcohol-containing items use a dedicated, immediately recognizable drinking-
+  glass pictogram rather than the generic notice speech bubble. Polyol notices
+  remain a separate additive meaning.
 - A source menu's legend is authoritative for non-standard house codes.
   Historical numeric 1–14 declarations remain readable as a compatibility
   fallback, but KitchenLink does not present them as a universal legal code

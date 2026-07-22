@@ -5,11 +5,15 @@
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
 **Latest material integration:** The current iOS preview and guest web now use
-a dense ordering-first menu: declarations are limited to three 26-point visual
-badges plus `+N` in one accessory row, simple add actions sit beside the price,
-and generic `Variante`/`Option` headings are suppressed. Configurable dishes
-open a focused choice sheet; the cart keeps each configuration separately and
-shows only the guest-facing choice names. New V2 publish/order RPCs preserve
+a dense, dish-first menu: declarations are limited to three 26-point visual
+badges plus `+N` in one accessory row and every unselected item has only a
+small circular plus beside the price. Configurable dishes open their focused
+choice sheet from that plus instead of displaying a wide `Auswählen` action;
+generic `Variante`/`Option` headings remain suppressed. Declaration badges and
+guest details no longer expose source-menu letter/number codes, while a
+dedicated wine-glass pictogram replaces the generic alcohol speech bubble.
+The cart keeps each configuration separately and shows only the guest-facing
+choice names. New V2 publish/order RPCs preserve
 option groups, free-choice allowances and repeatable quantities, then calculate
 one fixed price plus the remaining deltas authoritatively, with selected
 options snapshotted on the order item. The preceding semantic
@@ -103,17 +107,19 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   review.
 - The review and guest preview show food/drink/total counts and dense menu rows.
   Declaration visuals are 26 points, limited to three plus `+N`, while their
-  touch targets remain accessible. Generic variant/option labels are omitted;
-  configurable dishes use a focused selection sheet and configured cart lines.
+  touch targets remain accessible. Every unselected row uses a small circular
+  plus at the price; configurable dishes open a focused selection sheet from
+  it and then use configured cart lines. Generic variant/option labels are
+  omitted.
 - The food-declaration catalog now distinguishes the complete 14-item EU
   allergen set from German additive statements, consumer notices and dynamic
   E numbers. Source legends take precedence over non-standard house codes;
   former numeric 1–14 codes remain read-compatible but are not presented as a
   universal legal code system. Every compact icon opens a clear-text detail in
-  the iOS guest preview and guest web.
-- The native badge geometry keeps the pictogram centered and renders the short
-  source code separately in the lower-right corner. This preserves the compact
-  code-native collection without the former bottom-corner drift.
+  the iOS guest preview and guest web without exposing the internal source code.
+- Badge geometry keeps each pictogram centered with no letter/number overlay;
+  alcohol uses a dedicated wine-glass glyph instead of the generic notice
+  speech bubble. Meaning, group and explanation remain available after a tap.
 - Research scope, mapping rules, sources and the legal display boundary are
   documented in `docs/discovery/food-declarations/ICON_CATALOG_RESEARCH.md`.
 - Structured price basis now survives payload mapping, draft review, human

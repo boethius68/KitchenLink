@@ -189,6 +189,12 @@ Vergroesserung wachsen statt Text abzuschneiden.
 - Restaurantname, Logo oder Bild fuehren den Kopf.
 - KitchenLink erscheint nur als kleine Vertrauenssignatur.
 - Mengensteuerungen sind traubenbasiert und mindestens 44 Punkte gross.
+- Speise und Preis fuehren jede Menuezeile. Im Nullzustand sitzt nur ein klein
+  gezeichneter runder Plus-Button neben dem Preis; Varianten oeffnen sich erst
+  nach dessen Aktivierung und erzeugen keine eigene `Auswaehlen`-Zeile.
+- Deklarationssymbole zeigen nur das Piktogramm. Interne Quellcodes bleiben aus
+  Icon, Detail, Sammelliste und Sprachausgabe entfernt; der Tap zeigt
+  stattdessen Bedeutung, Gruppe und kurze Erlaeuterung.
 - Die fixierte Bestellaktion ist die einzige dauerhafte Zitronenflaeche.
 
 ### Heute
