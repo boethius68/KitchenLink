@@ -26,8 +26,21 @@ describe("sandbox venue fixture", () => {
 
   it("keeps an alcohol declaration in the visible guest fixture", () => {
     const radler = sandboxVenues[0].menu.find((item) => item.id === "muehlen-radler");
-    expect(radler?.allergens).toEqual([
-      expect.objectContaining({ glyph: "alcohol", label: "alkoholhaltig" }),
-    ]);
+    expect(radler?.allergens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ glyph: "alcohol", label: "alkoholhaltig" }),
+      ]),
+    );
+  });
+
+  it("keeps a fully declared reference dish so the uncapped icon row stays testable", () => {
+    // Gesetzliche Vorgabe: Kennzeichnungen werden nie auf wenige Symbole
+    // gekürzt. Die Sandbox braucht dafür dauerhaft ein Gericht, dessen
+    // Deklarationszeile real umbrechen muss.
+    const schnitzel = sandboxVenues[0].menu.find((item) => item.id === "wiener-schnitzel");
+    expect(schnitzel?.allergens?.length).toBeGreaterThanOrEqual(8);
+    const groups = new Set(schnitzel?.allergens?.map((allergen) => allergen.group));
+    expect(groups.has("allergen")).toBe(true);
+    expect(groups.has("additive")).toBe(true);
   });
 });

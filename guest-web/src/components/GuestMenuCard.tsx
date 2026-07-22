@@ -320,8 +320,11 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
   const [selectedDeclaration, setSelectedDeclaration] = useState<GuestAllergen | null>(null);
   const [isDeclarationListOpen, setDeclarationListOpen] = useState(false);
   const [isConfigurationOpen, setConfigurationOpen] = useState(false);
+  // Pflichtkennzeichnungen werden vollständig gezeigt; bei Platzmangel bricht
+  // die Zeile um, statt Angaben hinter einem "+N" zu verbergen. Die Zeile ist
+  // bewusst monochrom und ruhig — Fußnote, nicht Bedienelement; die gesamte
+  // Zeile öffnet als ein Tap-Ziel die Klartextliste.
   const declarations = item.allergens ?? [];
-  const visibleDeclarations = declarations.slice(0, 3);
   const hasChoices = (item.variants?.length ?? 0) > 0;
   const usesInlineAdd = quantity === 0;
 
@@ -330,7 +333,7 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
       <div className="kl-menu-row-info">
         <div className="kl-menu-row-heading">
           <div className="kl-menu-row-name">
-            <span className="kl-type-primary">{item.name}</span>
+            <span className="kl-menu-item-title">{item.name}</span>
             {item.tag && (
               <span className="kl-badge kl-badge-on-light kl-type-meta">
                 {item.tag}
@@ -338,7 +341,7 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
             )}
           </div>
           <div className="kl-menu-row-trailing">
-            <div className="kl-menu-row-price kl-type-primary kl-tabular">
+            <div className="kl-menu-row-price kl-tabular">
               {formatEuro(item.priceCents)}
             </div>
             {usesInlineAdd && (
@@ -355,72 +358,58 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
             )}
           </div>
         </div>
-        <p className="kl-type-secondary">{item.description}</p>
-        {(declarations.length > 0 || quantity > 0) && <div className="kl-menu-row-accessories">
-        {declarations.length > 0 && (
-          <ul className="kl-allergen-row" aria-label="Allergene und Zusatzstoffe">
-            {visibleDeclarations.map((allergen) => (
-              <li key={allergen.code} className="kl-allergen-entry">
-                <button
-                  type="button"
-                  className={`kl-allergen-badge kl-allergen-badge-${allergen.group}`}
-                  onClick={() => setSelectedDeclaration(allergen)}
-                  aria-label={`${allergen.label}. ${allergen.groupLabel}. Details anzeigen`}
-                  title={allergen.label}
-                >
-                  <FoodDeclarationIcon declaration={allergen} />
-                </button>
-              </li>
-            ))}
-            {declarations.length > visibleDeclarations.length && (
-              <li className="kl-allergen-entry">
-                <button
-                  type="button"
-                  className="kl-allergen-more kl-type-meta"
-                  onClick={() => setDeclarationListOpen(true)}
-                  aria-label={`Alle ${declarations.length} Kennzeichnungen anzeigen`}
-                >
-                  +{declarations.length - visibleDeclarations.length}
-                </button>
-              </li>
+        {(item.description || declarations.length > 0) && (
+          <p className="kl-type-secondary kl-menu-row-description">
+            {item.description}
+            {declarations.length > 0 && (
+              <button
+                type="button"
+                className="kl-declaration-inline"
+                onClick={() => setDeclarationListOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={isDeclarationListOpen}
+                aria-label={`Kennzeichnungen: ${declarations
+                  .map((allergen) => allergen.label)
+                  .join(", ")}. Alle im Klartext anzeigen`}
+              >
+                {declarations.map((allergen) => (
+                  <span key={allergen.code} className="kl-declaration-inline-glyph" aria-hidden="true">
+                    <FoodDeclarationIcon declaration={allergen} />
+                  </span>
+                ))}
+              </button>
             )}
-          </ul>
+          </p>
         )}
-        <span className="kl-menu-accessory-spacer" aria-hidden="true" />
         {quantity > 0 && (
-          <div className="kl-stepper" role="group" aria-label={`Menge: ${item.name}`}>
-            <button
-              type="button"
-              className="kl-stepper-button kl-type-button"
-              onClick={onDecrement}
-              aria-label={`${item.name} verringern`}
-            >
-              −
-            </button>
-            <span
-              className="kl-stepper-quantity kl-type-primary kl-tabular"
-              aria-live="polite"
-            >
-              {quantity}
-            </span>
-            <button
-              type="button"
-              className="kl-stepper-button kl-type-button"
-              onClick={() => hasChoices ? setConfigurationOpen(true) : onAdd([])}
-              aria-label={`${item.name} ${hasChoices ? "erneut auswählen" : "erhöhen"}`}
-            >
-              +
-            </button>
+          <div className="kl-menu-row-stepper">
+            <div className="kl-stepper" role="group" aria-label={`Menge: ${item.name}`}>
+              <button
+                type="button"
+                className="kl-stepper-button kl-type-button"
+                onClick={onDecrement}
+                aria-label={`${item.name} verringern`}
+              >
+                −
+              </button>
+              <span
+                className="kl-stepper-quantity kl-type-primary kl-tabular"
+                aria-live="polite"
+              >
+                {quantity}
+              </span>
+              <button
+                type="button"
+                className="kl-stepper-button kl-type-button"
+                onClick={() => hasChoices ? setConfigurationOpen(true) : onAdd([])}
+                aria-label={`${item.name} ${hasChoices ? "erneut auswählen" : "erhöhen"}`}
+              >
+                +
+              </button>
+            </div>
           </div>
         )}
-        </div>}
       </div>
-      {selectedDeclaration && (
-        <FoodDeclarationDialog
-          declaration={selectedDeclaration}
-          onClose={() => setSelectedDeclaration(null)}
-        />
-      )}
       {isDeclarationListOpen && (
         <FoodDeclarationListDialog
           declarations={declarations}
@@ -429,6 +418,12 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
             setSelectedDeclaration(declaration);
           }}
           onClose={() => setDeclarationListOpen(false)}
+        />
+      )}
+      {selectedDeclaration && (
+        <FoodDeclarationDialog
+          declaration={selectedDeclaration}
+          onClose={() => setSelectedDeclaration(null)}
         />
       )}
       {isConfigurationOpen && (
@@ -578,9 +573,11 @@ function MenuConfigurationDialog({
                         key={option.id}
                         className={`kl-choice-row kl-choice-counter${isSelected ? " kl-choice-row-selected" : ""}`}
                       >
-                        <span className="kl-type-primary">{option.name}</span>
-                        <span className="kl-choice-price kl-type-secondary kl-tabular">
-                          {optionPriceLabel(option, group)}
+                        <span className="kl-choice-counter-info">
+                          <span className="kl-type-primary">{option.name}</span>
+                          <span className="kl-choice-price kl-type-secondary kl-tabular">
+                            {optionPriceLabel(option, group)}
+                          </span>
                         </span>
                         <div className="kl-choice-quantity" role="group" aria-label={`Menge ${option.name}`}>
                           <button
@@ -704,6 +701,10 @@ function FoodDeclarationListDialog({
             </button>
           ))}
         </div>
+        <p className="kl-declaration-note kl-type-meta">
+          Die Symbole ergänzen die schriftliche Kennzeichnung. Bei Allergien
+          oder Unverträglichkeiten bitte das Restaurantpersonal ansprechen.
+        </p>
         <button type="button" className="kl-secondary-button kl-type-button" onClick={onClose}>
           Fertig
         </button>

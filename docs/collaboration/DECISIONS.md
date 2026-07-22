@@ -135,6 +135,10 @@ append-only; superseded decisions are marked rather than deleted.
   required, that plus opens the configuration. Text actions such as
   `Auswählen` do not occupy a separate row. The visual circle may be smaller
   than its accessible 44-point touch target.
+- Within that row, the dish name is the strongest element, the price is clearly
+  readable but secondary, and declaration icons are tertiary orientation aids.
+  Plus and minus controls use their complete accessible target, not only the
+  visible glyph, even when the drawn control is smaller.
 - The in-app fixture picker exposes exactly three complementary cards: one
   deterministic KitchenLink full-coverage menu plus two difficult real-world
   menus. Historical benchmark fixtures remain stable and separate from this
@@ -162,6 +166,46 @@ append-only; superseded decisions are marked rather than deleted.
   system.
 - The implementation remains a sandbox aid. Operators remain responsible for
   the correct substance, threshold, exception and legally required wording.
+
+## Complete Declaration Display (approved 22 July 2026)
+
+- Guest-facing menu rows must show **every** food declaration of an item.
+  Truncating the icon row to a fixed maximum with a `+N` overflow indicator is
+  not compatible with German/EU food-labeling requirements and is not
+  permitted in any guest surface (iOS guest preview, guest web).
+- When space runs out, the declaration icon row wraps onto additional lines.
+  Icons stay compact orientation aids per the Food Declaration Icons decision.
+- The sandbox test menus (iOS demo card and guest-web fixture) must
+  permanently contain at least one fully declared reference dish whose icon
+  row actually wraps, so this behavior stays visible and testable.
+
+## Quiet Declaration Row (approved 23 July 2026)
+
+- Allergens and additives are secondary information for most guests. In the
+  guest menu they must be legible but visually recessed — they should not
+  compete with the dish name, price or order controls. The chosen balance:
+  **must be visible, must not draw attention.**
+- In guest-facing surfaces (iOS guest preview, guest web) the declarations are
+  quiet, **monochrome** outline pictograms in the muted text colour — no
+  coloured badges, no filled boxes, no border chips. Group colour (allergen
+  vs. additive etc.) is not shown here; it appears only after the guest opens
+  the detail views.
+- **The pictograms sit in the flow of the description, not in their own row.**
+  They trail the description text as a quiet continuation of the same
+  secondary line and wrap together with it; when there is no description they
+  form a short muted line under the name. A separate icon strip below the item
+  is explicitly rejected as obtrusive and against the item's form (user
+  feedback, 23 July 2026).
+- **The whole pictogram run is one tap target** that opens a clear-text list
+  of all the item's declarations, grouped, each entry leading to the full
+  explanation. Individual icons are not separately tappable in guest surfaces.
+  Operator-facing surfaces (draft review, manual editor) keep the coloured
+  badges with per-icon tap, where group is working information.
+- All declarations remain shown in full (they wrap rather than truncating);
+  this decision governs their visual weight, placement and tap affordance, not
+  their completeness.
+- The order stepper, when an item is in the cart, occupies its own
+  right-aligned line; it no longer shares a row with the declarations.
 
 ## Collaboration Governance
 

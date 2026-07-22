@@ -123,6 +123,10 @@ final class kitchenlinkUITests: XCTestCase {
     @MainActor
     func testGuestPreviewUsesCountersAndCompactQuantityControl() throws {
         let app = XCUIApplication()
+        app.launchArguments = [
+            "--kitchenlink-design-v2",
+            "--kitchenlink-ui-test-default-menu"
+        ]
         app.launch()
 
         let manualEditor = app.buttons["business.editMenuManually"]
@@ -139,13 +143,129 @@ final class kitchenlinkUITests: XCTestCase {
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Speisen:'")).firstMatch.exists)
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Gesamt:'")).firstMatch.exists)
 
-        let addButton = app.buttons["Hinzufügen"].firstMatch
-        XCTAssertTrue(addButton.exists)
+        let addButton = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'menuPreview.add.'")
+        ).firstMatch
+        XCTAssertTrue(addButton.waitForExistence(timeout: 2))
+        scrollTo(addButton, in: app)
+        XCTAssertTrue(addButton.isHittable)
         XCTAssertFalse(app.buttons["Auswählen"].exists)
         XCTAssertGreaterThanOrEqual(addButton.frame.width, 44)
         XCTAssertGreaterThanOrEqual(addButton.frame.height, 44)
+        let itemID = String(addButton.identifier.dropFirst("menuPreview.add.".count))
         addButton.tap()
-        XCTAssertTrue(app.buttons["menuPreview.selection"].waitForExistence(timeout: 2))
+        let selectionButton = app.buttons["menuPreview.selection"]
+        XCTAssertTrue(selectionButton.waitForExistence(timeout: 2))
+
+        let increaseButton = app.buttons["menuPreview.quantity.\(itemID).increase"]
+        XCTAssertTrue(increaseButton.waitForExistence(timeout: 2))
+        scrollTo(increaseButton, in: app)
+        XCTAssertTrue(increaseButton.isHittable)
+        increaseButton.tap()
+
+        let quantityValue = app.staticTexts["menuPreview.quantity.\(itemID).value"]
+        XCTAssertTrue(quantityValue.waitForExistence(timeout: 2))
+        let quantityIsTwo = expectation(
+            for: NSPredicate(format: "label == '2'"),
+            evaluatedWith: quantityValue
+        )
+        wait(for: [quantityIsTwo], timeout: 2)
+
+        let decreaseButton = app.buttons["menuPreview.quantity.\(itemID).decrease"]
+        XCTAssertTrue(decreaseButton.waitForExistence(timeout: 2))
+        scrollTo(decreaseButton, in: app)
+        XCTAssertTrue(decreaseButton.isHittable)
+        XCTAssertGreaterThanOrEqual(decreaseButton.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(decreaseButton.frame.height, 44)
+
+        // Trifft bewusst den linken Rand statt das Minus-Glyph. So schützt der
+        // Test die tatsächliche 44-Punkt-Touchfläche und nicht nur den Rahmen.
+        decreaseButton.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)
+        ).tap()
+        let quantityIsOne = expectation(
+            for: NSPredicate(format: "label == '1'"),
+            evaluatedWith: quantityValue
+        )
+        wait(for: [quantityIsOne], timeout: 2)
+        XCTAssertTrue(selectionButton.exists)
+
+        decreaseButton.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)
+        ).tap()
+        let selectionRemoved = expectation(
+            for: NSPredicate(format: "exists == false"),
+            evaluatedWith: selectionButton
+        )
+        wait(for: [selectionRemoved], timeout: 2)
+    }
+
+    @MainActor
+    func testGuestPreviewShowsEveryDeclarationOfAFullyDeclaredDish() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--kitchenlink-design-v2",
+            "--kitchenlink-ui-test-default-menu"
+        ]
+        app.launch()
+
+        let manualEditor = app.buttons["business.editMenuManually"]
+        XCTAssertTrue(manualEditor.waitForExistence(timeout: 5))
+        scrollTo(manualEditor, in: app)
+        manualEditor.tap()
+
+        let preview = app.buttons["menuEditor.preview"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 3))
+        scrollTo(preview, in: app)
+        preview.tap()
+
+        XCTAssertTrue(
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Gesamt:'"))
+                .firstMatch.waitForExistence(timeout: 3)
+        )
+
+        let burgerName = app.staticTexts["menuPreview.itemName.f-burger"]
+        var remainingSwipes = 10
+        while !burgerName.exists && remainingSwipes > 0 {
+            app.swipeUp()
+            remainingSwipes -= 1
+        }
+        XCTAssertTrue(burgerName.exists)
+
+        // Gesetzliche Vorgabe: Kennzeichnungen werden nie gekürzt. Die Symbole
+        // stehen im Fluss der Beschreibung und bilden ein einziges Tap-Ziel;
+        // dessen Accessibility-Label trägt Beschreibung und alle Klartexte, und
+        // der Tap öffnet die vollständige Liste.
+        let declarationRow = app.buttons["foodDeclaration.row.f-burger"]
+        XCTAssertTrue(declarationRow.waitForExistence(timeout: 2))
+        scrollTo(declarationRow, in: app)
+        XCTAssertTrue(declarationRow.isHittable)
+        XCTAssertTrue(declarationRow.label.contains("Rind, Cheddar, Haus-Sauce"))
+        XCTAssertTrue(declarationRow.label.contains("Glutenhaltiges Getreide"))
+        XCTAssertTrue(declarationRow.label.contains("mit Phosphat"))
+        declarationRow.tap()
+
+        XCTAssertTrue(app.navigationBars["Kennzeichnungen"].waitForExistence(timeout: 3))
+        let expectedCodes = [
+            "a", "c", "g", "i", "j", "k", "l",
+            "farbstoff", "konserviert", "geschmacksverstaerker", "phosphat"
+        ]
+        for code in expectedCodes {
+            let entry = app.buttons["foodDeclaration.list.\(code)"].firstMatch
+            var listSwipes = 4
+            while !entry.isHittable && listSwipes > 0 {
+                app.swipeUp()
+                listSwipes -= 1
+            }
+            XCTAssertTrue(entry.exists, "Kennzeichnung \(code) fehlt in der Klartextliste")
+        }
+
+        // Ein Eintrag öffnet weiterhin die ausführliche Erklärung.
+        let sesame = app.buttons["foodDeclaration.list.k"].firstMatch
+        XCTAssertTrue(sesame.isHittable)
+        sesame.tap()
+        XCTAssertTrue(app.staticTexts["foodDeclaration.detail.title"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.staticTexts["foodDeclaration.detail.title"].label, "Sesamsamen")
     }
 
     @MainActor

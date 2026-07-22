@@ -36,6 +36,14 @@ describe("configured cart lines", () => {
     expect(setQuantity(emptyCart, "missing", 0)).toBe(emptyCart);
   });
 
+  it("decrements across the full 2 → 1 → removed lifecycle", () => {
+    const cart = setQuantity(emptyCart, "a", 2);
+    const once = decrement(cart, "a");
+    expect(once[cartLineID("a")].quantity).toBe(1);
+    expect(decrement(once, "a")).toEqual({});
+    expect(decrement(emptyCart, "a")).toBe(emptyCart);
+  });
+
   it("keeps two configurations of the same article separate", () => {
     let cart = increment(emptyCart, "kuerbissuppe", []);
     cart = increment(cart, "kuerbissuppe", ["suppe-gross"]);

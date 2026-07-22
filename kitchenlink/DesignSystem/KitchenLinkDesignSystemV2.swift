@@ -261,6 +261,75 @@ private struct ConnectionShape: Shape {
 
 // MARK: - Type, spacing, and focus
 
+enum KitchenLinkV2GuestMenuMetrics {
+    static let itemTitlePointSize: CGFloat = 20
+    static let itemPricePointSize: CGFloat = 16
+    /// Glyphengröße der ruhigen Gastzeile: kleiner als früher, dafür ohne
+    /// Badge-Box — die Kennzeichnung liest sich als Fußnote.
+    static let declarationVisualSize: CGFloat = 18
+    static let minimumTapTarget: CGFloat = 44
+}
+
+/// Bricht kompakte Kennzeichnungssymbole zeilenweise um, statt sie zu kürzen:
+/// Pflichtdeklarationen dürfen nie hinter einem Sammelindikator verschwinden.
+struct KitchenLinkV2WrappingRow: Layout {
+    var horizontalSpacing: CGFloat = 2
+    var verticalSpacing: CGFloat = 2
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = makeRows(maxWidth: proposal.width ?? .infinity, subviews: subviews)
+        let contentWidth = rows.map(\.width).max() ?? 0
+        let height = rows.map(\.height).reduce(0, +)
+            + verticalSpacing * CGFloat(max(0, rows.count - 1))
+        let width = rows.count > 1 ? (proposal.width ?? contentWidth) : contentWidth
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let rows = makeRows(maxWidth: bounds.width, subviews: subviews)
+        var y = bounds.minY
+        for row in rows {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(
+                    at: CGPoint(x: x, y: y + (row.height - size.height) / 2),
+                    proposal: ProposedViewSize(size)
+                )
+                x += size.width + horizontalSpacing
+            }
+            y += row.height + verticalSpacing
+        }
+    }
+
+    private struct Row {
+        var indices: [Int] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func makeRows(maxWidth: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = []
+        var current = Row()
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            if !current.indices.isEmpty,
+               current.width + horizontalSpacing + size.width > maxWidth {
+                rows.append(current)
+                current = Row()
+            }
+            let spacing = current.indices.isEmpty ? 0 : horizontalSpacing
+            current.indices.append(index)
+            current.width += spacing + size.width
+            current.height = max(current.height, size.height)
+        }
+        if !current.indices.isEmpty {
+            rows.append(current)
+        }
+        return rows
+    }
+}
+
 enum KitchenLinkV2Typography {
     static let display = font(
         named: "BricolageGrotesque-ExtraBold",
@@ -285,6 +354,18 @@ enum KitchenLinkV2Typography {
         size: 17,
         relativeTo: .body,
         fallback: .system(.body).weight(.semibold)
+    )
+    static let menuItemTitle = font(
+        named: "SourceSans3-Bold",
+        size: KitchenLinkV2GuestMenuMetrics.itemTitlePointSize,
+        relativeTo: .title3,
+        fallback: .system(.title3).weight(.bold)
+    )
+    static let menuItemPrice = font(
+        named: "SourceSans3-Semibold",
+        size: KitchenLinkV2GuestMenuMetrics.itemPricePointSize,
+        relativeTo: .subheadline,
+        fallback: .system(.subheadline).weight(.semibold)
     )
     static let secondaryLine = font(
         named: "SourceSans3-Regular",

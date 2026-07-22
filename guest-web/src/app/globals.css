@@ -176,6 +176,15 @@ button {
   align-items: center;
   gap: var(--kl-space-2);
   flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.kl-menu-item-title {
+  color: var(--kl-text-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .kl-menu-row-info p {
@@ -186,12 +195,16 @@ button {
 .kl-menu-row-price {
   flex: none;
   color: var(--kl-text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .kl-menu-row-trailing {
   display: flex;
   align-items: center;
-  gap: var(--kl-space-2);
+  gap: var(--kl-space-1);
   flex: none;
 }
 
@@ -222,61 +235,55 @@ button {
   line-height: 1;
 }
 
-.kl-menu-row-accessories {
+/* Die Mengensteuerung sitzt bei belegtem Warenkorb als eigene, rechtsbündige
+   Zeile unter der Beschreibung — die Kennzeichnungen belegen keinen eigenen
+   Streifen mehr. */
+.kl-menu-row-stepper {
   display: flex;
-  align-items: center;
-  min-height: 2.75rem;
-  margin-top: 0.125rem;
+  justify-content: flex-end;
+  margin-top: var(--kl-space-2);
 }
 
-.kl-menu-accessory-spacer {
-  flex: 1 1 auto;
-  min-width: var(--kl-space-2);
+/* Lebensmittel-Kennzeichnung: keine eigene Zeile mehr, sondern eine ruhige,
+   monochrome Fortsetzung der Beschreibung. Alle Pflichtangaben werden gezeigt
+   und brechen im Textfluss um; der gesamte Symbol-Nachsatz ist das Tap-Ziel
+   und öffnet die Klartextliste. Gruppenfarben erst in den Dialogen. */
+.kl-menu-row-description {
+  line-height: 1.65;
 }
 
-/* Lebensmittel-Kennzeichnung: kompakte, tappbare Piktogramme. Der Klartext
-   bleibt über den zugänglichen Namen und den Detaildialog jederzeit sichtbar. */
-.kl-allergen-row {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.kl-allergen-entry {
-  display: block;
-}
-
-.kl-allergen-badge {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
+.kl-declaration-inline {
+  display: inline;
+  margin: 0 0 0 0.5rem;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--kl-text-primary);
+  color: var(--kl-text-muted);
   cursor: pointer;
 }
 
-.kl-allergen-badge::before,
-.kl-allergen-more::before {
-  content: "";
-  position: absolute;
-  inset: 50% auto auto 50%;
-  width: 1.625rem;
-  height: 1.625rem;
-  border: 1px solid currentColor;
-  border-radius: 0.5rem;
-  background: var(--kl-surface-recessed);
-  opacity: 0.72;
-  transform: translate(-50%, -50%);
+.kl-declaration-inline-glyph {
+  display: inline-block;
+  margin-right: 0.3rem;
+  vertical-align: -0.18em;
 }
 
+.kl-declaration-inline-glyph:last-child {
+  margin-right: 0;
+}
+
+.kl-declaration-inline-glyph .kl-declaration-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.kl-declaration-inline:focus-visible {
+  outline: 3px solid var(--kl-brand-grape);
+  outline-offset: 2px;
+  border-radius: var(--kl-radius-compact);
+}
+
+/* Gruppenfarben: nur in Listen- und Detaildialog, nicht in der Gastzeile. */
 .kl-allergen-badge-allergen {
   color: #5f3d75;
 }
@@ -293,16 +300,11 @@ button {
   color: var(--kl-text-secondary);
 }
 
-.kl-allergen-badge:focus-visible {
-  outline: 3px solid var(--kl-brand-grape);
-  outline-offset: 2px;
-}
-
 .kl-declaration-icon {
   position: relative;
   z-index: 1;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1rem;
+  height: 1rem;
   overflow: visible;
 }
 
@@ -316,21 +318,6 @@ button {
 
 .kl-icon-formula-small {
   font-size: 0.43rem;
-}
-
-.kl-allergen-more {
-  position: relative;
-  width: 2.75rem;
-  height: 2.75rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--kl-text-secondary);
-}
-
-.kl-allergen-more::after {
-  position: relative;
-  z-index: 1;
 }
 
 .kl-declaration-backdrop {
@@ -452,10 +439,14 @@ button {
   border: 1px solid var(--kl-border-control);
   border-radius: var(--kl-radius-compact);
   flex: none;
+  position: relative;
+  z-index: 1;
 }
 
 .kl-stepper-button,
 .kl-add-button {
+  width: 2.75rem;
+  height: 2.75rem;
   min-width: 2.75rem; /* 44 */
   min-height: 2.75rem;
   display: inline-flex;
@@ -464,6 +455,7 @@ button {
   background: transparent;
   color: var(--kl-text-primary);
   border-radius: var(--kl-radius-compact);
+  touch-action: manipulation;
 }
 
 .kl-stepper-button {
@@ -691,12 +683,17 @@ button {
   color: var(--kl-text-secondary);
 }
 
-.kl-choice-counter > .kl-type-primary {
-  min-width: 0;
+/* Name und Preishinweis stapeln sich, damit lange Optionsnamen nie mit dem
+   Aufpreis kollidieren; die Mengensteuerung bleibt rechts stabil. */
+.kl-choice-counter-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
   flex: 1;
+  min-width: 0;
 }
 
-.kl-choice-counter .kl-choice-price {
+.kl-choice-counter-info .kl-choice-price {
   margin-left: 0;
 }
 

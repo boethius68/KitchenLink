@@ -1068,6 +1068,11 @@ private enum AllergenCodeParser {
     }
 }
 
+/// Deterministische Demokarte der Sandbox. Sie deckt bewusst den vollen
+/// Funktionsumfang der digitalen Speisekarte ab: alle Deklarationsgruppen
+/// (EU-Allergene, Zusatzstoffe, Verbraucherhinweise, Alkohol), ein voll
+/// deklariertes Gericht mit vielen Symbolen, Pflicht- und optionale
+/// Auswahlgruppen, wiederholbare Extras sowie eine `per_person`-Preisbasis.
 enum DemoMenuFactory {
     static func buildDefaultSections() -> [MenuSectionData] {
         [
@@ -1077,9 +1082,28 @@ enum DemoMenuFactory {
                 subtitle: "Hausgemacht und Klassiker",
                 kind: .drink,
                 items: [
-                    MenuItemData(id: "d-limo", name: "Haus-Limonade", description: "Zitrone, Minze, Soda", priceCents: 450, kind: .drink),
-                    MenuItemData(id: "d-cola", name: "Cola Zero 0,33l", description: "Eisgekühlt serviert", priceCents: 360, kind: .drink),
-                    MenuItemData(id: "d-ginger", name: "Ginger Ale 0,2l", description: "Mit Limettenscheibe", priceCents: 330, kind: .drink)
+                    MenuItemData(
+                        id: "d-limo",
+                        name: "Haus-Limonade",
+                        description: "Zitrone, Minze, Soda",
+                        priceCents: 450,
+                        kind: .drink,
+                        variants: [
+                            MenuItemVariant(
+                                id: "d-limo-05",
+                                name: "0,5 l",
+                                priceCents: 590,
+                                kind: .portion,
+                                priceKind: .fixed,
+                                groupID: "limo-groesse",
+                                groupTitle: "Größe",
+                                minimumSelections: 0,
+                                maximumSelections: 1
+                            )
+                        ]
+                    ),
+                    MenuItemData(id: "d-cola", name: "Cola Zero 0,33l", description: "Eisgekühlt serviert", priceCents: 360, kind: .drink, allergenCodes: "farbstoff,koffeinhaltig,suessungsmittel,phenylalanin,phosphat"),
+                    MenuItemData(id: "d-ginger", name: "Ginger Ale 0,2l", description: "Mit Limettenscheibe", priceCents: 330, kind: .drink, allergenCodes: "chininhaltig")
                 ]
             ),
             MenuSectionData(
@@ -1088,9 +1112,19 @@ enum DemoMenuFactory {
                 subtitle: "Frisch gebrüht",
                 kind: .drink,
                 items: [
-                    MenuItemData(id: "d-espresso", name: "Espresso Doppio", description: "Kräftig geröstet", priceCents: 280, kind: .drink),
-                    MenuItemData(id: "d-cappuccino", name: "Cappuccino", description: "Mit feinporigem Milchschaum", priceCents: 390, kind: .drink),
+                    MenuItemData(id: "d-espresso", name: "Espresso Doppio", description: "Kräftig geröstet", priceCents: 280, kind: .drink, allergenCodes: "koffeinhaltig"),
+                    MenuItemData(id: "d-cappuccino", name: "Cappuccino", description: "Mit feinporigem Milchschaum", priceCents: 390, kind: .drink, allergenCodes: "g,koffeinhaltig"),
                     MenuItemData(id: "d-tea", name: "Bio Minztee", description: "Frische Minze, Honig optional", priceCents: 340, kind: .drink)
+                ]
+            ),
+            MenuSectionData(
+                id: "s-drinks-bar",
+                title: "Bier & Wein",
+                subtitle: "Regional gezapft und eingeschenkt",
+                kind: .drink,
+                items: [
+                    MenuItemData(id: "d-radler", name: "Radler naturtrüb 0,5l", description: "Helles mit Zitronenlimonade", priceCents: 480, kind: .drink, allergenCodes: "a,13"),
+                    MenuItemData(id: "d-wein", name: "Grauburgunder 0,2l", description: "Trocken, aus Baden", priceCents: 620, kind: .drink, allergenCodes: "l,13")
                 ]
             ),
             MenuSectionData(
@@ -1099,9 +1133,9 @@ enum DemoMenuFactory {
                 subtitle: "Zum Teilen oder solo",
                 kind: .food,
                 items: [
-                    MenuItemData(id: "f-bruschetta", name: "Bruschetta", description: "Tomaten, Basilikum, Knoblauch", priceCents: 690, kind: .food),
-                    MenuItemData(id: "f-soup", name: "Tomatensuppe", description: "Mit Crostini", priceCents: 650, kind: .food),
-                    MenuItemData(id: "f-salad", name: "Caesar Salad", description: "Romanasalat, Croutons, Parmesan", priceCents: 990, kind: .food)
+                    MenuItemData(id: "f-bruschetta", name: "Bruschetta", description: "Tomaten, Basilikum, Knoblauch", priceCents: 690, kind: .food, allergenCodes: "a"),
+                    MenuItemData(id: "f-soup", name: "Tomatensuppe", description: "Mit Crostini", priceCents: 650, kind: .food, allergenCodes: "a,g,i"),
+                    MenuItemData(id: "f-salad", name: "Caesar Salad", description: "Romanasalat, Croutons, Parmesan", priceCents: 990, kind: .food, allergenCodes: "a,c,d,g,j")
                 ]
             ),
             MenuSectionData(
@@ -1110,10 +1144,91 @@ enum DemoMenuFactory {
                 subtitle: "Beliebte Klassiker",
                 kind: .food,
                 items: [
-                    MenuItemData(id: "f-margherita", name: "Pizza Margherita", description: "Tomate, Mozzarella, Basilikum", priceCents: 1090, kind: .food),
-                    MenuItemData(id: "f-burger", name: "Cheeseburger", description: "Rind, Cheddar, Haus-Sauce", priceCents: 1250, kind: .food),
-                    MenuItemData(id: "f-pasta", name: "Pasta Arrabbiata", description: "Pikante Tomatensauce, Parmesan", priceCents: 1180, kind: .food),
-                    MenuItemData(id: "f-schnitzel", name: "Wiener Schnitzel", description: "Pommes oder Kartoffelsalat", priceCents: 1690, kind: .food)
+                    MenuItemData(id: "f-margherita", name: "Pizza Margherita", description: "Tomate, Mozzarella, Basilikum", priceCents: 1090, kind: .food, allergenCodes: "a,g"),
+                    // Volldeklariertes Referenzgericht: elf Kennzeichnungen aus
+                    // drei Gruppen erzwingen den Zeilenumbruch der Symbole.
+                    MenuItemData(
+                        id: "f-burger",
+                        name: "Cheeseburger",
+                        description: "Rind, Cheddar, Haus-Sauce",
+                        priceCents: 1250,
+                        kind: .food,
+                        variants: [
+                            MenuItemVariant(
+                                id: "f-burger-bacon",
+                                name: "Bacon",
+                                priceCents: 150,
+                                kind: .extra,
+                                priceKind: .delta,
+                                groupID: "burger-extras",
+                                groupTitle: "Extras",
+                                minimumSelections: 0,
+                                maximumSelections: 3,
+                                selectionMode: "quantity",
+                                freeSelectionCount: 0,
+                                allowsRepeats: true
+                            ),
+                            MenuItemVariant(
+                                id: "f-burger-cheddar",
+                                name: "Extra Cheddar",
+                                priceCents: 100,
+                                kind: .extra,
+                                priceKind: .delta,
+                                groupID: "burger-extras",
+                                groupTitle: "Extras",
+                                minimumSelections: 0,
+                                maximumSelections: 3,
+                                selectionMode: "quantity",
+                                freeSelectionCount: 0,
+                                allowsRepeats: true
+                            )
+                        ],
+                        allergenCodes: "a,c,g,i,j,k,l,farbstoff,konserviert,geschmacksverstaerker,phosphat"
+                    ),
+                    MenuItemData(id: "f-pasta", name: "Pasta Arrabbiata", description: "Pikante Tomatensauce, Parmesan", priceCents: 1180, kind: .food, allergenCodes: "a,g"),
+                    MenuItemData(
+                        id: "f-schnitzel",
+                        name: "Wiener Schnitzel",
+                        description: "Mit Beilage nach Wahl",
+                        priceCents: 1690,
+                        kind: .food,
+                        variants: [
+                            MenuItemVariant(
+                                id: "f-schnitzel-pommes",
+                                name: "Pommes frites",
+                                priceCents: 0,
+                                kind: .portion,
+                                priceKind: .included,
+                                groupID: "schnitzel-beilage",
+                                groupTitle: "Beilage",
+                                minimumSelections: 1,
+                                maximumSelections: 1,
+                                selectionMode: "single"
+                            ),
+                            MenuItemVariant(
+                                id: "f-schnitzel-kartoffelsalat",
+                                name: "Kartoffelsalat",
+                                priceCents: 0,
+                                kind: .portion,
+                                priceKind: .included,
+                                groupID: "schnitzel-beilage",
+                                groupTitle: "Beilage",
+                                minimumSelections: 1,
+                                maximumSelections: 1,
+                                selectionMode: "single"
+                            )
+                        ],
+                        allergenCodes: "a,c,g,j"
+                    ),
+                    MenuItemData(
+                        id: "f-menue",
+                        name: "Überraschungsmenü",
+                        description: "Vier Gänge aus der Tagesküche für den ganzen Tisch",
+                        priceCents: 3990,
+                        kind: .food,
+                        allergenCodes: "a,c,d,g,i,l",
+                        priceBasis: "per_person"
+                    )
                 ]
             )
         ]
@@ -1463,9 +1578,150 @@ struct FoodDeclarationDetailView: View {
     }
 }
 
-struct AllergenLegendView: View {
+struct AllergenBadgesRow: View {
+    enum DisplayMode {
+        case standard
+        case compact
+    }
+
+    let rawCodes: String
+    let legendByCode: [String: String]?
+    let allowsIndividualDetails: Bool
+    let displayMode: DisplayMode
+    /// Optionale Beschreibung, in deren Textfluss die kompakten Symbole
+    /// eingebettet werden. Ist sie gesetzt, bilden Beschreibung und
+    /// Kennzeichnungen eine gemeinsame, umbrechende Sekundärzeile statt eines
+    /// abgesetzten Icon-Streifens.
+    let leadingDescription: String?
+    let compactRowIdentifier: String
+    @State private var selectedDefinition: AllergenDefinition?
+    @State private var showsClearTextList = false
+
+    init(
+        rawCodes: String,
+        legendByCode: [String: String]? = nil,
+        allowsIndividualDetails: Bool = true,
+        displayMode: DisplayMode = .standard,
+        leadingDescription: String? = nil,
+        compactRowIdentifier: String = "foodDeclaration.row"
+    ) {
+        self.rawCodes = rawCodes
+        self.legendByCode = legendByCode
+        self.allowsIndividualDetails = allowsIndividualDetails
+        self.displayMode = displayMode
+        self.leadingDescription = leadingDescription
+        self.compactRowIdentifier = compactRowIdentifier
+    }
+
+    private var descriptionWords: [String] {
+        guard let leadingDescription else { return [] }
+        return leadingDescription
+            .split(whereSeparator: { $0.isWhitespace })
+            .map(String.init)
+    }
+
+    private var definitions: [AllergenDefinition] {
+        AllergenCatalog.definitions(for: rawCodes, customTitles: legendByCode)
+    }
+
+    var body: some View {
+        // Pflichtkennzeichnungen werden vollständig gezeigt; bei Platzmangel
+        // bricht die Zeile um, statt Angaben hinter einem "+N" zu verbergen.
+        if !definitions.isEmpty {
+            switch displayMode {
+            case .compact:
+                quietGuestRow
+            case .standard:
+                standardRow
+            }
+        }
+    }
+
+    /// Gastzeile: monochrome Konturglyphen ohne Farbfläche — im Fluss der
+    /// Beschreibung, nicht als eigener Streifen. Wörter und Symbole teilen
+    /// sich einen umbrechenden Sekundärtext; der gesamte Block ist das eine
+    /// Tap-Ziel und öffnet die Klartextliste aller Kennzeichnungen.
+    private var quietGuestRow: some View {
+        Button {
+            showsClearTextList = true
+        } label: {
+            KitchenLinkV2WrappingRow(
+                horizontalSpacing: KitchenLinkV2Spacing.xSmall,
+                verticalSpacing: KitchenLinkV2Spacing.xSmall
+            ) {
+                ForEach(Array(descriptionWords.enumerated()), id: \.offset) { _, word in
+                    Text(word)
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                }
+                ForEach(definitions) { definition in
+                    FoodDeclarationGlyphView(
+                        glyph: definition.glyph,
+                        size: KitchenLinkV2GuestMenuMetrics.declarationVisualSize,
+                        color: KitchenLinkV2Palette.Content.muted
+                    )
+                }
+            }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint("Zeigt alle Kennzeichnungen im Klartext")
+        .accessibilityIdentifier(compactRowIdentifier)
+        .sheet(isPresented: $showsClearTextList) {
+            FoodDeclarationListView(definitions: definitions)
+        }
+    }
+
+    private var accessibilityLabel: String {
+        let declarations = "Kennzeichnungen: \(definitions.map(\.title).joined(separator: ", "))"
+        if let leadingDescription, !leadingDescription.isEmpty {
+            return "\(leadingDescription). \(declarations)"
+        }
+        return declarations
+    }
+
+    /// Betreiberansichten (Review, Editor) behalten die farbigen Badges mit
+    /// Einzel-Tap — dort ist die Gruppenzuordnung Arbeitsinformation.
+    private var standardRow: some View {
+        KitchenLinkV2WrappingRow(horizontalSpacing: 2, verticalSpacing: 2) {
+            ForEach(definitions) { definition in
+                if allowsIndividualDetails {
+                    Button {
+                        selectedDefinition = definition
+                    } label: {
+                        AllergenBadgeView(definition: definition)
+                            .frame(
+                                width: KitchenLinkV2GuestMenuMetrics.minimumTapTarget,
+                                height: KitchenLinkV2GuestMenuMetrics.minimumTapTarget
+                            )
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("foodDeclaration.badge.\(definition.code)")
+                    .accessibilityHint("Zeigt die Bedeutung im Klartext")
+                } else {
+                    AllergenBadgeView(definition: definition)
+                        .frame(minWidth: 40, minHeight: 40)
+                }
+            }
+        }
+        .sheet(item: $selectedDefinition) { definition in
+            FoodDeclarationDetailView(definition: definition)
+        }
+    }
+}
+
+/// Klartextliste aller Kennzeichnungen eines Gerichts, geöffnet über die
+/// ruhige Deklarationszeile der Gastkarte. Erst hier erscheinen Gruppenfarbe
+/// und Bedeutung; ein Eintrag öffnet die ausführliche Erklärung.
+struct FoodDeclarationListView: View {
     let definitions: [AllergenDefinition]
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedDefinition: AllergenDefinition?
 
     private var populatedGroups: [(FoodDeclarationGroup, [AllergenDefinition])] {
         FoodDeclarationGroup.allCases
@@ -1482,14 +1738,29 @@ struct AllergenLegendView: View {
                 ForEach(populatedGroups, id: \.0) { group, entries in
                     Section(group.pluralTitle) {
                         ForEach(entries) { definition in
-                            HStack(spacing: 12) {
-                                AllergenBadgeView(definition: definition)
-                                Text(definition.title)
-                                    .font(.subheadline.weight(.medium))
+                            Button {
+                                selectedDefinition = definition
+                            } label: {
+                                HStack(spacing: 12) {
+                                    AllergenBadgeView(definition: definition, size: 32, cornerRadius: 8)
+                                    Text(definition.title)
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
                             }
-                            .padding(.vertical, 2)
+                            .accessibilityIdentifier("foodDeclaration.list.\(definition.code)")
                         }
                     }
+                }
+
+                Section {
+                    Text("Die Symbole ergänzen die schriftliche Kennzeichnung. Bei Allergien oder Unverträglichkeiten bitte das Restaurantpersonal ansprechen.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Kennzeichnungen")
@@ -1502,111 +1773,11 @@ struct AllergenLegendView: View {
                 }
             }
         }
+        .presentationDetents([.medium, .large])
+        .sheet(item: $selectedDefinition) { definition in
+            FoodDeclarationDetailView(definition: definition)
+        }
         .kitchenSurface()
-    }
-}
-
-struct AllergenBadgesRow: View {
-    enum DisplayMode {
-        case standard
-        case compact(maxVisible: Int = 3)
-    }
-
-    let rawCodes: String
-    let legendByCode: [String: String]?
-    let allowsIndividualDetails: Bool
-    let displayMode: DisplayMode
-    @State private var showLegend = false
-    @State private var selectedDefinition: AllergenDefinition?
-
-    init(
-        rawCodes: String,
-        legendByCode: [String: String]? = nil,
-        allowsIndividualDetails: Bool = true,
-        displayMode: DisplayMode = .standard
-    ) {
-        self.rawCodes = rawCodes
-        self.legendByCode = legendByCode
-        self.allowsIndividualDetails = allowsIndividualDetails
-        self.displayMode = displayMode
-    }
-
-    private var definitions: [AllergenDefinition] {
-        AllergenCatalog.definitions(for: rawCodes, customTitles: legendByCode)
-    }
-
-    private var visibleLimit: Int {
-        switch displayMode {
-        case .standard:
-            return 5
-        case .compact(let maxVisible):
-            return max(1, maxVisible)
-        }
-    }
-
-    var body: some View {
-        if !definitions.isEmpty {
-            HStack(spacing: 2) {
-                ForEach(definitions.prefix(visibleLimit)) { definition in
-                    if allowsIndividualDetails {
-                        Button {
-                            selectedDefinition = definition
-                        } label: {
-                            badge(for: definition)
-                        }
-                        .buttonStyle(.plain)
-                        .frame(
-                            minWidth: 44,
-                            minHeight: 44
-                        )
-                        .contentShape(Rectangle())
-                        .accessibilityIdentifier("foodDeclaration.badge.\(definition.code)")
-                        .accessibilityHint("Zeigt die Bedeutung im Klartext")
-                    } else {
-                        badge(for: definition)
-                            .frame(minWidth: 40, minHeight: 40)
-                    }
-                }
-
-                if definitions.count > visibleLimit {
-                    Button {
-                        showLegend = true
-                    } label: {
-                        Text("+\(definitions.count - visibleLimit)")
-                            .font(.caption2.weight(.bold))
-                            .frame(width: compactBadgeSize ?? 34, height: compactBadgeSize ?? 34)
-                            .background(
-                                KitchenTheme.accent.opacity(0.1),
-                                in: RoundedRectangle(cornerRadius: compactBadgeSize == nil ? 10 : 8)
-                            )
-                            .foregroundStyle(KitchenTheme.accent)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .accessibilityLabel("Alle \(definitions.count) Kennzeichnungen anzeigen")
-                }
-            }
-            .sheet(isPresented: $showLegend) {
-                AllergenLegendView(definitions: definitions)
-            }
-            .sheet(item: $selectedDefinition) { definition in
-                FoodDeclarationDetailView(definition: definition)
-            }
-        }
-    }
-
-    private var compactBadgeSize: CGFloat? {
-        if case .compact = displayMode { return 26 }
-        return nil
-    }
-
-    @ViewBuilder
-    private func badge(for definition: AllergenDefinition) -> some View {
-        if let compactBadgeSize {
-            AllergenBadgeView(definition: definition, size: compactBadgeSize, cornerRadius: 8)
-        } else {
-            AllergenBadgeView(definition: definition)
-        }
     }
 }
 

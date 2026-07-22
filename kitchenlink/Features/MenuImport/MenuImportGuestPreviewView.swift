@@ -155,18 +155,22 @@ struct MenuImportGuestPreviewView: View {
         return VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
             HStack(alignment: .top, spacing: KitchenLinkV2Spacing.medium) {
                 Text(item.displayName)
-                    .font(KitchenLinkV2Typography.primaryLine)
+                    .font(KitchenLinkV2Typography.menuItemTitle)
                     .foregroundStyle(KitchenLinkV2Palette.Content.primary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
+                    .accessibilityIdentifier("menuPreview.itemName.\(item.id)")
 
                 Spacer(minLength: KitchenLinkV2Spacing.small)
 
-                HStack(alignment: .top, spacing: KitchenLinkV2Spacing.small) {
+                HStack(alignment: .top, spacing: KitchenLinkV2Spacing.xSmall) {
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(PriceFormatter.string(cents: item.priceCents))
-                            .font(KitchenLinkV2Typography.primaryLine)
+                            .font(KitchenLinkV2Typography.menuItemPrice)
                             .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                            .lineLimit(1)
                             .kitchenLinkV2TabularNumbers()
+                            .accessibilityIdentifier("menuPreview.itemPrice.\(item.id)")
                         if item.priceBasis == "per_person" {
                             Text("pro Person")
                                 .font(KitchenLinkV2Typography.meta)
@@ -179,6 +183,10 @@ struct MenuImportGuestPreviewView: View {
                             quantity: 0,
                             accessibilityContext: item.displayName,
                             addAccessibilityLabel: item.variants.isEmpty ? "Hinzufügen" : "Auswahl öffnen",
+                            addAccessibilityIdentifier: item.variants.isEmpty
+                                ? "menuPreview.add.\(item.id)"
+                                : "menuPreview.configure.\(item.id)",
+                            identifierPrefix: "menuPreview.quantity.\(item.id)",
                             onDecrease: {},
                             onIncrease: {
                                 if item.variants.isEmpty {
@@ -188,57 +196,61 @@ struct MenuImportGuestPreviewView: View {
                                 }
                             }
                         )
-                        .accessibilityIdentifier(
-                            item.variants.isEmpty
-                                ? "menuPreview.add.\(item.id)"
-                                : "menuPreview.configure.\(item.id)"
-                        )
                     }
                 }
+                .fixedSize(horizontal: true, vertical: false)
             }
 
-            if !item.description.isEmpty, item.description != "Automatisch importiert" {
-                Text(item.description)
+            // Kennzeichnungen sitzen im Fluss der Beschreibung, nicht in einem
+            // eigenen Streifen. Ist keine Beschreibung vorhanden, schliessen die
+            // Symbole als kurze Sekundaerzeile an den Namen an.
+            let description = descriptionText(for: item)
+            if hasDeclarations, let codes = item.resolvedAllergenCodes, !codes.isEmpty {
+                AllergenBadgesRow(
+                    rawCodes: codes,
+                    legendByCode: legend,
+                    displayMode: .compact,
+                    leadingDescription: description,
+                    compactRowIdentifier: "foodDeclaration.row.\(item.id)"
+                )
+            } else if let description {
+                Text(description)
                     .font(KitchenLinkV2Typography.secondaryLine)
                     .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if hasDeclarations || itemQuantity > 0 {
-                HStack(alignment: .center, spacing: KitchenLinkV2Spacing.small) {
-                    if let codes = item.resolvedAllergenCodes, !codes.isEmpty {
-                        AllergenBadgesRow(
-                            rawCodes: codes,
-                            legendByCode: legend,
-                            displayMode: .compact(maxVisible: 3)
+            if itemQuantity > 0 {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    if item.variants.isEmpty {
+                        MenuImportCompactQuantityControl(
+                            quantity: itemQuantity,
+                            accessibilityContext: item.displayName,
+                            identifierPrefix: "menuPreview.quantity.\(item.id)",
+                            onDecrease: { decrease(item.id) },
+                            onIncrease: { add(item, selectedOptions: []) }
+                        )
+                    } else {
+                        MenuImportConfigurationControl(
+                            itemID: item.id,
+                            itemName: item.displayName,
+                            quantity: itemQuantity,
+                            onDecrease: { decrease(item.id) },
+                            onConfigure: { configurationItem = item }
                         )
                     }
-
-                    Spacer(minLength: KitchenLinkV2Spacing.small)
-
-                    if itemQuantity > 0 {
-                        if item.variants.isEmpty {
-                            MenuImportCompactQuantityControl(
-                                quantity: itemQuantity,
-                                accessibilityContext: item.displayName,
-                                onDecrease: { decrease(item.id) },
-                                onIncrease: { add(item, selectedOptions: []) }
-                            )
-                        } else {
-                            MenuImportConfigurationControl(
-                                itemID: item.id,
-                                itemName: item.displayName,
-                                quantity: itemQuantity,
-                                onDecrease: { decrease(item.id) },
-                                onConfigure: { configurationItem = item }
-                            )
-                        }
-                    }
                 }
-                .frame(minHeight: 44)
             }
         }
+    }
+
+    private func descriptionText(for item: MenuItemData) -> String? {
+        guard !item.description.isEmpty, item.description != "Automatisch importiert" else {
+            return nil
+        }
+        return item.description
     }
 
     private var selectionBar: some View {
@@ -369,11 +381,51 @@ private struct MenuImportCountButton: View {
     }
 }
 
+private struct MenuImportQuantityButton: View {
+    let systemImage: String
+    let accessibilityLabel: String
+    let accessibilityHint: String
+    let accessibilityIdentifier: String
+    var isDisabled = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Color.clear
+
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .bold))
+            }
+            .frame(
+                width: KitchenLinkV2GuestMenuMetrics.minimumTapTarget,
+                height: KitchenLinkV2GuestMenuMetrics.minimumTapTarget
+            )
+            .contentShape(Rectangle())
+        }
+        .frame(
+            width: KitchenLinkV2GuestMenuMetrics.minimumTapTarget,
+            height: KitchenLinkV2GuestMenuMetrics.minimumTapTarget
+        )
+        .contentShape(Rectangle())
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(accessibilityHint)
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
 struct MenuImportCompactQuantityControl: View {
     let quantity: Int
     var accessibilityContext: String? = nil
     var addAccessibilityLabel: String = "Hinzufügen"
+    var addAccessibilityIdentifier: String? = nil
     var canIncrease: Bool = true
+    var identifierPrefix: String = "menuPreview.quantity"
     let onDecrease: () -> Void
     let onIncrease: () -> Void
 
@@ -394,10 +446,16 @@ struct MenuImportCompactQuantityControl: View {
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                .frame(width: 44, height: 44)
+                .frame(
+                    width: KitchenLinkV2GuestMenuMetrics.minimumTapTarget,
+                    height: KitchenLinkV2GuestMenuMetrics.minimumTapTarget
+                )
                 .contentShape(Rectangle())
             }
-            .frame(width: 44, height: 44)
+            .frame(
+                width: KitchenLinkV2GuestMenuMetrics.minimumTapTarget,
+                height: KitchenLinkV2GuestMenuMetrics.minimumTapTarget
+            )
             .buttonStyle(.plain)
             .disabled(!canIncrease)
             .foregroundStyle(KitchenLinkV2Palette.Content.primary)
@@ -405,16 +463,26 @@ struct MenuImportCompactQuantityControl: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel(addAccessibilityLabel)
             .accessibilityHint(accessibilityHint)
+            .accessibilityIdentifier(
+                addAccessibilityIdentifier ?? "\(identifierPrefix).add"
+            )
         } else {
             HStack(spacing: 0) {
-                quantityButton(systemImage: "minus", label: "Entfernen", action: onDecrease)
+                quantityButton(
+                    systemImage: "minus",
+                    label: "Entfernen",
+                    identifierSuffix: "decrease",
+                    action: onDecrease
+                )
                 Text("\(quantity)")
                     .font(KitchenLinkV2Typography.primaryLine)
                     .frame(minWidth: 32)
                     .kitchenLinkV2TabularNumbers()
+                    .accessibilityIdentifier("\(identifierPrefix).value")
                 quantityButton(
                     systemImage: "plus",
                     label: "Hinzufügen",
+                    identifierSuffix: "increase",
                     isDisabled: !canIncrease,
                     action: onIncrease
                 )
@@ -434,19 +502,18 @@ struct MenuImportCompactQuantityControl: View {
     private func quantityButton(
         systemImage: String,
         label: String,
+        identifierSuffix: String,
         isDisabled: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .bold))
-                .frame(width: 44, height: 44)
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
-        .accessibilityLabel(label)
-        .accessibilityHint(accessibilityHint)
+        MenuImportQuantityButton(
+            systemImage: systemImage,
+            accessibilityLabel: label,
+            accessibilityHint: accessibilityHint,
+            accessibilityIdentifier: "\(identifierPrefix).\(identifierSuffix)",
+            isDisabled: isDisabled,
+            action: action
+        )
     }
 
     private var accessibilityHint: String {
@@ -464,30 +531,27 @@ private struct MenuImportConfigurationControl: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Button(action: onDecrease) {
-                Image(systemName: "minus")
-                    .font(.system(size: 14, weight: .bold))
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Entfernen")
-            .accessibilityHint("Verringert die Menge für \(itemName)")
-            .accessibilityIdentifier("menuPreview.configure.\(itemID).decrease")
+            MenuImportQuantityButton(
+                systemImage: "minus",
+                accessibilityLabel: "Entfernen",
+                accessibilityHint: "Verringert die Menge für \(itemName)",
+                accessibilityIdentifier: "menuPreview.configure.\(itemID).decrease",
+                action: onDecrease
+            )
 
             Text("\(quantity)")
                 .font(KitchenLinkV2Typography.primaryLine)
                 .frame(minWidth: 28)
                 .kitchenLinkV2TabularNumbers()
+                .accessibilityIdentifier("menuPreview.configure.\(itemID).value")
 
-            Button(action: onConfigure) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .bold))
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Weitere Auswahl hinzufügen")
-            .accessibilityHint("Auswahl für \(itemName) öffnen")
-            .accessibilityIdentifier("menuPreview.configure.\(itemID).increase")
+            MenuImportQuantityButton(
+                systemImage: "plus",
+                accessibilityLabel: "Weitere Auswahl hinzufügen",
+                accessibilityHint: "Auswahl für \(itemName) öffnen",
+                accessibilityIdentifier: "menuPreview.configure.\(itemID).increase",
+                action: onConfigure
+            )
         }
         .foregroundStyle(KitchenLinkV2Palette.Content.primary)
         .background(
@@ -821,6 +885,7 @@ private struct MenuImportConfigurationSheet: View {
                 quantity: count,
                 accessibilityContext: option.name,
                 canIncrease: selectedCount(in: group) < group.maximumSelections,
+                identifierPrefix: "menuPreview.configuration.quantity.\(option.id)",
                 onDecrease: { changeRepeatCount(for: option, in: group, delta: -1) },
                 onIncrease: { changeRepeatCount(for: option, in: group, delta: 1) }
             )
@@ -958,6 +1023,7 @@ private struct MenuImportSelectionSheet: View {
                                 MenuImportCompactQuantityControl(
                                     quantity: line.quantity,
                                     accessibilityContext: item.displayName,
+                                    identifierPrefix: "menuPreview.cart.quantity.\(line.id)",
                                     onDecrease: { decrease(line.id) },
                                     onIncrease: { increase(line.id) }
                                 )

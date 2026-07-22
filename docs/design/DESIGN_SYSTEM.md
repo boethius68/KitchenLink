@@ -143,6 +143,8 @@ erst bei wachsender Warteschlange oder Ausfall des Venue-Hubs.
 | Bereich | Bricolage | 20 | 700 |
 | Kompakter Bereich | Bricolage | 16 | 700 |
 | Primaerzeile | Source Sans 3 | 17 | 600 |
+| Speisename | Source Sans 3 | 20 | 700 |
+| Speisekartenpreis | Source Sans 3 | 16 | 600 |
 | Sekundaerzeile | Source Sans 3 | 15 | 400 |
 | Meta Minimum | Source Sans 3 | 13 | 600 |
 | Primaerbutton | Source Sans 3 | 16 | 700 |
@@ -189,9 +191,33 @@ Vergroesserung wachsen statt Text abzuschneiden.
 - Restaurantname, Logo oder Bild fuehren den Kopf.
 - KitchenLink erscheint nur als kleine Vertrauenssignatur.
 - Mengensteuerungen sind traubenbasiert und mindestens 44 Punkte gross.
-- Speise und Preis fuehren jede Menuezeile. Im Nullzustand sitzt nur ein klein
-  gezeichneter runder Plus-Button neben dem Preis; Varianten oeffnen sich erst
-  nach dessen Aktivierung und erzeugen keine eigene `Auswaehlen`-Zeile.
+- Der Speisename ist das dominante Element jeder Menuezeile. Der Preis bleibt
+  sofort auffindbar, ist aber kleiner und leichter als der Name;
+  Deklarationssymbole sind die dritte Hierarchiestufe. Alle Kennzeichnungen
+  eines Gerichts werden vollstaendig gezeigt — die Symbolzeile bricht bei
+  Platzmangel um, statt Angaben hinter einem Sammelindikator wie `+N` zu
+  verbergen. Das ist eine rechtliche Anforderung der Lebensmittel-
+  kennzeichnung, keine gestalterische Option.
+- Die Kennzeichnungen sind bewusst zurueckhaltend: monochrome Umriss-Symbole
+  in der gedaempften Textfarbe, ohne farbige Badges, gefuellte Kaesten oder
+  Rahmen. Gruppenfarbe (Allergen, Zusatzstoff …) erscheint erst in den
+  Detailansichten. Die Symbole sind sichtbar, ziehen aber keine
+  Aufmerksamkeit von Name, Preis und Bestellaktion ab.
+- Die Symbole stehen im Fluss der Beschreibung, nicht in einer eigenen Zeile:
+  sie schliessen als leiser Nachsatz an den Beschreibungstext an und brechen
+  mit ihm gemeinsam um. Fehlt eine Beschreibung, bilden sie eine kurze
+  gedaempfte Zeile unter dem Namen. Ein abgesetzter Icon-Streifen unter dem
+  Gericht ist ausdruecklich unerwuenscht (penetrant und formwidrig).
+- Der gesamte Symbol-Nachsatz ist ein einziges Tap-Ziel und oeffnet eine
+  gruppierte Klartextliste aller Kennzeichnungen des Gerichts; ein
+  Listeneintrag fuehrt zur ausfuehrlichen Erklaerung. Einzelne Symbole sind in
+  der Gastzeile nicht separat antippbar. Betreiberansichten (Review, Editor)
+  behalten die farbigen Badges mit Einzel-Tap. Die Mengensteuerung sitzt bei
+  belegtem Warenkorb in einer eigenen rechtsbuendigen Zeile.
+- Im Nullzustand sitzt nur ein klein gezeichneter runder Plus-Button neben dem
+  Preis; Varianten oeffnen sich erst nach dessen Aktivierung und erzeugen keine
+  eigene `Auswaehlen`-Zeile. Plus und Minus reagieren jeweils auf ihre gesamte
+  rechteckige 44-Punkt-Touchflaeche, nicht nur auf das sichtbare Zeichen.
 - Deklarationssymbole zeigen nur das Piktogramm. Interne Quellcodes bleiben aus
   Icon, Detail, Sammelliste und Sprachausgabe entfernt; der Tap zeigt
   stattdessen Bedeutung, Gruppe und kurze Erlaeuterung.

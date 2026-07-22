@@ -2,8 +2,50 @@
 
 **Updated:** 22 July 2026
 **Branch:** `main`
-**Status:** Dichte, gerichtszentrierte Gast-Speisekarte in iOS und Gast-Web
-umgesetzt; Quellcodes sind gastseitig vollstaendig entfernt
+**Status:** Speisename fuehrt die Gastkarte klar vor Preis und Deklarationen;
+Mengenbuttons besitzen eine vollflaechige 44-Punkt-Treffzone
+
+## Latest Continuation (22. Juli 2026, Speise zuerst + Minus-Treffzone)
+
+- Die bisher nur behauptete `dish-first`-Hierarchie ist jetzt metrisch im Code
+  verankert: Speisename 20 Punkte/bold, Preis 16 Punkte/semibold. Der rechte
+  Preis-/Plus-Cluster bleibt ungekürzt; nur lange Namen umbrechen.
+- Pro Zeile erscheinen hoechstens zwei 22-Punkt-Deklarationssymbole. Weitere
+  Kennzeichnungen landen in einem neutralen `+N`; die bedienbaren Flaechen
+  bleiben trotz der kleineren Optik 44 Punkte gross.
+- Ursache des kleinen Minus-Treffers war bestaetigt: Die 44-Punkt-Frames der
+  `plain` SwiftUI-Buttons enthielten keine vollflaechige Form. Ein gemeinsamer
+  `MenuImportQuantityButton` verwendet nun `Color.clear`, rechteckige
+  `contentShape` und einen 44-Punkt-Button fuer Minus und Plus.
+- Derselbe Helper deckt einfache und konfigurierte Hauptzeilen, wiederholbare
+  Optionen im Konfigurationssheet und den Warenkorb ab. Das Web setzt die
+  Stepper-Buttons explizit auf 44 x 44 Pixel und verhindert eine Ueberlagerung
+  durch die Deklarationsleiste.
+- Der UI-Smoke startet ueber eine isolierte UserDefaults-Suite immer mit der
+  deterministischen Demokarte. Er erhoeht auf Menge 2 und tippt das Minus
+  zweimal bewusst am linken Rand: `2 -> 1 -> entfernt`.
+
+## Verification (Speise zuerst + Minus-Treffzone)
+
+- Gast-Web: Typecheck, Lint, **86/86 Tests** und Produktions-Build:
+  **bestanden**. Der neue Cart-Test deckt `2 -> 1 -> entfernt` sowie den
+  unbekannten Artikel ab.
+- Read-only Gegenpruefungen bestaetigen fuer 320-Punkt-Breite ausreichend
+  Platz fuer zwei Icons, `+N` und Stepper sowie die vollflaechige Verwendung
+  des nativen Quantity-Helpers in allen aktuellen Pfaden.
+- `git diff --check`: **bestanden**.
+- Der native Xcode-/UI-Testlauf und die lokale Browser-Ansicht konnten in
+  dieser Session nicht gestartet werden: Das Codex-Freigabekontingent lehnte
+  sowohl CoreSimulator als auch den lokalen Dev-Server vor Ausfuehrung ab.
+  Dies ist als offene Verifikation dokumentiert, nicht als bestandener Test.
+
+## Remaining Risk (Speise zuerst + Minus-Treffzone)
+
+- Der neue native Randtap-Smoke muss beim naechsten verfuegbaren
+  CoreSimulator-Lauf ausgefuehrt werden; die Swift-Struktur wurde statisch
+  gegengeprueft, aber nicht als Build-Erfolg ausgegeben.
+- Die komplexeren Piktogramme benoetigen bei 22 Punkten noch die subjektive
+  Simulator-/Geraeteabnahme. Das aktualisierte Gast-Web ist nicht deployt.
 
 ## Latest Continuation (22. Juli 2026, Gastkarten-Hierarchie)
 

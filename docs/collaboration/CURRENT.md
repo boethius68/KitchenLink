@@ -5,13 +5,31 @@
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
 **Latest material integration:** The current iOS preview and guest web now use
-a dense, dish-first menu: declarations are limited to three 26-point visual
-badges plus `+N` in one accessory row and every unselected item has only a
-small circular plus beside the price. Configurable dishes open their focused
+a genuinely dish-first menu: the 20-point bold dish name leads, the 16-point
+price remains clear but secondary. **Every** declaration of an item is shown —
+the pictograms wrap onto additional lines instead of truncating to a `+N`
+indicator, which was identified as incompatible with food-labeling
+requirements and is now a recorded decision. The declarations are
+deliberately quiet: small monochrome outline pictograms in the muted text
+colour (no coloured badges or boxes) that sit **in the flow of the
+description** — trailing the description text as a quiet continuation and
+wrapping with it, not as a separate strip below the item (an own icon row was
+rejected as obtrusive and against the item's form). The whole pictogram run
+is a single tap target that opens a grouped clear-text list of all
+declarations; group colour and detail appear only there. This balances legal
+completeness against the fact that allergen info is secondary for most
+guests. Every unselected item has only a small circular plus beside the
+price; the stepper, once an item is in the cart, sits on its own right-aligned
+line. Configurable dishes open their focused
 choice sheet from that plus instead of displaying a wide `Auswählen` action;
 generic `Variante`/`Option` headings remain suppressed. Declaration badges and
 guest details no longer expose source-menu letter/number codes, while a
 dedicated wine-glass pictogram replaces the generic alcohol speech bubble.
+Every quantity minus/plus now uses a shared full-surface 44-point hit target,
+including configured rows and the selection sheet. The deterministic sandbox
+demo card now covers the full guest-menu scope (all declaration groups incl.
+alcohol, a fully declared 11-icon reference dish, required and optional
+choice groups, repeatable extras, `per_person` pricing).
 The cart keeps each configuration separately and shows only the guest-facing
 choice names. New V2 publish/order RPCs preserve
 option groups, free-choice allowances and repeatable quantities, then calculate
@@ -106,11 +124,19 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   draft-native review directly instead of detouring through the duplicate old
   review.
 - The review and guest preview show food/drink/total counts and dense menu rows.
-  Declaration visuals are 26 points, limited to three plus `+N`, while their
-  touch targets remain accessible. Every unselected row uses a small circular
-  plus at the price; configurable dishes open a focused selection sheet from
-  it and then use configured cart lines. Generic variant/option labels are
-  omitted.
+  The dish name uses a dedicated 20-point bold role; price uses a distinct
+  16-point role. Declaration visuals are 18-point monochrome outline glyphs in
+  the muted text colour, embedded in the flow of the description (words and
+  glyphs share one wrapping secondary line via `KitchenLinkV2WrappingRow` in
+  iOS / inline glyphs in the guest web), never truncated. The whole pictogram
+  run is one tap target opening a grouped clear-text list
+  (`FoodDeclarationListView` in iOS, `FoodDeclarationListDialog` in the guest
+  web); coloured badges with per-icon tap remain only in the operator
+  review/editor. Every unselected
+  row uses a small circular plus at the price; configurable dishes open a
+  focused selection sheet from it and then use configured cart lines. All
+  quantity buttons use their complete 44-point rectangle. Generic
+  variant/option labels are omitted.
 - The food-declaration catalog now distinguishes the complete 14-item EU
   allergen set from German additive statements, consumer notices and dynamic
   E numbers. Source legends take precedence over non-standard house codes;

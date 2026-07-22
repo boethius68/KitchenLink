@@ -87,6 +87,10 @@ export const sandboxVenues: GuestVenue[] = [
         description: "Crème fraîche, Zwiebeln und geräucherter Speck",
         priceCents: 1150,
         kind: "food",
+        allergens: resolveAllergens(
+          ["a", "g", "konserviert", "nitritpoekelsalz", "geschmacksverstaerker", "phosphat"],
+          null,
+        ),
       },
       {
         id: "kaesespaetzle",
@@ -95,15 +99,21 @@ export const sandboxVenues: GuestVenue[] = [
         description: "Bergkäse, Röstzwiebeln und kleiner Blattsalat",
         priceCents: 1490,
         kind: "food",
+        allergens: resolveAllergens(["a", "c", "g"], null),
       },
       {
+        // Volldeklariertes Referenzgericht der Sandbox: acht Kennzeichnungen
+        // aus mehreren Gruppen erzwingen den Zeilenumbruch der Symbole.
         id: "wiener-schnitzel",
         name: "Wiener Schnitzel",
         tag: "beliebt",
         description: "Kartoffel-Gurken-Salat und Preiselbeeren",
         priceCents: 2180,
         kind: "food",
-        allergens: resolveAllergens(["a", "c", "g"], null),
+        allergens: resolveAllergens(
+          ["a", "c", "g", "i", "j", "l", "farbstoff", "konserviert"],
+          null,
+        ),
         variants: [
           {
             id: "schnitzel-pommes",
@@ -141,6 +151,7 @@ export const sandboxVenues: GuestVenue[] = [
         description: "Rahmwirsing und Petersilienkartoffeln",
         priceCents: 2350,
         kind: "food",
+        allergens: resolveAllergens(["d", "g"], null),
       },
       {
         id: "apfelstrudel",
@@ -148,6 +159,7 @@ export const sandboxVenues: GuestVenue[] = [
         description: "Mit Vanillesauce und Schlagsahne",
         priceCents: 780,
         kind: "food",
+        allergens: resolveAllergens(["a", "g", "h", "l"], null),
       },
       {
         id: "hauslimonade",
@@ -162,7 +174,7 @@ export const sandboxVenues: GuestVenue[] = [
         description: "0,5 l, naturtrüb",
         priceCents: 450,
         kind: "drink",
-        allergens: resolveAllergens(["13"], null),
+        allergens: resolveAllergens(["a", "13"], null),
       },
     ],
   },

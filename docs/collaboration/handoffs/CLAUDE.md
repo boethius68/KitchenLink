@@ -1,9 +1,26 @@
 # Claude Code Handoff
 
-**Updated:** 21 July 2026 (Session-Teil 17: Allergen-Legende-Fix + manueller Editor)
-**Zuvor:** 19 July 2026 (Nacht)
+**Updated:** 23 July 2026 (Session-Teil 20: Piktogramme im Beschreibungsfluss)
+**Zuvor:** 23 July 2026 (Session-Teil 19: ruhige Deklarationszeile)
 **Branch:** `main` (Main-Only-Modus seit 19. Juli 2026, `DECISIONS.md`)
-**Status:** Zwei Straenge in dieser Session: (1) Scan-zu-Publish-Bruecke
+**Status:** Session-Teil 20: Der eigene Piktogramm-Streifen unten ist entfernt.
+Die Symbole stehen jetzt im Fluss der Beschreibung (leiser Nachsatz, bricht
+mit dem Text um; ohne Beschreibung kurze Zeile unter dem Namen). Der
+Symbol-Nachsatz bleibt ein Tap-Ziel → Klartextliste. Die Mengensteuerung sitzt
+bei belegtem Warenkorb in einer eigenen rechtsbündigen Zeile. Entscheidung
+„Quiet Declaration Row" in `DECISIONS.md` entsprechend aktualisiert. Details
+unten in Teil 20.
+
+Teil 19: Die Deklarationszeile wurde ruhig/monochrom (keine farbigen
+Badges/Kästen), Einzel-Tap je Symbol nur noch in Betreiberansichten. Teil 20
+baut darauf auf und verschiebt die Symbole in den Beschreibungsfluss.
+
+Teil 18: Die Zwei-Symbol-Kürzung der Deklarationen ist
+aus iOS und Gast-Web entfernt (gesetzliche Vorgabe, jetzt Entscheidung in
+`DECISIONS.md`); die Symbolzeile bricht um und zeigt alle Kennzeichnungen.
+Demokarte und Web-Fixture decken den vollen Speisekarten-Funktionsumfang ab.
+
+Zur Vorsession (Teil 10–17): (1) Scan-zu-Publish-Bruecke
 (KL-MENU-005) implementiert — Migration, Publish-Client/-Model/-Sheet,
 11 neue Tests, komplette Suite gruen; offen ist nur die reale Abnahme
 (SANDBOX_SETUP.md §6.2). (2) Nach dem Nutzerbefund zur Erkennungsqualitaet
@@ -26,6 +43,207 @@ KL-MENU-005 (§6.2). Details in Session-Teil 10 bis 12.
 Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
+
+## Session-Teil 20: Piktogramme im Beschreibungsfluss (23. Juli 2026)
+
+### Anlass und Scope
+
+Nutzer-Befund: Die Kennzeichnungen in einer eigenen Zeile unten wirken
+„penetrant und formwidrig". Nach Vorlage eines Vergleichs (eigener Streifen
+vs. im Fluss der Beschreibung, per Imagine-Widget) bestätigte der Nutzer „im
+Fluss der Beschreibung passt gut". Diese Session löst den eigenen Streifen auf.
+
+### Umgesetzt
+
+- **iOS `AllergenBadgesRow`** (`ContentView.swift`) um `leadingDescription:
+  String?` erweitert. Im `.compact`-Modus rendert `quietGuestRow` jetzt einen
+  gemeinsamen `KitchenLinkV2WrappingRow` aus **Beschreibungswörtern**
+  (`secondaryLine`, Content.secondary) **plus Glyphen** (Content.muted) — Text
+  und Symbole teilen sich einen umbrechenden Sekundärtext. Der ganze Block
+  bleibt ein Button → `FoodDeclarationListView`. Accessibility-Label =
+  Beschreibung + „Kennzeichnungen: …".
+- **`MenuImportGuestPreviewView.itemRow`**: den bisherigen
+  Deklarations-/Accessory-Streifen (HStack mit Glyphen + Stepper) entfernt.
+  Neu: wenn Deklarationen vorhanden → `AllergenBadgesRow(.compact,
+  leadingDescription:)` als kombinierte Sekundärzeile; sonst reine
+  Beschreibung. Die Mengensteuerung erscheint nur bei Menge>0 in einer eigenen
+  rechtsbündigen `HStack`-Zeile darunter. Neuer Helper `descriptionText(for:)`.
+- **Gast-Web `GuestMenuCard.tsx`**: die Glyphen sind jetzt ein inline
+  `<button class="kl-declaration-inline">` **innerhalb** des Beschreibungs-`<p>`
+  (direkt hinter dem Text; ohne Beschreibung ein eigenes `<p>` nur mit den
+  Symbolen). Der frühere `.kl-declaration-summary`-Block und der
+  `.kl-menu-row-accessories`-Streifen sind entfernt; der Stepper sitzt bei
+  Menge>0 in `.kl-menu-row-stepper` (rechtsbündig).
+- **`globals.css`**: `.kl-declaration-inline` (display:inline, muted,
+  margin-left) + `.kl-declaration-inline-glyph` (inline-block, 1rem,
+  vertical-align −0.18em, wrappt mit dem Text) + `.kl-menu-row-stepper`. Alte
+  `.kl-declaration-summary*`- und `.kl-menu-accessory-spacer`-Regeln raus.
+
+### Verifikation
+
+- **Gast-Web:** Typecheck, Lint, **87/87 Vitest**, Build (ISR 1 m) grün;
+  Konsole fehlerfrei. Browser 375 und 320 px bestätigt: die Symbole laufen
+  hinter dem Beschreibungstext weiter und brechen mit ihm um (Flammkuchen bei
+  320 px: „… geräucherter Speck 🌾 …" auf derselben Zeile); Käsespätzle im
+  Warenkorb zeigt Beschreibung+Symbole und darunter den eigenen rechtsbündigen
+  Stepper; Inline-Tap öffnet weiterhin die Klartextliste → Detail.
+- **iOS:** Build grün, `kitchenlinkTests`-Suite **232/0**. Beide UI-Tests
+  grün: `testGuestPreviewShowsEveryDeclarationOfAFullyDeclaredDish` (prüft
+  jetzt, dass das Tap-Ziel-Label sowohl die Beschreibung „Rind, Cheddar,
+  Haus-Sauce" als auch alle 11 Kennzeichnungen trägt → belegt die
+  Inline-Integration; Liste + Sesam-Detail wie zuvor) und
+  `MenuManualEditorUITests.testManualMenuEditorCoreFlow`. Dabei eine obsolete
+  Assertion korrigiert: die alte `frame.height >= 44`-Prüfung passte nicht
+  mehr zum Inline-Fluss (Ist-Höhe 43,9999… bei zweizeiligem Umbruch) und wurde
+  durch die Label-Prüfung ersetzt — konsistent mit dem Entscheidungsvermerk,
+  dass das Tap-Ziel jetzt die Textzeile ist. Visuelle simctl-Abnahme der
+  iOS-Gastvorschau weiterhin durch den Preview-Sheet-Tap-Quirk blockiert;
+  dieselbe Ansicht ist per grünem UI-Test abgedeckt und im Gast-Web identisch
+  visuell bestätigt.
+
+### Offen / Risiken
+
+- Gast-Web lokal verifiziert, nicht deployt (nächstes `main`-Deployment).
+- Sehr lange Beschreibungen: die frühere `lineLimit(2)`-Begrenzung entfällt im
+  Inline-Fluss (Wörter+Glyphen laufen voll aus). Bei den aktuellen Karten
+  unkritisch; ggf. später Wortliste kappen.
+- Tap-Ziel ist jetzt die Textzeile (kein erzwungenes 44-pt-Rechteck mehr);
+  bei mehrzeiligen Deklarationen deutlich über 44 pt, bei einzeiligen knapp
+  darunter — für einen sekundären Text-Affordance vertretbar.
+
+## Session-Teil 19: Ruhige Deklarationszeile (23. Juli 2026)
+
+### Anlass und Scope
+
+Nutzer-Vorgabe: Inhaltsstoffe/Allergene fallen weiterhin zu sehr ins Auge.
+Sie sind für die meisten Gäste nebensächlich — müssen sichtbar sein, sollen
+aber keine Aufmerksamkeit auf sich ziehen. Nach Vorlage von vier Varianten
+(laut → dezent, per Imagine-Widget) wählte der Nutzer **B mit Zeilen-Tap**:
+monochrome Symbole ohne Farbfläche, die ganze Zeile ein Tap-Ziel → Klartext-
+liste. Diese Session setzt genau das um.
+
+### Umgesetzt
+
+- **iOS `AllergenBadgesRow`** (`ContentView.swift`) in zwei Modi getrennt:
+  - `.compact` (Gast): `quietGuestRow` — nur `FoodDeclarationGlyphView` in
+    `Content.muted`, 18 pt, KEIN Badge/Box/Rahmen, `KitchenLinkV2WrappingRow`.
+    Die gesamte Zeile ist EIN `Button` (44 pt hoch, `contentShape`), öffnet
+    das neue `FoodDeclarationListView`. Accessibility-Label trägt alle
+    Klartexte; ID `foodDeclaration.row.<itemID>`.
+  - `.standard` (Betreiber): unverändert farbige `AllergenBadgeView` mit
+    Einzel-Tap → `FoodDeclarationDetailView`.
+- **`FoodDeclarationGlyphView`** um `color`-Parameter erweitert (Default
+  `.primary`); alle Canvas-Striche und die SF-Symbol-Fälle respektieren ihn,
+  damit die Gastzeile gedämpft und die Detailansicht farbig zeichnen kann.
+- **`FoodDeclarationListView`** (neu): gruppierte Klartextliste (nach
+  `FoodDeclarationGroup`), Eintrag → `FoodDeclarationDetailView`; ersetzt in
+  der Gastzeile die frühere `AllergenLegendView` funktional. Item-IDs
+  `foodDeclaration.list.<code>`.
+- **`declarationVisualSize`** 22 → 18 pt (kleiner, da ohne Box).
+- **Gast-Web `GuestMenuCard.tsx`:** die per-Icon-`<button>`-Liste durch EINE
+  `.kl-declaration-summary`-Schaltfläche ersetzt (monochrome 18px-Glyphen in
+  `--kl-text-muted`, `flex-wrap`); `FoodDeclarationListDialog` (Liste →
+  Detail) wiederhergestellt. `globals.css`: neue ruhige Row-Styles, die
+  Gruppenfarb-Klassen (`kl-allergen-badge-*`) gelten nur noch in Listen-/
+  Detaildialog; Listen-Styles zurück.
+- **UI-Tests umgestellt:** `testGuestPreviewShowsEveryDeclarationOfAFully…`
+  tippt jetzt die Zeile `foodDeclaration.row.f-burger`, prüft das
+  Sammel-Label und alle 11 Einträge in der geöffneten Liste plus einen
+  Detail-Drilldown (Sesam). `MenuManualEditorUITests` analog auf Zeile →
+  Liste → Detail.
+
+### Verifikation
+
+- **Gast-Web:** Typecheck, Lint, **87/87 Vitest** grün. Browser 375 und
+  320 px: Zeile jetzt ruhig-monochrom (Wiener Schnitzel: 8 Symbole als eine
+  Fußnotenzeile statt farbiger Kästen), Zeilen-Tap öffnet Klartextliste,
+  Eintrag → Detail, Konsole fehlerfrei. Screenshot bei 320 px bestätigt die
+  deutlich reduzierte Präsenz gegenüber den vorherigen farbigen Badges.
+- **iOS:** Build grün; komplette `kitchenlinkTests`-Suite **233/0/2**
+  (Katalog-/SF-Symbol-Tests aus Teil 18 unverändert grün). Native UI-Tests
+  **beide grün**: `testGuestPreviewShowsEveryDeclarationOfAFullyDeclaredDish`
+  (tippt die Zeile `foodDeclaration.row.f-burger`, prüft Sammel-Label + alle
+  11 Listeneinträge + Sesam-Detail) und
+  `MenuManualEditorUITests.testManualMenuEditorCoreFlow` (Zeile → Liste →
+  Gluten-Detail). Visuelle simctl-Abnahme der iOS-Gastzeile blieb an einem
+  Tap-Quirk des Vorschau-Sheets hängen (Sheet öffnet/schließt unter direktem
+  simctl-Tap); dieselbe Ansicht ist aber durch den grünen UI-Test abgedeckt,
+  und die identische ruhige Zeile ist im Gast-Web visuell bestätigt.
+
+### Offen / Risiken
+
+- Gast-Web lokal verifiziert, nicht deployt (nächstes `main`-Deployment).
+- Subjektive Geräteabnahme der ruhigen Zeile beim Nutzer.
+- Betreiberansichten behalten bewusst farbige Badges (Arbeitsinformation).
+
+## Session-Teil 18: Vollständige Deklarationsanzeige (23. Juli 2026)
+
+### Anlass und Scope
+
+Nutzer-Vorgabe: Die Begrenzung auf höchstens zwei Deklarationssymbole pro
+Menüzeile (Codex' unkommitteter „Speise zuerst"-Stand) ist mit den
+gesetzlichen Kennzeichnungsvorgaben unvereinbar und musste entfernt werden.
+Zusätzlich soll die Testkarte den vollen Funktionsumfang der digitalen
+Speisekarte abdecken. Diese Session baut AUF dem unkommitteten Codex-Stand
+auf (dish-first-Hierarchie, 44-Punkt-Quantity-Helper bleiben erhalten) und
+ersetzt nur die Kürzungslogik.
+
+### Umgesetzt
+
+- **iOS:** `AllergenBadgesRow` zeigt jetzt ALLE Deklarationen; neues
+  `KitchenLinkV2WrappingRow`-Layout (SwiftUI `Layout`) bricht die Symbolzeile
+  um, statt zu kürzen. `+N`-Button, `maxVisible`-Parameter, die Metrik
+  `maximumVisibleDeclarations` und die dadurch tote `AllergenLegendView`
+  sind entfernt. Jedes Symbol bleibt einzeln antippbar (44-Punkt-Ziel).
+- **Gast-Web:** `slice(0, 2)` + `+N`-Button + `FoodDeclarationListDialog`
+  entfernt; `.kl-allergen-row` ist `flex-wrap: wrap`. Zugehörige tote
+  CSS-Blöcke (`kl-allergen-more`, `kl-declaration-list*`) entfernt.
+- **Echter Fund dabei:** Das Konservierungsstoff-Piktogramm war in iOS
+  unsichtbar — `jar.fill` existiert nicht als SF Symbol, `Image(systemName:)`
+  rendert dann leer. Jetzt als Canvas-Einmachglas gezeichnet (spiegelt das
+  Gast-Web-SVG); ein neuer Unit-Test prüft alle verwendeten SF-Symbol-Namen
+  auf Existenz.
+- **Zweiter Fund (Gast-Web-Konfigurationsdialog):** Bei wiederholbaren
+  Optionen überlappten Optionsname und „danach +X €" bei 375 px. Name und
+  Preishinweis stapeln sich jetzt vertikal (`kl-choice-counter-info`).
+- **Volltest-Karten:** Die deterministische iOS-Demokarte
+  (`DemoMenuFactory`) deckt jetzt den vollen Umfang ab: alle
+  Deklarationsgruppen (14er-Allergene, Zusatzstoffe, Verbraucherhinweise,
+  Alkohol via neuer Sektion „Bier & Wein"), ein volldeklariertes
+  Referenzgericht (Cheeseburger, 11 Kennzeichnungen → erzwungener Umbruch),
+  Pflicht-Einfachwahl (Schnitzel-Beilage), wiederholbare Extras
+  (Burger-Extras), Portionsgröße (Limonade) und `per_person`
+  (Überraschungsmenü). Gast-Web-Fixture analog angereichert (Schnitzel als
+  8-Icon-Referenz, Radler `a,13`); Fixture-Test sichert das dauerhaft ab.
+- **Doku:** Neue Entscheidung „Complete Declaration Display" in
+  `DECISIONS.md`; `DESIGN_SYSTEM.md` und `CURRENT.md` nachgezogen.
+
+### Verifikation
+
+- Gast-Web: Typecheck, Lint, **87/87 Vitest**, Produktions-Build (ISR 1 m
+  unverändert): **bestanden**. Browser 375×812 und 320×844: alle Symbole
+  sichtbar, Umbruch auf 2–3 Zeilen, Stepper stabil rechts, Detail- und
+  Konfigurationsdialog geprüft, Konsole ohne Fehler.
+- iOS: Simulator-Build **bestanden**; komplette `kitchenlinkTests`-Suite auf
+  dem Endstand **232 bestanden / 0 fehlgeschlagen / 2 bewusst übersprungen**
+  (inkl. neuer Tests: Katalog liefert 20/20 Deklarationen ungekürzt,
+  SF-Symbol-Existenz). Gezielte UI-Tests: Codex' Randtap-Smoke
+  `testGuestPreviewUsesCountersAndCompactQuantityControl` **bestanden**
+  (damit ist dessen offene CoreSimulator-Verifikation erledigt) und neuer
+  `testGuestPreviewShowsEveryDeclarationOfAFullyDeclaredDish` **bestanden**
+  (alle 11 Burger-Kennzeichnungen einzeln vorhanden). Simulator-Screenshots
+  bestätigen Umbruch und das reparierte Einmachglas visuell.
+
+### Offen / Risiken
+
+- Das aktualisierte Gast-Web ist lokal verifiziert, aber nicht deployt; die
+  öffentliche Sandbox erhält den Stand erst mit dem nächsten
+  `main`-Deployment (Hostinger zieht von `main`).
+- Die Demokarten-Anreicherung ist Sandbox-Testinhalt; sie behauptet keine
+  rechtliche Vollständigkeit realer Karten. Betreiber bleiben für Stoff,
+  Schwellenwert und Wortlaut verantwortlich.
+- Subjektive Designabnahme der umbrechenden Symbolzeile auf echtem Gerät
+  liegt beim Nutzer.
 
 ## Session-Teil 17: Allergen-Legende aus dem Bild + manueller Karten-Editor
 
