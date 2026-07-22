@@ -3,7 +3,28 @@
 **Updated:** 22 July 2026
 **Branch:** `main`
 **Status:** Semantische Icon-Kollektion fuer Allergene und Zusatzstoffe in iOS
-und Gast-Web integriert; Build, Tests, UI-End-to-End und visuelle Pruefung gruen
+und Gast-Web integriert; Zentrierungsfix verifiziert, Build, Tests, UI-End-to-End
+und visuelle Pruefung gruen
+
+## Latest Continuation (22. Juli 2026, Icon-Ausrichtung)
+
+- Nutzerfeedback bestaetigt: Die Piktogramme sassen im nativen Badge unten in
+  der gemeinsamen `ZStack`-Ausrichtung und wirkten dadurch verkleinert und
+  unausgewogen.
+- `FoodDeclarationGlyphView` verwendet jetzt eine zentrierte `ZStack`.
+  `AllergenBadgeView` richtet das Symbol ebenfalls zentriert aus und legt den
+  kurzen Quellcode separat als `bottomTrailing`-Overlay dar.
+- Die Web-Badges waren bereits geometrisch zentriert; die mobile Browserpruefung
+  bestaetigt die gleiche optische Mitte und unveraenderte 44-Punkt-Touchziele.
+
+## Verification (Icon-Ausrichtung)
+
+- Gezielter `FoodDeclarationCatalogTests`-Lauf: **6/6 bestanden**.
+- Gezielter `MenuManualEditorUITests.testManualMenuEditorCoreFlow`: **bestanden**.
+- Die exportierten iOS-Screenshots zeigen das kleine Aehren-Symbol im Badge und
+  im Detaildialog mittig, waehrend der Code sauber unten rechts bleibt.
+- Gast-Web bei 390 x 844: **visuell bestanden**; Symbole und Formeln sitzen
+  mittig im Rahmen.
 
 ## Latest Continuation (22. Juli 2026, KL-MENU-007)
 

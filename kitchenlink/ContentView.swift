@@ -1335,7 +1335,7 @@ struct AllergenBadgeView: View {
     var size: CGFloat = 36
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(definition.tint.opacity(0.14))
                 .overlay {
@@ -1345,7 +1345,8 @@ struct AllergenBadgeView: View {
 
             FoodDeclarationGlyphView(glyph: definition.glyph, size: size * 0.61)
                 .foregroundStyle(.primary)
-
+        }
+        .overlay(alignment: .bottomTrailing) {
             if let shortCode = definition.shortDisplayCode {
                 Text(shortCode)
                     .font(.system(size: min(9, max(7, size * 0.21)), weight: .black, design: .rounded))
@@ -1353,6 +1354,7 @@ struct AllergenBadgeView: View {
                     .padding(3)
             }
         }
+
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(definition.title), Code \(definition.code.uppercased())")

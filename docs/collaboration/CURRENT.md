@@ -106,6 +106,9 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   former numeric 1–14 codes remain read-compatible but are not presented as a
   universal legal code system. Every compact icon opens a clear-text detail in
   the iOS guest preview and guest web.
+- The native badge geometry keeps the pictogram centered and renders the short
+  source code separately in the lower-right corner. This preserves the compact
+  code-native collection without the former bottom-corner drift.
 - Research scope, mapping rules, sources and the legal display boundary are
   documented in `docs/discovery/food-declarations/ICON_CATALOG_RESEARCH.md`.
 - Structured price basis now survives payload mapping, draft review, human

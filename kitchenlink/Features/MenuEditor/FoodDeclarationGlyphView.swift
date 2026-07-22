@@ -17,7 +17,7 @@ struct FoodDeclarationGlyphView: View {
     var size: CGFloat = 24
 
     var body: some View {
-        Group {
+        ZStack {
             switch glyph {
             case .sulfite:
                 formula("SO₂")
@@ -213,7 +213,7 @@ private struct FoodPictogramCanvas: View {
                 ellipse(CGRect(x: 14, y: 4, width: 5.5, height: 4.5), filled: true)
                 line([CGPoint(x: 6.5, y: 21), CGPoint(x: 17.5, y: 21)])
             case .mustard:
-                var jar = Path(roundedRect: CGRect(x: 5, y: 6.5, width: 14, height: 14), cornerRadius: 3)
+                let jar = Path(roundedRect: CGRect(x: 5, y: 6.5, width: 14, height: 14), cornerRadius: 3)
                 context.stroke(jar, with: .color(.primary), style: stroke)
                 line([CGPoint(x: 7, y: 3.5), CGPoint(x: 17, y: 3.5), CGPoint(x: 18, y: 6.5), CGPoint(x: 6, y: 6.5), CGPoint(x: 7, y: 3.5)])
                 ellipse(CGRect(x: 9, y: 10.5, width: 6, height: 6), filled: true)
