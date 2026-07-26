@@ -46,7 +46,7 @@ struct MenuImportPromptDeltaTests {
         try withDeltas("none") {
             let prompt = MenuImportExtractionPrompt.systemPrompt
             #expect(MenuImportExtractionPrompt.activeDeltas.isEmpty)
-            #expect(!prompt.contains("Use exactly these review codes"))
+            #expect(!prompt.contains("The \"code\" field must be exactly one of"))
             #expect(!prompt.contains("never ends in a declaration code run"))
             #expect(!prompt.contains("Set currency_code on every offer"))
             // The contract shape and the base rules must survive.
@@ -64,7 +64,8 @@ struct MenuImportPromptDeltaTests {
             let prompt = MenuImportExtractionPrompt.systemPrompt
             #expect(MenuImportExtractionPrompt.activeDeltas == [.currencyCode])
             #expect(prompt.contains("Set currency_code on every offer"))
-            #expect(!prompt.contains("Use exactly these review codes"))
+            #expect(!prompt.contains("The \"code\" field must be exactly one of"))
+            #expect(!prompt.contains("Never write a review reason as a bare string"))
             #expect(!prompt.contains("never ends in a declaration code run"))
             #expect(
                 MenuImportExtractionPrompt.resolvedVersion.hasSuffix("+currency_code")
@@ -74,6 +75,22 @@ struct MenuImportPromptDeltaTests {
 
     /// Every distinct delta selection must produce a distinct fingerprint, or a
     /// run archive cannot prove which prompt produced its numbers.
+    /// Measured regression: the first wording of this delta read as the value
+    /// shape, so the model emitted `review_reasons: ["missing_visible_price"]`
+    /// and one page failed contract mapping with a `typeMismatch` at
+    /// `sections[0].entries[0].reviewReasons[0]`. The vocabulary must stay
+    /// scoped to the `code` field and must state the object shape.
+    @Test("Vokabular ist auf das code-Feld begrenzt und nennt die Objektform")
+    func reviewCodeVocabularyScopesItselfToTheCodeField() throws {
+        try withDeltas("review_codes") {
+            let prompt = MenuImportExtractionPrompt.systemPrompt
+            #expect(prompt.contains("Never write a review reason as a bare string"))
+            #expect(prompt.contains("The \"code\" field must be exactly one of"))
+            #expect(prompt.contains("is not itself"))
+            #expect(prompt.contains("missing_visible_price"))
+        }
+    }
+
     @Test("Jede Delta-Auswahl hat einen eigenen Fingerprint")
     func fingerprintTracksDeltaSelection() throws {
         var fingerprints: Set<String> = []

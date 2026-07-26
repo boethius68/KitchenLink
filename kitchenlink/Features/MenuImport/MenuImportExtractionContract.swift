@@ -398,13 +398,28 @@ enum MenuImportExtractionPrompt {
 
     """
 
-    /// Delta `review_codes` (new in `1.0.4`).
+    /// Delta `review_codes` (new in `1.0.4`, reworded after measurement).
     ///
     /// Without it the model invents its own review codes and the review screen
     /// drops them, which is why `expectedReviewRecall` measured `0.143`.
+    ///
+    /// The first wording ("Use exactly these review codes:" followed by a
+    /// bulleted list) read as the *value shape*, so the model emitted
+    /// `review_reasons: ["missing_visible_price"]` instead of REVIEW_REASON
+    /// objects. One page then failed contract mapping with
+    /// `typeMismatch at sections[0].entries[0].reviewReasons[0]`, the document
+    /// dropped to zero entries, and the whole card fell back to local rules —
+    /// measured as `8.70` corrections per page against `1.00`. The list is now
+    /// explicitly scoped to the `code` field only.
     private static let reviewCodeVocabulary = """
-    Use exactly these review codes. They are what the operator's review screen
-    knows how to present; an unlisted code is dropped:
+    Every element of review_reasons stays a REVIEW_REASON object with all five
+    fields. Never write a review reason as a bare string and never replace the
+    object with its code.
+
+    The "code" field must be exactly one of the following values. They are what
+    the operator's review screen knows how to present; an unlisted value is
+    dropped. The text after each value explains when to use it and is not itself
+    part of the JSON:
     - missing_visible_price: the entry shows no price on this page.
     - source_declaration_meaning_unknown: a declaration code is used but no
       visible legend on this page explains it.
