@@ -33,6 +33,15 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
     @Published private(set) var isUpdatingOrder = false
     @Published private(set) var lastActionError: String?
 
+    enum OutboxSyncState: Equatable {
+        case idle
+        case syncing
+        case error(String)
+    }
+    @Published private(set) var outboxSyncState: OutboxSyncState = .idle
+    @Published private(set) var lastOutboxSync: Date?
+    @Published private(set) var pendingOutboxCount: Int = 0
+
     private let transport: any KitchenLinkCloudTransport
     private let store: KitchenLinkCloudCredentialStore
     /// Verbindungsdaten (URL/Anon-Key/Venue) sind in der Sandbox fest
@@ -40,19 +49,31 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
     /// technisches Einrichtungsformular mehr. Nur die Anmeldung (E-Mail +
     /// Passwort → Sitzung) wird zur Laufzeit hergestellt und gespeichert.
     private let config: KitchenLinkCloudConfig
-    private var session: KitchenLinkCloudSession?
+    /// Exposed so outbox sync can use the current session without duplicating
+    /// token refresh logic.
+    private(set) var session: KitchenLinkCloudSession?
     private var venue: KitchenLinkCloudVenue?
     private var localGuestURL: String?
     private var pollingTask: Task<Void, Never>?
     private var heartbeatTask: Task<Void, Never>?
+    private var outboxTask: Task<Void, Never>?
+    /// Called periodically while connected. The closure uses the model's
+    /// current config and session to push local events to the cloud.
+    /// Returns the number of acknowledged events, or nil if no repository
+    /// is available.
+    var onDrainOutbox: (@Sendable (KitchenLinkCloudConfig, KitchenLinkCloudSession) async -> Int?)?
 
     init(
         transport: any KitchenLinkCloudTransport = URLSessionKitchenLinkCloudTransport(),
         defaults: UserDefaults = .standard,
-        config: KitchenLinkCloudConfig = .sandboxDefault
+        config: KitchenLinkCloudConfig = .sandboxDefault,
+        secrets: any KitchenLinkSecretStore = KeychainSecretStore(service: "kitchenlink.cloud")
     ) {
         self.transport = transport
-        self.store = KitchenLinkCloudCredentialStore(defaults: defaults)
+        self.store = KitchenLinkCloudCredentialStore(
+            defaults: defaults,
+            secrets: secrets
+        )
         self.config = config
         self.session = store.loadSession()
     }
@@ -95,6 +116,7 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
         connectionState = .connecting
         startPolling(config: config)
         startHeartbeat(config: config)
+        startOutboxSync()
     }
 
     /// Einmalige Anmeldung mit dem Betreiber-Konto. URL, Anon-Key und Venue
@@ -119,6 +141,7 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
             store.save(session: freshSession)
             startPolling(config: config)
             startHeartbeat(config: config)
+            startOutboxSync()
             return true
         } catch {
             connectionState = .unreachable(Self.message(for: error))
@@ -135,6 +158,9 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
         venueName = nil
         orders = []
         connectionState = .signedOut
+        outboxSyncState = .idle
+        lastOutboxSync = nil
+        pendingOutboxCount = 0
     }
 
     /// Beendet Polling und Heartbeat. `clearPresence` räumt die lokale URL in
@@ -245,11 +271,44 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
         }
     }
 
+    static let outboxInterval: Duration = .seconds(5)
+
+    private func startOutboxSync() {
+        outboxTask?.cancel()
+        outboxTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self, let session = self.session else {
+                    try? await Task.sleep(for: Self.outboxInterval)
+                    continue
+                }
+                self.outboxSyncState = .syncing
+                do {
+                    if let acked = try await self.onDrainOutbox?(self.config, session) {
+                        self.lastOutboxSync = Date()
+                        self.outboxSyncState = .idle
+                        self.pendingOutboxCount = 0
+                    } else {
+                        self.outboxSyncState = .idle
+                    }
+                } catch {
+                    self.outboxSyncState = .error(error.localizedDescription)
+                }
+                do {
+                    try await Task.sleep(for: Self.outboxInterval)
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
     private func stopTasks() {
         pollingTask?.cancel()
         pollingTask = nil
         heartbeatTask?.cancel()
         heartbeatTask = nil
+        outboxTask?.cancel()
+        outboxTask = nil
     }
 
     private func sendHeartbeatNow() {

@@ -124,7 +124,8 @@ enum KitchenLinkMenuPublishPayload {
         let categories: [KitchenLinkPublishMenu.Category] = sections.compactMap { section in
             let items: [KitchenLinkPublishMenu.Item] = section.items.map { item in
                 let displayName = item.displayName
-                let slug = slugRegistry.unique(for: slugify(displayName))
+                let contentHint = "\(displayName)|\(item.description)|\(item.priceCents)"
+                let slug = slugRegistry.unique(for: slugify(displayName), itemHint: contentHint)
                 return KitchenLinkPublishMenu.Item(
                     slug: slug,
                     name: displayName,
@@ -230,23 +231,34 @@ enum KitchenLinkMenuPublishPayload {
             .filter { !$0.isEmpty }
     }
 
-    /// Hält vergebene Slugs fest und hängt bei Kollision `-2`, `-3`, … an.
+    /// Hält vergebene Slugs fest und hängt bei Kollision einen
+    /// deterministischen Hash-Suffix an (statt einer Positionsnummer), sodass
+    /// derselbe Artikel über mehrere Veröffentlichungen hinweg denselben Slug
+    /// behält.
     private struct SlugRegistry {
-        private var used: Set<String> = []
+        private var used: Set<String> = Set<String>()
 
-        mutating func unique(for base: String) -> String {
+        mutating func unique(for base: String, itemHint: String = "") -> String {
             if !used.contains(base) {
                 used.insert(base)
                 return base
             }
-            var suffix = 2
-            var candidate = "\(base)-\(suffix)"
-            while used.contains(candidate) {
-                suffix += 1
-                candidate = "\(base)-\(suffix)"
+            let tag = SlugRegistry.stableTag(for: itemHint)
+            var candidate = "\(base)-\(tag)"
+            var retries = 0
+            while used.contains(candidate), retries < 100 {
+                candidate = "\(base)-\(tag)-\(retries + 2)"
+                retries += 1
             }
             used.insert(candidate)
             return candidate
+        }
+
+        private static func stableTag(for input: String) -> String {
+            guard !input.isEmpty else { return "x" }
+            let hash = abs(input.hashValue)
+            let short = hash % 8999 + 1000
+            return String(short)
         }
     }
 }
@@ -425,5 +437,147 @@ final class KitchenLinkMenuPublishModel: ObservableObject {
             return serviceError.errorDescription ?? "Unbekannter Fehler."
         }
         return error.localizedDescription
+    }
+}
+
+// MARK: - Additive Menu Edit (KL-MENU-009)
+
+/// Schmales Transport-Protokoll für additive Menü-Änderungen (einzelne
+/// Artikel anlegen/bearbeiten/löschen ohne Vollersatz).
+protocol KitchenLinkMenuEditTransport: Sendable {
+    func upsertMenuItem(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        categoryName: String,
+        categoryKind: String,
+        item: KitchenLinkPublishMenu.Item
+    ) async throws -> String
+
+    func deleteMenuItem(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        itemSlug: String
+    ) async throws -> Bool
+
+    func setItemAvailability(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        itemSlug: String,
+        available: Bool,
+        availableFrom: Date?,
+        availableUntil: Date?
+    ) async throws -> Bool
+}
+
+extension URLSessionKitchenLinkCloudTransport: KitchenLinkMenuEditTransport {
+    func upsertMenuItem(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        categoryName: String,
+        categoryKind: String,
+        item: KitchenLinkPublishMenu.Item
+    ) async throws -> String {
+        struct UpsertBody: Encodable {
+            let p_venue_slug: String
+            let p_category_name: String
+            let p_category_kind: String
+            let p_item: KitchenLinkPublishMenu.Item
+        }
+        let bodyData = try JSONEncoder().encode(
+            UpsertBody(
+                p_venue_slug: venueSlug,
+                p_category_name: categoryName,
+                p_category_kind: categoryKind,
+                p_item: item
+            )
+        )
+        let data = try await rpcData(
+            config: config,
+            accessToken: session.accessToken,
+            function: "operator_upsert_menu_item",
+            bodyData: bodyData,
+            timeout: 15
+        )
+        guard let itemID = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"")),
+            !itemID.isEmpty else {
+            throw KitchenLinkCloudServiceError.invalidResponse
+        }
+        return itemID
+    }
+
+    func deleteMenuItem(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        itemSlug: String
+    ) async throws -> Bool {
+        struct DeleteBody: Encodable {
+            let p_venue_slug: String
+            let p_item_slug: String
+        }
+        let bodyData = try JSONEncoder().encode(
+            DeleteBody(p_venue_slug: venueSlug, p_item_slug: itemSlug)
+        )
+        let data = try await rpcData(
+            config: config,
+            accessToken: session.accessToken,
+            function: "operator_delete_menu_item",
+            bodyData: bodyData,
+            timeout: 15
+        )
+        guard let raw = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) else {
+            throw KitchenLinkCloudServiceError.invalidResponse
+        }
+        return raw == "true"
+    }
+
+    func setItemAvailability(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        itemSlug: String,
+        available: Bool,
+        availableFrom: Date?,
+        availableUntil: Date?
+    ) async throws -> Bool {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        struct AvailabilityBody: Encodable {
+            let p_venue_slug: String
+            let p_item_slug: String
+            let p_available: Bool
+            let p_available_from: String?
+            let p_available_until: String?
+        }
+
+        let bodyData = try JSONEncoder().encode(
+            AvailabilityBody(
+                p_venue_slug: venueSlug,
+                p_item_slug: itemSlug,
+                p_available: available,
+                p_available_from: availableFrom.map { iso.string(from: $0) },
+                p_available_until: availableUntil.map { iso.string(from: $0) }
+            )
+        )
+        let data = try await rpcData(
+            config: config,
+            accessToken: session.accessToken,
+            function: "operator_set_item_availability",
+            bodyData: bodyData,
+            timeout: 15
+        )
+        guard let raw = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) else {
+            throw KitchenLinkCloudServiceError.invalidResponse
+        }
+        return raw == "true"
     }
 }

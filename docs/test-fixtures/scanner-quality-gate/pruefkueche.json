@@ -1,0 +1,411 @@
+{
+  "schemaVersion": "kitchenlink-menu-ground-truth/1.0.0",
+  "fixtureID": "kitchenlink-pruefkueche",
+  "languageTag": "de-DE",
+  "currencyCode": "EUR",
+  "sections": [
+    {"pageIndex": 0, "title": "Vorspeisen"},
+    {"pageIndex": 0, "title": "Hauptgerichte"},
+    {"pageIndex": 0, "title": "Klassiker"},
+    {"pageIndex": 1, "title": "Pizza & Pasta"},
+    {"pageIndex": 1, "title": "3-Gang-Abendmenü"},
+    {"pageIndex": 1, "title": "Dessert"},
+    {"pageIndex": 2, "title": "Alkoholfreie Getränke"},
+    {"pageIndex": 2, "title": "Kaffee & Tee"},
+    {"pageIndex": 2, "title": "Wein & Bier"}
+  ],
+  "entries": [
+    {
+      "pageIndex": 0,
+      "section": "Vorspeisen",
+      "name": "Geröstetes Bauernbrot",
+      "kind": "food",
+      "description": "Kräuterbutter, Tomaten-Dip und Meersalz",
+      "offers": [{"priceKind": "fixed", "amountCents": 690, "rawPrice": "6,90 €", "basis": "per_item"}],
+      "declarationCodes": ["a", "g"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Vorspeisen",
+      "name": "Knoblauchgarnelen",
+      "kind": "food",
+      "description": "Garnelen aus der Pfanne, Chili und Petersilie",
+      "offers": [{"priceKind": "fixed", "amountCents": 1290, "rawPrice": "12,90 €", "basis": "per_item"}],
+      "declarationCodes": ["b", "o"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Vorspeisen",
+      "name": "Bunter Marktsalat",
+      "kind": "food",
+      "description": "Blattsalate, Tomate, Gurke und Senf-Vinaigrette",
+      "offers": [{"priceKind": "fixed", "amountCents": 890, "rawPrice": "8,90 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Extra",
+          "selection": {"minimum": 0, "maximum": 2, "mode": "multiple", "allowsRepeats": false},
+          "choices": [
+            {"name": "Hähnchenbrust", "kind": "extra", "offer": {"priceKind": "delta", "deltaCents": 400, "rawPrice": "+4,00 €", "basis": "per_item"}},
+            {"name": "Feta", "kind": "extra", "offer": {"priceKind": "delta", "deltaCents": 200, "rawPrice": "+2,00 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["j"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Hauptgerichte",
+      "name": "Veganes Kokoscurry",
+      "kind": "food",
+      "description": "Gemüse, Kichererbsen, Kokosmilch und Basmatireis",
+      "offers": [{"priceKind": "fixed", "amountCents": 1590, "rawPrice": "15,90 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Variante",
+          "selection": {"minimum": 0, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "mit Tofu", "kind": "variant", "offer": {"priceKind": "delta", "deltaCents": 250, "rawPrice": "+2,50 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["f", "i"],
+      "claims": ["vegan"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Hauptgerichte",
+      "name": "Küstenfisch",
+      "kind": "food",
+      "description": "Gebratenes Kabeljaufilet, Kartoffelstampf und Beurre blanc",
+      "offers": [{"priceKind": "fixed", "amountCents": 2290, "rawPrice": "22,90 €", "basis": "per_item"}],
+      "declarationCodes": ["d", "g"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Klassiker",
+      "name": "Wiener Schnitzel",
+      "kind": "food",
+      "description": "Kalbsschnitzel, Preiselbeeren und Kartoffelsalat",
+      "offers": [{"priceKind": "fixed", "amountCents": 1790, "rawPrice": "17,90 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Portionen",
+          "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "klein", "kind": "portion", "offer": {"priceKind": "fixed", "amountCents": 1490, "rawPrice": "14,90 €", "basis": "per_item"}},
+            {"name": "groß", "kind": "portion", "offer": {"priceKind": "fixed", "amountCents": 2090, "rawPrice": "20,90 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["a", "c", "g", "j"],
+      "expectedReviewCodes": ["headline_price_unmapped_to_portion_choice"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Klassiker",
+      "name": "Prüfküchen-Burger",
+      "kind": "food",
+      "description": "Rindfleisch, Brioche, Cheddar, Salat und Haussauce",
+      "offers": [{"priceKind": "fixed", "amountCents": 1690, "rawPrice": "16,90 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Extras",
+          "selection": {"minimum": 0, "maximum": 2, "mode": "multiple", "allowsRepeats": false},
+          "choices": [
+            {"name": "doppelt Fleisch", "kind": "extra", "offer": {"priceKind": "delta", "deltaCents": 500, "rawPrice": "+5,00 €", "basis": "per_item"}},
+            {"name": "Cheddar", "kind": "extra", "offer": {"priceKind": "delta", "deltaCents": 150, "rawPrice": "+1,50 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["a", "c", "g", "j", "2", "8"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Klassiker",
+      "name": "Käsespätzle",
+      "kind": "food",
+      "description": "Hausgemachte Spätzle, Bergkäse und Röstzwiebeln",
+      "offers": [{"priceKind": "fixed", "amountCents": 1450, "rawPrice": "14,50 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Portionen",
+          "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "klein", "kind": "portion", "offer": {"priceKind": "fixed", "amountCents": 1090, "rawPrice": "10,90 €", "basis": "per_item"}},
+            {"name": "normal", "kind": "portion", "offer": {"priceKind": "fixed", "amountCents": 1450, "rawPrice": "14,50 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["a", "c", "g"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Klassiker",
+      "name": "Hähnchen vom Grill",
+      "kind": "food",
+      "description": "Maispoularde, Rosmarinjus und Marktgemüse",
+      "offers": [{"priceKind": "fixed", "amountCents": 1890, "rawPrice": "18,90 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Beilage wählen",
+          "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "Pommes", "kind": "side", "offer": {"priceKind": "included", "rawPrice": "0,00 €", "basis": "per_item"}},
+            {"name": "Salat", "kind": "side", "offer": {"priceKind": "included", "rawPrice": "0,00 €", "basis": "per_item"}},
+            {"name": "Bratkartoffeln", "kind": "side", "offer": {"priceKind": "delta", "deltaCents": 150, "rawPrice": "+1,50 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["i"]
+    },
+    {
+      "pageIndex": 1,
+      "section": "Pizza & Pasta",
+      "name": "Pizza Margherita",
+      "kind": "food",
+      "description": "Tomatensauce, Mozzarella und Basilikum",
+      "offers": [{"priceKind": "fixed", "amountCents": 1090, "rawPrice": "10,90 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Größen",
+          "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "28 cm", "kind": "size", "quantity": {"rawText": "28 cm", "value": 28, "unit": "cm", "kind": "diameter"}, "offer": {"priceKind": "fixed", "amountCents": 1090, "rawPrice": "10,90 €", "basis": "per_item"}},
+            {"name": "36 cm", "kind": "size", "quantity": {"rawText": "36 cm", "value": 36, "unit": "cm", "kind": "diameter"}, "offer": {"priceKind": "fixed", "amountCents": 1590, "rawPrice": "15,90 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["a", "g"]
+    },
+    {
+      "pageIndex": 1,
+      "section": "Pizza & Pasta",
+      "name": "Pizza Prüfstand",
+      "kind": "food",
+      "description": "Salami, Paprika, Oliven und Mozzarella",
+      "offers": [{"priceKind": "fixed", "amountCents": 1490, "rawPrice": "14,90 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Extra",
+          "selection": {"minimum": 0, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "glutenfreier Boden", "kind": "extra", "offer": {"priceKind": "delta", "deltaCents": 250, "rawPrice": "+2,50 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["a", "g", "2", "6"]
+    },
+    {
+      "pageIndex": 1,
+      "section": "Pizza & Pasta",
+      "name": "Pasta Arrabbiata",
+      "kind": "food",
+      "description": "Penne, pikante Tomatensauce, Knoblauch und Parmesan",
+      "offers": [{"priceKind": "fixed", "amountCents": 1350, "rawPrice": "13,50 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Variante",
+          "selection": {"minimum": 0, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "ohne Parmesan", "kind": "variant", "offer": {"priceKind": "included", "rawPrice": "0,00 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["a", "g", "o"],
+      "claims": ["vegetarisch"]
+    },
+    {
+      "pageIndex": 1,
+      "section": "3-Gang-Abendmenü",
+      "name": "Menü Abendbrise",
+      "kind": "bundle",
+      "description": "Ein festes Menü als ein Angebot mit wählbarem Hauptgang.",
+      "offers": [{"priceKind": "fixed", "amountCents": 3990, "rawPrice": "39,90 € pro Person", "basis": "per_person"}],
+      "bundleComponents": [
+        {"title": "Marktsalat", "kind": "course", "offers": [{"priceKind": "included", "basis": "per_person"}]},
+        {
+          "title": "Hauptgang",
+          "kind": "choice_course",
+          "optionGroup": {
+            "title": "Wahl",
+            "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+            "choices": [
+              {"name": "Küstenfisch", "kind": "bundle_choice", "offer": {"priceKind": "included", "basis": "per_person"}},
+              {"name": "veganes Curry", "kind": "bundle_choice", "offer": {"priceKind": "included", "basis": "per_person"}}
+            ]
+          }
+        },
+        {"title": "Schokoladenküchlein", "kind": "course", "offers": [{"priceKind": "included", "basis": "per_person"}]}
+      ],
+      "declarationCodes": ["a", "c", "d", "g"]
+    },
+    {
+      "pageIndex": 1,
+      "section": "Dessert",
+      "name": "Panna Cotta",
+      "kind": "food",
+      "description": "Vanille, Beerenragout und Mandelkrokant",
+      "offers": [{"priceKind": "fixed", "amountCents": 720, "rawPrice": "7,20 €", "basis": "per_item"}],
+      "declarationCodes": ["g", "h"]
+    },
+    {
+      "pageIndex": 1,
+      "section": "Dessert",
+      "name": "Schokoladenküchlein",
+      "kind": "food",
+      "description": "Warmer Kern, Vanilleeis und Kakaocrumble",
+      "offers": [{"priceKind": "fixed", "amountCents": 790, "rawPrice": "7,90 €", "basis": "per_item"}],
+      "declarationCodes": ["a", "c", "g"]
+    },
+    {
+      "pageIndex": 1,
+      "section": "Dessert",
+      "name": "Zitronensorbet",
+      "kind": "food",
+      "description": "Hausgemacht mit Minze und alkoholfreiem Sekt",
+      "offers": [{"priceKind": "fixed", "amountCents": 650, "rawPrice": "6,50 €", "basis": "per_item"}],
+      "declarationCodes": ["5"],
+      "claims": ["vegan"]
+    },
+    {
+      "pageIndex": 2,
+      "section": "Alkoholfreie Getränke",
+      "name": "Hauslimonade Zitrone",
+      "kind": "drink",
+      "description": "Zitrone, Minze und Soda",
+      "offers": [{"priceKind": "fixed", "amountCents": 420, "rawPrice": "4,20 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Größen",
+          "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "0,3 l", "kind": "size", "quantity": {"rawText": "0,3 l", "value": 0.3, "unit": "l", "kind": "volume"}, "offer": {"priceKind": "fixed", "amountCents": 420, "rawPrice": "4,20 €", "basis": "per_item"}},
+            {"name": "0,5 l", "kind": "size", "quantity": {"rawText": "0,5 l", "value": 0.5, "unit": "l", "kind": "volume"}, "offer": {"priceKind": "fixed", "amountCents": 590, "rawPrice": "5,90 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 2,
+      "section": "Alkoholfreie Getränke",
+      "name": "Cola Zero",
+      "kind": "drink",
+      "description": "Eisgekühlt serviert",
+      "offers": [{"priceKind": "fixed", "amountCents": 360, "rawPrice": "3,60 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Größen",
+          "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "0,2 l", "kind": "size", "quantity": {"rawText": "0,2 l", "value": 0.2, "unit": "l", "kind": "volume"}, "offer": {"priceKind": "fixed", "amountCents": 360, "rawPrice": "3,60 €", "basis": "per_item"}},
+            {"name": "0,4 l", "kind": "size", "quantity": {"rawText": "0,4 l", "value": 0.4, "unit": "l", "kind": "volume"}, "offer": {"priceKind": "fixed", "amountCents": 520, "rawPrice": "5,20 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["1", "9", "11"]
+    },
+    {
+      "pageIndex": 2,
+      "section": "Alkoholfreie Getränke",
+      "name": "Tonic Water",
+      "kind": "drink",
+      "description": "Mit Limettenscheibe",
+      "offers": [{"priceKind": "fixed", "amountCents": 380, "rawPrice": "3,80 €", "basis": "per_item"}],
+      "declarationCodes": ["12"]
+    },
+    {
+      "pageIndex": 2,
+      "section": "Kaffee & Tee",
+      "name": "Cappuccino",
+      "kind": "drink",
+      "description": "Doppelter Espresso und Milchschaum",
+      "offers": [{"priceKind": "fixed", "amountCents": 390, "rawPrice": "3,90 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Variante",
+          "selection": {"minimum": 0, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "Haferdrink", "kind": "variant", "offer": {"priceKind": "delta", "deltaCents": 50, "rawPrice": "+0,50 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["g"]
+    },
+    {
+      "pageIndex": 2,
+      "section": "Kaffee & Tee",
+      "name": "Espresso",
+      "kind": "drink",
+      "description": "Kräftige Hausröstung",
+      "offers": [{"priceKind": "fixed", "amountCents": 280, "rawPrice": "2,80 €", "basis": "per_item"}],
+      "declarationCodes": ["11"]
+    },
+    {
+      "pageIndex": 2,
+      "section": "Wein & Bier",
+      "name": "Riesling trocken",
+      "kind": "drink",
+      "description": "Mosel, mineralisch und frisch",
+      "offers": [{"priceKind": "fixed", "amountCents": 690, "rawPrice": "6,90 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Größen",
+          "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "0,2 l", "kind": "size", "quantity": {"rawText": "0,2 l", "value": 0.2, "unit": "l", "kind": "volume"}, "offer": {"priceKind": "fixed", "amountCents": 690, "rawPrice": "6,90 €", "basis": "per_item"}},
+            {"name": "0,75 l", "kind": "size", "quantity": {"rawText": "0,75 l", "value": 0.75, "unit": "l", "kind": "volume"}, "offer": {"priceKind": "fixed", "amountCents": 2400, "rawPrice": "24,00 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["l", "13"]
+    },
+    {
+      "pageIndex": 2,
+      "section": "Wein & Bier",
+      "name": "Kellerpils",
+      "kind": "drink",
+      "description": "Naturtrüb vom Fass",
+      "offers": [{"priceKind": "fixed", "amountCents": 420, "rawPrice": "4,20 €", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "Größen",
+          "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "0,3 l", "kind": "size", "quantity": {"rawText": "0,3 l", "value": 0.3, "unit": "l", "kind": "volume"}, "offer": {"priceKind": "fixed", "amountCents": 420, "rawPrice": "4,20 €", "basis": "per_item"}},
+            {"name": "0,5 l", "kind": "size", "quantity": {"rawText": "0,5 l", "value": 0.5, "unit": "l", "kind": "volume"}, "offer": {"priceKind": "fixed", "amountCents": 560, "rawPrice": "5,60 €", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": ["a", "13"]
+    }
+  ],
+  "documentDeclarations": [
+    {"localCode": "a", "rawText": "A Glutenhaltiges Getreide", "claim": "Glutenhaltiges Getreide"},
+    {"localCode": "b", "rawText": "B Krebstiere", "claim": "Krebstiere"},
+    {"localCode": "c", "rawText": "C Eier", "claim": "Eier"},
+    {"localCode": "d", "rawText": "D Fisch", "claim": "Fisch"},
+    {"localCode": "f", "rawText": "F Soja", "claim": "Soja"},
+    {"localCode": "g", "rawText": "G Milch / Laktose", "claim": "Milch / Laktose"},
+    {"localCode": "h", "rawText": "H Schalenfrüchte", "claim": "Schalenfrüchte"},
+    {"localCode": "i", "rawText": "I Sellerie", "claim": "Sellerie"},
+    {"localCode": "j", "rawText": "J Senf", "claim": "Senf"},
+    {"localCode": "l", "rawText": "L Sulfite", "claim": "Sulfite"},
+    {"localCode": "o", "rawText": "O Knoblauch", "claim": "Knoblauch"},
+    {"localCode": "1", "rawText": "1 mit Farbstoff", "claim": "mit Farbstoff"},
+    {"localCode": "2", "rawText": "2 mit Konservierungsstoff", "claim": "mit Konservierungsstoff"},
+    {"localCode": "5", "rawText": "5 geschwefelt", "claim": "geschwefelt"},
+    {"localCode": "6", "rawText": "6 geschwärzt", "claim": "geschwärzt"},
+    {"localCode": "8", "rawText": "8 mit Phosphat", "claim": "mit Phosphat"},
+    {"localCode": "9", "rawText": "9 mit Süßungsmittel", "claim": "mit Süßungsmittel"},
+    {"localCode": "11", "rawText": "11 koffeinhaltig", "claim": "koffeinhaltig"},
+    {"localCode": "12", "rawText": "12 chininhaltig", "claim": "chininhaltig"},
+    {"localCode": "13", "rawText": "13 alkoholhaltig", "claim": "alkoholhaltig"}
+  ],
+  "forbiddenEntryTexts": [
+    "KitchenLink Prüfküche",
+    "Speisen · Varianten · Extras",
+    "Sandbox-Testkarte · Nicht für den Gastbetrieb",
+    "Allergen- & Zusatzstoff-Legende"
+  ]
+}

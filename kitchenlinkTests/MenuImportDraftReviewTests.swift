@@ -95,6 +95,86 @@ struct MenuImportDraftReviewTests {
         #expect(names == ["Rindergulasch"])
     }
 
+    @Test @MainActor
+    func reviewAndConverterKeepEntriesFromNestedSubsections() throws {
+        let nestedEntry = MenuImportEntry(
+            id: "nested-entry",
+            name: text("Sorbet", id: "nested-name"),
+            order: 0,
+            offers: [offer(id: "nested-offer", cents: 790)],
+            reviewState: .needsReview
+        )
+        let nestedSection = MenuImportSection(
+            id: "nested-section",
+            title: text("Eis", id: "nested-section-title"),
+            order: 0,
+            entries: [nestedEntry],
+            reviewState: .needsReview
+        )
+        let parentSection = MenuImportSection(
+            id: "parent-section",
+            title: text("Dessert", id: "parent-section-title"),
+            order: 0,
+            subsections: [nestedSection],
+            reviewState: .needsReview
+        )
+        let draft = MenuImportDraft(
+            sourceDocument: source(),
+            sections: [parentSection],
+            reviewState: .needsReview
+        )
+        let model = MenuImportDraftReviewModel(draft: draft)
+
+        #expect(model.sections.map(\.title.value) == ["Dessert", "Eis"])
+        #expect(model.entry(withID: "nested-entry")?.name.value == "Sorbet")
+        #expect(model.sectionID(ofEntry: "nested-entry") == "nested-section")
+        #expect(model.unresolvedEntryIDs == ["nested-entry"])
+
+        model.acceptEntry("nested-entry")
+        let converted = try #require(model.convertToSandboxSections())
+
+        #expect(converted.map(\.title) == ["Eis"])
+        #expect(converted.flatMap(\.items).map(\.name) == ["Sorbet"])
+    }
+
+    @Test @MainActor
+    func nestedEntryCanMoveToParentWithoutBeingLost() throws {
+        let nestedEntry = MenuImportEntry(
+            id: "nested-entry",
+            name: text("Sorbet", id: "nested-name"),
+            order: 0,
+            offers: [offer(id: "nested-offer", cents: 790)],
+            reviewState: .needsReview
+        )
+        let draft = MenuImportDraft(
+            sourceDocument: source(),
+            sections: [
+                MenuImportSection(
+                    id: "parent-section",
+                    title: text("Dessert", id: "parent-title"),
+                    order: 0,
+                    subsections: [
+                        MenuImportSection(
+                            id: "nested-section",
+                            title: text("Eis", id: "nested-title"),
+                            order: 0,
+                            entries: [nestedEntry],
+                            reviewState: .needsReview
+                        )
+                    ],
+                    reviewState: .needsReview
+                )
+            ],
+            reviewState: .needsReview
+        )
+        let model = MenuImportDraftReviewModel(draft: draft)
+
+        model.moveEntry("nested-entry", toSectionID: "parent-section")
+
+        #expect(model.sectionID(ofEntry: "nested-entry") == "parent-section")
+        #expect(model.entry(withID: "nested-entry")?.order == 0)
+    }
+
     @Test
     func converterMapsVariantsDeclarationsAndLegend() throws {
         let draft = reviewableDraft()

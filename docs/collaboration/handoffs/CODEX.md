@@ -1,9 +1,151 @@
 # Codex Handoff
 
-**Updated:** 22 July 2026
+**Updated:** 26 July 2026
 **Branch:** `main`
-**Status:** Speisename fuehrt die Gastkarte klar vor Preis und Deklarationen;
-Mengenbuttons besitzen eine vollflaechige 44-Punkt-Treffzone
+**Status:** Phase 1 des Speisekartenimports ist als messbare, verlustbewusste
+Grundlage implementiert; die lokale Erkennung besteht das Freigabegate noch
+nicht
+
+## Latest Continuation (26. Juli 2026, echter Modellpilot)
+
+- Der Review-Runner kann jetzt ausschliesslich explizit ausgewaehlte Seiten
+  verarbeiten. Der Pilot nutzte vier Seiten mit 17 Soll-Eintraegen:
+  Pruefkueche 1/2, Lichtburg 6 und das Alexxanders-Cover. Ausgewaehlte
+  Deckseiten werden mit den Menue-Seiten als ein Teststapel verarbeitet, damit
+  ein korrekt leeres Cover den Lauf nicht faelschlich abbricht.
+- `qwen3.5:9b` (6,6 GB) und `gemma4:latest` wurden lokal mit echtem Bildzugriff
+  geprueft. Fuer den reichen Verlustfrei-Vertrag erhielten beide 32k-Kontext
+  und deaktiviertes Denkprotokoll. Beide ueberschritten auf nur einer dichten
+  Seite zweimal 150 Sekunden und fielen vollstaendig auf OCR/Regeln zurueck.
+  Sie sind auf dem 16-GB-Mac keine Phase-1-Voll-Extraktoren.
+- OpenCode Zen `mimo-v2.5-free` verarbeitete alle vier Bilder selbst, ohne
+  Fallback. Ein Pilotmodus des bestehenden Qualitaetspruefers projiziert die
+  kanonische Ground Truth auf den ausgewaehlten Teststapel; 9/9 Python-Tests
+  und 11/11 Importvertrags-Tests bestanden.
+- Ein gezielt verschaerfter Bundle-Prompt `1.0.3` verursachte eine klare
+  Regression (Eintrags-F1 `0.059` statt `0.474`) und wurde vollstaendig auf
+  `1.0.2` zurueckgesetzt.
+- Eine deterministische, verlustfreie Mapping-Korrektur verschiebt kompakte
+  sichtbare Codegruppen wie `[A,G,2]` aus dem Artikelnamen in separate
+  Deklarationen. Rohtext und Bildbeleg bleiben erhalten; mehrbuchstabige
+  Gruppen wie `[XL]` werden bewusst nicht veraendert.
+- Drei unveraenderte Mimo-Laeufe mit diesem Mapping ergaben Eintrags-F1
+  `0.971`, `0.842`, `0.889`; erfundene Eintraege `1`, `5`, `3`; fehlende
+  Eintraege `0`, `1`, `1`; erfundene Preise `4`, `3`, `5`; Beziehungs-F1
+  `0.278`, `0.290`, `0.246`. Exakte semantische Wiederholbarkeit: `0.000`.
+  Das Cover war stets korrekt leer, alle Seiten hatten einen Modellstatus,
+  und es gab keine Schemafehler.
+- Der dominante Fehler ist reproduzierbar das Lichtburg-Gangmenue. In zwei
+  Laeufen fehlte das Bundle komplett und seine Gaenge wurden als Einzelartikel
+  ausgegeben. Im besten Lauf blieb `Antipasti` zusaetzlich einzeln und die
+  drei Hauptgerichte wurden nicht als eine Wahlgruppe modelliert.
+- Der aktuelle Free-Katalog nennt ausser Mimo noch
+  `deepseek-v4-flash-free`, `ling-3.0-flash-free`,
+  `nemotron-3-ultra-free`, `north-mini-code-free` und
+  `laguna-s-2.1-free`. Deren geplanter Ein-Seiten-Faehigkeitstest sowie ein
+  schlanker lokaler Gemma-Gegenpruefer wurden nicht ausgefuehrt, weil die
+  Systemfreigabe am Nutzungslimit stoppte. Es gab keinen Umgehungsversuch und
+  keine weitere Bilduebertragung.
+
+## Verification (echter Modellpilot)
+
+- Pilot-Pruefer: **9/9 Python-Tests bestanden**.
+- Verlustfrei-Vertrag/Mapping: **11/11 Xcode-Tests bestanden**.
+- Drei identische Mimo-Piloten: je **4/4 Seiten ohne Fallback**; maschinenlesbar
+  unter `/tmp/kitchenlink-ai/mimo-v25/pilot-repeatability.json`.
+- Qwen/Gemma-Smokes: korrektes Cover-Verstaendnis; reicher Ein-Seiten-Vertrag
+  jeweils nach zwei 150-s-Versuchen **Fallback**, deshalb nicht als KI-Ergebnis
+  gewertet.
+
+## Exactly One Recommendation (echter Modellpilot)
+
+Nach Aufhebung des Nutzungslimits die fuenf uebrigen kostenlosen
+OpenCode-Modelle ausschliesslich auf der einen Lichtburg-Seite mit einem
+kleinen Bundle-Pruefvertrag testen. Nur ein Modell, das Name, Gesamtpreis,
+Preis-Basis und den dreifachen Wahlgang korrekt erkennt, wird als unabhaengige
+zweite Pruefpassage weiterverfolgt; bis dahin keinen Vollkorpuslauf starten.
+
+## Latest Continuation (26. Juli 2026, Phase 1 Speisekartenimport)
+
+- Der kanonische Importentwurf ist auf
+  `kitchenlink-menu-import-draft/0.3.0` erweitert. Er bewahrt Originalseiten,
+  Seitenhashes, Seitentypen und Sprachen, OCR-Zeilen, Fundstellen,
+  Alternativtexte, alle Preisarten, Mengen, Auswahlregeln, Bundles,
+  Deklarationen, allgemeine Hinweise samt sichtbaren Uebersetzungen,
+  Seitenstatus, Laufzeiten und Pruefhinweise. Enthaltene Bundle-Bestandteile
+  duerfen ohne erfundenen Preistext erhalten bleiben.
+- Der reiche Providervertrag
+  `kitchenlink-menu-import-extraction/1.0.0` wird jetzt direkt und seitenweise
+  in diesen Entwurf montiert. Die alte flache LLM-Zwischenstruktur ist nicht
+  mehr semantische Wahrheit. Eine fehlgeschlagene, unvollstaendige oder
+  ungueltige Seite verwirft den gesamten KI-Entwurf und faellt sichtbar auf
+  die lokale Analyse zurueck; Menue- und Mischseiten duerfen nicht unbemerkt
+  als leer gelten.
+- Die Pruefansicht und der Konverter laufen rekursiv durch Unterbereiche.
+  Verschachtelte Eintraege koennen damit geprueft, verschoben und uebernommen
+  werden, ohne verloren zu gehen.
+- Das versionierte Pruefkorpus umfasst 10 reale Seiten aus vier unterschiedlich
+  schwierigen Karten mit 68 Soll-Eintraegen. Jede Seite besitzt Hash,
+  Abmessungen, Nutzungsstatus und eine vollstaendige Sollstruktur.
+- Der neue lokale Qualitaetsscanner bewertet pro Lauf und pro Karte Struktur,
+  Namen, Kategorien, Beschreibungen, Angebote, Preistext/-basis/-waehrung,
+  Beziehungen, Deklarationen, Uebersetzungen, Belege, Review-Erkennung,
+  Latenz, Fehlerquote und Wiederholbarkeit. Fehlende oder erfundene Eintraege
+  und Preise sind harte Null-Toleranz-Fehler; unscharfe Texttreffer dienen nur
+  als Diagnose und koennen das Gate nicht schoenrechnen.
+- Drei unabhaengig erzeugte lokale Berichte ueber jeweils alle 10 Seiten wurden
+  verglichen. Exakte semantische Wiederholbarkeit: `1.000`; Seitenfehler:
+  `0.000`; Latenzabdeckung: `1.000`; P95-Seitenlatenz: `7145 ms`.
+- Die strenge Erstbaseline besteht das Freigabegate bewusst nicht:
+  Eintrags-F1 `0.592` (Ziel `0.980`), 18 fehlende Eintraege, 51 erfundene
+  Eintraege, 50 erfundene Preise, Belegabdeckung `0.893` (Ziel `0.950`) und
+  Beziehungs-F1 `0.000` (Ziel `0.950`). Allgemeine Hinweise erreichen
+  ebenfalls erst `0.000` (Ziel `0.950`). Es gab keine still verlorene Seite
+  und keinen Validierungsfehler.
+
+## Verification (Phase 1 Speisekartenimport)
+
+- Ground Truth: **10/10 Seiten und 68 Eintraege gueltig**; Quelldateihashes und
+  Abmessungen stimmen.
+- Qualitaetsscanner: **8/8 Python-Tests bestanden**; Syntaxpruefungen fuer
+  Scanner und lokalen Runner bestanden.
+- Xcode `build-for-testing`: **bestanden** auf iPhone 17 Pro / iOS 26.5.
+- Gezielte Xcode-Ausfuehrung: **28/28 Phase-1- und Review-Tests bestanden**.
+  Abgedeckt sind unter anderem echtes `snake_case`-Decoding, leere Menueseiten,
+  uebersetzte allgemeine Hinweise, unbekannte Fundstellen, enthaltene
+  Bestandteile ohne Preistext, Seitenstatus, verschachtelte Unterbereiche und
+  verlustfreies Verschieben.
+- Drei komplette lokale Messlaeufe: jeweils **10/10 Seiten**, identisches
+  semantisches Ergebnis. Der Ergebnisbericht liegt unter
+  `/private/tmp/kitchenlink-phase1-quality-final.json`.
+- `git diff --check`: **bestanden**.
+- Externe KI-Zugaenge blieben deaktiviert; es wurden keine Speisekartendaten an
+  einen externen Anbieter uebertragen und keine Kosten ausgeloest.
+
+## Remaining Risk (Phase 1 Speisekartenimport)
+
+- Die neue Messung ist erheblich strenger als die Phase-0-Stichproben. Die
+  Zahlen sind deshalb kein direkter Vorher-/Nachher-Vergleich. Sie zeigen
+  erstmals objektiv, dass die lokale Regelanalyse besonders bei
+  Tabellen/Legenden, Preissemantik, Bundles, Beziehungen und Uebersetzungen
+  nicht produktionsreif ist.
+- Ein echter Provider-/Prompt-Vergleich samt unabhaengiger Gegenpruefung fand
+  noch nicht statt, weil dies externe Verarbeitung, Kosten- und
+  Datenschutzfreigabe erfordert. Der dokumentierte Ablauf erzwingt diese
+  Gegenpruefung fuer jede kuenftige Modellrunde.
+- Der Pruefharness speichert wiederauffindbare Originaldateireferenzen. Direkt
+  in der App aufgenommene Bilder leben derzeit noch im Sitzungsspeicher; vor
+  dauerhaft gespeicherten Importentwuerfen braucht es eine freigegebene
+  Aufbewahrungs- und Loeschregel.
+- Entwuerfe der Version `0.2.0` lassen sich noch lesen, benoetigen vor einer
+  dauerhaften Aktivierung aber eine explizite Migration auf `0.3.0`.
+
+## Exactly One Recommendation (Phase 1 Speisekartenimport)
+
+Nach ausdruecklicher Kosten- und Datenschutzfreigabe einen kontrollierten
+Vision-Modellvergleich auf genau diesem 10-Seiten-Gate durchfuehren und nur
+die Variante weiterverfolgen, die alle Null-Toleranz-Fehler reduziert, ohne
+Belegtreue oder Wiederholbarkeit zu verschlechtern.
 
 ## Latest Continuation (22. Juli 2026, Speise zuerst + Minus-Treffzone)
 

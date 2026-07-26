@@ -106,8 +106,12 @@ private actor MenuPublishSpy: KitchenLinkCloudAuthenticating, KitchenLinkMenuPub
 }
 
 private func makeStore() -> KitchenLinkCloudCredentialStore {
-    let defaults = UserDefaults(suiteName: "menu-publish-\(UUID().uuidString)")!
-    return KitchenLinkCloudCredentialStore(defaults: defaults)
+    let tag = "menu-publish-\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: tag)!
+    return KitchenLinkCloudCredentialStore(
+        defaults: defaults,
+        secrets: InMemorySecretStore()
+    )
 }
 
 private func session(access: String, refresh: String = "rt") -> KitchenLinkCloudSession {
@@ -148,8 +152,14 @@ private func session(access: String, refresh: String = "rt") -> KitchenLinkCloud
     ]
     let payload = KitchenLinkMenuPublishPayload.build(from: sections)
     let slugs = payload.categories.flatMap { $0.items.map(\.slug) }
-    #expect(slugs == ["tagessuppe", "tagessuppe-2", "tagessuppe-3"])
-    #expect(Set(slugs).count == slugs.count)
+    #expect(slugs[0] == "tagessuppe")
+    #expect(slugs[1] != slugs[0])
+    #expect(slugs[2] != slugs[0])
+    #expect(slugs[2] != slugs[1])
+    // Gleiche Quelle → deterministisch: zweimal derselbe Build ergibt gleiche Slugs
+    let second = KitchenLinkMenuPublishPayload.build(from: sections)
+    let secondSlugs = second.categories.flatMap { $0.items.map(\.slug) }
+    #expect(secondSlugs == slugs)
 }
 
 @Test func buildMapsKindAllergensAndDropsEmptySections() {
@@ -427,5 +437,299 @@ private func onePayload() -> KitchenLinkPublishMenu {
     #expect(publishes == 0)
     if case .failed = await model.phase {} else {
         Issue.record("erwartete .failed, war \(await model.phase)")
+    }
+}
+
+// MARK: - Additive Menu Edit (KL-MENU-009)
+
+private actor MenuEditSpy: KitchenLinkMenuEditTransport {
+    var upsertResult: String
+    var upsertError: KitchenLinkCloudServiceError?
+    var deleteResult: Bool
+    var deleteError: KitchenLinkCloudServiceError?
+    var availabilityResult: Bool
+    var availabilityError: KitchenLinkCloudServiceError?
+
+    private(set) var upsertCalls: [(venueSlug: String, categoryName: String, categoryKind: String, item: KitchenLinkPublishMenu.Item)] = []
+    private(set) var deleteCalls: [(venueSlug: String, itemSlug: String)] = []
+    private(set) var availabilityCalls: [(venueSlug: String, itemSlug: String, available: Bool, availableFrom: Date?, availableUntil: Date?)] = []
+
+    init(
+        upsertResult: String = "item-uuid",
+        deleteResult: Bool = true,
+        availabilityResult: Bool = true
+    ) {
+        self.upsertResult = upsertResult
+        self.deleteResult = deleteResult
+        self.availabilityResult = availabilityResult
+    }
+
+    func setUpsertError(_ error: KitchenLinkCloudServiceError) {
+        upsertError = error
+    }
+
+    func setDeleteError(_ error: KitchenLinkCloudServiceError) {
+        deleteError = error
+    }
+
+    func upsertMenuItem(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        categoryName: String,
+        categoryKind: String,
+        item: KitchenLinkPublishMenu.Item
+    ) async throws -> String {
+        if let upsertError { throw upsertError }
+        upsertCalls.append((venueSlug, categoryName, categoryKind, item))
+        return upsertResult
+    }
+
+    func deleteMenuItem(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        itemSlug: String
+    ) async throws -> Bool {
+        if let deleteError { throw deleteError }
+        deleteCalls.append((venueSlug, itemSlug))
+        return deleteResult
+    }
+
+    func setItemAvailability(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        itemSlug: String,
+        available: Bool,
+        availableFrom: Date?,
+        availableUntil: Date?
+    ) async throws -> Bool {
+        if let availabilityError { throw availabilityError }
+        availabilityCalls.append((venueSlug, itemSlug, available, availableFrom, availableUntil))
+        return availabilityResult
+    }
+}
+
+@Test func editTransportUpsertMenuItem() async throws {
+    let spy = MenuEditSpy(upsertResult: "abc-123")
+    let config = KitchenLinkCloudConfig.sandboxDefault
+    let session = KitchenLinkCloudSession(
+        accessToken: "tok", refreshToken: "rt", userID: "u1", expiresAt: .distantFuture
+    )
+    let item = KitchenLinkPublishMenu.Item(
+        slug: "test-item",
+        name: "Test Item",
+        description: "A test",
+        priceCents: 990,
+        kind: "food",
+        allergenCodes: ["a"],
+        variantOptions: []
+    )
+
+    let itemID = try await spy.upsertMenuItem(
+        config: config, session: session, venueSlug: "alte-muehle",
+        categoryName: "Küche", categoryKind: "food", item: item
+    )
+
+    #expect(itemID == "abc-123")
+    let calls = await spy.upsertCalls
+    #expect(calls.count == 1)
+    #expect(calls.first?.venueSlug == "alte-muehle")
+    #expect(calls.first?.categoryName == "Küche")
+    #expect(calls.first?.item.slug == "test-item")
+}
+
+@Test func editTransportDeleteMenuItem() async throws {
+    let spy = MenuEditSpy(deleteResult: true)
+    let config = KitchenLinkCloudConfig.sandboxDefault
+    let session = KitchenLinkCloudSession(
+        accessToken: "tok", refreshToken: "rt", userID: "u1", expiresAt: .distantFuture
+    )
+
+    let deleted = try await spy.deleteMenuItem(
+        config: config, session: session, venueSlug: "alte-muehle", itemSlug: "alte-suppe"
+    )
+
+    #expect(deleted)
+    let calls = await spy.deleteCalls
+    #expect(calls.count == 1)
+    #expect(calls.first?.itemSlug == "alte-suppe")
+}
+
+@Test func editTransportSetItemAvailability() async throws {
+    let spy = MenuEditSpy(availabilityResult: true)
+    let config = KitchenLinkCloudConfig.sandboxDefault
+    let session = KitchenLinkCloudSession(
+        accessToken: "tok", refreshToken: "rt", userID: "u1", expiresAt: .distantFuture
+    )
+    let from = Date()
+    let until = from.addingTimeInterval(7200)
+
+    let result = try await spy.setItemAvailability(
+        config: config, session: session, venueSlug: "alte-muehle",
+        itemSlug: "tagessuppe", available: false,
+        availableFrom: from, availableUntil: until
+    )
+
+    #expect(result)
+    let calls = await spy.availabilityCalls
+    #expect(calls.count == 1)
+    #expect(calls.first?.itemSlug == "tagessuppe")
+    #expect(calls.first?.available == false)
+    #expect(calls.first?.availableFrom == from)
+    #expect(calls.first?.availableUntil == until)
+}
+
+@Test func editTransportSetItemAvailabilityHidesWithoutSchedule() async throws {
+    let spy = MenuEditSpy()
+    let config = KitchenLinkCloudConfig.sandboxDefault
+    let session = KitchenLinkCloudSession(
+        accessToken: "tok", refreshToken: "rt", userID: "u1", expiresAt: .distantFuture
+    )
+
+    let result = try await spy.setItemAvailability(
+        config: config, session: session, venueSlug: "alte-muehle",
+        itemSlug: "tagessuppe", available: false,
+        availableFrom: nil, availableUntil: nil
+    )
+
+    #expect(result)
+    let calls = await spy.availabilityCalls
+    #expect(calls.first?.availableFrom == nil)
+    #expect(calls.first?.availableUntil == nil)
+}
+
+// MARK: - MenuEditorItemModel (KL-MENU-011)
+
+@Suite("MenuEditorItemModel") struct MenuEditorItemModelTests {
+    private let sampleItem = item(id: "i1", name: "Tagessuppe", priceCents: 550)
+    private let blankItem = item(id: "i2", name: "", priceCents: 0)
+
+    private func makeModel(
+        spy: MenuEditSpy = MenuEditSpy()
+    ) -> (model: MenuEditorItemModel, spy: MenuEditSpy) {
+        let store = makeStore()
+        store.save(session: session(access: "tok"))
+        let model = MenuEditorItemModel(
+            config: .sandboxDefault,
+            transport: spy,
+            store: store
+        )
+        return (model, spy)
+    }
+
+    @Test func validationRejectsEmptyName() async {
+        let (model, _) = makeModel()
+        let valid = model.validate(blankItem)
+        #expect(!valid)
+        #expect(model.validationErrors.contains(.emptyName))
+    }
+
+    @Test func validationRejectsZeroPrice() async {
+        let (model, _) = makeModel()
+        let valid = model.validate(MenuItemData(id: "x", name: "Gratis", description: "", priceCents: 0, kind: .food))
+        #expect(!valid)
+        #expect(model.validationErrors.contains(.zeroPrice))
+    }
+
+    @Test func validationPassesForValidItem() async {
+        let (model, _) = makeModel()
+        let valid = model.validate(sampleItem)
+        #expect(valid)
+        #expect(model.validationErrors.isEmpty)
+    }
+
+    @Test func saveSetsSuccessState() async {
+        let (model, spy) = makeModel()
+        await model.saveToCloud(item: sampleItem, categoryName: "Küche", categoryKind: "food")
+        let actualState = model.cloudState
+        let expected = MenuEditorItemModel.CloudState.success("Gespeichert (ID: …tem-uuid)")
+        #expect(actualState == expected, "Expected \(expected), got \(actualState)")
+        let calls = await spy.upsertCalls
+        #expect(calls.count == 1)
+        #expect(calls.first?.categoryName == "Küche")
+    }
+
+    @Test func saveSetsErrorOnTransportFailure() async {
+        let spy = MenuEditSpy(upsertResult: "")
+        await spy.setUpsertError(.server(status: 400, message: "Network fail"))
+        let (model, _) = makeModel(spy: spy)
+        await model.saveToCloud(item: sampleItem, categoryName: "Küche", categoryKind: "food")
+        guard case .error(let msg) = model.cloudState else {
+            Issue.record("Expected .error, got \(model.cloudState)"); return
+        }
+        #expect(msg.contains("Network fail"))
+    }
+
+    @Test func saveRejectsEmptyName() async {
+        let spy = MenuEditSpy()
+        let (model, _) = makeModel(spy: spy)
+        await model.saveToCloud(item: blankItem, categoryName: "Küche", categoryKind: "food")
+        guard case .idle = model.cloudState else {
+            Issue.record("Expected .idle (not saved), got \(model.cloudState)"); return
+        }
+        let calls = await spy.upsertCalls
+        #expect(calls.isEmpty)
+    }
+
+    @Test func deleteSetsSuccessState() async {
+        let (model, spy) = makeModel()
+        await model.deleteFromCloud(item: sampleItem)
+        guard case .success(let msg) = model.cloudState else {
+            Issue.record("Expected .success, got \(model.cloudState)"); return
+        }
+        #expect(msg == "Gelöscht")
+        let calls = await spy.deleteCalls
+        #expect(calls.count == 1)
+    }
+
+    @Test func deleteSetsErrorOnTransportFailure() async {
+        let spy = MenuEditSpy(deleteResult: false)
+        await spy.setDeleteError(.server(status: 404, message: "Not found"))
+        let (model, _) = makeModel(spy: spy)
+        await model.deleteFromCloud(item: sampleItem)
+        guard case .error(let msg) = model.cloudState else {
+            Issue.record("Expected .error, got \(model.cloudState)"); return
+        }
+        #expect(msg.contains("Not found"))
+    }
+
+    @Test func saveWithoutSessionShowsError() async {
+        let spy = MenuEditSpy()
+        let store = makeStore()
+        let model = MenuEditorItemModel(
+            config: .sandboxDefault,
+            transport: spy,
+            store: store
+        )
+        await model.saveToCloud(item: sampleItem, categoryName: "Küche", categoryKind: "food")
+        guard case .error(let msg) = model.cloudState else {
+            Issue.record("Expected .error, got \(model.cloudState)"); return
+        }
+        #expect(msg.contains("Nicht angemeldet"))
+    }
+
+    @Test func hasSessionReturnsFalseWithoutCredentials() async {
+        let store = makeStore()
+        let model = MenuEditorItemModel(store: store)
+        #expect(!model.hasSession)
+    }
+
+    @Test func hasSessionReturnsTrueWithCredentials() async {
+        let store = makeStore()
+        store.save(session: session(access: "tok"))
+        let model = MenuEditorItemModel(store: store)
+        #expect(model.hasSession)
+    }
+
+    @Test func clearFeedbackResetsState() async {
+        let (model, spy) = makeModel(spy: MenuEditSpy(upsertResult: ""))
+        await spy.setUpsertError(.server(status: 400, message: "fail"))
+        await model.saveToCloud(item: sampleItem, categoryName: "Küche", categoryKind: "food")
+        #expect(model.cloudState != .idle)
+        model.clearFeedback()
+        #expect(model.cloudState == .idle)
+        #expect(model.validationErrors.isEmpty)
     }
 }

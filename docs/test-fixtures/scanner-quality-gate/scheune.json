@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "kitchenlink-menu-ground-truth/1.0.0",
+  "fixtureID": "scheune-berlin",
+  "languageTag": "de-DE",
+  "currencyCode": "EUR",
+  "sections": [
+    {"pageIndex": 0, "title": "Vorspeisen"},
+    {"pageIndex": 0, "title": "Salate"}
+  ],
+  "entries": [
+    {
+      "pageIndex": 0,
+      "section": "Vorspeisen",
+      "name": "Rote Beete Carpaccio",
+      "kind": "food",
+      "description": "#dünn aufgeschnittene Rote Beete #gekrümelter Feta #kandierte Walnüsse #Vinaigrette",
+      "offers": [{"priceKind": "fixed", "amountCents": 890, "rawPrice": "8,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 0,
+      "section": "Vorspeisen",
+      "name": "Burrata mit lauwarmem Tomaten-Chutney",
+      "kind": "food",
+      "description": "#Basilikumpesto",
+      "offers": [{"priceKind": "fixed", "amountCents": 990, "rawPrice": "9,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 0,
+      "section": "Vorspeisen",
+      "name": "Roastbeef-Carpaccio",
+      "kind": "food",
+      "description": "#Olivenöl #Rauke #Grana Padano",
+      "offers": [{"priceKind": "fixed", "amountCents": 1190, "rawPrice": "11,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 0,
+      "section": "Vorspeisen",
+      "name": "Roastbeef-Tonnato",
+      "kind": "food",
+      "description": "#dünne Roastbeefscheiben #Thunfischcreme #Kapern",
+      "offers": [{"priceKind": "fixed", "amountCents": 1290, "rawPrice": "12,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 0,
+      "section": "Salate",
+      "name": "Kleiner Salat",
+      "kind": "food",
+      "description": "#wahlweise #gemischter Salat –J- #Tomatensalat #Gurkensalat #Krautsalat #Cole Slaw",
+      "offers": [{"priceKind": "fixed", "amountCents": 590, "rawPrice": "5,90", "basis": "per_item"}],
+      "optionGroups": [
+        {
+          "title": "wahlweise",
+          "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+          "choices": [
+            {"name": "gemischter Salat", "kind": "variant", "offer": {"priceKind": "included", "basis": "per_item"}, "declarationCodes": ["j"]},
+            {"name": "Tomatensalat", "kind": "variant", "offer": {"priceKind": "included", "basis": "per_item"}},
+            {"name": "Gurkensalat", "kind": "variant", "offer": {"priceKind": "included", "basis": "per_item"}},
+            {"name": "Krautsalat", "kind": "variant", "offer": {"priceKind": "included", "basis": "per_item"}},
+            {"name": "Cole Slaw", "kind": "variant", "offer": {"priceKind": "included", "basis": "per_item"}}
+          ]
+        }
+      ],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 0,
+      "section": "Salate",
+      "name": "Scheunensalat",
+      "kind": "food",
+      "description": "#Hähnchenbrust in Cornflakespanade #Rucolasalat #Champignons #Tomaten #Crôutons #Walnüsse #Parmesan –A,G,J-",
+      "offers": [
+        {"priceKind": "fixed", "amountCents": 1980, "rawPrice": "19,80", "basis": "per_item"},
+        {"label": "ohne Hähnchenbrust", "priceKind": "fixed", "amountCents": 1190, "rawPrice": "11,90", "basis": "per_item"}
+      ],
+      "declarationCodes": ["a", "g", "j"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Salate",
+      "name": "Gebackener Ziegenkäse an Rucolasalat mit Obst",
+      "kind": "food",
+      "description": "#Rucolasalat #Dörrobst & Obst #gebackener Ziegenkäse im Briqueteig- A ,J-",
+      "offers": [
+        {"priceKind": "fixed", "amountCents": 1980, "rawPrice": "19,80", "basis": "per_item"},
+        {"label": "als Vorspeise", "priceKind": "fixed", "amountCents": 1190, "rawPrice": "11,90", "basis": "per_item"}
+      ],
+      "declarationCodes": ["a", "j"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Salate",
+      "name": "Salat mit Zanderfilet",
+      "kind": "food",
+      "description": "#gemischter Salat #Olivenöl-Balsamico-Dressing #gebratenes Zanderfilet –A,D,J-",
+      "offers": [
+        {"priceKind": "fixed", "amountCents": 2190, "rawPrice": "21,90", "basis": "per_item"},
+        {"label": "als Vorspeise", "priceKind": "fixed", "amountCents": 1490, "rawPrice": "14,90", "basis": "per_item"}
+      ],
+      "declarationCodes": ["a", "d", "j"]
+    },
+    {
+      "pageIndex": 0,
+      "section": "Salate",
+      "name": "Bauernsalat mit Feta",
+      "kind": "food",
+      "description": "#Tomaten #Gurke #Zwiebeln #Feta #Essig & Öl #geröstetes Brot",
+      "offers": [{"priceKind": "fixed", "amountCents": 1590, "rawPrice": "15,90", "basis": "per_item"}],
+      "declarationCodes": []
+    }
+  ],
+  "documentDeclarations": [],
+  "expectedReviewCodes": ["source_declaration_meaning_unknown"],
+  "forbiddenEntryTexts": ["Speisen", "Scheune Restaurant · Landkneipe"]
+}

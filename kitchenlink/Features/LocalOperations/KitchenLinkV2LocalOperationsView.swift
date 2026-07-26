@@ -69,6 +69,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
     }
 
     @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var appStore: KitchenLinkStore
     @StateObject private var model = KitchenLinkLocalOperationsModel()
     @StateObject private var venueHub = KitchenLinkVenueHubModel()
     @StateObject private var cloud = KitchenLinkCloudOperationsModel()
@@ -113,6 +114,10 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
         }
         .sensoryFeedback(.success, trigger: successFeedback)
         .task {
+            cloud.onDrainOutbox = { [weak appStore] config, session in
+                guard let repo = appStore?.repository as? EventLogOrderRepository else { return nil }
+                return try? await repo.drainCloudOutbox(config: config, session: session)
+            }
             cloud.connectIfPossible()
             hubDiscovery.start()
             await startVenueHub()
@@ -203,20 +208,17 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
 
     private var badgeTitle: String {
         if cloud.isConnected { return "ONLINE" }
-        if model.isConnected { return "LOKAL" }
-        return "OFFLINE"
+        return "LOKAL"
     }
 
     private var badgeColor: Color {
         if cloud.isConnected { return KitchenLinkV2Palette.Urgency.freshSymbol }
-        if model.isConnected { return KitchenLinkV2Palette.Urgency.waitingSymbol }
-        return KitchenLinkV2Palette.Urgency.neutralSymbol
+        return KitchenLinkV2Palette.Content.muted
     }
 
     private var badgeAccessibilityLabel: String {
         if cloud.isConnected { return "Online-Service verbunden" }
-        if model.isConnected { return "Nur lokaler Service verbunden" }
-        return "Nicht verbunden"
+        return "Lokaler Bestell-Speicher aktiv; Cloud nicht verbunden"
     }
 
     private var modePicker: some View {
@@ -261,6 +263,8 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            outboxSyncStatus
+
             switch cloud.connectionState {
             case .signedOut:
                 cloudSetupControls
@@ -288,6 +292,35 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
         .accessibilityIdentifier("localOperations.cloudCard")
     }
 
+    @ViewBuilder private var outboxSyncStatus: some View {
+        switch cloud.outboxSyncState {
+        case .syncing:
+            HStack(spacing: KitchenLinkV2Spacing.small) {
+                ProgressView()
+                    .scaleEffect(0.7)
+                Text("Lokale Bestellungen werden synchronisiert …")
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+            }
+        case .error(let message):
+            Label(message, systemImage: "exclamationmark.arrow.trianglehead.counterclockwise")
+                .font(KitchenLinkV2Typography.meta)
+                .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                .fixedSize(horizontal: false, vertical: true)
+        case .idle:
+            if let lastSync = cloud.lastOutboxSync {
+                let elapsed = Int(-lastSync.timeIntervalSinceNow)
+                HStack(spacing: KitchenLinkV2Spacing.small) {
+                    Image(systemName: "checkmark.circle")
+                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    Text("Letzte Synchronisation: vor \(elapsed)s")
+                        .font(KitchenLinkV2Typography.meta)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                }
+            }
+        }
+    }
+
     private var cloudStateColor: Color {
         switch cloud.connectionState {
         case .connected:
@@ -295,7 +328,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
         case .connecting, .signedOut:
             return KitchenLinkV2Palette.Content.secondary
         case .unreachable:
-            return KitchenLinkV2Palette.Urgency.waitingText
+            return KitchenLinkV2Palette.Content.muted
         }
     }
 
@@ -619,19 +652,19 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
 
     private var emptyTitle: String {
         if !cloud.isConnected && !model.isConnected {
-            return "Kein Service verbunden."
+            return "Keine Bestellungen."
         }
         return mode == .kitchen ? "Keine neue Bestellung." : "Nichts zur Abholung bereit."
     }
 
     private var emptyDetail: String {
         if !cloud.isConnected && !model.isConnected {
-            return "Online-Service verbinden oder den lokalen Hub starten."
+            return "Bestellungen werden lokal auf diesem iPhone gespeichert – auch ohne Verbindung zu Cloud oder Hub."
         }
         if mode == .kitchen {
             return cloud.isConnected
-                ? "Online- und lokale Gastbestellungen erscheinen hier automatisch."
-                : "Lokale Gastbestellungen erscheinen hier automatisch. Der Online-Service ist gerade nicht verbunden."
+                ? "Online- und lokale Bestellungen erscheinen hier automatisch."
+                : "Der Online-Service ist nicht verbunden. Lokale Bestellungen erscheinen hier automatisch."
         }
         return "Sobald die Küche eine Bestellung als zubereitet markiert, erscheint sie hier."
     }

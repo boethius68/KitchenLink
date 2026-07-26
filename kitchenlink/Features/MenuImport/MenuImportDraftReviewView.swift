@@ -420,7 +420,7 @@ struct MenuImportEntryDetailView: View {
             if let offer = entry.offers.first {
                 evidenceCrop(
                     evidence: offer.evidence,
-                    caption: "Preis · „\(offer.rawPrice)“ · Quelle: \(offer.evidence.rawText)"
+                    caption: "Preis · „\(offer.rawPrice ?? offer.priceKind.rawValue)“ · Quelle: \(offer.evidence.rawText)"
                 )
             }
 
@@ -928,7 +928,7 @@ private struct MenuImportDraftOptionsSummary: View {
                 return prefix + PriceFormatter.string(cents: $0)
             }
         default:
-            price = offer.rawPrice.isEmpty ? nil : offer.rawPrice
+            price = offer.rawPrice?.isEmpty == false ? offer.rawPrice : nil
         }
         return [choice.name.value, price].compactMap { $0 }.joined(separator: " · ")
     }

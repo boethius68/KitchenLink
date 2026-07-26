@@ -11,7 +11,7 @@ final class KitchenLinkStore: ObservableObject {
 
     private let ownerEmail = "owner@kitchenlink.test"
     private let ownerPassword = "123456"
-    private let repository: any KitchenLinkRepository
+    let repository: any KitchenLinkRepository
 
     var sharedDemoQRCode: String {
         LocalQRTokenCodec.sharedCode(slug: venueProfile.slug)

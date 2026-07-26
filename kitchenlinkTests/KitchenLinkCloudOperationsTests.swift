@@ -121,27 +121,40 @@ actor KitchenLinkCloudTransportSpy: KitchenLinkCloudTransport {
     ) async throws {
         presenceCalls.append((venueSlug, deviceID, localGuestURL))
     }
+
+    func createOrder(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        id: String,
+        createdAt: Date,
+        sourceDevice: String,
+        totalCents: Int,
+        serviceMode: String,
+        customerNote: String,
+        itemsJSON: Data
+    ) async throws -> Bool {
+        true
+    }
 }
 
 @MainActor
 struct KitchenLinkCloudOperationsTests {
-    private func makeDefaults() -> UserDefaults {
+    private func makeSeeded() -> (defaults: UserDefaults, store: KitchenLinkCloudCredentialStore) {
         let suite = "cloud-tests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
-        return defaults
-    }
-
-    /// Nur eine gespeicherte Sitzung wird geseedet — die Verbindungsdaten
-    /// (URL/Anon-Key/Venue) kommen aus dem eingebackenen Sandbox-Standard.
-    private func seedCredentials(into defaults: UserDefaults) {
-        let store = KitchenLinkCloudCredentialStore(defaults: defaults)
+        let store = KitchenLinkCloudCredentialStore(
+            defaults: defaults,
+            secrets: InMemorySecretStore()
+        )
         store.save(session: KitchenLinkCloudSession(
             accessToken: "at1",
             refreshToken: "rt1",
             userID: "user-1",
             expiresAt: .distantFuture
         ))
+        return (defaults, store)
     }
 
     private func wireOrder(
@@ -227,10 +240,9 @@ struct KitchenLinkCloudOperationsTests {
     // MARK: Laden und Status
 
     @Test func refreshOrdersPopulatesAndConnects() async {
-        let defaults = makeDefaults()
-        seedCredentials(into: defaults)
+        let (defaults, store) = makeSeeded()
         let spy = KitchenLinkCloudTransportSpy(wireOrders: [wireOrder()])
-        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
+        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults, secrets: store.secrets)
 
         await model.refreshOrders()
 
@@ -242,11 +254,10 @@ struct KitchenLinkCloudOperationsTests {
     }
 
     @Test func updateStatusRoutesThroughRpcAndRefreshes() async {
-        let defaults = makeDefaults()
-        seedCredentials(into: defaults)
+        let (defaults, store) = makeSeeded()
         let orderID = "11111111-2222-3333-4444-555555555555"
         let spy = KitchenLinkCloudTransportSpy(wireOrders: [wireOrder(id: orderID)])
-        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
+        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults, secrets: store.secrets)
         await model.refreshOrders()
 
         let success = await model.update(
@@ -264,11 +275,10 @@ struct KitchenLinkCloudOperationsTests {
     }
 
     @Test func unauthorizedRefreshesSessionExactlyOnceAndRetries() async {
-        let defaults = makeDefaults()
-        seedCredentials(into: defaults)
+        let (defaults, store) = makeSeeded()
         let spy = KitchenLinkCloudTransportSpy(wireOrders: [wireOrder()])
         await spy.setFailNextLoadUnauthorized(true)
-        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
+        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults, secrets: store.secrets)
 
         await model.refreshOrders()
 
@@ -276,30 +286,28 @@ struct KitchenLinkCloudOperationsTests {
         #expect(model.orders.count == 1)
         let refreshCalls = await spy.refreshCalls
         #expect(refreshCalls == 1)
-        let stored = KitchenLinkCloudCredentialStore(defaults: defaults).loadSession()
-        #expect(stored?.accessToken == "at2")
+        let reloaded = KitchenLinkCloudCredentialStore(defaults: defaults, secrets: store.secrets).loadSession()
+        #expect(reloaded?.accessToken == "at2")
     }
 
     @Test func deadRefreshTokenSignsOutAndClearsSession() async {
-        let defaults = makeDefaults()
-        seedCredentials(into: defaults)
+        let (defaults, store) = makeSeeded()
         let spy = KitchenLinkCloudTransportSpy(wireOrders: [wireOrder()])
         await spy.setFailNextLoadUnauthorized(true)
         // GoTrue meldet ein totes Refresh-Token als 400er-Serverfehler.
         await spy.setRefreshError(.server(status: 400, message: "Invalid Refresh Token"))
-        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
+        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults, secrets: store.secrets)
 
         await model.refreshOrders()
 
         #expect(model.connectionState == .signedOut)
-        #expect(KitchenLinkCloudCredentialStore(defaults: defaults).loadSession() == nil)
+        #expect(KitchenLinkCloudCredentialStore(defaults: defaults, secrets: store.secrets).loadSession() == nil)
     }
 
     @Test func missingVenueReportsUnreachable() async {
-        let defaults = makeDefaults()
-        seedCredentials(into: defaults)
+        let (defaults, store) = makeSeeded()
         let spy = KitchenLinkCloudTransportSpy(venue: nil)
-        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
+        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults, secrets: store.secrets)
 
         await model.refreshOrders()
 
@@ -311,9 +319,9 @@ struct KitchenLinkCloudOperationsTests {
     }
 
     @Test func signInRejectsEmptyCredentials() async {
-        let defaults = makeDefaults()
+        let (defaults, store) = makeSeeded()
         let spy = KitchenLinkCloudTransportSpy()
-        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
+        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults, secrets: store.secrets)
 
         let success = await model.signIn(email: "  ", password: "")
 
@@ -325,23 +333,94 @@ struct KitchenLinkCloudOperationsTests {
     }
 
     @Test func signInStoresSessionAndConnects() async {
-        let defaults = makeDefaults()
+        let (defaults, store) = makeSeeded()
         let spy = KitchenLinkCloudTransportSpy(wireOrders: [wireOrder()])
-        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
+        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults, secrets: store.secrets)
 
         let success = await model.signIn(email: "op@example.com", password: "geheim")
 
         #expect(success)
         // Ohne technische Felder: eine gespeicherte Sitzung reicht, damit sich
         // die App beim nächsten Start von selbst wieder verbindet.
-        #expect(KitchenLinkCloudCredentialStore(defaults: defaults).loadSession() != nil)
+        #expect(KitchenLinkCloudCredentialStore(defaults: defaults, secrets: store.secrets).loadSession() != nil)
+    }
+
+    // MARK: Sitzungsablage
+
+    /// Die Sitzung darf ausschließlich im Secret-Speicher landen. Eine
+    /// zusätzliche Klartextkopie in UserDefaults würde die Keychain-Migration
+    /// aufheben.
+    @Test func savedSessionNeverReachesUserDefaults() {
+        let suite = "cloud-tests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let secrets = InMemorySecretStore()
+        let store = KitchenLinkCloudCredentialStore(defaults: defaults, secrets: secrets)
+
+        store.save(session: KitchenLinkCloudSession(
+            accessToken: "at1",
+            refreshToken: "rt1",
+            userID: "user-1",
+            expiresAt: .distantFuture
+        ))
+
+        #expect(defaults.data(forKey: KitchenLinkCloudCredentialStore.legacyUserDefaultsSessionKey) == nil)
+        #expect(secrets.load(account: KitchenLinkCloudCredentialStore.secretSessionAccount) != nil)
+        #expect(store.loadSession()?.accessToken == "at1")
+    }
+
+    /// Bestandsgeräte haben die Sitzung noch in UserDefaults. Sie wird einmalig
+    /// übernommen und die Klartextkopie dabei gelöscht.
+    @Test func legacyUserDefaultsSessionMigratesIntoSecretStoreOnce() throws {
+        let suite = "cloud-tests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let legacy = KitchenLinkCloudSession(
+            accessToken: "legacy-at",
+            refreshToken: "legacy-rt",
+            userID: "user-1",
+            expiresAt: .distantFuture
+        )
+        defaults.set(
+            try encoder.encode(legacy),
+            forKey: KitchenLinkCloudCredentialStore.legacyUserDefaultsSessionKey
+        )
+        let secrets = InMemorySecretStore()
+        let store = KitchenLinkCloudCredentialStore(defaults: defaults, secrets: secrets)
+
+        #expect(store.loadSession()?.accessToken == "legacy-at")
+        #expect(defaults.data(forKey: KitchenLinkCloudCredentialStore.legacyUserDefaultsSessionKey) == nil)
+        // Zweiter Zugriff kommt aus dem Secret-Speicher, nicht aus den Defaults.
+        #expect(store.loadSession()?.accessToken == "legacy-at")
+    }
+
+    @Test func clearSessionRemovesSecretAndLegacyCopy() {
+        let suite = "cloud-tests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let secrets = InMemorySecretStore()
+        let store = KitchenLinkCloudCredentialStore(defaults: defaults, secrets: secrets)
+        store.save(session: KitchenLinkCloudSession(
+            accessToken: "at1",
+            refreshToken: "rt1",
+            userID: "user-1",
+            expiresAt: .distantFuture
+        ))
+        defaults.set(Data("alt".utf8), forKey: KitchenLinkCloudCredentialStore.legacyUserDefaultsSessionKey)
+
+        store.clearSession()
+
+        #expect(store.loadSession() == nil)
+        #expect(secrets.load(account: KitchenLinkCloudCredentialStore.secretSessionAccount) == nil)
+        #expect(defaults.data(forKey: KitchenLinkCloudCredentialStore.legacyUserDefaultsSessionKey) == nil)
     }
 
     @Test func heartbeatPublishesAndClearsLocalGuestURL() async {
-        let defaults = makeDefaults()
-        seedCredentials(into: defaults)
+        let (defaults, store) = makeSeeded()
         let spy = KitchenLinkCloudTransportSpy()
-        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults)
+        let model = KitchenLinkCloudOperationsModel(transport: spy, defaults: defaults, secrets: store.secrets)
 
         model.setLocalGuestURL(URL(string: "http://192.168.178.30:52123"))
         await model.sendHeartbeat()
