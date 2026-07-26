@@ -1,7 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 26 July 2026 (Session-Teil 22: Menu-Import launch-fähig gemacht)
-**Zuvor:** 24 July 2026 (Session-Teil 21: Local-first Event-Log fürs Einzelgerät)
+**Updated:** 26 July 2026 (Session-Teil 23: Legendenbasierte Namens-Normalisierung)
+**Zuvor:** 26 July 2026 (Session-Teil 22: Menu-Import launch-fähig gemacht)
 
 ## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
 
@@ -142,10 +142,9 @@ Launch-Pfad.**
   verstümmelte Codegruppe im Namen. Prompt `1.0.4` adressiert genau das, ist aber
   **noch nicht nachgemessen**: der Nutzer hatte genau einen bezahlten Lauf
   freigegeben, und der lief mit `1.0.2`.
-- Codex' deterministische Mapping-Korrektur verschiebt nur *einbuchstabige*
-  geklammerte Gruppen. Eine saubere Erweiterung: eine mehrbuchstabige geklammerte
-  Gruppe nur dann zerlegen, wenn **jeder** Buchstabe ein Legendencode dieser
-  Karte ist (trennt `[F,I]` von der Größe `[XL]`, ohne zu raten).
+- ~~Codex' deterministische Mapping-Korrektur verschiebt nur *einbuchstabige*
+  geklammerte Gruppen.~~ **Erledigt in Session-Teil 23** (siehe unten): die
+  Zerlegung ist jetzt legendenbasiert und deckt beide beobachteten Formen ab.
 - **`expectedReviewRecall` bleibt der größte Hebel.** Im bezahlten Lauf `0.143`:
   das Modell lieferte `evidence_missing`, `missing_visible_price` und ein selbst
   erfundenes `normalized_trailing_declaration_codes`, weil der Prompt das
@@ -202,6 +201,64 @@ KL-MENU-005 (§6.2). Details in Session-Teil 10 bis 12.
 Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
+
+## Session-Teil 23: Legendenbasierte Namens-Normalisierung (26. Juli 2026)
+
+### Anlass
+
+Nach PR #30 fragte der Nutzer nach dem weiteren Vorgehen. Empfehlung und
+Auswahl: erst den kostenlosen deterministischen Namens-Fix, dann **ein**
+bezahlter Lauf, der Prompt `1.0.4` und den Fix gemeinsam misst — spart einen
+Lauf gegenüber der getrennten Messung.
+
+### Korrektur einer eigenen Annahme
+
+Die PR-Notiz schrieb den Fix dem Regel-Parser zu. Falsch: die beiden Namen
+stammen aus dem **bezahlten Gemini-Lauf**. `AllergenCodeParser` in
+`ContentView.swift` ist nicht der Pfad. Der Fix gehört in den Ingestion-Pfad
+(`MenuImportDraftAssembler`), damit er **providerunabhängig** greift — auch
+wenn ein Modell die Prompt-Anweisung ignoriert.
+
+### Umgesetzt
+
+`AssemblyContext` trägt neu `legendCodes`, gefüllt von `collectLegendCodes`
+über **alle** Seiten, bevor ein Eintrag konvertiert wird. Das ist notwendig,
+weil die Legende real meist auf einer eigenen Seite steht, oft *nach* den
+Einträgen, die sie erklärt.
+
+`splitTrailingCodeGroup` kennt drei Formen in absteigender Beweisstärke:
+
+1. Geklammert mit Trennern (`Salat [F,I]`) — akzeptiert **ohne** Legende, weil
+   die Trenner selbst zeigen, dass es Codes sind. Codex' bisheriges Verhalten,
+   unverändert.
+2. Geklammert ohne Trenner (`Curry [FI]`) — **nur** mit Legende für jeden
+   Buchstaben.
+3. Klammerlos (`Bunter Marktsalat WI`) — schwächste Form, strengste Schranke:
+   Legende für jeden Buchstaben, Lauf ≤ 4 Zeichen, komplett Großbuchstaben,
+   Restname nicht leer.
+
+Formen 2 und 3 liefern ohne Legende `nil`. Begründung: einen Lauf im Namen zu
+lassen ist sichtbar falsch, aber im Review reparabel — aus einer Größe
+Deklarationen zu erfinden ist es nicht.
+
+### Verifikation
+
+- `kitchenlinkTests` auf iPhone 17 Pro: **TEST SUCCEEDED, 332 Fälle** (vorher
+  329), dieselben zwei bewusst gegateten Skips.
+- Codex' `testAssemblerMovesCompactTrailingCodesOutOfEntryNameLosslessly`
+  läuft unverändert grün — inklusive seiner `[XL]`-Gegenprobe.
+- Drei neue Tests: beide echten Formen mit Legende, `[XL]`-Gegenprobe **mit**
+  vorhandener Legende, Nichts-tun ohne Legende, Legende auf einer *späteren*
+  Seite.
+
+### Offen / nächster Schritt
+
+Unverändert der bezahlte Lauf: Prompt `1.0.4` + dieser Fix gemeinsam über die
+zehn Gate-Seiten, danach die drei Wiederholungsläufe (`minimumRepeatRuns`).
+Beides braucht Nutzerfreigabe und den Schlüssel. Ob der Fix die zwei Einträge
+wirklich einsammelt, hängt daran, ob das Modell die Legende der Prüfküche als
+`declarations` mit `local_code` liefert — im Lauf mit `1.0.2` tat es das nur
+teilweise. Das ist die eigentliche Messfrage.
 
 ## Session-Teil 21: Local-first Event-Log fürs Einzelgerät (24. Juli 2026)
 

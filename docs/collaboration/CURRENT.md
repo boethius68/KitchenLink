@@ -496,5 +496,14 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   unset currency code, but is not yet re-measured. Release still needs the three
   repeat runs. Local on-device models are ruled out as a launch path (measured:
   62 s per page on the development Mac; the operator runtime is an iPhone).
+  The name normalization no longer depends on the prompt alone: the assembler
+  collects the document's legend codes across *all* pages first (a legend
+  usually sits on its own page) and then splits a trailing code run off an entry
+  name only when the legend defines every one of its letters. That covers both
+  observed shapes — the unseparated bracket run `[FI]` and the bare run
+  `Bunter Marktsalat WI` — while `Pizza Familie [XL]` keeps its size even on a
+  card with a legend, because `X` is not one of its codes. Without a legend
+  neither new shape fires: leaving a run in the name is recoverable in review,
+  inventing declarations from a size is not.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

@@ -568,21 +568,238 @@ final class MenuImportExtractionContractTests: XCTestCase {
         )
     }
 
-    private func processing() -> MenuImportProcessingMetadata {
+    private func processing(pages: Int = 1) -> MenuImportProcessingMetadata {
         MenuImportProcessingMetadata(
             pipelineVersion: "test",
             provider: "test-provider",
             promptVersion: MenuImportExtractionPrompt.version,
             promptFingerprint: MenuImportExtractionPrompt.fingerprint,
             contractVersion: MenuImportPageExtraction.currentContractVersion,
-            pageOutcomes: [
+            pageOutcomes: (0 ..< pages).map { pageIndex in
                 MenuImportPageOutcome(
-                    pageIndex: 0,
+                    pageIndex: pageIndex,
                     status: .processed,
                     attempts: 1
                 )
-            ]
+            }
         )
+    }
+
+    /// The two "missing" entries of the first paid Gemini run were not losses
+    /// but unnormalized names: `Veganes Kokoscurry [FI]` (an unseparated
+    /// bracket run) and `Bunter Marktsalat WI` (no bracket at all). Both are
+    /// split only because the page's own legend defines `F`, `I` and `W`.
+    ///
+    /// The same fixture proves the guard: `Pizza Familie [XL]` keeps its size
+    /// in the name even though a legend is present, because `X` is not one of
+    /// its codes. Splitting it would invent two declarations from a size.
+    func testLegendBackedTrailingCodesSplitWhileUnbackedRunsStayInTheName() throws {
+        let lines = [
+            line("Karte", page: 0, x: 0.1, y: 0.9),
+            line("Veganes Kokoscurry [FI] 15,90 €", page: 0, x: 0.1, y: 0.8),
+            line("Bunter Marktsalat WI 8,90 €", page: 0, x: 0.1, y: 0.7),
+            line("Pizza Familie [XL] 22,00 €", page: 0, x: 0.1, y: 0.6),
+            line("F = Fisch, I = Sellerie, W = Weichtiere", page: 0, x: 0.1, y: 0.1)
+        ]
+        let legend = ["F": "Fisch", "I": "Sellerie", "W": "Weichtiere"].map { code, meaning in
+            MenuImportExtractedDeclaration(
+                kind: "source_declaration",
+                rawText: "\(code) = \(meaning)",
+                alternatives: [],
+                localCode: code,
+                canonicalId: nil,
+                claim: "unknown",
+                scope: "document",
+                evidenceLineIds: ["p1-l5"]
+            )
+        }
+        let names = [
+            "Veganes Kokoscurry [FI]",
+            "Bunter Marktsalat WI",
+            "Pizza Familie [XL]"
+        ]
+        let extraction = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 0,
+            pageKind: "menu",
+            languages: ["de"],
+            sections: [
+                MenuImportExtractedSection(
+                    title: text("Karte", language: "de", evidence: ["p1-l1"]),
+                    order: 0,
+                    entries: names.enumerated().map { index, name in
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            name: text(name, language: "de", evidence: ["p1-l\(index + 2)"]),
+                            description: nil,
+                            itemNumber: nil,
+                            order: index,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [],
+                            bundleComponents: [],
+                            declarations: [],
+                            reviewReasons: []
+                        )
+                    },
+                    subsections: [],
+                    declarations: [],
+                    reviewReasons: []
+                )
+            ],
+            declarations: legend,
+            reviewReasons: []
+        )
+
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: source(),
+            pageExtractions: [extraction],
+            ocrLines: lines,
+            processing: processing()
+        )
+        let entries = try XCTUnwrap(draft.sections.first?.entries)
+
+        XCTAssertEqual(entries[0].name.value, "Veganes Kokoscurry")
+        XCTAssertEqual(entries[0].declarations.compactMap(\.localCode), ["F", "I"])
+
+        XCTAssertEqual(entries[1].name.value, "Bunter Marktsalat")
+        XCTAssertEqual(entries[1].declarations.compactMap(\.localCode), ["W", "I"])
+
+        // Unbacked by the legend, so the size stays where it was printed.
+        XCTAssertEqual(entries[2].name.value, "Pizza Familie [XL]")
+        XCTAssertEqual(entries[2].declarations, [])
+
+        XCTAssertTrue(draft.validate().errors.isEmpty)
+    }
+
+    /// Without a legend the assembler has no evidence at all, so neither new
+    /// shape may fire — an unseparated run stays in the name rather than
+    /// becoming guessed declarations.
+    func testTrailingRunsAreNotSplitWhenTheDocumentPrintedNoLegend() throws {
+        let lines = [
+            line("Karte", page: 0, x: 0.1, y: 0.9),
+            line("Veganes Kokoscurry [FI]", page: 0, x: 0.1, y: 0.8),
+            line("Bunter Marktsalat WI", page: 0, x: 0.1, y: 0.7)
+        ]
+        let names = ["Veganes Kokoscurry [FI]", "Bunter Marktsalat WI"]
+        let extraction = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 0,
+            pageKind: "menu",
+            languages: ["de"],
+            sections: [
+                MenuImportExtractedSection(
+                    title: text("Karte", language: "de", evidence: ["p1-l1"]),
+                    order: 0,
+                    entries: names.enumerated().map { index, name in
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            name: text(name, language: "de", evidence: ["p1-l\(index + 2)"]),
+                            description: nil,
+                            itemNumber: nil,
+                            order: index,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [],
+                            bundleComponents: [],
+                            declarations: [],
+                            reviewReasons: []
+                        )
+                    },
+                    subsections: [],
+                    declarations: [],
+                    reviewReasons: []
+                )
+            ],
+            declarations: [],
+            reviewReasons: []
+        )
+
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: source(),
+            pageExtractions: [extraction],
+            ocrLines: lines,
+            processing: processing()
+        )
+        let entries = try XCTUnwrap(draft.sections.first?.entries)
+
+        XCTAssertEqual(entries[0].name.value, "Veganes Kokoscurry [FI]")
+        XCTAssertEqual(entries[1].name.value, "Bunter Marktsalat WI")
+        XCTAssertTrue(entries.allSatisfy { $0.declarations.isEmpty })
+    }
+
+    /// A legend on a *later* page must still govern earlier entries — the
+    /// common real layout, and the reason legend codes are collected across
+    /// the whole document before any entry is converted.
+    func testLegendOnALaterPageStillNormalizesEarlierEntries() throws {
+        let lines = [
+            line("Karte", page: 0, x: 0.1, y: 0.9),
+            line("Bunter Marktsalat WI", page: 0, x: 0.1, y: 0.8),
+            line("W = Weichtiere, I = Sellerie", page: 1, x: 0.1, y: 0.9)
+        ]
+        let menuPage = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 0,
+            pageKind: "menu",
+            languages: ["de"],
+            sections: [
+                MenuImportExtractedSection(
+                    title: text("Karte", language: "de", evidence: ["p1-l1"]),
+                    order: 0,
+                    entries: [
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            name: text("Bunter Marktsalat WI", language: "de", evidence: ["p1-l2"]),
+                            description: nil,
+                            itemNumber: nil,
+                            order: 0,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [],
+                            bundleComponents: [],
+                            declarations: [],
+                            reviewReasons: []
+                        )
+                    ],
+                    subsections: [],
+                    declarations: [],
+                    reviewReasons: []
+                )
+            ],
+            declarations: [],
+            reviewReasons: []
+        )
+        let legendPage = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 1,
+            pageKind: "legend",
+            languages: ["de"],
+            sections: [],
+            declarations: ["W": "Weichtiere", "I": "Sellerie"].map { code, meaning in
+                MenuImportExtractedDeclaration(
+                    kind: "source_declaration",
+                    rawText: "\(code) = \(meaning)",
+                    alternatives: [],
+                    localCode: code,
+                    canonicalId: nil,
+                    claim: "unknown",
+                    scope: "document",
+                    evidenceLineIds: ["p2-l1"]
+                )
+            },
+            reviewReasons: []
+        )
+
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: source(),
+            pageExtractions: [menuPage, legendPage],
+            ocrLines: lines,
+            processing: processing(pages: 2)
+        )
+        let entries = try XCTUnwrap(draft.sections.first?.entries)
+
+        XCTAssertEqual(entries[0].name.value, "Bunter Marktsalat")
+        XCTAssertEqual(entries[0].declarations.compactMap(\.localCode), ["W", "I"])
     }
 
     private func text(

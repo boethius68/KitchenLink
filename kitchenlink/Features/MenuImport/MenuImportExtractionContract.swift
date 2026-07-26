@@ -486,6 +486,7 @@ struct MenuImportDraftAssembler {
         var declarations: [MenuImportDeclaration] = []
 
         let orderedPages = pageExtractions.sorted { $0.pageIndex < $1.pageIndex }
+        context.collectLegendCodes(from: orderedPages)
         var seenPages: Set<Int> = []
         for page in orderedPages {
             let pagePath = "pages[\(page.pageIndex)]"
@@ -591,6 +592,16 @@ private struct AssemblyContext {
     let sourceID: String
     let evidenceIndex: MenuImportEvidenceLineIndex
     var findings: [MenuImportReviewFinding] = []
+
+    /// Every declaration code the document's own legend defines, normalized.
+    ///
+    /// Collected across *all* pages before any entry is converted, because a
+    /// card's legend usually sits on its own page — often after the entries
+    /// that reference it. This is the only evidence that lets
+    /// `normalizeTrailingDeclarationCodes` split a run of letters without
+    /// guessing: `[FI]` is two codes on a card whose legend defines `F` and
+    /// `I`, while `[XL]` on the same card is a size and must stay in the name.
+    var legendCodes: Set<String> = []
 
     mutating func orderedIndices(
         _ orders: [Int],
@@ -812,6 +823,97 @@ private struct AssemblyContext {
     /// of the purchasable name. Providers do not always duplicate those codes
     /// into `declarations`, so normalize the unambiguous syntax here while
     /// retaining the exact raw group and source evidence losslessly.
+    /// Gathers the document's own legend codes from every page's declarations.
+    mutating func collectLegendCodes(from pages: [MenuImportPageExtraction]) {
+        for page in pages {
+            for declaration in page.declarations {
+                guard let code = declaration.localCode else { continue }
+                let token = normalizedToken(code)
+                guard !token.isEmpty else { continue }
+                legendCodes.insert(token)
+            }
+        }
+    }
+
+    /// Splits a trailing declaration-code group off an entry name.
+    ///
+    /// Three shapes are recognized, in descending order of evidence:
+    ///
+    /// 1. A bracketed group whose parts are each a single character
+    ///    (`Salat [F,I]`). Accepted without a legend, because the separators
+    ///    themselves show that these are codes and not a word.
+    /// 2. A bracketed group written as one unseparated run (`Curry [FI]`).
+    ///    Only split when the legend defines *every* letter — otherwise `[XL]`
+    ///    would silently become the two codes `X` and `L`.
+    /// 3. An unbracketed uppercase run (`Bunter Marktsalat WI`). The weakest
+    ///    shape, so it carries the strictest guard: a legend must define every
+    ///    letter, the run must be short, and a name must remain.
+    ///
+    /// Shapes 2 and 3 return `nil` when the document printed no legend. Leaving
+    /// the run in the name is visibly wrong but recoverable in review;
+    /// inventing declarations from a size or a vintage is neither.
+    func splitTrailingCodeGroup(
+        in trimmedName: String
+    ) -> (visibleName: String, codes: [String], rawGroup: String)? {
+        let isSingleAlphanumeric = { (code: String) in
+            code.unicodeScalars.count == 1
+                && code.unicodeScalars.allSatisfy(CharacterSet.alphanumerics.contains)
+        }
+
+        if trimmedName.last == "]", let openingBracket = trimmedName.lastIndex(of: "[") {
+            let rawGroup = String(trimmedName[openingBracket...])
+            let inner = String(
+                trimmedName[
+                    trimmedName.index(after: openingBracket)..<trimmedName.index(before: trimmedName.endIndex)
+                ]
+            )
+            let visibleName = trimmedName[..<openingBracket]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !visibleName.isEmpty else { return nil }
+
+            let parts = inner
+                .split(separator: ",", omittingEmptySubsequences: false)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+            if !parts.isEmpty, parts.allSatisfy(isSingleAlphanumeric) {
+                return (visibleName, parts, rawGroup)
+            }
+
+            if parts.count == 1, let letters = legendBackedLetters(in: parts[0]) {
+                return (visibleName, letters, rawGroup)
+            }
+            return nil
+        }
+
+        guard let separator = trimmedName.lastIndex(of: " ") else { return nil }
+        let run = String(trimmedName[trimmedName.index(after: separator)...])
+        let visibleName = trimmedName[..<separator]
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !visibleName.isEmpty,
+              run == run.uppercased(),
+              run.count <= 4,
+              let letters = legendBackedLetters(in: run)
+        else {
+            return nil
+        }
+        return (visibleName, letters, run)
+    }
+
+    /// Returns the individual characters of `run` when the document's legend
+    /// defines every one of them, and `nil` otherwise (including when no
+    /// legend was found at all).
+    private func legendBackedLetters(in run: String) -> [String]? {
+        guard !legendCodes.isEmpty, run.count >= 2 else { return nil }
+        guard run.unicodeScalars.allSatisfy(CharacterSet.alphanumerics.contains) else {
+            return nil
+        }
+        let letters = run.map(String.init)
+        guard letters.allSatisfy({ legendCodes.contains(normalizedToken($0)) }) else {
+            return nil
+        }
+        return letters
+    }
+
     mutating func normalizeTrailingDeclarationCodes(
         name: MenuImportExtractedText,
         declarations: [MenuImportExtractedDeclaration],
@@ -822,33 +924,10 @@ private struct AssemblyContext {
         declarations: [MenuImportExtractedDeclaration]
     ) {
         let trimmedName = name.value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedName.last == "]",
-              let openingBracket = trimmedName.lastIndex(of: "[")
-        else {
+        guard let split = splitTrailingCodeGroup(in: trimmedName) else {
             return (name, declarations)
         }
-
-        let rawGroup = String(trimmedName[openingBracket...])
-        let rawCodes = String(
-            trimmedName[
-                trimmedName.index(after: openingBracket)..<trimmedName.index(before: trimmedName.endIndex)
-            ]
-        )
-        let codes = rawCodes
-            .split(separator: ",", omittingEmptySubsequences: false)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        let isCompactCode = { (code: String) in
-            code.unicodeScalars.count == 1
-                && code.unicodeScalars.allSatisfy(CharacterSet.alphanumerics.contains)
-        }
-        let visibleName = trimmedName[..<openingBracket]
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !visibleName.isEmpty,
-              !codes.isEmpty,
-              codes.allSatisfy(isCompactCode)
-        else {
-            return (name, declarations)
-        }
+        let (visibleName, codes, rawGroup) = split
 
         var normalizedName = name
         normalizedName.value = visibleName
