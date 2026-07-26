@@ -78,22 +78,33 @@ append-only; superseded decisions are marked rather than deleted.
   shell stage (D5). The sandbox order gate currently uses the PostgreSQL RPC
   variant; a production architecture may revisit that implementation detail.
 
-## Local Guest Ordering (approved 18 July 2026)
+## Local-First Operator Orders (revised 23 July 2026, replaces 18 July 2026)
 
-- **Required sandbox capability:** Guests must be able to order locally when
-  the cloud connection is unavailable. Dropping local guest access in favor of
-  cloud-only guest ordering is not an acceptable fallback for the Sandbox Beta.
-- **Local eligibility:** The guest device must be connected to the restaurant's
-  local network and must reach a locally served guest surface. KitchenLink does
-  not promise local ordering to a device that can reach neither the restaurant
-  network nor the cloud.
-- **Authoritative acknowledgement:** The guest UI may confirm arrival only
-  after at least one authoritative venue node has durably stored the order.
-- **Architecture boundary:** This approves the product requirement, not a
-  transport shortcut. A cloud HTTPS page must not be designed to fetch an
-  untrusted local HTTP endpoint in conflict with browser security. Local page
-  delivery/bootstrap, AP isolation, TLS/trust, device identity, failover and
-  recovery require measured architecture proof before network implementation.
+- **Local-first means the operator device is the authoritative node.** The
+  service iPhone stores every order and every status change in a crash-safe,
+  append-only event log (KL-OFFLINE-003). Orders survive app kill, device
+  reboot and cloud outage without data loss. The cloud is a sync target, not
+  the source of truth.
+- **Guest ordering via cloud when available.** The guest web
+  (`kitchenlink.luneq.eu`) is the primary guest surface. When internet is
+  available, guests order there; the operator sees the order via cloud
+  heartbeat and polling.
+- **Verbal ordering when offline.** When the cloud is unavailable, guests
+  order verbally; the waiter enters the order on the service iPhone. The
+  durable store guarantees the order is not lost. Device-to-device local guest
+  ordering (browser → iPhone hub) is not required for the sandbox beta.
+- **AP/client isolation is no longer a P0 blocker.** The previous requirement
+  (guest device reaches operator device via local WLAN) is replaced by the
+  verbal-ordering fallback. Solving AP isolation remains a future option but
+  does not block the sandbox beta.
+- **Authoritative acknowledgement follows from the event log.** An order is
+  confirmed only after the event log has durably committed it. This applies to
+  all paths: cloud submit, waiter-entered order, and any future local guest
+  ordering.
+- **Venue hub (NWListener, Bonjour, QR, guest SPA) stays in the codebase**
+  as a proven technology seam and may be reactivated when AP isolation or an
+  alternative transport (e.g. iPhone hotspot) is solved. It is not removed or
+  deprecated.
 - **Sandbox boundary:** This decision activates no live payment, production
   infrastructure or certified fiscal behavior.
 
@@ -206,6 +217,48 @@ append-only; superseded decisions are marked rather than deleted.
   their completeness.
 - The order stepper, when an item is in the cart, occupies its own
   right-aligned line; it no longer shares a row with the declarations.
+
+## Menu Import Release Bar (approved 26 July 2026)
+
+- **The release-relevant quality bar is review-assisted, not zero-touch.** Every
+  import draft passes a mandatory human review before publishing
+  (`MenuImportDraftReviewModel.canConvert` stays false while any entry is
+  unresolved). The bar therefore measures what a review cannot repair, plus how
+  much work the review costs — not perfection of the raw extraction.
+- The gate carries **two profiles** in
+  `docs/test-fixtures/scanner-quality-gate/policy.json`:
+  - **`launch`** is the release bar: no missing entry, no silently lost page, no
+    invented dietary/allergen claim, no invalid draft; every finding the card
+    warrants is actually flagged; and **corrections per page** is the headline
+    effort metric (budget `3.0`).
+  - **`strict`** is retained unchanged as a diagnostic long-term target. It is
+    explicitly **not** expected to pass: it requires near-exact semantic
+    repeatability across runs, which a sampled model cannot deliver. Reporting
+    the distance is useful; gating on it is not.
+- Precision errors (a wrong price, a phantom entry) are acceptable **only**
+  because they are flagged and correctable. An unflagged error is the failure
+  mode this decision exists to prevent.
+
+## Menu Import Provider (approved 26 July 2026)
+
+- **A paid, contractual vision model is the import default**; the free keyless
+  gateway remains the fallback. Rationale: an import is a rare, one-time
+  operation per restaurant, so the cost is negligible against the value of
+  removing invented prices, non-determinism and an anonymous dependency.
+- **Selected model: `gemini-3.5-flash`** via the OpenCode Zen gateway. Measured
+  on the ten-page gate it reduced corrections per page from `8.50` (local rules)
+  to `1.00` and reached section F1 `1.000`, entry F1 `0.971`.
+- The operator can configure key, gateway URL and model **in the app**. Before
+  this decision the code forced every stored key onto OpenAI, so no other paid
+  provider was configurable in a shipped build at all.
+- The local rule parser remains the offline fallback only. It must never present
+  an unreviewed card as finished; it declares its own semantic gap on every
+  draft.
+- **Local (on-device) models are not a launch path.** The import runs on the
+  operator's iPhone; the deployment target is iOS 17 and the reference test
+  device has no on-device model support. Measured on the development Mac
+  (M5/16 GB) a 9B model needed 62 s for a single page with worse results than
+  the free gateway. Revisit only as a later privacy option.
 
 ## Collaboration Governance
 

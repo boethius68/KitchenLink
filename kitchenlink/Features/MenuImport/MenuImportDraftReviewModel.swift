@@ -13,7 +13,10 @@ enum MenuImportEntryPriceState: Equatable {
         if offer.priceKind == .fixed, let cents = offer.amountCents {
             return .fixed(cents: cents)
         }
-        return .other(kind: offer.priceKind, rawPrice: offer.rawPrice)
+        return .other(
+            kind: offer.priceKind,
+            rawPrice: offer.rawPrice ?? offer.priceKind.rawValue
+        )
     }
 
     var displayText: String {
@@ -72,6 +75,14 @@ enum MenuImportReviewReason {
     }
 }
 
+private func flattenedMenuImportSections(
+    _ sections: [MenuImportSection]
+) -> [MenuImportSection] {
+    sections.flatMap { section in
+        [section] + flattenedMenuImportSections(section.subsections)
+    }
+}
+
 /// In-memory review session over one `MenuImportDraft`.
 ///
 /// Every mutation keeps the draft valid against `MenuImportDraftValidator`.
@@ -88,15 +99,15 @@ final class MenuImportDraftReviewModel: ObservableObject {
     // MARK: - Lookup
 
     var sections: [MenuImportSection] {
-        draft.sections
+        flattenedMenuImportSections(draft.sections)
     }
 
     var sectionOptions: [(id: String, title: String)] {
-        draft.sections.map { ($0.id, $0.title.value) }
+        sections.map { ($0.id, $0.title.value) }
     }
 
     func entry(withID entryID: String) -> MenuImportEntry? {
-        for section in draft.sections {
+        for section in sections {
             if let entry = section.entries.first(where: { $0.id == entryID }) {
                 return entry
             }
@@ -105,7 +116,7 @@ final class MenuImportDraftReviewModel: ObservableObject {
     }
 
     func sectionID(ofEntry entryID: String) -> String? {
-        draft.sections.first { section in
+        sections.first { section in
             section.entries.contains { $0.id == entryID }
         }?.id
     }
@@ -116,7 +127,7 @@ final class MenuImportDraftReviewModel: ObservableObject {
     /// everything flagged `needsReview`, plus non-rejected entries that could
     /// not be converted because they carry no usable fixed price.
     var unresolvedEntryIDs: [String] {
-        draft.sections.flatMap(\.entries).compactMap { entry in
+        sections.flatMap(\.entries).compactMap { entry in
             guard entry.reviewState != .rejected else { return nil }
             let isFlagged = entry.reviewState == .needsReview
             let isConvertible = MenuImportDraftConverter.convertibleItem(from: entry) != nil
@@ -136,7 +147,7 @@ final class MenuImportDraftReviewModel: ObservableObject {
     }
 
     private var convertibleEntryCountIsZero: Bool {
-        !draft.sections.flatMap(\.entries).contains {
+        !sections.flatMap(\.entries).contains {
             $0.reviewState != .rejected
                 && MenuImportDraftConverter.convertibleItem(from: $0) != nil
         }
@@ -204,15 +215,11 @@ final class MenuImportDraftReviewModel: ObservableObject {
         let acceptedIDs = Set(unresolvedConvertibleEntryIDs)
         guard !acceptedIDs.isEmpty else { return }
 
-        var updatedDraft = draft
-        for sectionIndex in updatedDraft.sections.indices {
-            for entryIndex in updatedDraft.sections[sectionIndex].entries.indices {
-                if acceptedIDs.contains(updatedDraft.sections[sectionIndex].entries[entryIndex].id) {
-                    updatedDraft.sections[sectionIndex].entries[entryIndex].reviewState = .accepted
-                }
+        for entryID in acceptedIDs {
+            mutateEntry(entryID) { entry in
+                entry.reviewState = .accepted
             }
         }
-        draft = updatedDraft
     }
 
     func rejectEntry(_ entryID: String) {
@@ -230,23 +237,18 @@ final class MenuImportDraftReviewModel: ObservableObject {
     /// Moves an entry to another section, appending it at the end and
     /// renormalizing the sibling orders in both sections.
     func moveEntry(_ entryID: String, toSectionID targetSectionID: String) {
-        guard let sourceSectionIndex = draft.sections.firstIndex(where: { section in
-            section.entries.contains { $0.id == entryID }
-        }),
-        let targetSectionIndex = draft.sections.firstIndex(where: { $0.id == targetSectionID }),
-        sourceSectionIndex != targetSectionIndex,
-        let entryIndex = draft.sections[sourceSectionIndex].entries.firstIndex(where: {
-            $0.id == entryID
-        }) else {
+        guard let sourceSectionID = sectionID(ofEntry: entryID),
+              sourceSectionID != targetSectionID else { return }
+
+        var updatedSections = draft.sections
+        guard var entry = Self.removeEntry(entryID, from: &updatedSections) else {
             return
         }
-
-        var entry = draft.sections[sourceSectionIndex].entries.remove(at: entryIndex)
         entry.reviewState = entry.reviewState == .needsReview ? .needsReview : .edited
-        draft.sections[targetSectionIndex].entries.append(entry)
-
-        renormalizeEntryOrders(inSection: sourceSectionIndex)
-        renormalizeEntryOrders(inSection: targetSectionIndex)
+        guard Self.appendEntry(entry, to: targetSectionID, in: &updatedSections) else {
+            return
+        }
+        draft.sections = updatedSections
     }
 
     // MARK: - Conversion
@@ -264,20 +266,78 @@ final class MenuImportDraftReviewModel: ObservableObject {
         _ entryID: String,
         _ transform: (inout MenuImportEntry) -> Void
     ) {
-        for sectionIndex in draft.sections.indices {
-            if let entryIndex = draft.sections[sectionIndex].entries.firstIndex(where: {
-                $0.id == entryID
-            }) {
-                transform(&draft.sections[sectionIndex].entries[entryIndex])
-                return
-            }
-        }
+        Self.mutateEntry(entryID, in: &draft.sections, transform)
     }
 
-    private func renormalizeEntryOrders(inSection sectionIndex: Int) {
-        for entryIndex in draft.sections[sectionIndex].entries.indices {
-            draft.sections[sectionIndex].entries[entryIndex].order = entryIndex
+    @discardableResult
+    private static func mutateEntry(
+        _ entryID: String,
+        in sections: inout [MenuImportSection],
+        _ transform: (inout MenuImportEntry) -> Void
+    ) -> Bool {
+        for sectionIndex in sections.indices {
+            if let entryIndex = sections[sectionIndex].entries.firstIndex(where: {
+                $0.id == entryID
+            }) {
+                transform(&sections[sectionIndex].entries[entryIndex])
+                return true
+            }
+            if mutateEntry(
+                entryID,
+                in: &sections[sectionIndex].subsections,
+                transform
+            ) {
+                return true
+            }
         }
+        return false
+    }
+
+    private static func removeEntry(
+        _ entryID: String,
+        from sections: inout [MenuImportSection]
+    ) -> MenuImportEntry? {
+        for sectionIndex in sections.indices {
+            if let entryIndex = sections[sectionIndex].entries.firstIndex(where: {
+                $0.id == entryID
+            }) {
+                let entry = sections[sectionIndex].entries.remove(at: entryIndex)
+                for index in sections[sectionIndex].entries.indices {
+                    sections[sectionIndex].entries[index].order = index
+                }
+                return entry
+            }
+            if let entry = removeEntry(
+                entryID,
+                from: &sections[sectionIndex].subsections
+            ) {
+                return entry
+            }
+        }
+        return nil
+    }
+
+    private static func appendEntry(
+        _ entry: MenuImportEntry,
+        to sectionID: String,
+        in sections: inout [MenuImportSection]
+    ) -> Bool {
+        for sectionIndex in sections.indices {
+            if sections[sectionIndex].id == sectionID {
+                var appendedEntry = entry
+                appendedEntry.order = sections[sectionIndex].entries.count
+                sections[sectionIndex].entries.append(appendedEntry)
+                return true
+            }
+            if appendEntry(
+                entry,
+                to: sectionID,
+                in: &sections[sectionIndex].subsections
+            ) {
+                return true
+            }
+        }
+        return false
     }
 }
 
@@ -287,7 +347,7 @@ enum MenuImportDraftConverter {
     static func convert(_ draft: MenuImportDraft) -> [MenuSectionData] {
         let legend = documentLegend(from: draft.declarations)
 
-        return draft.sections.compactMap { section in
+        return flattenedMenuImportSections(draft.sections).compactMap { section in
             let items = section.entries.compactMap { entry -> MenuItemData? in
                 guard entry.reviewState != .rejected else { return nil }
                 return convertibleItem(from: entry)

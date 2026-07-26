@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "kitchenlink-menu-quality-gate-manifest/1.0.0",
+  "name": "KitchenLink Phase 1 lossless menu gate",
+  "selectedPageCount": 10,
+  "documents": [
+    {
+      "fixtureID": "kitchenlink-pruefkueche",
+      "groundTruthFile": "pruefkueche.json",
+      "sourceKind": "synthetic",
+      "sourceFingerprint": "sha256:f28a18b95dd56d579683459a39cbd388d81ec7a7c9606e95e3e91972c6abece3",
+      "pages": [
+        {
+          "pageIndex": 0,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/kitchenlink-pruefkueche-1.png",
+          "sha256": "05b7c675e980f9e17978827e27e0850a4144f830afc16a9a08ebd4e25e5d3a45",
+          "pixelWidth": 1654,
+          "pixelHeight": 2339,
+          "pageKind": "menu"
+        },
+        {
+          "pageIndex": 1,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/kitchenlink-pruefkueche-2.png",
+          "sha256": "d28f5e8d48217b78cb224bf88c159b25dd7fc55c0aa3c14bda6ee1189552fcc3",
+          "pixelWidth": 1654,
+          "pixelHeight": 2339,
+          "pageKind": "menu"
+        },
+        {
+          "pageIndex": 2,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/kitchenlink-pruefkueche-3.png",
+          "sha256": "c0eca47507e8a8631daf600f7c81ba03027a7340015decef64b268c78fde983d",
+          "pixelWidth": 1654,
+          "pixelHeight": 2339,
+          "pageKind": "mixed"
+        }
+      ]
+    },
+    {
+      "fixtureID": "scheune-berlin",
+      "groundTruthFile": "scheune.json",
+      "sourceKind": "internal-research-fixture-no-redistribution",
+      "sourceFingerprint": "sha256:80855ff7aeab7d85a47ced62dd3cb42edeeeec3b10b95bcebe2c6e7545f1497b",
+      "pages": [
+        {
+          "pageIndex": 0,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/scheune-berlin-1.png",
+          "sha256": "907843751d3d2ab4a19542ca4de40a5f1fbcd41a2de1a26b0c30e72f056c864c",
+          "pixelWidth": 1323,
+          "pixelHeight": 1871,
+          "pageKind": "menu"
+        }
+      ]
+    },
+    {
+      "fixtureID": "lichtburg-berlin",
+      "groundTruthFile": "lichtburg.json",
+      "sourceKind": "internal-research-fixture-no-redistribution",
+      "sourceFingerprint": "sha256:f1fbee6ef6d624e8aef0ab3eae156f5937d5ea3a4c14a5ab5572ddeb26f64eac",
+      "pages": [
+        {
+          "pageIndex": 4,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/lichtburg-berlin-5.png",
+          "sha256": "db7c879e5407c4885d0f7b0fedde1884959264cb3790c823ac32b57724a12ecc",
+          "pixelWidth": 1323,
+          "pixelHeight": 1871,
+          "pageKind": "menu"
+        },
+        {
+          "pageIndex": 5,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/lichtburg-berlin-6.png",
+          "sha256": "4e644866ef5d7f6cd4f83ed7da3f8dc174987d9ae6269d9dfc74be0e6cf13f74",
+          "pixelWidth": 1323,
+          "pixelHeight": 1871,
+          "pageKind": "menu"
+        },
+        {
+          "pageIndex": 6,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/lichtburg-berlin-7.png",
+          "sha256": "3e80d11b3651da49147735a77e32fdd7ddd91ec1b368e69743e4f2294f01c0a3",
+          "pixelWidth": 1323,
+          "pixelHeight": 1871,
+          "pageKind": "menu"
+        }
+      ]
+    },
+    {
+      "fixtureID": "alexxanders-chemnitz",
+      "groundTruthFile": "alexxanders.json",
+      "sourceKind": "internal-research-fixture-no-redistribution",
+      "sourceFingerprint": "sha256:452a6d0f9d67d18fc2ca1c686c5dda0f1a77b3d9e8b54aa3454e85da1d4318e4",
+      "pages": [
+        {
+          "pageIndex": 0,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/alexxanders-chemnitz-1.png",
+          "sha256": "80befa49ff43d65bccc94bc8c98c2eb25dadb9496a86a095fbe67cd7ef6aa898",
+          "pixelWidth": 1323,
+          "pixelHeight": 1871,
+          "pageKind": "cover"
+        },
+        {
+          "pageIndex": 2,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/alexxanders-chemnitz-3.png",
+          "sha256": "eaf292b0ec2a4efb1468531f2af72cfa38b10cdb98a4eaab911b114c9edd7d7e",
+          "pixelWidth": 1323,
+          "pixelHeight": 1871,
+          "pageKind": "menu"
+        },
+        {
+          "pageIndex": 3,
+          "resourcePath": "kitchenlink/Resources/DemoMenus/alexxanders-chemnitz-4.png",
+          "sha256": "fc6d58e9296d621fde84cc8fc3f215bd59f407c3829062e2cf6609b48019cdc9",
+          "pixelWidth": 1323,
+          "pixelHeight": 1871,
+          "pageKind": "mixed"
+        }
+      ]
+    }
+  ]
+}

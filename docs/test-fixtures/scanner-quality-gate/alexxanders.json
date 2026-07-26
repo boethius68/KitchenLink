@@ -1,0 +1,184 @@
+{
+  "schemaVersion": "kitchenlink-menu-ground-truth/1.0.0",
+  "fixtureID": "alexxanders-chemnitz",
+  "languageTag": "de-DE",
+  "currencyCode": "EUR",
+  "sections": [
+    {"pageIndex": 2, "title": "Hauptspeise"},
+    {"pageIndex": 2, "title": "Pasta / vegetarisch"},
+    {"pageIndex": 3, "title": "Überraschungsmenü 3 - gang"},
+    {"pageIndex": 3, "title": "Dessert"}
+  ],
+  "entries": [
+    {
+      "pageIndex": 2,
+      "section": "Hauptspeise",
+      "name": "Lotte",
+      "kind": "food",
+      "description": "gebratener Seeteufel / hausgemachte Gnocchi / frischer Blattspinat / Fischvelouté",
+      "offers": [
+        {"label": "Zwischengericht", "priceKind": "fixed", "amountCents": 2800, "rawPrice": "28 €", "basis": "per_item"},
+        {"label": "Hauptgericht", "priceKind": "fixed", "amountCents": 3600, "rawPrice": "36 €", "basis": "per_item"}
+      ],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 2,
+      "section": "Hauptspeise",
+      "name": "See- Saibling",
+      "kind": "food",
+      "description": "in Thymianbutter gebratenes Saiblingsfilet / wilder Blumenkohl / Bimi / Risotto von getrocknete Tomaten / Fischvelouté",
+      "offers": [
+        {"label": "Zwischengericht", "priceKind": "fixed", "amountCents": 2500, "rawPrice": "25 €", "basis": "per_item"},
+        {"label": "Hauptgericht", "priceKind": "fixed", "amountCents": 3200, "rawPrice": "32 €", "basis": "per_item"}
+      ],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 2,
+      "section": "Hauptspeise",
+      "name": "Rinderfiletgeschnetzeltes",
+      "kind": "food",
+      "description": "in Pfifferlingsrahm / Thymian / Erbsen / Bandnudeln",
+      "offers": [{"priceKind": "fixed", "amountCents": 2500, "rawPrice": "25 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 2,
+      "section": "Hauptspeise",
+      "name": "Rinderfilet",
+      "kind": "food",
+      "description": "rosa gebratenes Rinderfilet / cremige Parmesan- Polenta / gebratene Pfifferlinge / Portweinjus",
+      "offers": [{"priceKind": "fixed", "amountCents": 4600, "rawPrice": "46 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 2,
+      "section": "Hauptspeise",
+      "name": "Unser Wiener Schnitzel",
+      "kind": "food",
+      "description": "vom Milchkalb / cremiger Gurkensalat / Bratkartoffeln / Zitrone / Preiselbeeren",
+      "offers": [{"priceKind": "fixed", "amountCents": 2900, "rawPrice": "29 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 2,
+      "section": "Hauptspeise",
+      "name": "Hähnchen- Roulade",
+      "kind": "food",
+      "description": "zart geschmorte Hähnchen- Roulade / gefüllt mit Parmaschinken und Salbei / Zitronen- Parmesan- Risotto / grünen Spargelspitzen",
+      "offers": [{"priceKind": "fixed", "amountCents": 2500, "rawPrice": "25 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 2,
+      "section": "Pasta / vegetarisch",
+      "name": "Spaghetti al Limone",
+      "kind": "food",
+      "description": "Spaghetti / Zitronen- Parmesan- Sauce / Chili- Knoblauch-Garnelen",
+      "offers": [{"priceKind": "fixed", "amountCents": 2400, "rawPrice": "24 €", "basis": "per_item"}],
+      "declarationCodes": [],
+      "forbiddenClaims": ["vegetarisch"]
+    },
+    {
+      "pageIndex": 2,
+      "section": "Pasta / vegetarisch",
+      "name": "Kohlrabischnitzel",
+      "kind": "food",
+      "description": "in Haselnusspanade gebackenes Kohlrabischnitzel / Kartoffelpüree / Radieschen / Pilzrahm",
+      "offers": [{"priceKind": "fixed", "amountCents": 2400, "rawPrice": "24 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 2,
+      "section": "Pasta / vegetarisch",
+      "name": "Taglioline",
+      "kind": "food",
+      "description": "frische Taglioline / Basilikumsugo / Tomatenjulienne / Burrata / gehobelter Trüffel",
+      "offers": [{"priceKind": "fixed", "amountCents": 2400, "rawPrice": "24 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 2,
+      "section": "Pasta / vegetarisch",
+      "name": "Wassermelonen- Steak",
+      "kind": "food",
+      "description": "gegrillte Wassermelone / Fetakäse- Creme / knusprige Kichererbsen / Minze",
+      "offers": [{"priceKind": "fixed", "amountCents": 2300, "rawPrice": "23 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 3,
+      "section": "Überraschungsmenü 3 - gang",
+      "name": "Überraschungsmenü 3 - gang",
+      "kind": "bundle",
+      "description": "… lassen Sie sich überraschen",
+      "quantities": [{"rawText": "3 - gang", "value": 3, "unit": "course", "kind": "course_count"}],
+      "offers": [{"priceKind": "fixed", "amountCents": 5500, "rawPrice": "55 €", "basis": "per_person"}],
+      "bundleComponents": [],
+      "declarationCodes": [],
+      "expectedReviewCodes": ["chef_composed_bundle"]
+    },
+    {
+      "pageIndex": 3,
+      "section": "Dessert",
+      "name": "Topfenmousse",
+      "kind": "food",
+      "description": "cremiges Topfenmousse / Ananassorbet / frische Beeren / Honigcrunch",
+      "offers": [{"priceKind": "fixed", "amountCents": 1300, "rawPrice": "13 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 3,
+      "section": "Dessert",
+      "name": "Crème brûlée",
+      "kind": "food",
+      "description": "hausgemachtes Blutorangen- Sorbet",
+      "offers": [{"priceKind": "fixed", "amountCents": 1200, "rawPrice": "12 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 3,
+      "section": "Dessert",
+      "name": "Käsekunst",
+      "kind": "food",
+      "description": "3 Stück Käse / Feigensenf / Brotchips / Meersalzbutter",
+      "offers": [{"priceKind": "fixed", "amountCents": 1500, "rawPrice": "15 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 3,
+      "section": "Dessert",
+      "name": "Espresso „Affogato“",
+      "kind": "drink",
+      "description": "Espresso / hausgemachtes Vanilleeis",
+      "offers": [{"priceKind": "fixed", "amountCents": 740, "rawPrice": "7,40 €", "basis": "per_item"}],
+      "declarationCodes": []
+    }
+  ],
+  "documentDeclarations": [
+    {
+      "kind": "notice",
+      "rawText": "Bei Lebensmittelunverträglichkeiten, Intoleranzen und Allergien sprechen Sie bitte unser Servicepersonal an!",
+      "claim": "unknown"
+    },
+    {
+      "kind": "notice",
+      "rawText": "Gern informieren wir Sie über die „Rezeptur“-Allergene.",
+      "claim": "unknown"
+    }
+  ],
+  "notices": [
+    {
+      "pageIndex": 3,
+      "rawText": "Eine individuelle Auswahl der Speisen ist bei diesem Menue nicht vorgesehen, die Zusammenstellung der Gänge erfolgt ausschließlich durch unseren Küchenchef."
+    }
+  ],
+  "forbiddenEntryTexts": [
+    "… wir lassen sie andersessen",
+    "die anders Gastgeber",
+    "Zwischengericht",
+    "Hauptgericht",
+    "Menüpreis pro Person"
+  ]
+}

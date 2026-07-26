@@ -61,7 +61,7 @@ final class MenuImportBenchmarkTests: XCTestCase {
         let priceKind: String
         let amountCents: Int?
         let deltaCents: Int?
-        let rawPrice: String
+        let rawPrice: String?
         let pageIndex: Int
         let boundingBox: MenuImportNormalizedBoundingBox
     }

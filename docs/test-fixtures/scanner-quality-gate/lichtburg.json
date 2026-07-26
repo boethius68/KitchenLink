@@ -1,0 +1,286 @@
+{
+  "schemaVersion": "kitchenlink-menu-ground-truth/1.0.0",
+  "fixtureID": "lichtburg-berlin",
+  "languageTag": "de-DE",
+  "currencyCode": "EUR",
+  "sections": [
+    {"pageIndex": 4, "title": "Steaks"},
+    {"pageIndex": 4, "title": "Beilagen"},
+    {"pageIndex": 5, "title": "Menü Lichtburg"},
+    {"pageIndex": 6, "title": "Dessert"}
+  ],
+  "entries": [
+    {
+      "pageIndex": 4,
+      "section": "Steaks",
+      "name": "Hüftsteak(250gr)",
+      "kind": "food",
+      "description": "Argentinisches Angus-Rindfleisch das besondere Stück aus der Rinderhüfte, fettfrei",
+      "translations": ["Argentinian Angus beef the special piece from the beef rump, fat-free"],
+      "quantities": [{"rawText": "250gr", "value": 250, "unit": "g", "kind": "weight"}],
+      "offers": [{"priceKind": "fixed", "amountCents": 1890, "rawPrice": "18,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Steaks",
+      "name": "Rumpsteak(250gr)",
+      "kind": "food",
+      "description": "Argentinisches Angus-Rindfleisch Aus dem Roast Beef geschnitten und mit charakteristischem Fettrand",
+      "translations": ["Argentine Angus beef Cut from the roast beef and with a characteristic fat rim"],
+      "quantities": [{"rawText": "250gr", "value": 250, "unit": "g", "kind": "weight"}],
+      "offers": [{"priceKind": "fixed", "amountCents": 2090, "rawPrice": "20,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Steaks",
+      "name": "Peppersteak(250gr)",
+      "kind": "food",
+      "description": "Argentinisches Angus-Rindfleisch aus dem Roast Beef geschnitten mit charakteristischem Fettrand, mit schwarzem Pfeffer",
+      "translations": ["Argentine Angus beef cut from the roast beef, with a characteristic fat rim and black pepper"],
+      "quantities": [{"rawText": "250gr", "value": 250, "unit": "g", "kind": "weight"}],
+      "offers": [{"priceKind": "fixed", "amountCents": 2090, "rawPrice": "20,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Steaks",
+      "name": "Lammkotelett(250gr)",
+      "kind": "food",
+      "description": null,
+      "translations": ["Lamb chop"],
+      "quantities": [{"rawText": "250gr", "value": 250, "unit": "g", "kind": "weight"}],
+      "offers": [{"priceKind": "fixed", "amountCents": 2390, "rawPrice": "23,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Steaks",
+      "name": "Steak Burger",
+      "kind": "food",
+      "description": "Hüftsteak 160 gr mit Tomate, Eisbergsalat, Zwiebeln, saure Gurken, Bratkartoffeln",
+      "translations": ["Haunch steak burgerwith lettuce, onions, pickles, roastpotatoes"],
+      "quantities": [{"rawText": "160 gr", "value": 160, "unit": "g", "kind": "weight"}],
+      "offers": [{"priceKind": "fixed", "amountCents": 1890, "rawPrice": "18,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Steaks",
+      "name": "Hähnchen Burger",
+      "kind": "food",
+      "description": "Hähnchenbrustfilet mit Tomate, Eisbergsalat, Zwiebeln, saure Gurken,Bratkartoffeln",
+      "translations": ["Chicken burgerwith Tomato, lettuce, onions, pickles, roastpotatoes"],
+      "offers": [{"priceKind": "fixed", "amountCents": 1690, "rawPrice": "16,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Beilagen",
+      "name": "Salat",
+      "kind": "food",
+      "description": null,
+      "translations": ["Salad"],
+      "offers": [{"priceKind": "fixed", "amountCents": 490, "rawPrice": "4,90€", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Beilagen",
+      "name": "Pfefferrahmsoße",
+      "kind": "food",
+      "description": null,
+      "translations": ["Pepper sauce"],
+      "offers": [{"priceKind": "fixed", "amountCents": 390, "rawPrice": "3,90 €", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Beilagen",
+      "name": "Grüne Bohnen mit Speck",
+      "kind": "food",
+      "description": null,
+      "translations": ["Green beans in bacon"],
+      "offers": [{"priceKind": "fixed", "amountCents": 490, "rawPrice": "4,90€", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Beilagen",
+      "name": "Champignon-Rahmsauce",
+      "kind": "food",
+      "description": null,
+      "translations": ["mushroom- creamsauce"],
+      "offers": [{"priceKind": "fixed", "amountCents": 390, "rawPrice": "3,90€", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Beilagen",
+      "name": "Bratkartoffeln",
+      "kind": "food",
+      "description": null,
+      "translations": ["Roasted onions, fried potatoes"],
+      "offers": [{"priceKind": "fixed", "amountCents": 490, "rawPrice": "4,90€", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Beilagen",
+      "name": "Mediterranes Gemüse",
+      "kind": "food",
+      "description": null,
+      "translations": ["Mediterranean vegetables"],
+      "offers": [{"priceKind": "fixed", "amountCents": 490, "rawPrice": "4,90€", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Beilagen",
+      "name": "Kräuterbutter",
+      "kind": "food",
+      "description": null,
+      "translations": ["herb Butter"],
+      "offers": [{"priceKind": "fixed", "amountCents": 190, "rawPrice": "1,90€", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 4,
+      "section": "Beilagen",
+      "name": "Gebratene Champignon",
+      "kind": "food",
+      "description": "mit Zwiebeln und Speck",
+      "offers": [{"priceKind": "fixed", "amountCents": 490, "rawPrice": "4,90€", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 5,
+      "section": "Menü Lichtburg",
+      "name": "Menü Lichtburg",
+      "kind": "bundle",
+      "description": null,
+      "offers": [{"priceKind": "fixed", "amountCents": 3990, "rawPrice": "pro Person /per Person:39,90", "basis": "per_person"}],
+      "bundleComponents": [
+        {
+          "title": "Antipasti",
+          "kind": "course",
+          "description": "Gegrillte und eingelegte Zucchini, Auberginen, Paprika, Champignons, getrocknete Tomaten, Oliven mit Rucola und Parmesankäse",
+          "translations": ["Zucchini, eggplant, peppers, mushrooms, and olives, with rocket and parmesan"],
+          "offers": [{"priceKind": "included", "basis": "per_person"}]
+        },
+        {
+          "title": "Haupgerichte",
+          "kind": "choice_course",
+          "optionGroup": {
+            "title": "oder / or",
+            "selection": {"minimum": 1, "maximum": 1, "mode": "single", "allowsRepeats": false},
+            "choices": [
+              {
+                "name": "Original Wiener Schnitzel",
+                "kind": "bundle_choice",
+                "description": "vom Kalb mit Preiselbeeren und Bratkartoffeln",
+                "translations": ["Veal escalope with roast potatoes and Cranberries"],
+                "offer": {"priceKind": "included", "basis": "per_person"}
+              },
+              {
+                "name": "Rumpsteak(Bratkartoffeln)",
+                "kind": "bundle_choice",
+                "description": "Argentinisches Angus-Rindfleisch wird zum Erhalt seiner Saftigkeit mit einem Fettrand sorgfältig gegrillt. dazu Bratkartoffeln",
+                "translations": ["Argentinean Angus Beef, Finest rump-steak grilled with fine rind cooked in its own juices. and roast potatoes"],
+                "offer": {"priceKind": "included", "basis": "per_person"}
+              },
+              {
+                "name": "Gebratenes Lachsfilet",
+                "kind": "bundle_choice",
+                "description": "in Orangen-Pfeffer Soße mit Gemüse und Thymiankartoffeln,",
+                "translations": ["Filet of Salmon in orange-pepper sauce with vegetables and thyme potatoes,"],
+                "offer": {"priceKind": "included", "basis": "per_person"}
+              }
+            ]
+          }
+        },
+        {
+          "title": "Tiramisu",
+          "kind": "course",
+          "description": "Löffelbiskuits mit Mascarponecreme",
+          "translations": ["Cake from Italy, biscuits with mascarpone cream,"],
+          "offers": [{"priceKind": "included", "basis": "per_person"}]
+        }
+      ],
+      "declarationCodes": [],
+      "expectedReviewCodes": ["complex_bundle_choice"]
+    },
+    {
+      "pageIndex": 6,
+      "section": "Dessert",
+      "name": "Apfelstrudel",
+      "kind": "food",
+      "description": "warm, mit Vanille-Himbeersoße",
+      "translations": ["Apple Strudel served warm in a vanilla and raspberry sauce"],
+      "offers": [{"priceKind": "fixed", "amountCents": 790, "rawPrice": "7,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 6,
+      "section": "Dessert",
+      "name": "Tiramisu",
+      "kind": "food",
+      "description": "Löffelbiskuits mitMascarpone creme",
+      "translations": ["Cake from Italy, biscuits with mascarpone cream,"],
+      "offers": [{"priceKind": "fixed", "amountCents": 790, "rawPrice": "7,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 6,
+      "section": "Dessert",
+      "name": "Creme Brûlée",
+      "kind": "food",
+      "description": "Französische Eicreme mit Rohrzucker bedeckt und flambiert",
+      "translations": ["French egg cream covered with cane sugar and flambéed"],
+      "offers": [{"priceKind": "fixed", "amountCents": 790, "rawPrice": "7,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 6,
+      "section": "Dessert",
+      "name": "Eierlikörbecher",
+      "kind": "food",
+      "description": "Vanilleeis garniert mit Eierlikör und Sahne",
+      "translations": ["Vanilla ice cream garnished with egg liqueur and cream"],
+      "offers": [{"priceKind": "fixed", "amountCents": 790, "rawPrice": "7,90", "basis": "per_item"}],
+      "declarationCodes": []
+    },
+    {
+      "pageIndex": 6,
+      "section": "Dessert",
+      "name": "Gemischter Eisbecher",
+      "kind": "food",
+      "description": "Vanilla, Schokolade und Erdbeereis mit Sahne",
+      "translations": ["Vanilla, chocolate and strawberry ice cream with cream"],
+      "offers": [],
+      "declarationCodes": [],
+      "expectedReviewCodes": ["missing_visible_price"]
+    },
+    {
+      "pageIndex": 6,
+      "section": "Dessert",
+      "name": "Coup Dänemark",
+      "kind": "food",
+      "description": "Vanilleeis, Schokoladeneis mit Schokoladensauce und Sahne",
+      "translations": ["Vanilla ice cream, chocolate ice cream with chocolate sauce and whipped cream"],
+      "offers": [{"priceKind": "fixed", "amountCents": 790, "rawPrice": "7,90", "basis": "per_item"}],
+      "declarationCodes": []
+    }
+  ],
+  "documentDeclarations": [],
+  "expectedReviewCodes": ["selection_rule_unknown", "relationship_scope_ambiguous"],
+  "notices": [
+    {
+      "pageIndex": 4,
+      "rawText": "Alle Fleischgerichte werden ohne Beilage serviert Bitte wählen Sie Ihre Beilage zu den Fleischgerichten (außer Burger)",
+      "translations": ["All meat dishes are served without a side dish Please choose your side dish for the meat dishes (except burgers)"]
+    }
+  ],
+  "forbiddenEntryTexts": ["All meat dishes are served without a side dish", "oder / or"]
+}

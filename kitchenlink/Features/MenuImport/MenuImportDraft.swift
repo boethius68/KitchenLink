@@ -2,9 +2,10 @@ import Foundation
 
 struct MenuImportDraft: Codable, Equatable, Sendable {
     // This contract is intentionally pre-stable while scanner evidence expands.
-    // 0.2.0 adds MenuImportEvidence.isLocated so review UIs can distinguish a
-    // real page location from a synthesized fallback anchor.
-    static let currentSchemaVersion = "0.2.0"
+    // 0.3.0 adds page provenance, extraction traceability, localized text
+    // alternatives, and explicit review findings without changing the existing
+    // menu hierarchy.
+    static let currentSchemaVersion = "0.3.0"
 
     let schemaVersion: String
     var id: String
@@ -12,6 +13,8 @@ struct MenuImportDraft: Codable, Equatable, Sendable {
     var sections: [MenuImportSection]
     var declarations: [MenuImportDeclaration]
     var reviewState: MenuImportReviewState
+    var processing: MenuImportProcessingMetadata?
+    var reviewFindings: [MenuImportReviewFinding]?
 
     init(
         schemaVersion: String = MenuImportDraft.currentSchemaVersion,
@@ -19,7 +22,9 @@ struct MenuImportDraft: Codable, Equatable, Sendable {
         sourceDocument: MenuImportSourceDocument,
         sections: [MenuImportSection] = [],
         declarations: [MenuImportDeclaration] = [],
-        reviewState: MenuImportReviewState = .unreviewed
+        reviewState: MenuImportReviewState = .unreviewed,
+        processing: MenuImportProcessingMetadata? = nil,
+        reviewFindings: [MenuImportReviewFinding] = []
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -27,6 +32,8 @@ struct MenuImportDraft: Codable, Equatable, Sendable {
         self.sections = sections
         self.declarations = declarations
         self.reviewState = reviewState
+        self.processing = processing
+        self.reviewFindings = reviewFindings
     }
 
     func validate(
@@ -61,6 +68,7 @@ struct MenuImportSourceDocument: Codable, Equatable, Sendable {
     var fingerprint: String
     var displayName: String?
     var originalURL: URL?
+    var pages: [MenuImportSourcePage]?
 
     init(
         id: String = UUID().uuidString,
@@ -69,7 +77,8 @@ struct MenuImportSourceDocument: Codable, Equatable, Sendable {
         pageCount: Int,
         fingerprint: String,
         displayName: String? = nil,
-        originalURL: URL? = nil
+        originalURL: URL? = nil,
+        pages: [MenuImportSourcePage]? = nil
     ) {
         self.id = id
         self.sourceType = sourceType
@@ -78,6 +87,143 @@ struct MenuImportSourceDocument: Codable, Equatable, Sendable {
         self.fingerprint = fingerprint
         self.displayName = displayName
         self.originalURL = originalURL
+        self.pages = pages
+    }
+}
+
+struct MenuImportSourcePage: Codable, Equatable, Sendable {
+    var pageIndex: Int
+    var fingerprint: String
+    var pixelWidth: Int
+    var pixelHeight: Int
+    var pageKind: String?
+    var languages: [String]?
+    /// Stable app- or report-owned handle for reopening the exact source page.
+    /// It may be absent when the caller has not persisted an in-memory photo.
+    var originalAssetReference: String?
+
+    init(
+        pageIndex: Int,
+        fingerprint: String,
+        pixelWidth: Int,
+        pixelHeight: Int,
+        pageKind: String? = nil,
+        languages: [String]? = nil,
+        originalAssetReference: String? = nil
+    ) {
+        self.pageIndex = pageIndex
+        self.fingerprint = fingerprint
+        self.pixelWidth = pixelWidth
+        self.pixelHeight = pixelHeight
+        self.pageKind = pageKind
+        self.languages = languages
+        self.originalAssetReference = originalAssetReference
+    }
+}
+
+enum MenuImportPageOutcomeStatus: String, Codable, Equatable, Sendable {
+    case processed
+    case empty
+    case failed
+    case fallback
+}
+
+struct MenuImportPageOutcome: Codable, Equatable, Sendable {
+    var pageIndex: Int
+    var status: MenuImportPageOutcomeStatus
+    var attempts: Int
+    var latencyMilliseconds: Int?
+    var detail: String?
+
+    init(
+        pageIndex: Int,
+        status: MenuImportPageOutcomeStatus,
+        attempts: Int,
+        latencyMilliseconds: Int? = nil,
+        detail: String? = nil
+    ) {
+        self.pageIndex = pageIndex
+        self.status = status
+        self.attempts = attempts
+        self.latencyMilliseconds = latencyMilliseconds
+        self.detail = detail
+    }
+}
+
+struct MenuImportTokenUsage: Codable, Equatable, Sendable {
+    var inputTokens: Int?
+    var outputTokens: Int?
+    var totalTokens: Int?
+
+    init(inputTokens: Int? = nil, outputTokens: Int? = nil, totalTokens: Int? = nil) {
+        self.inputTokens = inputTokens
+        self.outputTokens = outputTokens
+        self.totalTokens = totalTokens
+    }
+}
+
+struct MenuImportProcessingMetadata: Codable, Equatable, Sendable {
+    var pipelineVersion: String
+    var provider: String
+    var model: String?
+    var promptVersion: String?
+    var promptFingerprint: String?
+    var contractVersion: String?
+    var pageOutcomes: [MenuImportPageOutcome]
+    var usage: MenuImportTokenUsage?
+
+    init(
+        pipelineVersion: String,
+        provider: String,
+        model: String? = nil,
+        promptVersion: String? = nil,
+        promptFingerprint: String? = nil,
+        contractVersion: String? = nil,
+        pageOutcomes: [MenuImportPageOutcome],
+        usage: MenuImportTokenUsage? = nil
+    ) {
+        self.pipelineVersion = pipelineVersion
+        self.provider = provider
+        self.model = model
+        self.promptVersion = promptVersion
+        self.promptFingerprint = promptFingerprint
+        self.contractVersion = contractVersion
+        self.pageOutcomes = pageOutcomes
+        self.usage = usage
+    }
+}
+
+enum MenuImportReviewFindingSeverity: String, Codable, Equatable, Sendable {
+    case info
+    case warning
+    case error
+}
+
+struct MenuImportReviewFinding: Codable, Equatable, Sendable {
+    var id: String
+    var code: String
+    var path: String
+    var message: String
+    var severity: MenuImportReviewFindingSeverity
+    var pageIndex: Int?
+    var evidence: MenuImportEvidence?
+
+    init(
+        id: String = UUID().uuidString,
+        code: String,
+        path: String,
+        message: String,
+        severity: MenuImportReviewFindingSeverity = .warning,
+        pageIndex: Int? = nil,
+        evidence: MenuImportEvidence? = nil
+    ) {
+        self.id = id
+        self.code = code
+        self.path = path
+        self.message = message
+        self.severity = severity
+        self.pageIndex = pageIndex
+        self.evidence = evidence
     }
 }
 
@@ -158,6 +304,25 @@ struct MenuImportEvidence: Codable, Equatable, Sendable {
 }
 
 struct MenuImportText: Codable, Equatable, Sendable {
+    var value: String
+    var languageTag: String?
+    var evidence: MenuImportEvidence
+    var alternatives: [MenuImportLocalizedText]?
+
+    init(
+        value: String,
+        languageTag: String? = nil,
+        evidence: MenuImportEvidence,
+        alternatives: [MenuImportLocalizedText] = []
+    ) {
+        self.value = value
+        self.languageTag = languageTag
+        self.evidence = evidence
+        self.alternatives = alternatives
+    }
+}
+
+struct MenuImportLocalizedText: Codable, Equatable, Sendable {
     var value: String
     var languageTag: String?
     var evidence: MenuImportEvidence
@@ -257,13 +422,16 @@ enum MenuImportPriceKind: String, Codable, Equatable, Sendable {
 
 struct MenuImportOffer: Codable, Equatable, Sendable {
     var id: String
+    var label: MenuImportText?
     var priceKind: MenuImportPriceKind
     var amountCents: Int?
     var deltaCents: Int?
     var minimumAmountCents: Int?
     var maximumAmountCents: Int?
     var currencyCode: String?
-    var rawPrice: String
+    /// Exact visible price text. `nil` is valid for semantic prices such as an
+    /// included bundle component that has no separate printed price.
+    var rawPrice: String?
 
     /// Open value such as `per_item`, `per_person`, or source-specific wording.
     var basis: String
@@ -272,18 +440,20 @@ struct MenuImportOffer: Codable, Equatable, Sendable {
 
     init(
         id: String = UUID().uuidString,
+        label: MenuImportText? = nil,
         priceKind: MenuImportPriceKind,
         amountCents: Int? = nil,
         deltaCents: Int? = nil,
         minimumAmountCents: Int? = nil,
         maximumAmountCents: Int? = nil,
         currencyCode: String? = nil,
-        rawPrice: String,
+        rawPrice: String? = nil,
         basis: String = "unknown",
         appliesToQuantityID: String? = nil,
         evidence: MenuImportEvidence
     ) {
         self.id = id
+        self.label = label
         self.priceKind = priceKind
         self.amountCents = amountCents
         self.deltaCents = deltaCents
@@ -374,6 +544,7 @@ struct MenuImportOptionGroup: Codable, Equatable, Sendable {
 struct MenuImportChoice: Codable, Equatable, Sendable {
     var id: String
     var name: MenuImportText
+    var description: MenuImportText?
     var kind: String
     var order: Int
     var offers: [MenuImportOffer]
@@ -384,6 +555,7 @@ struct MenuImportChoice: Codable, Equatable, Sendable {
     init(
         id: String = UUID().uuidString,
         name: MenuImportText,
+        description: MenuImportText? = nil,
         kind: String = "unknown",
         order: Int,
         offers: [MenuImportOffer] = [],
@@ -393,6 +565,7 @@ struct MenuImportChoice: Codable, Equatable, Sendable {
     ) {
         self.id = id
         self.name = name
+        self.description = description
         self.kind = kind
         self.order = order
         self.offers = offers
@@ -405,29 +578,35 @@ struct MenuImportChoice: Codable, Equatable, Sendable {
 struct MenuImportBundleComponent: Codable, Equatable, Sendable {
     var id: String
     var title: MenuImportText
+    var description: MenuImportText?
     var kind: String
     var order: Int
     var quantity: MenuImportQuantity?
     var optionGroup: MenuImportOptionGroup?
+    var offers: [MenuImportOffer]?
     var declarations: [MenuImportDeclaration]
     var reviewState: MenuImportReviewState
 
     init(
         id: String = UUID().uuidString,
         title: MenuImportText,
+        description: MenuImportText? = nil,
         kind: String = "unknown",
         order: Int,
         quantity: MenuImportQuantity? = nil,
         optionGroup: MenuImportOptionGroup? = nil,
+        offers: [MenuImportOffer] = [],
         declarations: [MenuImportDeclaration] = [],
         reviewState: MenuImportReviewState = .unreviewed
     ) {
         self.id = id
         self.title = title
+        self.description = description
         self.kind = kind
         self.order = order
         self.quantity = quantity
         self.optionGroup = optionGroup
+        self.offers = offers
         self.declarations = declarations
         self.reviewState = reviewState
     }
@@ -439,6 +618,8 @@ struct MenuImportDeclaration: Codable, Equatable, Sendable {
     /// Open values avoid treating the discovery taxonomy as a product ontology.
     var kind: String
     var rawText: String
+    /// Visible translations or parallel-language renderings of the declaration.
+    var alternatives: [MenuImportLocalizedText]?
     var localCode: String?
     var canonicalID: String?
     var claim: String
@@ -449,6 +630,7 @@ struct MenuImportDeclaration: Codable, Equatable, Sendable {
         id: String = UUID().uuidString,
         kind: String = "unknown",
         rawText: String,
+        alternatives: [MenuImportLocalizedText]? = nil,
         localCode: String? = nil,
         canonicalID: String? = nil,
         claim: String = "unknown",
@@ -458,6 +640,7 @@ struct MenuImportDeclaration: Codable, Equatable, Sendable {
         self.id = id
         self.kind = kind
         self.rawText = rawText
+        self.alternatives = alternatives
         self.localCode = localCode
         self.canonicalID = canonicalID
         self.claim = claim
@@ -489,6 +672,14 @@ enum MenuImportValidationCode: String, Codable, Equatable, Sendable {
     case invalidSelectionRange
     case emptyOpenValue
     case missingPrice
+    case invalidSourcePage
+    case duplicateSourcePage
+    case incompleteSourcePages
+    case invalidProcessingMetadata
+    case duplicatePageOutcome
+    case incompletePageOutcomes
+    case pageProcessingFailed
+    case invalidReviewFinding
 }
 
 struct MenuImportValidationIssue: Codable, Equatable, Sendable {
@@ -528,6 +719,10 @@ struct MenuImportDraftValidator: Sendable {
 
         context.registerID(draft.id, path: "id")
         context.validateSourceDocument(draft.sourceDocument, path: "sourceDocument")
+        if let processing = draft.processing {
+            context.validateProcessingMetadata(processing, path: "processing")
+        }
+        context.validateReviewFindings(draft.reviewFindings ?? [], path: "reviewFindings")
         context.validateDeclarations(draft.declarations, path: "declarations")
         context.validateSections(draft.sections, path: "sections")
 
@@ -564,6 +759,132 @@ private struct ValidationContext {
                 path: "\(path).fingerprint",
                 message: "The source fingerprint must not be empty."
             )
+        }
+
+        if let pages = sourceDocument.pages {
+            var seenPageIndexes: Set<Int> = []
+            for (index, page) in pages.enumerated() {
+                let pagePath = "\(path).pages[\(index)]"
+                if page.pageIndex < 0 || page.pageIndex >= sourceDocument.pageCount
+                    || page.pixelWidth < 1 || page.pixelHeight < 1
+                    || page.fingerprint.isBlank {
+                    addError(
+                        .invalidSourcePage,
+                        path: pagePath,
+                        message: "Source page metadata must identify a real page, image size, and fingerprint."
+                    )
+                }
+                if !seenPageIndexes.insert(page.pageIndex).inserted {
+                    addError(
+                        .duplicateSourcePage,
+                        path: "\(pagePath).pageIndex",
+                        message: "A source page index must occur exactly once."
+                    )
+                }
+                if page.pageKind?.isBlank == true
+                    || page.languages?.contains(where: \.isBlank) == true
+                    || page.originalAssetReference?.isBlank == true {
+                    addError(
+                        .invalidSourcePage,
+                        path: pagePath,
+                        message: "Optional page kind and language tags must be nonblank."
+                    )
+                }
+            }
+            if seenPageIndexes != Set(0..<max(sourceDocument.pageCount, 0)) {
+                addError(
+                    .incompleteSourcePages,
+                    path: "\(path).pages",
+                    message: "When source pages are present, every source page must be described exactly once."
+                )
+            }
+        }
+    }
+
+    mutating func validateProcessingMetadata(
+        _ processing: MenuImportProcessingMetadata,
+        path: String
+    ) {
+        if processing.pipelineVersion.isBlank || processing.provider.isBlank {
+            addError(
+                .invalidProcessingMetadata,
+                path: path,
+                message: "Processing metadata needs a pipeline version and provider."
+            )
+        }
+
+        var seenPageIndexes: Set<Int> = []
+        for (index, outcome) in processing.pageOutcomes.enumerated() {
+            let outcomePath = "\(path).pageOutcomes[\(index)]"
+            if outcome.pageIndex < 0 || outcome.pageIndex >= pageCount
+                || outcome.attempts < 0
+                || (outcome.latencyMilliseconds ?? 0) < 0 {
+                addError(
+                    .invalidProcessingMetadata,
+                    path: outcomePath,
+                    message: "Page outcomes must address a source page and use nonnegative attempts and latency."
+                )
+            }
+            if !seenPageIndexes.insert(outcome.pageIndex).inserted {
+                addError(
+                    .duplicatePageOutcome,
+                    path: "\(outcomePath).pageIndex",
+                    message: "A processing outcome must occur exactly once per page."
+                )
+            }
+            if outcome.status == .failed {
+                addWarning(
+                    .pageProcessingFailed,
+                    path: outcomePath,
+                    message: outcome.detail ?? "This page could not be processed by the selected provider."
+                )
+            }
+        }
+        if seenPageIndexes != Set(0..<max(pageCount, 0)) {
+            addError(
+                .incompletePageOutcomes,
+                path: "\(path).pageOutcomes",
+                message: "Processing metadata must report an outcome for every source page."
+            )
+        }
+
+        if let usage = processing.usage {
+            let values = [usage.inputTokens, usage.outputTokens, usage.totalTokens].compactMap { $0 }
+            if values.contains(where: { $0 < 0 }) {
+                addError(
+                    .invalidProcessingMetadata,
+                    path: "\(path).usage",
+                    message: "Token usage must be nonnegative."
+                )
+            }
+        }
+    }
+
+    mutating func validateReviewFindings(
+        _ findings: [MenuImportReviewFinding],
+        path: String
+    ) {
+        for (index, finding) in findings.enumerated() {
+            let findingPath = "\(path)[\(index)]"
+            registerID(finding.id, path: "\(findingPath).id")
+            if finding.code.isBlank || finding.path.isBlank || finding.message.isBlank {
+                addError(
+                    .invalidReviewFinding,
+                    path: findingPath,
+                    message: "Review findings need a code, path, and operator-facing message."
+                )
+            }
+            if let pageIndex = finding.pageIndex,
+               pageIndex < 0 || pageIndex >= pageCount {
+                addError(
+                    .invalidPageIndex,
+                    path: "\(findingPath).pageIndex",
+                    message: "A review finding must address a source page."
+                )
+            }
+            if let evidence = finding.evidence {
+                validateEvidence(evidence, path: "\(findingPath).evidence")
+            }
         }
     }
 
@@ -619,7 +940,12 @@ private struct ValidationContext {
 
     mutating func validateOffer(_ offer: MenuImportOffer, path: String) {
         registerID(offer.id, path: "\(path).id")
-        validateRawText(offer.rawPrice, path: "\(path).rawPrice")
+        if let label = offer.label {
+            validateText(label, path: "\(path).label")
+        }
+        if let rawPrice = offer.rawPrice {
+            validateRawText(rawPrice, path: "\(path).rawPrice")
+        }
         validateOpenValue(offer.basis, path: "\(path).basis")
         validateEvidence(offer.evidence, path: "\(path).evidence")
 
@@ -741,6 +1067,9 @@ private struct ValidationContext {
             validateOrder(choice.order, path: "\(choicePath).order")
             validateOpenValue(choice.kind, path: "\(choicePath).kind")
             validateText(choice.name, path: "\(choicePath).name")
+            if let description = choice.description {
+                validateText(description, path: "\(choicePath).description")
+            }
             for (offerIndex, offer) in choice.offers.enumerated() {
                 validateOffer(offer, path: "\(choicePath).offers[\(offerIndex)]")
             }
@@ -763,11 +1092,17 @@ private struct ValidationContext {
             validateOrder(component.order, path: "\(componentPath).order")
             validateOpenValue(component.kind, path: "\(componentPath).kind")
             validateText(component.title, path: "\(componentPath).title")
+            if let description = component.description {
+                validateText(description, path: "\(componentPath).description")
+            }
             if let quantity = component.quantity {
                 validateQuantity(quantity, path: "\(componentPath).quantity")
             }
             if let optionGroup = component.optionGroup {
                 validateOptionGroups([optionGroup], path: "\(componentPath).optionGroup")
+            }
+            for (offerIndex, offer) in (component.offers ?? []).enumerated() {
+                validateOffer(offer, path: "\(componentPath).offers[\(offerIndex)]")
             }
             validateDeclarations(
                 component.declarations,
@@ -785,6 +1120,23 @@ private struct ValidationContext {
             registerID(declaration.id, path: "\(declarationPath).id")
             validateOpenValue(declaration.kind, path: "\(declarationPath).kind")
             validateRawText(declaration.rawText, path: "\(declarationPath).rawText")
+            for (alternativeIndex, alternative) in
+                (declaration.alternatives ?? []).enumerated()
+            {
+                let alternativePath =
+                    "\(declarationPath).alternatives[\(alternativeIndex)]"
+                if alternative.value.isBlank {
+                    addError(
+                        .emptyText,
+                        path: "\(alternativePath).value",
+                        message: "A declaration translation must not be empty."
+                    )
+                }
+                validateEvidence(
+                    alternative.evidence,
+                    path: "\(alternativePath).evidence"
+                )
+            }
             validateOpenValue(declaration.claim, path: "\(declarationPath).claim")
             validateOpenValue(declaration.scope, path: "\(declarationPath).scope")
             validateEvidence(declaration.evidence, path: "\(declarationPath).evidence")
@@ -800,6 +1152,17 @@ private struct ValidationContext {
             )
         }
         validateEvidence(text.evidence, path: "\(path).evidence")
+        for (index, alternative) in (text.alternatives ?? []).enumerated() {
+            let alternativePath = "\(path).alternatives[\(index)]"
+            if alternative.value.isBlank {
+                addError(
+                    .emptyText,
+                    path: "\(alternativePath).value",
+                    message: "A localized text alternative must not be empty."
+                )
+            }
+            validateEvidence(alternative.evidence, path: "\(alternativePath).evidence")
+        }
     }
 
     mutating func validateEvidence(_ evidence: MenuImportEvidence, path: String) {
@@ -927,7 +1290,8 @@ private struct ValidationContext {
             return true
         }
         return entry.bundleComponents.contains(where: { component in
-            component.optionGroup?.choices.contains(where: { !$0.offers.isEmpty }) == true
+            !(component.offers ?? []).isEmpty
+                || component.optionGroup?.choices.contains(where: { !$0.offers.isEmpty }) == true
         })
     }
 }

@@ -1,0 +1,5 @@
+FROM gemma4:latest
+
+# The lossless KitchenLink extraction contract plus OCR evidence exceeds
+# Ollama's 4k default context on real menu pages.
+PARAMETER num_ctx 32768

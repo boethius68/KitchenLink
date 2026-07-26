@@ -70,6 +70,16 @@ struct MenuManualEditorView: View {
                 } footer: {
                     savedFooter
                 }
+
+                Section("Test-Import") {
+                    Button {
+                        sections = KombueseMenuPreview.sections
+                        menuLegend = Self.unionLegend(from: sections)
+                        showPreview = true
+                    } label: {
+                        Label("Kombüse Kappeln (opencode.ai/zen)", systemImage: "square.and.arrow.down")
+                    }
+                }
             }
         }
         .navigationTitle("Karte bearbeiten")
@@ -247,7 +257,11 @@ struct MenuEditorSectionEditor: View {
                 }
                 ForEach($section.items) { $item in
                     NavigationLink {
-                        MenuEditorItemEditor(item: $item, menuLegend: $menuLegend)
+                        MenuEditorItemEditor(
+                            item: $item, menuLegend: $menuLegend,
+                            categoryName: section.title,
+                            categoryKind: section.kind.rawValue
+                        )
                     } label: {
                         itemRow(item)
                     }
@@ -309,6 +323,15 @@ struct MenuEditorSectionEditor: View {
 struct MenuEditorItemEditor: View {
     @Binding var item: MenuItemData
     @Binding var menuLegend: [String: String]
+    let categoryName: String
+    let categoryKind: String
+
+    @StateObject private var cloudModel = MenuEditorItemModel()
+
+    @State private var showDeleteConfirm = false
+    @State private var showSchedule = false
+
+    private var hasSession: Bool { cloudModel.hasSession }
 
     var body: some View {
         List {
@@ -359,10 +382,129 @@ struct MenuEditorItemEditor: View {
             Section("Varianten, Portionen & Extras") {
                 MenuEditorVariantsEditor(variants: $item.variants)
             }
+
+            Section("Cloud & Verfügbarkeit") {
+                if hasSession {
+                    if !cloudModel.validationErrors.isEmpty {
+                        ForEach(cloudModel.validationErrors) { error in
+                            Label(error.errorDescription ?? "", systemImage: "exclamationmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
+
+                    Button {
+                        cloudUpsert()
+                    } label: {
+                        HStack {
+                            if cloudModel.cloudState == .saving {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            }
+                            Label("In Cloud speichern", systemImage: "icloud.and.arrow.up")
+                        }
+                    }
+                    .disabled(item.displayName.trimmingCharacters(in: .whitespaces).isEmpty || cloudModel.cloudState == .saving)
+
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        HStack {
+                            if cloudModel.cloudState == .deleting {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            }
+                            Label("Aus Cloud löschen", systemImage: "trash")
+                        }
+                    }
+                    .disabled(cloudModel.cloudState == .deleting)
+                } else {
+                    Text("Melde dich in der Service-Ansicht an, um Änderungen in der Cloud zu speichern.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Toggle("Verfügbar", isOn: $item.available)
+                    .onChange(of: item.available) { _, newValue in
+                        if !newValue { showSchedule = false }
+                    }
+
+                if item.available {
+                    Button {
+                        showSchedule.toggle()
+                    } label: {
+                        Label(
+                            showSchedule || item.availableFrom != nil || item.availableUntil != nil
+                                ? "Zeitsteuerung aktiv" : "Zeitsteuerung",
+                            systemImage: showSchedule || item.availableFrom != nil || item.availableUntil != nil
+                                ? "clock.badge.checkmark" : "clock"
+                        )
+                    }
+
+                    if showSchedule || item.availableFrom != nil || item.availableUntil != nil {
+                        DatePicker("Sichtbar ab",
+                                   selection: Binding(
+                                    get: { item.availableFrom ?? Date() },
+                                    set: { item.availableFrom = $0 }
+                                   ),
+                                   displayedComponents: [.date, .hourAndMinute])
+                        DatePicker("Sichtbar bis",
+                                   selection: Binding(
+                                    get: { item.availableUntil ?? Date().addingTimeInterval(86400) },
+                                    set: { item.availableUntil = $0 }
+                                   ),
+                                   displayedComponents: [.date, .hourAndMinute])
+                        Button("In Cloud speichern") {
+                            cloudAvailability()
+                        }
+                        .disabled(cloudModel.cloudState == .saving)
+                    }
+                }
+
+                switch cloudModel.cloudState {
+                case .success(let message):
+                    Label(message, systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                case .error(let message):
+                    Label(message, systemImage: "xmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                case .saving, .deleting:
+                    Label(cloudModel.cloudState == .saving ? "Speichere …" : "Lösche …",
+                          systemImage: "hourglass")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                case .idle:
+                    EmptyView()
+                }
+            }
         }
         .navigationTitle(item.displayName.isEmpty ? "Gericht" : item.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .tint(KitchenLinkV2Palette.Brand.grape)
+        .confirmationDialog(
+            "\(item.displayName) aus der Cloud löschen?",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Löschen", role: .destructive) { cloudDelete() }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Das Gericht wird dauerhaft aus der veröffentlichten Karte entfernt.")
+        }
+    }
+
+    private func cloudUpsert() {
+        Task { await cloudModel.saveToCloud(item: item, categoryName: categoryName, categoryKind: categoryKind) }
+    }
+
+    private func cloudDelete() {
+        Task { await cloudModel.deleteFromCloud(item: item) }
+    }
+
+    private func cloudAvailability() {
+        Task { await cloudModel.updateAvailability(item: item) }
     }
 
     /// Bindet den kombinierten Code-String des Gerichts als geordnete Liste.
@@ -679,5 +821,198 @@ enum MenuEditorCodes {
     /// Fügt eine Code-Liste zu "a,c,g" zusammen; leere Liste → nil.
     static func string(from codes: [String]) -> String? {
         codes.isEmpty ? nil : codes.joined(separator: ",")
+    }
+}
+
+// MARK: - Kombüse Kappeln Import-Daten (Gemma 4 lokal)
+
+/// Auto-generiert aus Gemma 4 (Ollama lokal) Extraktion der Kombüse Kappeln Speisekarte 2025.
+enum KombueseMenuPreview {
+    static let title = "Kombüse Kappeln (Gemma 4)"
+    static let subtitle = "Importiert · lokal via Ollama · Gemma 4"
+
+    static var sections: [MenuSectionData] {
+        [
+            MenuSectionData(id: "ks-02", title: "Alkoholfreie Getränke", subtitle: "", kind: .drink, items: [
+            MenuItemData(id: "ki-0", name: "Sinalco Cola", description: "", priceCents: 310, kind: .drink, variants: [
+                MenuItemVariant(id: "kv-0-0", name: "0,4l", priceCents: 480, kind: MenuItemOptionKind.portion, priceKind: MenuItemOptionPriceKind.fixed)
+            ], allergenCodes: "1"),
+            MenuItemData(id: "ki-1", name: "Sinalco Orange", description: "", priceCents: 310, kind: .drink, variants: [
+                MenuItemVariant(id: "kv-1-0", name: "0,4l", priceCents: 480, kind: MenuItemOptionKind.portion, priceKind: MenuItemOptionPriceKind.fixed)
+            ], allergenCodes: "1"),
+            MenuItemData(id: "ki-2", name: "Sinalco Zitrone", description: "", priceCents: 310, kind: .drink, variants: [
+                MenuItemVariant(id: "kv-2-0", name: "0,4l", priceCents: 480, kind: MenuItemOptionKind.portion, priceKind: MenuItemOptionPriceKind.fixed)
+            ], allergenCodes: "1"),
+            MenuItemData(id: "ki-3", name: "Sinalco Spezi", description: "", priceCents: 310, kind: .drink, variants: [
+                MenuItemVariant(id: "kv-3-0", name: "0,4l", priceCents: 480, kind: MenuItemOptionKind.portion, priceKind: MenuItemOptionPriceKind.fixed)
+            ], allergenCodes: "1,3"),
+            MenuItemData(id: "ki-4", name: "Wasser (still oder mit Kohlensäure)", description: "", priceCents: 320, kind: .drink, variants: [
+                MenuItemVariant(id: "kv-4-0", name: "größere Größe", priceCents: 440, kind: MenuItemOptionKind.portion, priceKind: MenuItemOptionPriceKind.fixed)
+            ], allergenCodes: nil),
+            MenuItemData(id: "ki-5", name: "Schorle: Apfel-, Johannisbeere- oder Rhabarbersaft", description: "", priceCents: 390, kind: .drink, variants: [
+                MenuItemVariant(id: "kv-5-0", name: "größere Größe", priceCents: 480, kind: MenuItemOptionKind.portion, priceKind: MenuItemOptionPriceKind.fixed)
+            ], allergenCodes: nil),
+            MenuItemData(id: "ki-6", name: "Saft: Apfel, Johannisbeere, Orange, KiBa", description: "", priceCents: 320, kind: .drink, variants: [
+                MenuItemVariant(id: "kv-6-0", name: "größere Größe", priceCents: 440, kind: MenuItemOptionKind.portion, priceKind: MenuItemOptionPriceKind.fixed)
+            ], allergenCodes: nil),
+            MenuItemData(id: "ki-7", name: "Bitter Lemon", description: "", priceCents: 260, kind: .drink, variants: [
+                MenuItemVariant(id: "kv-7-0", name: "größere Größe", priceCents: 390, kind: MenuItemOptionKind.portion, priceKind: MenuItemOptionPriceKind.fixed)
+            ], allergenCodes: nil),
+            MenuItemData(id: "ki-8", name: "Bionade Holunder", description: "", priceCents: 420, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-9", name: "Bionade Eistee (Pfirsich oder Zitrone)", description: "", priceCents: 420, kind: .drink, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-02b", title: "Hausgemachte Limonade", subtitle: "0,33l", kind: .drink, items: [
+            MenuItemData(id: "ki-10", name: "Hausgemachte Limonade", description: "Wahlweise mit: Holunder, Mango oder Pfirsich-Geschmack", priceCents: 580, kind: .drink, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-03", title: "Biere", subtitle: "", kind: .drink, items: [
+            MenuItemData(id: "ki-11", name: "Astra", description: "auch als Alster", priceCents: 390, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-12", name: "Duckstein", description: "obergäriges, dunkles", priceCents: 420, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-13", name: "Flensburger Pilsener", description: "", priceCents: 380, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-14", name: "Flensburger Alkoholfrei", description: "", priceCents: 380, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-15", name: "Guinness", description: "vom Fass", priceCents: 520, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-16", name: "Becks", description: "vom Fass", priceCents: 390, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-17", name: "König Ludwig Weißbier", description: "im Stein 0,5l", priceCents: 480, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-18", name: "Alster (Pils mit Zitrone)", description: "", priceCents: 420, kind: .drink, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-03b", title: "Wein und Sekt", subtitle: "", kind: .drink, items: [
+            MenuItemData(id: "ki-19", name: "Weisswein trocken", description: "0,2l", priceCents: 580, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-20", name: "Rotwein trocken", description: "0,2l", priceCents: 580, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-21", name: "Rose", description: "0,2l", priceCents: 580, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-22", name: "Sekt", description: "0,1l", priceCents: 650, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-23", name: "Hausmarke Rotwein", description: "0,2l", priceCents: 520, kind: .drink, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-04", title: "Cocktails", subtitle: "", kind: .drink, items: [
+            MenuItemData(id: "ki-24", name: "Aperol-Spritz", description: "", priceCents: 650, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-25", name: "Andalö-Spritz", description: "", priceCents: 650, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-26", name: "Lillet Wildberry", description: "", priceCents: 650, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-27", name: "Lillet Peach", description: "", priceCents: 650, kind: .drink, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-04b", title: "Longdrinks", subtitle: "2cl Spirituose", kind: .drink, items: [
+            MenuItemData(id: "ki-28", name: "Weinbrand-Cola", description: "", priceCents: 450, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-29", name: "Korn-Cola", description: "", priceCents: 450, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-30", name: "Whiskey-Cola", description: "", priceCents: 550, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-31", name: "Wodka-Lemon", description: "", priceCents: 550, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-32", name: "Rum-Cola", description: "", priceCents: 590, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-33", name: "Havanna-Cola", description: "", priceCents: 650, kind: .drink, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-04c", title: "Bitter, Klare & Weinbrand", subtitle: "", kind: .drink, items: [
+            MenuItemData(id: "ki-34", name: "Oldesloer Weizenkorn", description: "", priceCents: 220, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-35", name: "Jubiläums-Aquavit", description: "", priceCents: 320, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-36", name: "Jägermeister", description: "", priceCents: 240, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-37", name: "Linie", description: "", priceCents: 320, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-38", name: "Andalò", description: "", priceCents: 270, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-39", name: "Ouzo", description: "", priceCents: 300, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-40", name: "Küstennebel", description: "", priceCents: 300, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-41", name: "Helbing Aquavit", description: "", priceCents: 340, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-42", name: "Helbing", description: "", priceCents: 280, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-43", name: "Rum", description: "", priceCents: 320, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-44", name: "Grappa", description: "", priceCents: 380, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-45", name: "Ramazzotti", description: "", priceCents: 350, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-46", name: "Obstler", description: "", priceCents: 290, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-47", name: "Wodka", description: "", priceCents: 250, kind: .drink, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-05", title: "Kaffee und mehr", subtitle: "", kind: .drink, items: [
+            MenuItemData(id: "ki-48", name: "Becher Crema", description: "", priceCents: 350, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-49", name: "Espresso", description: "", priceCents: 290, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-50", name: "Doppelter Espresso", description: "", priceCents: 340, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-51", name: "Latte Macchiato", description: "", priceCents: 410, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-52", name: "Affogato", description: "", priceCents: 580, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-53", name: "Tee", description: "verschiedene Sorten", priceCents: 320, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-54", name: "Heiße Schokolade", description: "", priceCents: 420, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-55", name: "Karamell-Sirup", description: "Monin-Sirup", priceCents: 50, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-56", name: "Haselnuss-Sirup", description: "Monin-Sirup", priceCents: 50, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-57", name: "Vanille-Sirup", description: "Monin-Sirup", priceCents: 50, kind: .drink, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-05b", title: "Heiße Getränke mit Schuss", subtitle: "", kind: .drink, items: [
+            MenuItemData(id: "ki-58", name: "Tote Tante", description: "", priceCents: 600, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-59", name: "Pharisäer", description: "", priceCents: 600, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-60", name: "Irish Coffee", description: "", priceCents: 600, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-61", name: "Lumumba", description: "", priceCents: 600, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-62", name: "Italienische Schokolade", description: "", priceCents: 600, kind: .drink, allergenCodes: nil),
+            MenuItemData(id: "ki-63", name: "Grog", description: "heißer Rum mit Zitrone", priceCents: 520, kind: .drink, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-06", title: "Salate", subtitle: "", kind: .food, items: [
+            MenuItemData(id: "ki-64", name: "Großer gemischter Salat", description: "", priceCents: 1180, kind: .food, allergenCodes: "c"),
+            MenuItemData(id: "ki-65", name: "Kleiner gemischter Salat", description: "", priceCents: 520, kind: .food, allergenCodes: "c"),
+            MenuItemData(id: "ki-66", name: "Lachs-Salat", description: "", priceCents: 1920, kind: .food, allergenCodes: "a,c,d"),
+            MenuItemData(id: "ki-67", name: "Salat mit gebratenem Lachsfilet", description: "", priceCents: 1860, kind: .food, allergenCodes: nil),
+            MenuItemData(id: "ki-68", name: "Scampi-Salat", description: "", priceCents: 1520, kind: .food, allergenCodes: "b,c"),
+            MenuItemData(id: "ki-69", name: "Salat mit acht gebratenen Scampi", description: "", priceCents: 1520, kind: .food, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-06b", title: "Ofenkartoffel in Folie", subtitle: "", kind: .food, items: [
+            MenuItemData(id: "ki-70", name: "Klassik", description: "Ofenkartoffel mit Kräuterquark", priceCents: 960, kind: .food, allergenCodes: "c,g,m,1,3"),
+            MenuItemData(id: "ki-71", name: "mit Sour Creme und Salatbeilage", description: "", priceCents: 1590, kind: .food, allergenCodes: "c"),
+            MenuItemData(id: "ki-72", name: "mit Matjes", description: "", priceCents: 1490, kind: .food, allergenCodes: "c,g,m,1,3"),
+            MenuItemData(id: "ki-73", name: "mit Hähnchen", description: "", priceCents: 1660, kind: .food, allergenCodes: nil),
+            MenuItemData(id: "ki-74", name: "mit Räucherlachs", description: "", priceCents: 1660, kind: .food, allergenCodes: "c,g,m,1,3"),
+            MenuItemData(id: "ki-75", name: "mit Garnelen", description: "", priceCents: 1660, kind: .food, allergenCodes: "b,c,g,m,1,3")
+            ]),
+            MenuSectionData(id: "ks-07", title: "Fischgerichte", subtitle: "", kind: .food, items: [
+            MenuItemData(id: "ki-76", name: "Gebratene Heringe", description: "mit Bratkartoffeln und Salatbeilage", priceCents: 1680, kind: .food, allergenCodes: "a,c,d,1,3"),
+            MenuItemData(id: "ki-77", name: "Kleiner Fischteller", description: "Filet von Rotbarsch, Seelachs & Scholle", priceCents: 2420, kind: .food, allergenCodes: "a,c,d,g,m,1,3"),
+            MenuItemData(id: "ki-78", name: "Großer Fischteller", description: "Filet von Rotbarsch, Seelachs & Scholle", priceCents: 2790, kind: .food, allergenCodes: "a,c,d,g,m,1,3"),
+            MenuItemData(id: "ki-79", name: "Scholle 'Büsumer Art'", description: "mit Bratkartoffeln, Dillsenfsoße & Salatbeilage", priceCents: 2480, kind: .food, allergenCodes: "a,b,c,d,1,3"),
+            MenuItemData(id: "ki-80", name: "Scholle 'Finkenwerder Art'", description: "mit Speck, Bratkartoffeln & Salatbeilage", priceCents: 2360, kind: .food, allergenCodes: "a,c,d,1,3"),
+            MenuItemData(id: "ki-81", name: "Schollenfilet paniert", description: "mit Bratkartoffeln, Remoulade & Salatbeilage", priceCents: 2190, kind: .food, allergenCodes: "a,c,d,g,m,1,3"),
+            MenuItemData(id: "ki-82", name: "Paniertes Seelachsfilet", description: "mit Bratkartoffeln, Remoulade & Salatbeilage", priceCents: 2190, kind: .food, allergenCodes: "a,c,d,g,m,1,3"),
+            MenuItemData(id: "ki-83", name: "Gebratenes Seelachsfilet", description: "mit Dillsenfsoße, Salzkartoffeln & Salatbeilage", priceCents: 2190, kind: .food, allergenCodes: "a,c,d,g,m,1,3"),
+            MenuItemData(id: "ki-84", name: "Gebratenes Seelachsfilet", description: "auf Blattspinat mit Salzkartoffeln & Salatbeilage", priceCents: 2390, kind: .food, allergenCodes: "a,c,d,1,3"),
+            MenuItemData(id: "ki-85", name: "Backfisch* paniert", description: "mit Bratkartoffeln, Remoulade & Salatbeilage", priceCents: 1560, kind: .food, allergenCodes: "a,c,d,g,m,1,3")
+            ]),
+            MenuSectionData(id: "ks-08", title: "Fischgerichte (weitere)", subtitle: "", kind: .food, items: [
+            MenuItemData(id: "ki-86", name: "Zanderfilet", description: "auf frischem Gemüse, dazu zerlassene Butter & Salzkartoffeln", priceCents: 2420, kind: .food, allergenCodes: "a,c,d,g"),
+            MenuItemData(id: "ki-87", name: "Zanderfilet", description: "mit Dillsenfsauce, Bratkartoffeln & Salatbeilage", priceCents: 2190, kind: .food, allergenCodes: "a,c,d,g"),
+            MenuItemData(id: "ki-88", name: "Lachsfilet, gebraten", description: "mit Dillsenfsoße, Salzkartoffeln & Salatbeilage", priceCents: 2320, kind: .food, allergenCodes: "a,c,d,g"),
+            MenuItemData(id: "ki-89", name: "Garnelenteller", description: "mit Gemüse, Knoblauch-Dip & Brötchen", priceCents: 2260, kind: .food, allergenCodes: "a,b,c,1"),
+            MenuItemData(id: "ki-90", name: "Neptunteller", description: "Matjes, Brat- und Bismarckhering mit Hausfrauensoße", priceCents: 1880, kind: .food, allergenCodes: "c,d,g,1,3"),
+            MenuItemData(id: "ki-91", name: "Matjes 'Hausfrauen Art'", description: "mit Hausfrauensoße und Salzkartoffeln", priceCents: 1750, kind: .food, allergenCodes: "c,d,g"),
+            MenuItemData(id: "ki-92", name: "Matjes 'Hans Albers'", description: "mit Garnelen, Zwiebelringen und Salzkartoffeln", priceCents: 1820, kind: .food, allergenCodes: "b,c,d,g"),
+            MenuItemData(id: "ki-93", name: "Saure Bratheringe (kalt)", description: "mit Bratkartoffeln und Salatbeilage", priceCents: 1690, kind: .food, allergenCodes: "c,d,g,1,3"),
+            MenuItemData(id: "ki-94", name: "Hausgemachtes Labskaus", description: "mit Spiegelei, Roter Beete, Gewürzgurke und Bismarckhering", priceCents: 1890, kind: .food, allergenCodes: "c,d,g")
+            ]),
+            MenuSectionData(id: "ks-09", title: "Fleischgerichte", subtitle: "", kind: .food, items: [
+            MenuItemData(id: "ki-95", name: "Schnitzel 'Holstein'", description: "mit Spiegelei, Bacon, Bratkartoffeln & Salatbeilage", priceCents: 1860, kind: .food, allergenCodes: "a,c,1,3"),
+            MenuItemData(id: "ki-96", name: "Champignon-Rahm-Schnitzel", description: "mit Champignonrahmsauce, Bratkartoffeln & Salatbeilage", priceCents: 1860, kind: .food, allergenCodes: "a,c,g,1,3"),
+            MenuItemData(id: "ki-97", name: "Pfeffer-Rahm-Schnitzel", description: "mit Pfefferrahmsauce, Bratkartoffeln & Salatbeilage", priceCents: 1860, kind: .food, allergenCodes: "a,c,g,1,3"),
+            MenuItemData(id: "ki-98", name: "Zigeuner-Schnitzel", description: "mit Zigeunersauce, Bratkartoffeln & Salatbeilage", priceCents: 1860, kind: .food, allergenCodes: "a,c,1,3"),
+            MenuItemData(id: "ki-99", name: "Schnitzel 'Wiener Art'", description: "paniertes Schweineschnitzel mit Zitrone & Bratkartoffeln", priceCents: 1620, kind: .food, allergenCodes: "a,c"),
+            MenuItemData(id: "ki-100", name: "Rumpsteak", description: "mit Kräuterbutter, Bratkartoffeln & Salatbeilage", priceCents: 2260, kind: .food, allergenCodes: "a,c,g"),
+            MenuItemData(id: "ki-101", name: "Rumpsteak", description: "mit gebratenen Pilzen & Zwiebeln", priceCents: 2600, kind: .food, allergenCodes: "c"),
+            MenuItemData(id: "ki-102", name: "Pfeffersteak", description: "mit Pfeffersauce, Pommes Frites", priceCents: 2700, kind: .food, allergenCodes: "c,g,1,3"),
+            MenuItemData(id: "ki-103", name: "Hähnchenbrust", description: "gegrillt, mit Bratkartoffeln & Salatbeilage", priceCents: 1480, kind: .food, allergenCodes: "a,c"),
+            MenuItemData(id: "ki-104", name: "Cordon Bleu", description: "gefüllt mit Schinken und Käse, Bratkartoffeln & Salatbeilage", priceCents: 1980, kind: .food, allergenCodes: "a,c,g,1,3"),
+            MenuItemData(id: "ki-105", name: "Bratwurst", description: "mit Pommes Frites und Salatbeilage", priceCents: 980, kind: .food, allergenCodes: "a,c,1,3"),
+            MenuItemData(id: "ki-106", name: "Currywurst", description: "mit Pommes Frites und Salatbeilage", priceCents: 1080, kind: .food, allergenCodes: "a,c,1,3"),
+            MenuItemData(id: "ki-107", name: "Frikadelle", description: "Hausgemacht, mit Bratkartoffeln & Salatbeilage", priceCents: 1080, kind: .food, allergenCodes: "a,c,1,3")
+            ]),
+            MenuSectionData(id: "ks-10", title: "Für Senioren", subtitle: "", kind: .food, items: [
+            MenuItemData(id: "ki-108", name: "Kleines Schnitzel 'Wiener Art'", description: "paniertes Schweineschnitzel mit Zitrone & Bratkartoffeln", priceCents: 1250, kind: .food, allergenCodes: "a,c"),
+            MenuItemData(id: "ki-109", name: "Kleines Hähnchensteak", description: "mit Bratkartoffeln und Salatbeilage", priceCents: 1230, kind: .food, allergenCodes: "a,c"),
+            MenuItemData(id: "ki-110", name: "Kleines paniertes Seelachsfilet", description: "mit Bratkartoffeln, Remoulade und Salatbeilage", priceCents: 1420, kind: .food, allergenCodes: "a,c,d"),
+            MenuItemData(id: "ki-111", name: "Kleines Schollenfilet paniert", description: "mit Bratkartoffeln, Remoulade und Salatbeilage", priceCents: 1390, kind: .food, allergenCodes: "a,c,d"),
+            MenuItemData(id: "ki-112", name: "Ein Matjesfilet 'Hausfrauen Art'", description: "mit Hausfrauensoße und Salzkartoffeln", priceCents: 1290, kind: .food, allergenCodes: "c,d,g")
+            ]),
+            MenuSectionData(id: "ks-10b", title: "Für kleine Seeräuber", subtitle: "bis 12 Jahre", kind: .food, items: [
+            MenuItemData(id: "ki-113", name: "'Schweinchen Schlau'", description: "kleines Schweineschnitzel mit Bratkartoffeln", priceCents: 990, kind: .food, allergenCodes: "a,c"),
+            MenuItemData(id: "ki-114", name: "'Kapitän Hook'", description: "Backfisch mit Bratkartoffeln & Remoulade", priceCents: 980, kind: .food, allergenCodes: "a,c,d,g,m,1"),
+            MenuItemData(id: "ki-115", name: "Chicken-Nuggets", description: "mit Pommes Frites", priceCents: 980, kind: .food, allergenCodes: "a,c")
+            ]),
+            MenuSectionData(id: "ks-10c", title: "Vegane Gerichte", subtitle: "", kind: .food, items: [
+            MenuItemData(id: "ki-116", name: "Vegane Bratwurst", description: "mit Pommes Frites und Salatbeilage", priceCents: 1080, kind: .food, allergenCodes: nil),
+            MenuItemData(id: "ki-117", name: "Ofenkartoffel", description: "mit Grillgemüse", priceCents: 1480, kind: .food, allergenCodes: nil)
+            ]),
+            MenuSectionData(id: "ks-11", title: "Nachspeisen", subtitle: "", kind: .food, items: [
+            MenuItemData(id: "ki-118", name: "Rote Grütze", description: "mit Vanillesoße", priceCents: 580, kind: .food, allergenCodes: "c,g"),
+            MenuItemData(id: "ki-119", name: "Eis", description: "3 Kugeln, verschiedene Sorten", priceCents: 520, kind: .food, allergenCodes: "c,g"),
+            MenuItemData(id: "ki-120", name: "Apfelstrudel", description: "", priceCents: 620, kind: .food, allergenCodes: "a,c,g")
+            ]),
+            MenuSectionData(id: "ks-11b", title: "Beilagen", subtitle: "", kind: .food, items: [
+            MenuItemData(id: "ki-121", name: "Pommes Frites", description: "", priceCents: 380, kind: .food, allergenCodes: nil),
+            MenuItemData(id: "ki-122", name: "Bratkartoffeln", description: "", priceCents: 420, kind: .food, allergenCodes: nil),
+            MenuItemData(id: "ki-123", name: "Salatbeilage", description: "", priceCents: 320, kind: .food, allergenCodes: nil),
+            MenuItemData(id: "ki-124", name: "Kräuterquark", description: "", priceCents: 280, kind: .food, allergenCodes: "a,c,g"),
+            MenuItemData(id: "ki-125", name: "Remoulade", description: "", priceCents: 150, kind: .food, allergenCodes: "a,c,g")
+            ]),
+        ]
     }
 }

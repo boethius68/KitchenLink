@@ -233,6 +233,19 @@ protocol KitchenLinkCloudTransport: KitchenLinkCloudAuthenticating {
         deviceID: String,
         localGuestURL: String?
     ) async throws
+
+    func createOrder(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        id: String,
+        createdAt: Date,
+        sourceDevice: String,
+        totalCents: Int,
+        serviceMode: String,
+        customerNote: String,
+        itemsJSON: Data
+    ) async throws -> Bool
 }
 
 struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
@@ -417,6 +430,95 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
         )
     }
 
+    func createOrder(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        id: String,
+        createdAt: Date,
+        sourceDevice: String,
+        totalCents: Int,
+        serviceMode: String,
+        customerNote: String,
+        itemsJSON: Data
+    ) async throws -> Bool {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let createdAtISO = iso.string(from: createdAt)
+        struct CreateOrderBody: Encodable {
+            let p_venue_slug: String
+            let p_id: String
+            let p_created_at: String
+            let p_source_device: String
+            let p_total_cents: Int
+            let p_service_mode: String
+            let p_customer_note: String
+            /// Sent as raw JSON array, not a string — PostgREST maps it directly
+            /// to the `jsonb` function parameter.
+            let p_items: JSONValue
+        }
+        let items: JSONValue = try JSONDecoder().decode(JSONValue.self, from: itemsJSON)
+        let body = CreateOrderBody(
+            p_venue_slug: venueSlug,
+            p_id: id,
+            p_created_at: createdAtISO,
+            p_source_device: sourceDevice,
+            p_total_cents: totalCents,
+            p_service_mode: serviceMode,
+            p_customer_note: customerNote,
+            p_items: items
+        )
+        _ = try await rpcData(
+            config: config,
+            accessToken: session.accessToken,
+            function: "operator_create_order",
+            bodyData: try JSONEncoder().encode(body)
+        )
+        return true
+    }
+
+    /// A JSON value wrapper that encodes/decodes to the natural JSON
+    /// representation (array, object, string, number, bool, null).
+    private enum JSONValue: Codable {
+        case array([JSONValue])
+        case object([String: JSONValue])
+        case string(String)
+        case number(Double)
+        case bool(Bool)
+        case null
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let arr = try? container.decode([JSONValue].self) {
+                self = .array(arr)
+            } else if let obj = try? container.decode([String: JSONValue].self) {
+                self = .object(obj)
+            } else if let str = try? container.decode(String.self) {
+                self = .string(str)
+            } else if let num = try? container.decode(Double.self) {
+                self = .number(num)
+            } else if let bool = try? container.decode(Bool.self) {
+                self = .bool(bool)
+            } else if container.decodeNil() {
+                self = .null
+            } else {
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "unknown JSON value")
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            switch self {
+            case .array(let arr): try container.encode(arr)
+            case .object(let obj): try container.encode(obj)
+            case .string(let str): try container.encode(str)
+            case .number(let num): try container.encode(num)
+            case .bool(let bool): try container.encode(bool)
+            case .null: try container.encodeNil()
+            }
+        }
+    }
+
     // MARK: Request-Bausteine
 
     private func get(
@@ -557,36 +659,60 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkMenuPublishTransport {
     }
 }
 
-/// Persistenz für Konfiguration und Sitzung. Bewusst UserDefaults: die
-/// Sandbox speichert nur die Sandbox-Operator-Sitzung (Access-/Refresh-Token),
-/// nie das Passwort. Vor einem Produktionspfad gehört das in die Keychain —
-/// als Sandbox-Grenze im Handoff dokumentiert.
+/// Persistenz für Konfiguration und Sitzung.
+/// Die Supabase-Sitzung (Access-/Refresh-Token) liegt **ausschließlich** im
+/// Secret-Speicher (Produktpfad: Keychain). Sie wird nicht zusätzlich in
+/// UserDefaults geschrieben — eine Kopie im Klartext würde die Migration
+/// aufheben. Nicht-sensitive Konfiguration (Device-ID) bleibt in UserDefaults.
 struct KitchenLinkCloudCredentialStore {
-    static let sessionKey = "kitchenlink.cloud.session.v1"
+    static let secretSessionAccount = "session.v1"
     static let deviceKey = "kitchenlink.cloud.deviceID.v1"
+    static let legacyUserDefaultsSessionKey = "kitchenlink.cloud.session.v1"
 
     private let defaults: UserDefaults
+    let secrets: any KitchenLinkSecretStore
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
-    init(defaults: UserDefaults = .standard) {
+    init(
+        defaults: UserDefaults = .standard,
+        secrets: any KitchenLinkSecretStore = KeychainSecretStore(service: "kitchenlink.cloud")
+    ) {
         self.defaults = defaults
+        self.secrets = secrets
         self.encoder.dateEncodingStrategy = .iso8601
         self.decoder.dateDecodingStrategy = .iso8601
     }
 
-    func loadSession() -> KitchenLinkCloudSession? {
-        guard let data = defaults.data(forKey: Self.sessionKey) else { return nil }
+    private func loadFromSecrets() -> KitchenLinkCloudSession? {
+        guard let data = secrets.load(account: Self.secretSessionAccount) else { return nil }
         return try? decoder.decode(KitchenLinkCloudSession.self, from: data)
+    }
+
+    func loadSession() -> KitchenLinkCloudSession? {
+        if let session = loadFromSecrets() { return session }
+        return migrateLegacySession()
     }
 
     func save(session: KitchenLinkCloudSession) {
         guard let data = try? encoder.encode(session) else { return }
-        defaults.set(data, forKey: Self.sessionKey)
+        secrets.save(data, account: Self.secretSessionAccount)
     }
 
     func clearSession() {
-        defaults.removeObject(forKey: Self.sessionKey)
+        secrets.delete(account: Self.secretSessionAccount)
+        defaults.removeObject(forKey: Self.legacyUserDefaultsSessionKey)
+    }
+
+    /// Hebt eine Sitzung aus der alten UserDefaults-Ablage einmalig in den
+    /// Secret-Speicher und entfernt die Klartextkopie.
+    private func migrateLegacySession() -> KitchenLinkCloudSession? {
+        guard let data = defaults.data(forKey: Self.legacyUserDefaultsSessionKey),
+              let session = try? decoder.decode(KitchenLinkCloudSession.self, from: data)
+        else { return nil }
+        save(session: session)
+        defaults.removeObject(forKey: Self.legacyUserDefaultsSessionKey)
+        return session
     }
 
     func deviceID() -> String {

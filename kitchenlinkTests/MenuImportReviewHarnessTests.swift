@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import UIKit
 import XCTest
@@ -14,9 +15,9 @@ import XCTest
 /// (`report.json`) in das Ausgabeverzeichnis. `import-review-report.html`
 /// rendert daraus den Seite-an-Seite-Report für die menschliche Prüfung.
 ///
-/// Bewusst KEINE Qualitäts-Assertions: Regressionsschutz bleibt Aufgabe des
-/// Gold-Baseline-Benchmarks. Dieser Harness exportiert nur ehrlich, was die
-/// Pipeline erkennt, damit Mensch und Gold-Baseline daraus lernen können.
+/// Der Harness selbst exportiert bewusst nur den beobachteten Stand. Das
+/// versionierte Phase-1-Gate bewertet `report.json` anschließend
+/// deterministisch gegen die vollständige Ground Truth.
 final class MenuImportReviewHarnessTests: XCTestCase {
 
     // MARK: - Konfiguration (vom Runner-Skript ins Bundle gelegt)
@@ -24,6 +25,10 @@ final class MenuImportReviewHarnessTests: XCTestCase {
     private struct ReviewRequest: Codable {
         let outputPath: String
         let extraMenusPath: String?
+        /// Optionaler, ausdrücklich begrenzter Modell-Pilot. Jeder Wert hat
+        /// die Form `fixture-id:pageIndex` mit nullbasiertem Seitenindex.
+        /// Nur diese Seiten werden verarbeitet und gegebenenfalls übertragen.
+        let selectedPages: [String]?
         /// Runde-2-Vergleich: zusätzlich den vorhandenen KI-Pfad
         /// (Seitenbilder + OCR an das Vision-LLM) laufen lassen. Erfordert
         /// einen konfigurierten API-Key (das Runner-Skript reicht ihn als
@@ -34,8 +39,10 @@ final class MenuImportReviewHarnessTests: XCTestCase {
     // MARK: - Report-Schema (Vertrag mit import-review-report.html)
 
     private struct Report: Codable {
+        let schemaVersion: String
         let generatedAt: Date
         let parserMode: String
+        let selectedPages: [String]?
         let menus: [MenuSnapshot]
     }
 
@@ -49,11 +56,15 @@ final class MenuImportReviewHarnessTests: XCTestCase {
         let diagnostics: String
         let ocrLines: [OCRLineSnapshot]
         let legacySections: [LegacySection]
+        /// Canonical, lossless contract used by the automated quality gate.
+        let draft: MenuImportDraft
         let draftSections: [DraftSection]
         let draftValidationErrors: [String]
         // Optionaler zweiter Durchlauf über den KI-Pfad (Runde-2-Vergleich).
         let llmLegacySections: [LegacySection]?
+        let llmDraft: MenuImportDraft?
         let llmDraftSections: [DraftSection]?
+        let llmDraftValidationErrors: [String]?
         let llmDiagnostics: String?
         let llmError: String?
     }
@@ -129,7 +140,7 @@ final class MenuImportReviewHarnessTests: XCTestCase {
         let priceKind: String
         let amountCents: Int?
         let deltaCents: Int?
-        let rawPrice: String
+        let rawPrice: String?
         let basis: String
         let evidence: EvidenceSnapshot
     }
@@ -177,19 +188,60 @@ final class MenuImportReviewHarnessTests: XCTestCase {
         var menus: [MenuSnapshot] = []
         let runLLM = request.runLLM == true
 
-        // 1. Eingebaute Fixtures (dieselbe Quelle wie der Benchmark).
-        for fixture in DemoMenuFixtures.reviewFixtures {
-            let images = DemoMenuFixtures.images(for: fixture)
-            XCTAssertEqual(images.count, fixture.pageCount, "Fixture \(fixture.id) unvollständig")
-            let snapshot = try await process(
-                menuID: fixture.id,
-                title: fixture.title,
-                source: "fixture",
-                images: images,
-                pagesURL: pagesURL,
-                runLLM: runLLM
+        // 1. Eingebaute Fixtures (dieselbe Quelle wie der Benchmark). Ein
+        // ausdrücklich gesetzter Seitenfilter ist ein kleiner Modell-Pilot
+        // und verhindert, dass der normale 17-Seiten-Umfang versehentlich an
+        // einen externen Anbieter übertragen wird.
+        if let selectedPages = request.selectedPages, !selectedPages.isEmpty {
+            var selectedImages: [UIImage] = []
+            for selection in selectedPages {
+                let components = selection.split(separator: ":", maxSplits: 1)
+                guard components.count == 2,
+                      let pageIndex = Int(components[1]),
+                      let fixture = DemoMenuFixtures.reviewFixtures.first(
+                          where: { $0.id == String(components[0]) }
+                      )
+                else {
+                    XCTFail("Ungültige Seitenauswahl: \(selection)")
+                    continue
+                }
+                let fixtureImages = DemoMenuFixtures.images(for: fixture)
+                guard fixtureImages.indices.contains(pageIndex) else {
+                    XCTFail("Seite \(pageIndex) fehlt in Fixture \(fixture.id)")
+                    continue
+                }
+                selectedImages.append(fixtureImages[pageIndex])
+            }
+            XCTAssertEqual(
+                selectedImages.count,
+                selectedPages.count,
+                "Nicht alle ausgewählten Pilotseiten konnten geladen werden."
             )
-            menus.append(snapshot)
+            if !selectedImages.isEmpty {
+                let snapshot = try await process(
+                    menuID: "pilot-selection",
+                    title: "Begrenzter Modell-Pilot",
+                    source: "fixture-selection",
+                    images: selectedImages,
+                    pagesURL: pagesURL,
+                    runLLM: runLLM
+                )
+                menus.append(snapshot)
+            }
+        } else {
+            for fixture in DemoMenuFixtures.reviewFixtures {
+                let images = DemoMenuFixtures.images(for: fixture)
+                XCTAssertEqual(images.count, fixture.pageCount, "Fixture \(fixture.id) unvollständig")
+                let snapshot = try await process(
+                    menuID: fixture.id,
+                    title: fixture.title,
+                    source: "fixture",
+                    images: images,
+                    pagesURL: pagesURL,
+                    runLLM: runLLM
+                )
+                menus.append(snapshot)
+            }
         }
 
         // 2. Optionale eigene Karten aus dem konfigurierten Ordner.
@@ -208,8 +260,10 @@ final class MenuImportReviewHarnessTests: XCTestCase {
         }
 
         let report = Report(
+            schemaVersion: "kitchenlink-import-review-report/1.0.0",
             generatedAt: Date(),
             parserMode: "apple-vision-plus-local-rules",
+            selectedPages: request.selectedPages,
             menus: menus
         )
         let encoder = JSONEncoder()
@@ -247,13 +301,42 @@ final class MenuImportReviewHarnessTests: XCTestCase {
             pageFiles.append(fileName)
         }
 
+        var sourceHasher = SHA256()
+        var sourcePages: [MenuImportSourcePage] = []
+        for (pageIndex, fileName) in pageFiles.enumerated() {
+            let fileURL = pagesURL.appendingPathComponent(fileName)
+            let pageData = try Data(contentsOf: fileURL)
+            let digest = SHA256.hash(data: pageData)
+            sourceHasher.update(data: Data(digest))
+            let image = images[pageIndex]
+            sourcePages.append(
+                MenuImportSourcePage(
+                    pageIndex: pageIndex,
+                    fingerprint: "sha256:" + digest.map {
+                        String(format: "%02x", $0)
+                    }.joined(),
+                    pixelWidth: max(
+                        1,
+                        Int((image.size.width * image.scale).rounded())
+                    ),
+                    pixelHeight: max(
+                        1,
+                        Int((image.size.height * image.scale).rounded())
+                    ),
+                    originalAssetReference: fileURL.path
+                )
+            )
+        }
         let sourceDocument = MenuImportSourceDocument(
             id: "review-source-\(menuID)",
             sourceType: .demoFixture,
             sourceTypeDetail: menuID,
             pageCount: images.count,
-            fingerprint: "review:\(menuID):v1",
-            displayName: title
+            fingerprint: "sha256:" + sourceHasher.finalize().map {
+                String(format: "%02x", $0)
+            }.joined(),
+            displayName: title,
+            pages: sourcePages
         )
         let importResult = try await MenuImportService.benchmarkLocalImport(
             from: images,
@@ -266,7 +349,9 @@ final class MenuImportReviewHarnessTests: XCTestCase {
         // in den Report geschrieben statt den Lauf abzubrechen — der lokale
         // Teil des Vergleichs bleibt dann trotzdem nutzbar.
         var llmLegacySections: [LegacySection]?
+        var llmDraft: MenuImportDraft?
         var llmDraftSections: [DraftSection]?
+        var llmDraftValidationErrors: [String]?
         var llmDiagnostics: String?
         var llmError: String?
         if runLLM {
@@ -286,7 +371,11 @@ final class MenuImportReviewHarnessTests: XCTestCase {
                         displayName: title
                     )
                     llmLegacySections = llmResult.sections.map(legacySection(from:))
+                    llmDraft = llmResult.draft
                     llmDraftSections = llmResult.draft.sections.map(draftSection(from:))
+                    llmDraftValidationErrors = llmResult.draft.validate().errors.map {
+                        String(describing: $0)
+                    }
                     llmDiagnostics = "Modell \(MenuImportService.resolvedLLMModel) @ "
                         + "\(MenuImportService.resolvedLLMBaseURL) — "
                         + MenuImportService.lastImportDiagnostics()
@@ -322,10 +411,13 @@ final class MenuImportReviewHarnessTests: XCTestCase {
                 )
             },
             legacySections: importResult.sections.map(legacySection(from:)),
+            draft: importResult.draft,
             draftSections: importResult.draft.sections.map(draftSection(from:)),
             draftValidationErrors: validation.errors.map { String(describing: $0) },
             llmLegacySections: llmLegacySections,
+            llmDraft: llmDraft,
             llmDraftSections: llmDraftSections,
+            llmDraftValidationErrors: llmDraftValidationErrors,
             llmDiagnostics: llmDiagnostics,
             llmError: llmError
         )
