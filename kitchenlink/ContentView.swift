@@ -4931,7 +4931,7 @@ enum MenuImportService {
                         pipelineVersion: "menu-import/phase-1",
                         provider: "apple-vision-plus-local-rules",
                         model: resolvedLLMModel,
-                        promptVersion: MenuImportExtractionPrompt.version,
+                        promptVersion: MenuImportExtractionPrompt.resolvedVersion,
                         promptFingerprint: MenuImportExtractionPrompt.fingerprint,
                         contractVersion: MenuImportPageExtraction.currentContractVersion,
                         pageOutcomes: fallbackOutcomes,
@@ -5588,7 +5588,7 @@ enum MenuImportService {
             pipelineVersion: "menu-import/phase-1",
             provider: resolvedLLMBaseURL,
             model: resolvedLLMModel,
-            promptVersion: MenuImportExtractionPrompt.version,
+            promptVersion: MenuImportExtractionPrompt.resolvedVersion,
             promptFingerprint: MenuImportExtractionPrompt.fingerprint,
             contractVersion: MenuImportPageExtraction.currentContractVersion,
             pageOutcomes: pageOutcomes,
@@ -6013,22 +6013,34 @@ enum MenuImportService {
 
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
+            // The decode error is the only thing that says *why* a provider
+            // response missed the contract. Swallowing it with `try?` made a
+            // real ten-page regression undiagnosable without paying for
+            // another run, so the last failure is kept and reported.
+            var lastDecodeFailure: Error?
             for candidate in [jsonText, repairJSONStringQuotes(jsonText)] {
-                if let jsonData = candidate.data(using: .utf8),
-                   let extraction = try? decoder.decode(
-                       MenuImportPageExtraction.self,
-                       from: jsonData
-                   ) {
+                guard let jsonData = candidate.data(using: .utf8) else { continue }
+                do {
+                    let extraction = try decoder.decode(
+                        MenuImportPageExtraction.self,
+                        from: jsonData
+                    )
                     return LLMExtractionCallOutcome(
                         extraction: extraction,
                         errorMessage: nil,
                         usage: usage
                     )
+                } catch {
+                    lastDecodeFailure = error
                 }
             }
             return LLMExtractionCallOutcome(
                 extraction: nil,
-                errorMessage: "JSON konnte nicht in den verlustfreien Extraktionsvertrag übertragen werden",
+                errorMessage: MenuLLMDiagnostics.describeContractMappingFailure(
+                    lastDecodeFailure,
+                    jsonText: jsonText,
+                    rawText: rawText
+                ),
                 usage: usage
             )
         } catch {

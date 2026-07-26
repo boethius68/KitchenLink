@@ -263,7 +263,7 @@ enum MenuImportExtractionPrompt {
     /// losses but unnormalized names.
     static let version = "menu-import-extraction/1.0.4"
 
-    static let systemPrompt = """
+    private static let promptBase = """
     You extract a restaurant menu page into lossless JSON. Return one JSON object
     only, without Markdown. The object MUST use snake_case and this exact shape:
     {
@@ -396,6 +396,13 @@ enum MenuImportExtractionPrompt {
       "evidence_line_ids": ["p1-l7"]
     }
 
+    """
+
+    /// Delta `review_codes` (new in `1.0.4`).
+    ///
+    /// Without it the model invents its own review codes and the review screen
+    /// drops them, which is why `expectedReviewRecall` measured `0.143`.
+    private static let reviewCodeVocabulary = """
     Use exactly these review codes. They are what the operator's review screen
     knows how to present; an unlisted code is dropped:
     - missing_visible_price: the entry shows no price on this page.
@@ -415,7 +422,9 @@ enum MenuImportExtractionPrompt {
     - translation_pairing_unproven: two languages are visible but their pairing
       is not certain.
     - evidence_missing: a visible value has no matching OCR line.
+    """
 
+    private static let baseRules = """
     Rules:
     - Keep every visible purchasable entry, including entries with no visible
       price. An unpriced entry has an empty offers array plus a
@@ -447,6 +456,14 @@ enum MenuImportExtractionPrompt {
       A page classified as menu or mixed must not return zero menu entries.
     - A declaration code has no canonical meaning unless a visible legend on
       this page proves it. Preserve raw codes with canonical_id null otherwise.
+    """
+
+    /// Delta `trailing_codes` (new in `1.0.4`).
+    ///
+    /// The assembler now performs this normalization deterministically and
+    /// legend-backed, so this instruction is a redundant second line of
+    /// defense rather than the only one.
+    private static let trailingCodeRule = """
     - An entry name never ends in a declaration code run. Move every trailing
       code group into declarations, whether or not it is bracketed and whether it
       is one letter or several: "Bunter Marktsalat [V]", "Bunter Marktsalat V"
@@ -454,18 +471,104 @@ enum MenuImportExtractionPrompt {
       "Veganes Kokoscurry" plus declarations. Keep the code run verbatim in
       declaration.raw_text. A quantity or size that is part of the dish name
       ("Pizza 30cm", "0,5 l") is not a code run and stays in the name.
+    """
+
+    /// Delta `currency_code` (new in `1.0.4`).
+    ///
+    /// Addresses `currencyAccuracy 0.775`: the field was left unset on prices
+    /// that visibly printed euros.
+    private static let currencyCodeRule = """
     - Set currency_code on every offer whose price text shows a currency:
       "€" or "EUR" is "EUR". Leave it null only when the page prints a bare
       number with no currency anywhere.
+    """
+
+    private static let closingRules = """
     - Return all array fields, using [] when empty. Return the zero-based
       page_index supplied by the user and contract_version 1.0.0 exactly.
       Every order value is zero-based, unique among siblings, and follows the
       visible reading order.
     """
 
+    /// The three additions `1.0.4` made over `1.0.2`, individually switchable.
+    ///
+    /// They exist as separate blocks because `1.0.4` shipped as one block and
+    /// measured far worse than `1.0.2` (corrections per page `8.70` against
+    /// `1.00`, with three of ten pages falling back to local rules). Attributing
+    /// that to a single instruction was impossible without buying one paid run
+    /// per hypothesis. `1.0.2`'s exact text is not recoverable — it never
+    /// reached version control — so `promptBase` is the reconstruction that
+    /// remains when all three deltas are switched off.
+    enum Delta: String, CaseIterable, Sendable {
+        case reviewCodes = "review_codes"
+        case trailingCodes = "trailing_codes"
+        case currencyCode = "currency_code"
+    }
+
+    /// Active deltas, defaulting to all three.
+    ///
+    /// `KITCHENLINK_PROMPT_DELTAS` takes a comma-separated list of the raw
+    /// values, `none` for the reconstructed base, or `all`. An unknown name is
+    /// ignored rather than silently treated as `none`, so a typo cannot quietly
+    /// measure a different prompt than the one a run archive claims.
+    static var activeDeltas: Set<Delta> {
+        guard let raw = configValue(forKey: "KITCHENLINK_PROMPT_DELTAS")?.lowercased() else {
+            return Set(Delta.allCases)
+        }
+        if raw == "all" { return Set(Delta.allCases) }
+        if raw == "none" { return [] }
+        let requested = raw
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        return Set(requested.compactMap(Delta.init(rawValue:)))
+    }
+
+    static var systemPrompt: String {
+        let deltas = activeDeltas
+        var blocks = [promptBase]
+        if deltas.contains(.reviewCodes) {
+            blocks.append(reviewCodeVocabulary)
+        }
+        blocks.append(baseRules)
+        if deltas.contains(.trailingCodes) {
+            blocks.append(trailingCodeRule)
+        }
+        if deltas.contains(.currencyCode) {
+            blocks.append(currencyCodeRule)
+        }
+        blocks.append(closingRules)
+        return blocks.joined(separator: "\n")
+    }
+
+    /// `1.0.4` with every delta active; otherwise the version names exactly
+    /// which blocks were sent, so a run archive is never ambiguous about the
+    /// prompt it measured.
+    static var resolvedVersion: String {
+        let deltas = activeDeltas
+        if deltas == Set(Delta.allCases) { return version }
+        if deltas.isEmpty { return "\(version)+base" }
+        let names = Delta.allCases
+            .filter(deltas.contains)
+            .map(\.rawValue)
+            .joined(separator: "+")
+        return "\(version)+\(names)"
+    }
+
     static var fingerprint: String {
         let digest = SHA256.hash(data: Data(systemPrompt.utf8))
         return "sha256:" + digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func configValue(forKey key: String) -> String? {
+        if let environment = ProcessInfo.processInfo.environment[key] {
+            let trimmed = environment.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        if let bundled = Bundle.main.object(forInfoDictionaryKey: key) as? String {
+            let trimmed = bundled.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return nil
     }
 }
 
