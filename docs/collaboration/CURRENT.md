@@ -441,53 +441,60 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
 
 ## Current Focus and Open Decisions
 
-- **Inventory:** PR #15 / KL-INVENTORY-002 is integrated after technical and
-  visual review. A future location-specific assortment contract would be
-  needed to display a planned article at `0` before its first ledger movement;
-  this is a known model boundary, not an active implementation ticket.
-- **Offline venue hub:** iPhone Safari can now reach the local top-level guest
-  page and commit an order over the reference WLAN. The iPhone itself can host
-  the page and the app-side Kitchen-to-Waiter slice; foreground WLAN loss and
-  recovery sind nun auch real abgenommen. Android Chrome, AP isolation,
-  automatic client discovery, background Hub lifecycle, TLS/trust and failover
-  remain unproven; no production hub architecture follows from this sandbox
-  result.
-- **Guest web:** production-grade hosting, PWA/offline behavior and retention
-  for orphaned anonymous users remain open. Hostinger is selected only for the
-  current sandbox; Supabase menu loading and authoritative sandbox ordering are
-  already live. The local code now expects migration `20260722120000` for
-  configured V2 orders; that migration has not been deployed by this task.
-- **Cloud order loop (KL-CLOUD-001):** merged into `main`, waiting for the user
-  to apply migration `20260719100000` plus the operator account
-  (SANDBOX_SETUP.md §6.1) and to run the real web-to-iPhone acceptance. A guest
-  status page in the web remains a follow-up.
-- **Scan-to-publish (KL-MENU-005):** implemented on `main`. Waiting for the user
-  to apply migrations through `20260722120000` and run one real publish against the
-  instance (SANDBOX_SETUP.md §6.2). This is the second half of the core pitch:
-  paper menu → scan → review → live guest card. Rich option groups are now part
-  of the publish contract; open follow-ups are `tag`, additive menu editing
-  (currently full replace), and a table context in the guest web.
-- **Import quality rounds (KL-SCAN-002):** after the first real scan comparison
-  the user required an iterative quality workflow (categories from card titles,
-  variants/sizes/descriptions, structured allergen mapping via the card legend
-  with uniform icons later in the UI, and the hard rule that legend codes never
-  end up in names or descriptions — targets recorded in
-  `docs/test-fixtures/scanner-benchmark/QUALITY_TARGETS.md`). A batch review
-  environment now exists: `scripts/run-import-review.sh` runs all fixtures
-  (plus any user-supplied menus) through the real local OCR pipeline and opens
-  an HTML report — original page with evidence overlays next to the parsed
-  result, automatic issue flags, per-entry OK/Falsch feedback with export for
-  the agent. Rounds 1–4 are done (`ROUND_01..04_FINDINGS.md`): the decisive
-  result is that the AI path — the free OpenCode Zen model `big-pickle`,
-  keyless and free, in **text mode with coordinate-annotated OCR lines** —
-  clearly beats the rule parser (allergen codes separated, descriptions and
-  columns kept, set/course menus captured as one priced item with `per_person`,
-  robust JSON handling via a German-quote-aware repair plus a retry). Vision was
-  measured and works but is timeout-prone on the free tier, so text mode is the
-  default (`OPENCODE_FREE=1` sets `SEND_IMAGES=0`; vision is opt-in). The rule
-  parser stays the offline fallback and benchmark base. Remaining items are
-  polish with diminishing returns (priceless set-menu course fragments, stray
-  prices); the higher-value next step is the real product acceptances
-  (KL-MENU-005 §6.2, KL-CLOUD-001 §6.1) and a table context in the guest web.
+- **Inventory:** integrated; future assortment contract is a known model
+  boundary, not an active ticket.
+- **Offline venue hub:** real Mac-to-iPhone flow passed; foreground WLAN
+  loss/recovery accepted. Remaining: background Hub, Android, TLS/trust.
+- **Guest web:** Hostinger sandbox with live Supabase menu loading and
+  authoritative ordering. Migration `20260722120000` (V2 configured orders)
+  applied against the real instance; 8/8 integration tests green.
+- **Cloud order loop (KL-CLOUD-001):** applied migration `20260719100000`;
+  operator account active; real web-to-iPhone acceptance passed.
+- **Scan-to-publish (KL-MENU-005):** all migrations through `20260722120000`
+  applied; real publish verified with the original 8-item card restored.
+- **Production hardening (23 July):** Keychain (`Security.framework`) replaces
+  UserDefaults for cloud credentials and LLM API key; deterministic hash-based
+  slug de-duplication; additive menu edit RPCs (`operator_upsert_menu_item`,
+  `operator_delete_menu_item`) with Swift transport and tests.
+- **Item availability (KL-MENU-010, 23 July):** new migration adds
+  `available_from`/`available_until` columns, `operator_set_item_availability`
+  RPC (staff-gated), and updates `guest_web_submit_order_v2` to reject items
+  outside their time window. Swift transport + tests added.
+- **Cloud-sync UI (23 July):** `MenuEditorItemEditor` now shows a
+  "Cloud & Verfügbarkeit" section with per-item Upsert/Löschen buttons
+  (session-gated), availability toggle, optional scheduling via DatePickers,
+  and feedback messages. `MenuItemData` extended with `available`,
+  `availableFrom`, `availableUntil` (backward-compatible decoder).
+- **Import quality rounds (KL-SCAN-002):** rounds 1–4 documented; AI text-mode
+  path (OpenCode Zen) beats rule parser. Remaining polish has diminishing
+  returns.
+- **Menu import launch readiness (26 July):** the Phase-1 gate now carries two
+  threshold profiles (`policy.json` 1.3.0). `launch` is the release bar —
+  recall-first, zero unrecoverable loss, `correctionsPerPage` as the headline
+  effort metric — because every draft passes a mandatory human review. `strict`
+  is retained as a diagnostic long-term target that a sampled model cannot pass
+  (it requires near-exact cross-run repeatability). Both decisions are recorded
+  in `DECISIONS.md`.
+  A deterministic OCR fix collapses the near-duplicate readings produced by the
+  intentional double Vision pass (they were becoming phantom dishes): local
+  entry F1 0.592 → 0.679, invented entries 51 → 37, invented prices 50 → 34,
+  P95 page latency 7145 → 3715 ms. The offline rule fallback now emits the
+  review findings it can honestly derive (`expectedReviewRecall` 0.000 → 0.429)
+  and declares its own semantic gap once per draft; the findings it cannot
+  detect are deliberately not fabricated.
+  Operators can now configure key, gateway URL and model in the app — the code
+  previously forced every stored key onto OpenAI, so no other paid provider was
+  configurable in a shipped build. `MenuImportGeminiProtocol` adds the
+  Google-native `generateContent` translation the Zen Gemini route requires
+  (`x-goog-api-key`, `thinkingBudget: 0`).
+  One approved paid run with `gemini-3.5-flash` over the ten gate pages:
+  corrections per page 8.50 → **1.00**, section F1 **1.000**, entry F1 0.971,
+  relation F1 0.411, translations 0.902, missing/invented entries 2/2, invented
+  prices 6; 81,366 input and 71,655 output tokens for 17 pages. The two
+  "missing" entries are unnormalized names (`Bunter Marktsalat WI`), not losses.
+  Prompt 1.0.4 addresses them plus the unstated review-code vocabulary and the
+  unset currency code, but is not yet re-measured. Release still needs the three
+  repeat runs. Local on-device models are ruled out as a launch path (measured:
+  62 s per page on the development Mac; the operator runtime is an iPhone).
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

@@ -29,12 +29,20 @@
 #     KITCHENLINK_LLM_SEND_IMAGES=1 KITCHENLINK_OPENCODE_FREE=1 \
 #       ./scripts/run-import-review.sh
 #
+#   Begrenzter Modell-Pilot (nullbasierte Seitenindizes; verarbeitet und
+#   überträgt ausschließlich diese Seiten):
+#     KITCHENLINK_REVIEW_SELECTED_PAGES='kitchenlink-pruefkueche:0,alexxanders-chemnitz:0' \
+#       KITCHENLINK_OPENCODE_FREE=1 ./scripts/run-import-review.sh
+#
 #   Mit OpenCode-Zen-Key (falls doch ein gültiger Key vorliegt):
 #     KITCHENLINK_OPENCODE_API_KEY=... ./scripts/run-import-review.sh
 #
 #   Beliebiges anderes OpenAI-kompatibles Gateway:
 #     KITCHENLINK_LLM_BASE_URL=https://.../v1 KITCHENLINK_LLM_MODEL=... \
 #       KITCHENLINK_OPENAI_API_KEY=... ./scripts/run-import-review.sh
+#
+#   Thinking bei einem lokalen Extraktionsmodell abschalten:
+#     KITCHENLINK_LLM_REASONING_EFFORT=none ./scripts/run-import-review.sh
 #
 # Jeder Lauf landet in einem eigenen Zeitstempel-Ordner; "latest" zeigt auf den
 # neuesten. Feedback aus dem Report bitte als import-review-feedback.json an
@@ -47,6 +55,7 @@ derived_data=${KITCHENLINK_REVIEW_DERIVED_DATA:-/tmp/kitchenlink-import-review-b
 output_root=${KITCHENLINK_REVIEW_OUTPUT:-/tmp/kitchenlink-import-review}
 destination=${KITCHENLINK_REVIEW_DESTINATION:-platform=iOS Simulator,name=iPhone 17 Pro}
 extra_menus=${KITCHENLINK_REVIEW_MENUS:-}
+selected_pages=${KITCHENLINK_REVIEW_SELECTED_PAGES:-}
 
 run_dir="$output_root/run-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$run_dir"
@@ -105,7 +114,17 @@ if [[ -n "${KITCHENLINK_OPENAI_API_KEY:-}" || "${KITCHENLINK_LLM_ALLOW_KEYLESS:-
   echo "KI-Vergleich aktiv: ${KITCHENLINK_LLM_MODEL:-gpt-4.1} @ ${KITCHENLINK_LLM_BASE_URL:-https://api.openai.com/v1} ($auth_note)"
 fi
 
-if [[ -n "$extra_menus" ]]; then
+if [[ -n "$selected_pages" ]]; then
+  jq -n \
+    --arg outputPath "$run_dir" \
+    --arg selectedPages "$selected_pages" \
+    --argjson runLLM "$run_llm" \
+    '{
+      outputPath: $outputPath,
+      selectedPages: ($selectedPages | split(",") | map(select(length > 0))),
+      runLLM: $runLLM
+    }' > "$app_bundle/ImportReviewRequest.json"
+elif [[ -n "$extra_menus" ]]; then
   printf '{"outputPath": "%s", "extraMenusPath": "%s", "runLLM": %s}\n' \
     "$run_dir" "$extra_menus" "$run_llm" > "$app_bundle/ImportReviewRequest.json"
 else
@@ -123,7 +142,10 @@ TEST_RUNNER_KITCHENLINK_OPENAI_API_KEY="${KITCHENLINK_OPENAI_API_KEY:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_BASE_URL="${KITCHENLINK_LLM_BASE_URL:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_MODEL="${KITCHENLINK_LLM_MODEL:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_SEND_IMAGES="${KITCHENLINK_LLM_SEND_IMAGES:-}" \
+TEST_RUNNER_KITCHENLINK_LLM_REASONING_EFFORT="${KITCHENLINK_LLM_REASONING_EFFORT:-}" \
+TEST_RUNNER_KITCHENLINK_LLM_PROTOCOL="${KITCHENLINK_LLM_PROTOCOL:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_ALLOW_KEYLESS="${KITCHENLINK_LLM_ALLOW_KEYLESS:-}" \
+TEST_RUNNER_KITCHENLINK_LLM_MAX_CONCURRENT_PAGES="${KITCHENLINK_LLM_MAX_CONCURRENT_PAGES:-}" \
 xcodebuild \
   test-without-building \
   -xctestrun "$xctestrun" \

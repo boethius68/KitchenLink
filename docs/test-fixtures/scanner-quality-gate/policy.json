@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "kitchenlink-menu-quality-policy/1.3.0",
+  "defaultProfile": "launch",
+  "profiles": {
+    "launch": {
+      "reason": "Release-relevant bar for the product that exists. Every import draft passes a mandatory human review before publishing (MenuImportDraftReviewModel.canConvert stays false while an entry is unresolved), so a wrong price or a phantom entry is correctable in the review. The errors a review cannot repair are the ones gated hard here: an entry the extractor never produced, a page that vanished silently, an invented dietary or allergen claim, and an invalid draft. The headline effort number is correctionsPerPage.",
+      "measurementTargets": {
+        "entryRecall": 0.98,
+        "expectedReviewRecall": 1.0,
+        "currencyAccuracy": 0.95,
+        "evidenceCoverage": 0.95
+      },
+      "maximumTargets": {
+        "correctionsPerPage": 3.0
+      },
+      "hardSafetyGates": {
+        "maximumMissingItems": 0,
+        "maximumForbiddenClaimHits": 0,
+        "maximumSilentPageLosses": 0,
+        "maximumValidationErrors": 0
+      },
+      "operationalTargets": {
+        "minimumLatencyCoverage": 1.0,
+        "maximumP95PageLatencyMilliseconds": 60000,
+        "maximumPageFailureRate": 0.0,
+        "minimumRepeatRuns": 3
+      }
+    },
+    "strict": {
+      "reason": "Diagnostic long-term target describing an unsupervised, deterministic extractor. Deliberately not the release bar: a stochastic model cannot reach minimumExactSemanticRepeatability, so this profile is a measurement of distance, not a gate a shipping import is expected to pass.",
+      "measurementTargets": {
+        "sectionF1": 0.98,
+        "entryF1": 0.98,
+        "nameExactAccuracy": 0.95,
+        "categoryAssignmentAccuracy": 0.98,
+        "descriptionF1": 0.95,
+        "descriptionExactAccuracy": 0.95,
+        "offerF1": 0.97,
+        "priceTextExactAccuracy": 0.97,
+        "priceBasisAccuracy": 0.99,
+        "currencyAccuracy": 1.0,
+        "relationF1": 0.95,
+        "declarationF1": 0.95,
+        "noticeF1": 0.95,
+        "translationF1": 0.95,
+        "evidenceCoverage": 0.95,
+        "evidenceSupportAccuracy": 0.95,
+        "groundTruthEvidenceAccuracy": 0.95,
+        "expectedReviewRecall": 1.0
+      },
+      "hardSafetyGates": {
+        "maximumMissingItems": 0,
+        "maximumInventedItems": 0,
+        "maximumInventedPrices": 0,
+        "maximumForbiddenClaimHits": 0,
+        "maximumCoverFalsePositives": 0,
+        "maximumSilentPageLosses": 0,
+        "maximumValidationErrors": 0
+      },
+      "operationalTargets": {
+        "minimumLatencyCoverage": 1.0,
+        "maximumP95PageLatencyMilliseconds": 60000,
+        "maximumPageFailureRate": 0.0,
+        "minimumRepeatRuns": 3,
+        "minimumExactSemanticRepeatability": 0.98
+      }
+    }
+  },
+  "enforcement": {
+    "defaultMode": "measure",
+    "enforceFlag": "--enforce",
+    "profileFlag": "--profile",
+    "reason": "The gate stays measurable without pretending a baseline already meets release quality. Only the launch profile is release-relevant; the strict profile is reported for distance."
+  }
+}

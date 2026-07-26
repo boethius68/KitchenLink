@@ -1,9 +1,168 @@
 # Claude Code Handoff
 
-**Updated:** 23 July 2026 (Session-Teil 20: Piktogramme im Beschreibungsfluss)
-**Zuvor:** 23 July 2026 (Session-Teil 19: ruhige Deklarationszeile)
+**Updated:** 26 July 2026 (Session-Teil 22: Menu-Import launch-fähig gemacht)
+**Zuvor:** 24 July 2026 (Session-Teil 21: Local-first Event-Log fürs Einzelgerät)
+
+## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
+
+### Anlass
+
+Der Nutzer bat um eine Zweckmäßigkeitsanalyse des von Codex neu aufgesetzten
+Phase-1-Imports, eine belastbare Antwort zur Frage lokaler Modelle, eine
+Bewertung eines kostengünstigen bezahlten Modells über OpenCode — und dann den
+Import launch-fähig zu machen.
+
+### Analyse des Codex-Stands (Befunde)
+
+Codex' Messinstrument (Vertrag `1.0.0`, Draft `0.3.0`, Ground Truth über 10
+Seiten/68 Einträge, `evaluate-menu-quality-gate.py`) ist gut und bleibt. Zwei
+Kalibrierungsfehler blockierten aber den Launch:
+
+1. **Das Gate war für ein Produkt kalibriert, das es nicht gibt.** Die Ziele
+   (`entryF1 0.98`, `relationF1 0.95`, 0 erfundene Einträge, exakte semantische
+   Wiederholbarkeit `≥ 0.98`) beschreiben einen unbeaufsichtigten,
+   deterministischen Extraktor. Das Produkt hat aber einen **verpflichtenden
+   Human-Review** (`MenuImportDraftReviewModel.canConvert`). Mit jedem LLM ist
+   exakte Wiederholbarkeit strukturell ≈ 0 (für mimo `0.000` gemessen) — das
+   Gate war von der vorgesehenen Architektur nie bestehbar.
+2. **Der Regel-Parser wurde als Kandidat gemessen, ist aber Fallback.** Seine
+   `relationF1`/`translationF1`/`noticeF1` sind 0, weil er diese Felder nie
+   implementiert hat.
+
+Zur Frage lokaler Modelle: **eigene Messung**, nicht Codex' Aussage übernommen.
+`qwen3.5:9b-32k` auf M5/16 GB, absichtlich *schlankes* Schema, temp 0, Denken
+aus, `format=json`, eine Prüfküche-Seite (53 OCR-Zeilen): **62,2 s**, 1.162
+Output-Tokens ≈ 19 tok/s (generation-bound → dichte Seiten 4+ min, was Codex'
+150-s-Timeouts vollständig erklärt). Qualität trug nicht: zwei Spalten zu einer
+Sektion verschmolzen, `Geröstetes Bauernbrot` verloren, zwei Preise in ein Feld,
+eine OCR-Doppellesung als zwei Gerichte. Entscheidend ist aber die Architektur:
+Import läuft auf dem iPhone, Deployment-Target iOS 17, Testgerät iPhone XR ohne
+On-Device-Modell, `FoundationModels` nirgends im Code. **Lokal ist kein
+Launch-Pfad.**
+
+### Umgesetzt
+
+- **OCR-Doppelerkennungen kollabiert** (`ContentView.swift`). Ursache gefunden:
+  `recognizeLines` fährt OCR **zweimal** (enhanced + normalized) und
+  `mergeOCRLines` deduplizierte nur bei *exakt* gleichem Text. Neu:
+  `collapseDuplicateOCRLines` mit Levenshtein-Ähnlichkeit (`≥ 0.82`) **und**
+  Boxüberlappung in beiden Achsen (`≥ 50 %` der kleineren Box; die horizontale
+  Prüfung schützt zweispaltige Karten). Auswahlregel: **ausgewogene Delimiter
+  vor Konfidenz** — Vision ist oft *zuversichtlich* bei verstümmelten
+  Codegruppen (`Wiener Schnitzel IA,C,G,J]` schlug die korrekte Lesung), und der
+  Parser verlor das Gericht dann komplett. `mergeOCRLines` entfernt.
+- **Provider-Konfiguration reparariert** (`ContentView.swift`). Vorher schaltete
+  *jeder* eigene Key fest auf `api.openai.com` + `gpt-4.1`; ein bezahlter Zugang
+  bei einem anderen Anbieter war in einer ausgelieferten App **überhaupt nicht
+  einstellbar**. Neu: Gateway-URL und Modell sind gespeicherte Einstellungen
+  (UserDefaults; nur der Key bleibt im Keychain), mit URL-Validierung, die bei
+  Unsinn nichts speichert. UI anbieterneutral mit drei Feldern.
+- **Gemini-native Adapter** (`MenuImportGeminiProtocol.swift`, neu). Die Zen-
+  Gemini-Route akzeptiert **keine** OpenAI-Bodies — ein Probe-Aufruf gab Googles
+  eigenen Fehler zurück (`Missing key at ["contents"]`). Der Adapter übersetzt
+  Request und Response; die Aufrufkette bleibt protokollagnostisch. Zwei
+  gemessene, tragende Details: Auth muss **`x-goog-api-key`** sein (`Bearer`
+  ergab `AuthError: Missing API key.`) und **`thinkingBudget: 0`** ist Pflicht
+  (mit Denken kam `finishReason: MAX_TOKENS` und Prosa statt JSON).
+- **Launch-Profil im Gate** (`policy.json` → `1.3.0`, Evaluator, Runner).
+  Zwei Profile (`launch` freigabewirksam, `strict` als Diagnose), Auswahl per
+  `--profile` / `KITCHENLINK_QUALITY_PROFILE`, neue abgeleitete Metriken
+  `entryRecall` und `correctionsPerPage`, neuer `maximumTargets`-Block, und jeder
+  Lauf berichtet **alle** Profile (`profileComparison`), damit ein späteres
+  Anziehen keinen zweiten Lauf braucht.
+- **Offline-Fallback gehärtet** (`MenuImportDraftAdapter.swift`). Gate-Befund:
+  `expectedReviewRecall 0.000` bei 8,5 Korrekturen/Seite — der Regel-Parser
+  erzeugte stillschweigend falsche Karten. Neu leitet er die Prüfhinweise ab,
+  die er *ehrlich* kennt: `missing_visible_price`,
+  `source_declaration_meaning_unknown` (Code ohne Legende),
+  `selection_rule_unknown` (Optionen ohne abgeleitete Regel) plus einmal pro
+  Draft `rule_parser_semantics_unverified`. Die vier semantischen Codes, die er
+  nicht erkennen kann, werden **bewusst nicht erfunden** (ein Fake-Hinweis wäre
+  schlimmer: er erzieht Betreiber dazu, Hinweise zu ignorieren) — ein Test
+  sichert das ab. `0.000 → 0.429`.
+- **Prompt `1.0.2 → 1.0.4`** (`MenuImportExtractionContract.swift`). `1.0.3`
+  bleibt verbrannt (Codex' zurückgerollte Regression). Schließt die drei Lücken,
+  die der bezahlte Lauf zeigte: Review-Code-Vokabular war nie genannt (Modell
+  erfand eigene Codes), `currency_code` blieb bei sichtbaren Euro-Preisen leer,
+  und nachgestellte Codegruppen blieben im Artikelnamen.
+
+### Verifikation
+
+- **Neue Testdateien, alle grün:** `MenuImportOCRDeduplicationTests` (17),
+  `MenuImportProviderConfigurationTests` (8, `@Suite(.serialized)` — die Tests
+  teilen prozessweite `UserDefaults`), `MenuImportGeminiProtocolTests` (21),
+  `MenuImportFallbackReviewFindingsTests` (9).
+- **Komplettes `kitchenlinkTests`-Target auf iPhone 17 Pro: TEST SUCCEEDED,
+  329 Testfälle, 0 Fehlschläge**; nur die zwei bewusst gegateten Harness-Tests
+  übersprungen. Die in Teil 21 notierten vorbestehenden Keychain-Fehler traten
+  nicht mehr auf.
+- **Python-Gate-Tests: 17/17** (9 bestehende + 8 neue für Profile und
+  abgeleitete Metriken).
+- **Lokaler Gate-Lauf über die 10 Seiten** (deterministisch, kostenlos), Wirkung
+  der OCR-Kollaps- und Auswahlregel:
+
+  | Metrik | Codex-Baseline | nachher |
+  |---|---|---|
+  | Einträge F1 | 0,592 | **0,679** |
+  | Namen exakt | 0,397 | **0,486** |
+  | Beschreibungen F1 | 0,328 | **0,448** |
+  | Deklarationen F1 | 0,272 | **0,345** |
+  | fehlende Einträge | 18 | **14** |
+  | erfundene Einträge | 51 | **37** |
+  | erfundene Preise | 50 | **34** |
+  | P95-Seitenlatenz | 7.145 ms | **3.715 ms** |
+
+- **Ein bezahlter Lauf `gemini-3.5-flash` über die 10 Gate-Seiten** (vom Nutzer
+  freigegeben; Key aus der lokalen Datei, nie in Log oder Transkript):
+
+  | Metrik | lokale Regeln | **Gemini 3.5 Flash** |
+  |---|---|---|
+  | Korrekturen/Seite | 8,50 | **1,00** (Budget 3,0) |
+  | Bereiche F1 | 0,718 | **1,000** |
+  | Einträge F1 | 0,679 | **0,971** |
+  | Eintrags-Recall | 0,794 | **0,971** |
+  | Beziehungen F1 | 0,000 | **0,411** |
+  | Namen exakt | 0,486 | **0,889** |
+  | Beschreibungen F1 | 0,448 | **0,915** |
+  | Übersetzungen F1 | 0,000 | **0,902** |
+  | Belegabdeckung | 0,902 | **0,993** |
+  | fehlende / erfundene Einträge | 14 / 37 | **2 / 2** |
+  | erfundene Preise | 34 | **6** |
+  | P95-Seitenlatenz | 3.715 ms | 33.749 ms |
+
+  Gemessener Verbrauch: **81.366 Input- und 71.655 Output-Tokens für 17 Seiten**
+  (≈ 4.786 in / 4.215 out pro Seite). Bei Flash-Listenpreisen sind das grob
+  10–15 Cent für eine 10-seitige Karte; der tatsächliche Zen-Tarif ist nicht
+  verifiziert.
+
+### Offen / nächster Schritt
+
+- **Die zwei „fehlenden" Einträge sind keine Verluste.** Es sind
+  `Bunter Marktsalat WI` und `Veganes Kokoscurry [FI]` — das Modell ließ die
+  verstümmelte Codegruppe im Namen. Prompt `1.0.4` adressiert genau das, ist aber
+  **noch nicht nachgemessen**: der Nutzer hatte genau einen bezahlten Lauf
+  freigegeben, und der lief mit `1.0.2`.
+- Codex' deterministische Mapping-Korrektur verschiebt nur *einbuchstabige*
+  geklammerte Gruppen. Eine saubere Erweiterung: eine mehrbuchstabige geklammerte
+  Gruppe nur dann zerlegen, wenn **jeder** Buchstabe ein Legendencode dieser
+  Karte ist (trennt `[F,I]` von der Größe `[XL]`, ohne zu raten).
+- **`expectedReviewRecall` bleibt der größte Hebel.** Im bezahlten Lauf `0.143`:
+  das Modell lieferte `evidence_missing`, `missing_visible_price` und ein selbst
+  erfundenes `normalized_trailing_declaration_codes`, weil der Prompt das
+  Vokabular nie nannte. `1.0.4` nennt es jetzt.
+- Für eine Freigabe fehlen die **drei Wiederholungsläufe** (`minimumRepeatRuns`),
+  ebenfalls kosten- und freigabepflichtig.
+- Alles aus dieser Session ist **uncommitted**, gemeinsam mit dem
+  uncommitteten Codex-Stand im gleichen Working Tree.
+**Zuvor:** 23 July 2026 (Session-Teil 20: Piktogramme im Beschreibungsfluss)
 **Branch:** `main` (Main-Only-Modus seit 19. Juli 2026, `DECISIONS.md`)
-**Status:** Session-Teil 20: Der eigene Piktogramm-Streifen unten ist entfernt.
+**Status:** Session-Teil 21: Bestellungen liegen jetzt dauerhaft im Event-Log
+(KL-OFFLINE-003) statt in UserDefaults — ein einzelnes Gerät ist damit
+local-first und crash-fest. `DurableOperatorOrderStore` (Paket) +
+`EventLogOrderRepository` (App), Demo-Pfade unverändert. Paket 21/21 grün, App
+baut, Regressionscheck grün bis auf **vorbestehende** Keychain-Testfehler (per
+Baseline bestätigt). Details unten in Teil 21.
+Session-Teil 20: Der eigene Piktogramm-Streifen unten ist entfernt.
 Die Symbole stehen jetzt im Fluss der Beschreibung (leiser Nachsatz, bricht
 mit dem Text um; ohne Beschreibung kurze Zeile unter dem Namen). Der
 Symbol-Nachsatz bleibt ein Tap-Ziel → Klartextliste. Die Mengensteuerung sitzt
@@ -43,6 +202,86 @@ KL-MENU-005 (§6.2). Details in Session-Teil 10 bis 12.
 Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
+
+## Session-Teil 21: Local-first Event-Log fürs Einzelgerät (24. Juli 2026)
+
+### Anlass und Scope
+
+Ausgangspunkt war die AP-Isolations-Frage (der Gast erreicht den lokalen Hub im
+Restaurant-WLAN nicht). Im Gespräch mit dem Nutzer wurde die Offline-Strategie
+neu priorisiert: Gast-Offline-Selbstbestellung ist ein seltener Fall mit
+akzeptablem mündlichem Rückfall; die eigentliche Anforderung ist, dass der
+**Betrieb** (Organisation, Küche/Service, Kassieren) bei Cloud-/Internet-Ausfall
+ohne Friktion weiterläuft und nichts verloren geht. Erster, risikoärmster
+Schritt: Bestellungen dauerhaft ins Event-Log (KL-OFFLINE-003) legen statt in
+UserDefaults, sodass ein **einzelnes Gerät** local-first und crash-fest ist. Das
+ist die in `EVENT_LOG_V2.md` §12 als „später, freizugeben" markierte
+iOS-Integrationsnaht; der Nutzer hat die Umsetzung ausdrücklich beauftragt.
+
+### Umgesetzt
+
+- **Paket `KitchenLinkLocalGuestCore`** (bereits vom App-Target verlinkt): neue
+  app-neutrale, dauerhafte Bestell-Komponente `DurableOperatorOrderStore` +
+  `StoredOperatorOrder`
+  (`prototypes/KitchenLinkLocalGuestPOC/Sources/KitchenLinkLocalGuestCore/DurableOperatorOrderStore.swift`).
+  Append-only Events `operator_order_placed` / `operator_order_status_changed` /
+  `operator_orders_cleared` über den bestehenden `EventStore`; Projektion je
+  Bestellung; Idempotenz aus `orderID` + Zielstatus; jede Bestellung erzeugt eine
+  `cloud`-Outbox-Zeile für den späteren Abgleich. Bestell-Snapshot und Status
+  bleiben bewusst opak, damit das Paket keine App-Typen braucht.
+- **App-Target**: `EventLogOrderRepository`
+  (`kitchenlink/EventLogOrderRepository.swift`) — ein `KitchenLinkRepository`,
+  das Bestell-Operationen an den dauerhaften Store routet und Venue/Menü/QR an
+  ein eingebettetes `LocalDemoRepository` delegiert. `makeDefault()` legt die DB
+  in Application Support (`KitchenLinkOrders/orders.sqlite`) an und fällt bei
+  Öffnungsfehler weich auf `LocalDemoRepository` zurück, sodass Bestellen nie
+  hart an einem Speicherproblem scheitert.
+- **Verdrahtung** (`kitchenlinkApp.swift`): reale Starts nutzen jetzt
+  `EventLogOrderRepository.makeDefault()`; der UI-Test-Pfad bleibt auf dem
+  deterministischen `LocalDemoRepository`, damit UI-Tests keinen persistierten
+  Bestell-Stand erben.
+- **`LocalDemoRepository` bleibt vollständig erhalten** (Blueprint §18.1,
+  „alter Code wird erst entfernt, wenn ein getesteter Ersatz existiert") und
+  trägt weiterhin alle Demo-/Test-Pfade.
+- Tests: 10 neue Paket-Tests (`DurableOperatorOrderStoreTests`) + 5 neue
+  App-Tests (`KitchenLinkEventLogOrderRepositoryTests`), inkl. Durability über
+  Store-Neustart, Idempotenz und Clear-Semantik.
+
+### Verifikation
+
+- `swift test` im Paket `KitchenLinkLocalGuestPOC`: **21/21 grün** (10 neu +
+  11 bestehend).
+- `xcodebuild build-for-testing` (iOS-Simulator, ohne Signing): **TEST BUILD
+  SUCCEEDED** — App-Target, Repository, Verdrahtung und neuer Test kompilieren.
+  Neue Dateien werden über die synchronisierten Ordner (objectVersion 77)
+  automatisch eingebunden, kein pbxproj-Edit nötig.
+- `xcodebuild test` (iPhone-17-Sim): meine Order-Suites grün; das ganze
+  `kitchenlinkTests` **ohne** CloudOperations = 229 Tests / 26 Suites, nur die
+  Keychain-Tests schlagen fehl.
+- **Vorbestehende Fehler, nicht durch diese Änderung verursacht:** die
+  Fehlschläge in `KitchenLinkCloudOperationsTests` /
+  `KitchenLinkMenuPublishTests` und ein `Index out of range`-Crash reproduzieren
+  sich bei einer Stash-Baseline (meine Änderungen entfernt, neu gebaut)
+  **identisch**. Ursache ist die laufende, noch uncommittete Keychain-Migration
+  (`KitchenLinkKeychain.swift`, `KitchenLinkCloudOperations*`,
+  `KitchenLinkMenuPublish*`): der Keychain-Session-Speicher liefert im
+  headless-Simulator ohne Signing keine Session (`connectionState == .signedOut`).
+
+### Offen / Nächste Schritte
+
+- **DECISIONS.md-Anpassung nötig (nur Nutzer):** Der Eintrag „Local Guest
+  Ordering" (18. Juli) macht lokale **Gast**bestellung zur Pflichtfähigkeit der
+  Sandbox-Beta. Die neue Priorisierung (Personalbetrieb local-first, mündlicher
+  Gast-Rückfall akzeptiert) revidiert das und gehört vom Nutzer neu formuliert.
+- Weitere Bausteine der Offline-Strategie (nicht in dieser Session): (2)
+  Offline-Status ruhig/sichtbar im UI, (3) Outbox → Supabase-Abgleich bei
+  Internet-Rückkehr verdrahten, (4) erst danach Gerät-zu-Gerät-Abgleich fürs
+  Personal (Stufe 1), beginnend mit „bei Peer-Kontakt abgleichen".
+- Einzelgerät-Durability zusätzlich real am Gerät bestätigen (App killen/neu
+  starten → Bestellungen + Status noch da). Ergänzt Zeile 4/§5 in
+  `docs/test-plans/REAL_DEVICE_ACCEPTANCE.md`.
+- Die vorbestehenden Keychain-Testfehler gehören der laufenden Keychain-Migration
+  und sind separat zu prüfen (z. B. Keychain-Test-Double im Simulator).
 
 ## Session-Teil 20: Piktogramme im Beschreibungsfluss (23. Juli 2026)
 

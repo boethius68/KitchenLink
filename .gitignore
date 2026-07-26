@@ -16,3 +16,6 @@ supabase/.temp/
 
 # ZCode agent session state (transient, agent-specific).
 .zcode/
+
+# Python-Cache der Gate-Skripte (transient).
+scripts/__pycache__/

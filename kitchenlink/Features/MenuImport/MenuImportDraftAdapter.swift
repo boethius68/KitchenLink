@@ -78,7 +78,9 @@ struct MenuImportDraftAdapter {
         sourceDocument: MenuImportSourceDocument,
         legacySections: [MenuSectionData],
         ocrLines: [MenuImportOCRLine],
-        unpricedCandidates: [MenuImportUnpricedCandidate]
+        unpricedCandidates: [MenuImportUnpricedCandidate],
+        processing: MenuImportProcessingMetadata? = nil,
+        reviewFindings: [MenuImportReviewFinding] = []
     ) -> MenuImportDraft {
         let matcher = EvidenceMatcher(lines: ocrLines)
         let legend = mergedLegend(from: legacySections)
@@ -171,6 +173,12 @@ struct MenuImportDraftAdapter {
             }
         }
 
+        let derivedFindings = deterministicReviewFindings(
+            sections: sections,
+            legend: legend,
+            pageCount: sourceDocument.pageCount
+        )
+
         return MenuImportDraft(
             id: "draft-\(sourceDocument.id)",
             sourceDocument: sourceDocument,
@@ -180,8 +188,129 @@ struct MenuImportDraftAdapter {
                 matcher: matcher,
                 fallbackLines: ocrLines
             ),
-            reviewState: .needsReview
+            reviewState: .needsReview,
+            processing: processing ?? MenuImportProcessingMetadata(
+                pipelineVersion: "legacy-draft-adapter/1.0.0",
+                provider: "apple-vision-plus-local-rules",
+                pageOutcomes: (0..<sourceDocument.pageCount).map {
+                    MenuImportPageOutcome(
+                        pageIndex: $0,
+                        status: .processed,
+                        attempts: 1,
+                        detail: "Local OCR and deterministic parser completed."
+                    )
+                }
+            ),
+            reviewFindings: reviewFindings + derivedFindings
         )
+    }
+
+    /// Review findings the deterministic rule pipeline can honestly derive from
+    /// its own output.
+    ///
+    /// Measured on the ten-page quality gate, the rule path produced
+    /// `expectedReviewRecall 0.000` at 8.5 corrections per page: it emitted no
+    /// findings at all, so a wrong card looked finished. That is the one thing an
+    /// offline fallback must never do — the review is the only safety net before
+    /// publishing.
+    ///
+    /// Deliberately limited to what the rules actually know. The semantic
+    /// findings a provider is asked for (bundle composition, ambiguous
+    /// relationship scope, a headline price that belongs to a portion choice)
+    /// are NOT emitted here, because the rule parser cannot detect them and a
+    /// fabricated finding would be worse than an honest gap. Instead the pipeline
+    /// declares that gap once per draft.
+    private func deterministicReviewFindings(
+        sections: [MenuImportSection],
+        legend: [String: String],
+        pageCount: Int
+    ) -> [MenuImportReviewFinding] {
+        var findings: [MenuImportReviewFinding] = []
+
+        for (sectionIndex, section) in sections.enumerated() {
+            for (entryIndex, entry) in section.entries.enumerated() {
+                let path = "sections[\(sectionIndex)].entries[\(entryIndex)]"
+
+                if entry.offers.isEmpty {
+                    findings.append(
+                        MenuImportReviewFinding(
+                            id: "rule-missing-price-\(sectionIndex)-\(entryIndex)",
+                            code: "missing_visible_price",
+                            path: path,
+                            message: "\(entry.name.value): kein Preis erkannt. Preis ergänzen oder Eintrag verwerfen.",
+                            severity: .error,
+                            pageIndex: entry.name.evidence.pageIndex,
+                            evidence: entry.name.evidence
+                        )
+                    )
+                }
+
+                // The rules read a code group as characters; only a printed
+                // legend gives it meaning. Without one, the meaning is unknown
+                // and a person has to decide — never the parser.
+                for declaration in entry.declarations where declarationMeaningIsUnknown(
+                    declaration,
+                    legend: legend
+                ) {
+                    findings.append(
+                        MenuImportReviewFinding(
+                            id: "rule-declaration-unknown-\(declaration.id)",
+                            code: "source_declaration_meaning_unknown",
+                            path: "\(path).declarations",
+                            message: "\(entry.name.value): Kennzeichnung „\(declaration.localCode ?? declaration.rawText)\" ohne Legende auf der Karte. Bedeutung ist unbestätigt.",
+                            severity: .error,
+                            pageIndex: declaration.evidence.pageIndex,
+                            evidence: declaration.evidence
+                        )
+                    )
+                }
+
+                // The rules split a visible option list; they never learn how
+                // many of them a guest may pick.
+                if !entry.optionGroups.isEmpty {
+                    findings.append(
+                        MenuImportReviewFinding(
+                            id: "rule-selection-rule-\(sectionIndex)-\(entryIndex)",
+                            code: "selection_rule_unknown",
+                            path: "\(path).optionGroups",
+                            message: "\(entry.name.value): Auswahlregel (Pflicht, Höchstzahl, Wiederholung) wurde nicht aus der Karte abgeleitet.",
+                            severity: .warning,
+                            pageIndex: entry.name.evidence.pageIndex,
+                            evidence: entry.name.evidence
+                        )
+                    )
+                }
+            }
+        }
+
+        guard pageCount > 0 else { return findings }
+
+        findings.append(
+            MenuImportReviewFinding(
+                id: "rule-semantics-unverified",
+                code: "rule_parser_semantics_unverified",
+                path: "sections",
+                message: "Diese Karte wurde ohne KI nur mit lokalen Regeln gelesen. Gangmenüs, Wahlgruppen, Beziehungen zwischen Preis und Portion sowie Übersetzungen wurden nicht bewertet. Jeder Eintrag ist vor dem Veröffentlichen zu prüfen.",
+                severity: .error,
+                pageIndex: nil,
+                evidence: nil
+            )
+        )
+
+        return findings
+    }
+
+    /// A declaration carries meaning only when the card printed a legend for its
+    /// code. `makeDeclarations` writes `"<code> <meaning>"` when the legend
+    /// resolved and the bare code when it did not.
+    private func declarationMeaningIsUnknown(
+        _ declaration: MenuImportDeclaration,
+        legend: [String: String]
+    ) -> Bool {
+        guard let code = declaration.localCode?.lowercased(), !code.isEmpty else {
+            return false
+        }
+        return legend[code] == nil
     }
 
     private func makeEntry(

@@ -516,6 +516,9 @@ struct MenuItemData: Identifiable, Codable, Equatable {
     var variants: [MenuItemVariant]
     var allergenCodes: String?
     var priceBasis: String?
+    var available: Bool
+    var availableFrom: Date?
+    var availableUntil: Date?
 
     init(
         id: String,
@@ -525,7 +528,10 @@ struct MenuItemData: Identifiable, Codable, Equatable {
         kind: MenuItemKind,
         variants: [MenuItemVariant] = [],
         allergenCodes: String? = nil,
-        priceBasis: String? = nil
+        priceBasis: String? = nil,
+        available: Bool = true,
+        availableFrom: Date? = nil,
+        availableUntil: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -535,6 +541,9 @@ struct MenuItemData: Identifiable, Codable, Equatable {
         self.variants = variants
         self.allergenCodes = allergenCodes
         self.priceBasis = priceBasis
+        self.available = available
+        self.availableFrom = availableFrom
+        self.availableUntil = availableUntil
     }
 
     enum CodingKeys: String, CodingKey {
@@ -546,6 +555,9 @@ struct MenuItemData: Identifiable, Codable, Equatable {
         case variants
         case allergenCodes
         case priceBasis
+        case available
+        case availableFrom
+        case availableUntil
     }
 
     init(from decoder: Decoder) throws {
@@ -558,6 +570,9 @@ struct MenuItemData: Identifiable, Codable, Equatable {
         variants = try container.decodeIfPresent([MenuItemVariant].self, forKey: .variants) ?? []
         allergenCodes = try container.decodeIfPresent(String.self, forKey: .allergenCodes)
         priceBasis = try container.decodeIfPresent(String.self, forKey: .priceBasis)
+        available = try container.decodeIfPresent(Bool.self, forKey: .available) ?? true
+        availableFrom = try container.decodeIfPresent(Date.self, forKey: .availableFrom)
+        availableUntil = try container.decodeIfPresent(Date.self, forKey: .availableUntil)
     }
 
     var displayName: String {
@@ -3710,6 +3725,8 @@ private struct OperatorMenuEditorView: View {
     @State private var importStatusMessage: String?
     @State private var llmImportEnabled = MenuImportService.isLLMEnabled()
     @State private var llmAPIKeyInput = MenuImportService.storedLLMAPIKey()
+    @State private var llmGatewayURLInput = MenuImportService.storedLLMGatewayURL()
+    @State private var llmModelInput = MenuImportService.storedLLMModel()
     @State private var llmConfigMessage: String?
     @State private var importedSectionsPreview: [MenuSectionData] = []
     @State private var showImportPreview = false
@@ -3762,21 +3779,33 @@ private struct OperatorMenuEditorView: View {
                 }
 
                 DisclosureGroup("Eigenen KI-Zugang verwenden (optional)") {
-                    SecureField("OpenAI API-Key", text: $llmAPIKeyInput)
+                    SecureField("API-Schlüssel", text: $llmAPIKeyInput)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .font(.caption)
+                        .accessibilityIdentifier("import.llm.apiKey")
 
-                    Button("API-Key speichern") {
-                        MenuImportService.saveLLMAPIKey(llmAPIKeyInput)
-                        llmConfigMessage = llmAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? "Kein eigener Key. Es läuft die kostenlose KI-Erfassung."
-                            : "Eigener API-Key gespeichert."
+                    TextField("Gateway-URL", text: $llmGatewayURLInput)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                        .font(.caption)
+                        .accessibilityIdentifier("import.llm.gatewayURL")
+
+                    TextField("Modell", text: $llmModelInput)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.caption)
+                        .accessibilityIdentifier("import.llm.model")
+
+                    Button("Zugang speichern") {
+                        llmConfigMessage = saveLLMAccessConfiguration()
                     }
                     .buttonStyle(KitchenSecondaryButtonStyle())
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+                    .accessibilityIdentifier("import.llm.save")
 
-                    Text("Ohne eigenen Key nutzt der Import die eingebaute kostenlose KI-Erfassung. Ein eigener Schlüssel (OpenAI-kompatibel) ersetzt sie.")
+                    Text("Ohne eigenen Zugang läuft die eingebaute kostenlose KI-Erfassung. Gateway-URL und Modell bleiben leer, wenn der Schlüssel für OpenAI ist. Für ein anderes OpenAI-kompatibles Gateway beide Felder ausfüllen, zum Beispiel \(MenuImportService.llmFreeGatewayURL) mit dem Modellnamen des Anbieters.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -3943,6 +3972,25 @@ private struct OperatorMenuEditorView: View {
         if !ids.contains(selectedSectionID) {
             selectedSectionID = filteredSections.first?.id ?? ""
         }
+    }
+
+    /// Stores key, gateway and model together and reports back in plain German
+    /// what the import will actually use. An unusable URL is rejected without
+    /// storing anything, so the operator never ends up with a half-applied
+    /// access configuration.
+    private func saveLLMAccessConfiguration() -> String {
+        guard MenuImportService.saveLLMGatewayURL(llmGatewayURLInput) else {
+            return "Die Gateway-URL ist keine gültige Adresse. Nichts gespeichert."
+        }
+
+        MenuImportService.saveLLMAPIKey(llmAPIKeyInput)
+        MenuImportService.saveLLMModel(llmModelInput)
+
+        guard !llmAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "Kein eigener Schlüssel. Es läuft die kostenlose KI-Erfassung."
+        }
+
+        return "Eigener Zugang gespeichert: \(MenuImportService.resolvedLLMModel) über \(MenuImportService.resolvedLLMBaseURL)."
     }
 
     private func addMenuItem() {
@@ -4426,7 +4474,7 @@ enum MenuImportService {
         }
     }
 
-    private struct OCRLineToken {
+    struct OCRLineToken {
         let text: String
         let boundingBox: CGRect
         let pageIndex: Int
@@ -4481,6 +4529,21 @@ enum MenuImportService {
 
     private static let llmEnabledStorageKey = "kitchenlink.import.llm.enabled"
     private static let llmAPIKeyStorageKey = "kitchenlink.import.llm.openai.key"
+    private static let llmAPIKeychainService = "kitchenlink.import.llm"
+    private static let llmAPIKeychainAccount = "openai-key"
+    /// Gateway and model are configuration, not secrets, so they stay in
+    /// `UserDefaults`; only the key lives in the Keychain.
+    private static let llmGatewayURLStorageKey = "kitchenlink.import.llm.gateway.url"
+    private static let llmModelStorageKey = "kitchenlink.import.llm.model"
+
+    /// Keyless free path. No operator configuration required (usability
+    /// guardrail in `DECISIONS.md`).
+    static let llmFreeGatewayURL = "https://opencode.ai/zen/v1"
+    static let llmFreeModel = "big-pickle"
+    /// Fallback for a stored key without an explicit gateway/model. Kept on
+    /// OpenAI so operators who configured a key before this change keep exactly
+    /// the behavior they had.
+    static let llmKeyedGatewayURLDefault = "https://api.openai.com/v1"
     private static let llmModelDefault = "gpt-4.1"
     private static var lastImportDiagnosticsStorage = "Nur OCR-Regeln genutzt."
     // Vision-Aufrufe an das (langsame, reasonende) Free-Modell dauern gemessen
@@ -4490,9 +4553,19 @@ enum MenuImportService {
     // niedrig.
     private static let llmPrimaryTimeoutSeconds: Double = 150
     private static let llmRetryTimeoutSeconds: Double = 150
-    /// Maximale gleichzeitige Seitenanfragen pro Karte (schont das Free-Gateway,
-    /// hält aber mehrseitige Karten schnell).
-    private static let llmMaxConcurrentPages = 5
+    /// Maximale gleichzeitige Seitenanfragen pro Karte. Der produktnahe
+    /// Gateway-Default bleibt fünf; lokale 16-GB-Modelle können im
+    /// Review-Runner ausdrücklich seriell ausgeführt werden.
+    private static var llmMaxConcurrentPages: Int {
+        guard let rawValue = configValue(
+            forKey: "KITCHENLINK_LLM_MAX_CONCURRENT_PAGES"
+        ),
+        let configured = Int(rawValue)
+        else {
+            return 5
+        }
+        return min(max(configured, 1), 5)
+    }
     private static let llmSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 180
@@ -4513,16 +4586,78 @@ enum MenuImportService {
     }
 
     static func storedLLMAPIKey() -> String {
-        UserDefaults.standard.string(forKey: llmAPIKeyStorageKey) ?? ""
+        if let data = KitchenLinkKeychain.load(
+            service: llmAPIKeychainService,
+            account: llmAPIKeychainAccount
+        ) {
+            return String(data: data, encoding: .utf8) ?? ""
+        }
+        return migrateLegacyLLMAPIKey()
     }
 
     static func saveLLMAPIKey(_ key: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            UserDefaults.standard.removeObject(forKey: llmAPIKeyStorageKey)
+            KitchenLinkKeychain.delete(
+                service: llmAPIKeychainService,
+                account: llmAPIKeychainAccount
+            )
         } else {
-            UserDefaults.standard.set(trimmed, forKey: llmAPIKeyStorageKey)
+            guard let data = trimmed.data(using: .utf8) else { return }
+            KitchenLinkKeychain.save(
+                data: data,
+                service: llmAPIKeychainService,
+                account: llmAPIKeychainAccount
+            )
         }
+    }
+
+    static func storedLLMGatewayURL() -> String {
+        UserDefaults.standard.string(forKey: llmGatewayURLStorageKey) ?? ""
+    }
+
+    /// Accepts only an absolute `https` (or local `http`) URL, so a typo cannot
+    /// silently send menu pages somewhere unintended. Returns false and stores
+    /// nothing when the input is not usable.
+    @discardableResult
+    static func saveLLMGatewayURL(_ urlString: String) -> Bool {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            UserDefaults.standard.removeObject(forKey: llmGatewayURLStorageKey)
+            return true
+        }
+
+        guard let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "https" || scheme == "http",
+              url.host?.isEmpty == false
+        else {
+            return false
+        }
+
+        UserDefaults.standard.set(trimmed, forKey: llmGatewayURLStorageKey)
+        return true
+    }
+
+    static func storedLLMModel() -> String {
+        UserDefaults.standard.string(forKey: llmModelStorageKey) ?? ""
+    }
+
+    static func saveLLMModel(_ model: String) {
+        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            UserDefaults.standard.removeObject(forKey: llmModelStorageKey)
+        } else {
+            UserDefaults.standard.set(trimmed, forKey: llmModelStorageKey)
+        }
+    }
+
+    private static func migrateLegacyLLMAPIKey() -> String {
+        let legacy = UserDefaults.standard.string(forKey: llmAPIKeyStorageKey) ?? ""
+        guard !legacy.isEmpty else { return "" }
+        saveLLMAPIKey(legacy)
+        UserDefaults.standard.removeObject(forKey: llmAPIKeyStorageKey)
+        return legacy
     }
 
     static func hasConfiguredLLMAPIKey() -> Bool {
@@ -4630,17 +4765,26 @@ enum MenuImportService {
     }
 
     /// Der KI-Pfad spricht jedes OpenAI-kompatible Chat-Completions-Gateway.
-    /// Basis-URL/Modell sind per Umgebung oder Info.plist überschreibbar; ohne
-    /// Überschreibung: eigener Schlüssel → OpenAI (gpt-4.1), sonst der kostenlose
-    /// Zen-Vision-Default (big-pickle).
+    ///
+    /// Rangfolge: Umgebung/Info.plist (Review-Runner und Tests), dann die vom
+    /// Betreiber in der App gespeicherte Einstellung, dann der Default.
+    ///
+    /// Die gespeicherte Einstellung ist neu und war der eigentliche Blocker:
+    /// vorher schaltete *jeder* eigene Schlüssel fest auf OpenAI, sodass ein
+    /// bezahlter Zugang bei einem anderen Anbieter in der ausgelieferten App
+    /// überhaupt nicht einstellbar war.
     static var resolvedLLMBaseURL: String {
         if let override = configValue(forKey: "KITCHENLINK_LLM_BASE_URL") { return override }
-        return usesKeylessFreeDefault ? "https://opencode.ai/zen/v1" : "https://api.openai.com/v1"
+        let stored = storedLLMGatewayURL()
+        if !stored.isEmpty { return stored }
+        return usesKeylessFreeDefault ? llmFreeGatewayURL : llmKeyedGatewayURLDefault
     }
 
     static var resolvedLLMModel: String {
         if let override = configValue(forKey: "KITCHENLINK_LLM_MODEL") { return override }
-        return usesKeylessFreeDefault ? "big-pickle" : llmModelDefault
+        let stored = storedLLMModel()
+        if !stored.isEmpty { return stored }
+        return usesKeylessFreeDefault ? llmFreeModel : llmModelDefault
     }
 
     /// `KITCHENLINK_LLM_SEND_IMAGES=0` schaltet den Bild-Versand ab (für
@@ -4649,6 +4793,14 @@ enum MenuImportService {
     /// reines Textmodell Spaltenlayouts auflösen kann.
     static var llmSendsImages: Bool {
         configValue(forKey: "KITCHENLINK_LLM_SEND_IMAGES") != "0"
+    }
+
+    /// Optional OpenAI-compatible reasoning control. This is intentionally
+    /// absent by default so hosted providers keep their native behavior.
+    /// Local thinking models can use `none` for deterministic extraction
+    /// without spending the request budget on a long reasoning transcript.
+    private static var llmReasoningEffort: String? {
+        configValue(forKey: "KITCHENLINK_LLM_REASONING_EFFORT")
     }
 
     private static func configValue(forKey key: String) -> String? {
@@ -4679,28 +4831,66 @@ enum MenuImportService {
     ) async throws -> ImportResult {
         lastImportDiagnosticsStorage = "Nur OCR-Regeln genutzt."
         var allLines: [OCRLineToken] = []
+        var localPageOutcomes: [MenuImportPageOutcome] = []
         let totalPages = images.count
 
         for (pageIndex, image) in images.enumerated() {
+            let pageStartedAt = Date()
             let lines = try await recognizeLines(in: image, pageIndex: pageIndex)
             allLines.append(contentsOf: lines)
+            localPageOutcomes.append(
+                MenuImportPageOutcome(
+                    pageIndex: pageIndex,
+                    status: lines.isEmpty ? .empty : .processed,
+                    attempts: 1,
+                    latencyMilliseconds: max(
+                        0,
+                        Int(Date().timeIntervalSince(pageStartedAt) * 1_000)
+                    ),
+                    detail: "Apple Vision OCR completed; deterministic parser ran after all pages."
+                )
+            )
             await progress?(pageIndex + 1, totalPages)
         }
 
         let detectedLegend = detectAllergenLegend(from: allLines)
         let localParseResult = parseLinesToResult(allLines, allergenLegend: detectedLegend)
-        let sections: [MenuSectionData]
-        var usedLLM = false
+        let ocrLines = allLines.map(snapshot)
+        let sourceDocument = makeSourceDocument(
+            from: images,
+            sourceType: sourceType,
+            sourceTypeDetail: sourceTypeDetail,
+            displayName: displayName
+        )
+        let adapter = MenuImportDraftAdapter()
+        var sections = localParseResult.sections
+        var draft = adapter.makeDraft(
+            sourceDocument: sourceDocument,
+            legacySections: localParseResult.sections,
+            ocrLines: ocrLines,
+            unpricedCandidates: localParseResult.unpricedCandidates,
+            processing: MenuImportProcessingMetadata(
+                pipelineVersion: "menu-import/local-rules/1.0.0",
+                provider: "apple-vision-plus-local-rules",
+                pageOutcomes: localPageOutcomes
+            )
+        )
 
         if isLLMEnabled(), hasConfiguredLLMAPIKey() {
-            let llmOutcome = await parseSectionsWithLLM(
-                from: allLines,
+            let llmOutcome = await parseDraftWithLLM(
+                ocrLines: ocrLines,
                 sourceImages: images,
-                allergenLegend: detectedLegend
+                sourceDocument: sourceDocument
             )
-            if let semanticSections = llmOutcome.sections {
-                sections = semanticSections
-                usedLLM = true
+            if let semanticDraft = llmOutcome.draft,
+               draftEntryCount(semanticDraft.sections) > 0 {
+                draft = semanticDraft
+                let compatibleSections = MenuImportDraftConverter.convert(semanticDraft)
+                // `sections` is a compatibility view for the older sandbox
+                // preview. The lossless draft remains authoritative.
+                sections = compatibleSections.isEmpty
+                    ? localParseResult.sections
+                    : compatibleSections
                 lastImportDiagnosticsStorage = llmOutcome.message
             } else {
                 let is401 = llmOutcome.message.localizedCaseInsensitiveContains("api-key ungültig")
@@ -4715,38 +4905,68 @@ enum MenuImportService {
                     lastImportDiagnosticsStorage = llmOutcome.message
                     throw ImportError.invalidAPIKey
                 }
-                sections = localParseResult.sections
+                let fallbackOutcomes = (0..<sourceDocument.pageCount).map { pageIndex in
+                    let semanticOutcome = llmOutcome.pageOutcomes.first {
+                        $0.pageIndex == pageIndex
+                    }
+                    return MenuImportPageOutcome(
+                        pageIndex: pageIndex,
+                        status: .fallback,
+                        attempts: (semanticOutcome?.attempts ?? 0) + 1,
+                        latencyMilliseconds: semanticOutcome?.latencyMilliseconds,
+                        detail: [
+                            semanticOutcome?.detail,
+                            "Complete local OCR/rules fallback used; no partial semantic draft accepted."
+                        ]
+                        .compactMap { $0 }
+                        .joined(separator: " ")
+                    )
+                }
+                draft = adapter.makeDraft(
+                    sourceDocument: sourceDocument,
+                    legacySections: localParseResult.sections,
+                    ocrLines: ocrLines,
+                    unpricedCandidates: localParseResult.unpricedCandidates,
+                    processing: MenuImportProcessingMetadata(
+                        pipelineVersion: "menu-import/phase-1",
+                        provider: "apple-vision-plus-local-rules",
+                        model: resolvedLLMModel,
+                        promptVersion: MenuImportExtractionPrompt.version,
+                        promptFingerprint: MenuImportExtractionPrompt.fingerprint,
+                        contractVersion: MenuImportPageExtraction.currentContractVersion,
+                        pageOutcomes: fallbackOutcomes,
+                        usage: llmOutcome.usage
+                    ),
+                    reviewFindings: [
+                        MenuImportReviewFinding(
+                            id: "finding-\(sourceDocument.id)-semantic-fallback",
+                            code: "semantic_extraction_fallback",
+                            path: "processing",
+                            message: "The semantic extraction was rejected as incomplete or invalid; the complete local draft is shown instead.",
+                            severity: .warning
+                        )
+                    ]
+                )
                 lastImportDiagnosticsStorage =
                     "KI-Erfassung nicht verfügbar (\(llmOutcome.message)). Lokale OCR-Regeln genutzt."
             }
         } else {
-            sections = localParseResult.sections
             lastImportDiagnosticsStorage = isLLMEnabled()
                 ? "Kein KI-Zugang konfiguriert. Lokale OCR-Regeln genutzt."
                 : "KI-Reflexion deaktiviert. Nur OCR-Regeln genutzt."
         }
 
-        let itemCount = sections.reduce(0) { $0 + $1.items.count }
-        guard itemCount > 0 else {
+        guard draftEntryCount(draft.sections) > 0 else {
             throw ImportError.noMenuItemsDetected
         }
 
-        let sourceDocument = makeSourceDocument(
-            from: images,
-            sourceType: sourceType,
-            sourceTypeDetail: sourceTypeDetail,
-            displayName: displayName
-        )
-        // Im KI-Modus ist das KI-Ergebnis autoritativ: die preislosen Kandidaten
-        // des LOKALEN Parsers (z. B. zerlegte Menü-Gangtitel) würden sonst als
-        // Fragmente in den Draft sickern. Deshalb dann keine lokalen Kandidaten.
-        let draft = MenuImportDraftAdapter().makeDraft(
-            sourceDocument: sourceDocument,
-            legacySections: sections,
-            ocrLines: allLines.map(snapshot),
-            unpricedCandidates: usedLLM ? [] : localParseResult.unpricedCandidates
-        )
         return ImportResult(sections: sections, draft: draft)
+    }
+
+    private static func draftEntryCount(_ sections: [MenuImportSection]) -> Int {
+        sections.reduce(0) { count, section in
+            count + section.entries.count + draftEntryCount(section.subsections)
+        }
     }
 
     static func benchmarkLocalImport(
@@ -4755,10 +4975,24 @@ enum MenuImportService {
     ) async throws -> BenchmarkImportResult {
         lastImportDiagnosticsStorage = "Benchmark: Apple Vision und lokale OCR-Regeln."
         var allLines: [OCRLineToken] = []
+        var pageOutcomes: [MenuImportPageOutcome] = []
 
         for (pageIndex, image) in images.enumerated() {
+            let pageStartedAt = Date()
             let lines = try await recognizeLines(in: image, pageIndex: pageIndex)
             allLines.append(contentsOf: lines)
+            pageOutcomes.append(
+                MenuImportPageOutcome(
+                    pageIndex: pageIndex,
+                    status: lines.isEmpty ? .empty : .processed,
+                    attempts: 1,
+                    latencyMilliseconds: max(
+                        0,
+                        Int(Date().timeIntervalSince(pageStartedAt) * 1_000)
+                    ),
+                    detail: "Apple Vision OCR completed; deterministic parser ran after all pages."
+                )
+            )
         }
 
         let detectedLegend = detectAllergenLegend(from: allLines)
@@ -4777,7 +5011,12 @@ enum MenuImportService {
                 sourceDocument: sourceDocument,
                 legacySections: sections,
                 ocrLines: ocrLines,
-                unpricedCandidates: localParseResult.unpricedCandidates
+                unpricedCandidates: localParseResult.unpricedCandidates,
+                processing: MenuImportProcessingMetadata(
+                    pipelineVersion: "menu-import/local-rules/1.0.0",
+                    provider: "apple-vision-plus-local-rules",
+                    pageOutcomes: pageOutcomes
+                )
             )
         )
     }
@@ -4789,13 +5028,25 @@ enum MenuImportService {
         displayName: String?
     ) -> MenuImportSourceDocument {
         var hasher = SHA256()
-        for image in images {
-            if let data = image.jpegData(compressionQuality: 0.92) {
-                hasher.update(data: data)
-            } else {
-                let fallback = "\(image.size.width)x\(image.size.height)"
-                hasher.update(data: Data(fallback.utf8))
-            }
+        var pages: [MenuImportSourcePage] = []
+        for (pageIndex, image) in images.enumerated() {
+            let pixelWidth = max(1, Int((image.size.width * image.scale).rounded()))
+            let pixelHeight = max(1, Int((image.size.height * image.scale).rounded()))
+            let pageData = image.pngData()
+                ?? image.jpegData(compressionQuality: 0.92)
+                ?? Data("\(pixelWidth)x\(pixelHeight)".utf8)
+            let pageDigest = SHA256.hash(data: pageData)
+            hasher.update(data: Data(pageDigest))
+            pages.append(
+                MenuImportSourcePage(
+                    pageIndex: pageIndex,
+                    fingerprint: "sha256:" + pageDigest.map {
+                        String(format: "%02x", $0)
+                    }.joined(),
+                    pixelWidth: pixelWidth,
+                    pixelHeight: pixelHeight
+                )
+            )
         }
         let fingerprint = hasher.finalize().map { String(format: "%02x", $0) }.joined()
         return MenuImportSourceDocument(
@@ -4803,7 +5054,8 @@ enum MenuImportService {
             sourceTypeDetail: sourceTypeDetail,
             pageCount: images.count,
             fingerprint: "sha256:\(fingerprint)",
-            displayName: displayName
+            displayName: displayName,
+            pages: pages
         )
     }
 
@@ -4876,6 +5128,7 @@ enum MenuImportService {
 
         let model: String
         let temperature: Double
+        let reasoningEffort: String?
         let responseFormat: ResponseFormat
         let messages: [Message]
         let maxTokens: Int?
@@ -4883,6 +5136,7 @@ enum MenuImportService {
         enum CodingKeys: String, CodingKey {
             case model
             case temperature
+            case reasoningEffort = "reasoning_effort"
             case responseFormat = "response_format"
             case messages
             case maxTokens = "max_tokens"
@@ -4890,6 +5144,18 @@ enum MenuImportService {
     }
 
     private struct OpenAIChatResponse: Decodable {
+        struct Usage: Decodable {
+            let promptTokens: Int?
+            let completionTokens: Int?
+            let totalTokens: Int?
+
+            enum CodingKeys: String, CodingKey {
+                case promptTokens = "prompt_tokens"
+                case completionTokens = "completion_tokens"
+                case totalTokens = "total_tokens"
+            }
+        }
+
         struct Choice: Decodable {
             struct Message: Decodable {
                 // Reasoning-Modelle (z. B. big-pickle -> mimo) legen die
@@ -4903,6 +5169,7 @@ enum MenuImportService {
         }
 
         let choices: [Choice]
+        let usage: Usage?
     }
 
     private struct LLMMenuRoot: Decodable {
@@ -5196,6 +5463,597 @@ enum MenuImportService {
             self.priceCents = priceCents
             self.kind = kind
         }
+    }
+
+    // MARK: Phase 1 lossless semantic extraction
+
+    private struct LLMDraftParseOutcome: Sendable {
+        let draft: MenuImportDraft?
+        let message: String
+        let pageOutcomes: [MenuImportPageOutcome]
+        let usage: MenuImportTokenUsage?
+    }
+
+    private struct LLMRichPageResult: Sendable {
+        let pageIndex: Int
+        let extraction: MenuImportPageExtraction?
+        let outcome: MenuImportPageOutcome
+        let usage: MenuImportTokenUsage?
+        let errorMessage: String?
+    }
+
+    private struct LLMExtractionCallOutcome: Sendable {
+        let extraction: MenuImportPageExtraction?
+        let errorMessage: String?
+        let usage: MenuImportTokenUsage?
+    }
+
+    /// Runs the versioned provider contract page by page. A semantic draft is
+    /// returned only when every source page produced a valid response; callers
+    /// otherwise use the complete local fallback instead of accepting a silent
+    /// partial import.
+    private static func parseDraftWithLLM(
+        ocrLines: [MenuImportOCRLine],
+        sourceImages: [UIImage],
+        sourceDocument: MenuImportSourceDocument
+    ) async -> LLMDraftParseOutcome {
+        guard let apiKey = resolvedLLMAPIKey else {
+            return LLMDraftParseOutcome(
+                draft: nil,
+                message: "KI-Extraktion übersprungen: kein Zugang konfiguriert.",
+                pageOutcomes: [],
+                usage: nil
+            )
+        }
+
+        let evidenceIndex = MenuImportEvidenceLineIndex(lines: ocrLines)
+        var results: [Int: LLMRichPageResult] = [:]
+        await withTaskGroup(of: LLMRichPageResult.self) { group in
+            var nextIndex = 0
+            let initial = min(llmMaxConcurrentPages, sourceImages.count)
+            while nextIndex < initial {
+                let pageIndex = nextIndex
+                group.addTask {
+                    await parseSingleDraftPage(
+                        pageIndex: pageIndex,
+                        image: sourceImages[pageIndex],
+                        totalPages: sourceImages.count,
+                        evidenceIndex: evidenceIndex,
+                        apiKey: apiKey
+                    )
+                }
+                nextIndex += 1
+            }
+
+            while let result = await group.next() {
+                results[result.pageIndex] = result
+                if nextIndex < sourceImages.count {
+                    let pageIndex = nextIndex
+                    group.addTask {
+                        await parseSingleDraftPage(
+                            pageIndex: pageIndex,
+                            image: sourceImages[pageIndex],
+                            totalPages: sourceImages.count,
+                            evidenceIndex: evidenceIndex,
+                            apiKey: apiKey
+                        )
+                    }
+                    nextIndex += 1
+                }
+            }
+        }
+
+        let orderedResults = (0..<sourceImages.count).map { pageIndex in
+            results[pageIndex] ?? LLMRichPageResult(
+                pageIndex: pageIndex,
+                extraction: nil,
+                outcome: MenuImportPageOutcome(
+                    pageIndex: pageIndex,
+                    status: .failed,
+                    attempts: 0,
+                    detail: "No provider result returned."
+                ),
+                usage: nil,
+                errorMessage: "kein Ergebnis"
+            )
+        }
+        let pageOutcomes = orderedResults.map(\.outcome)
+        let usage = orderedResults.reduce(nil as MenuImportTokenUsage?) {
+            mergeTokenUsage($0, $1.usage)
+        }
+        let failures = orderedResults.compactMap { result -> String? in
+            guard let error = result.errorMessage else { return nil }
+            return "Seite \(result.pageIndex + 1): \(error)"
+        }
+        guard failures.isEmpty else {
+            return LLMDraftParseOutcome(
+                draft: nil,
+                message: "Verlustfreier KI-Vertrag unvollständig: \(failures.joined(separator: " | "))",
+                pageOutcomes: pageOutcomes,
+                usage: usage
+            )
+        }
+
+        let extractions = orderedResults.compactMap(\.extraction)
+        guard extractions.count == sourceDocument.pageCount else {
+            return LLMDraftParseOutcome(
+                draft: nil,
+                message: "Verlustfreier KI-Vertrag lieferte nicht für jede Seite ein Ergebnis.",
+                pageOutcomes: pageOutcomes,
+                usage: usage
+            )
+        }
+
+        let processing = MenuImportProcessingMetadata(
+            pipelineVersion: "menu-import/phase-1",
+            provider: resolvedLLMBaseURL,
+            model: resolvedLLMModel,
+            promptVersion: MenuImportExtractionPrompt.version,
+            promptFingerprint: MenuImportExtractionPrompt.fingerprint,
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageOutcomes: pageOutcomes,
+            usage: usage
+        )
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: sourceDocument,
+            pageExtractions: extractions,
+            ocrLines: ocrLines,
+            processing: processing
+        )
+        let validation = draft.validate()
+        guard validation.errors.isEmpty else {
+            let details = validation.errors.prefix(4).map {
+                "\($0.path): \($0.message)"
+            }
+            .joined(separator: " | ")
+            return LLMDraftParseOutcome(
+                draft: nil,
+                message: "KI-Draft strukturell ungültig: \(details)",
+                pageOutcomes: pageOutcomes,
+                usage: usage
+            )
+        }
+
+        let entryCount = draftEntryCount(draft.sections)
+        let emptyPageCount = pageOutcomes.filter { $0.status == .empty }.count
+        return LLMDraftParseOutcome(
+            draft: draft,
+            message: "Verlustfreier KI-Draft: \(entryCount) Einträge aus \(sourceImages.count) vollständigen Seiten"
+                + (emptyPageCount > 0 ? " (\(emptyPageCount) leere/Deckseite(n))." : "."),
+            pageOutcomes: pageOutcomes,
+            usage: usage
+        )
+    }
+
+    private static func parseSingleDraftPage(
+        pageIndex: Int,
+        image: UIImage,
+        totalPages: Int,
+        evidenceIndex: MenuImportEvidenceLineIndex,
+        apiKey: String
+    ) async -> LLMRichPageResult {
+        let startedAt = Date()
+        let imageParts = makeLLMImageParts(
+            from: [image],
+            maxPages: 1,
+            maxDimension: 1600,
+            maxRawBytes: 1_200_000,
+            perImageMaxBytes: 1_200_000,
+            detail: "high"
+        )
+        guard !imageParts.isEmpty || !llmSendsImages else {
+            return LLMRichPageResult(
+                pageIndex: pageIndex,
+                extraction: nil,
+                outcome: MenuImportPageOutcome(
+                    pageIndex: pageIndex,
+                    status: .failed,
+                    attempts: 0,
+                    latencyMilliseconds: 0,
+                    detail: "No usable page image."
+                ),
+                usage: nil,
+                errorMessage: "kein nutzbares Seitenbild"
+            )
+        }
+
+        let lineDump = evidenceIndex.promptDump(pageIndex: pageIndex)
+        let userPrompt = """
+        Source page_index (zero-based): \(pageIndex)
+        Visible page number: \(pageIndex + 1) of \(totalPages)
+
+        Supplied OCR evidence lines:
+        \(lineDump.isEmpty ? "(no OCR lines available)" : lineDump)
+
+        Extract exactly this page. The image is primary; OCR lines are the only
+        valid evidence IDs. Return contract_version 1.0.0 and page_index \(pageIndex).
+        """
+
+        var attempts = 1
+        var call = await runLLMExtractionCallWithTimeout(
+            apiKey: apiKey,
+            userPrompt: userPrompt,
+            imageParts: imageParts,
+            timeoutSeconds: llmPrimaryTimeoutSeconds
+        )
+        var aggregateUsage = call.usage
+
+        if call.extraction == nil {
+            let error = call.errorMessage ?? "Unbekannter Fehler"
+            if error.localizedCaseInsensitiveContains("http 401")
+                || error.localizedCaseInsensitiveContains("incorrect api key")
+                || error.localizedCaseInsensitiveContains("api-key ungültig") {
+                return failedDraftPage(
+                    pageIndex: pageIndex,
+                    attempts: attempts,
+                    startedAt: startedAt,
+                    message: "API-Key ungültig (HTTP 401)",
+                    usage: aggregateUsage
+                )
+            }
+
+            let retryOnTimeout = error.localizedCaseInsensitiveContains("timed out")
+                || error.localizedCaseInsensitiveContains("timeout")
+                || error.localizedCaseInsensitiveContains("network connection was lost")
+            let retryOnBadJSON = error.localizedCaseInsensitiveContains("extraktionsvertrag")
+                || error.localizedCaseInsensitiveContains("parsebares json")
+
+            if retryOnTimeout || retryOnBadJSON {
+                attempts += 1
+                let retryParts: [OpenAIChatRequest.Message.Part]
+                if retryOnTimeout {
+                    let slimParts = makeLLMImageParts(
+                        from: [image],
+                        maxPages: 1,
+                        maxDimension: 1100,
+                        maxRawBytes: 650_000,
+                        perImageMaxBytes: 650_000,
+                        detail: "low"
+                    )
+                    retryParts = slimParts.isEmpty ? imageParts : slimParts
+                } else {
+                    retryParts = imageParts
+                }
+                let retry = await runLLMExtractionCallWithTimeout(
+                    apiKey: apiKey,
+                    userPrompt: userPrompt,
+                    imageParts: retryParts,
+                    timeoutSeconds: llmRetryTimeoutSeconds
+                )
+                aggregateUsage = mergeTokenUsage(aggregateUsage, retry.usage)
+                call = retry
+            }
+        }
+
+        guard let extraction = call.extraction else {
+            return failedDraftPage(
+                pageIndex: pageIndex,
+                attempts: attempts,
+                startedAt: startedAt,
+                message: call.errorMessage ?? "unbekannter KI-Fehler",
+                usage: aggregateUsage
+            )
+        }
+        guard extraction.contractVersion == MenuImportPageExtraction.currentContractVersion else {
+            return failedDraftPage(
+                pageIndex: pageIndex,
+                attempts: attempts,
+                startedAt: startedAt,
+                message: "Vertragsversion \(extraction.contractVersion) statt \(MenuImportPageExtraction.currentContractVersion)",
+                usage: aggregateUsage
+            )
+        }
+        guard extraction.pageIndex == pageIndex else {
+            return failedDraftPage(
+                pageIndex: pageIndex,
+                attempts: attempts,
+                startedAt: startedAt,
+                message: "Antwort gehört zu page_index \(extraction.pageIndex)",
+                usage: aggregateUsage
+            )
+        }
+        guard extraction.recursiveEntryCount > 0 || extraction.permitsEmptyMenuResult else {
+            return failedDraftPage(
+                pageIndex: pageIndex,
+                attempts: attempts,
+                startedAt: startedAt,
+                message: "Provider meldete Seite als \(extraction.pageKind), lieferte aber keinen Menüeintrag.",
+                usage: aggregateUsage
+            )
+        }
+
+        let latency = max(0, Int(Date().timeIntervalSince(startedAt) * 1_000))
+        let isEmpty = extraction.recursiveEntryCount == 0
+        return LLMRichPageResult(
+            pageIndex: pageIndex,
+            extraction: extraction,
+            outcome: MenuImportPageOutcome(
+                pageIndex: pageIndex,
+                status: isEmpty ? .empty : .processed,
+                attempts: attempts,
+                latencyMilliseconds: latency,
+                detail: isEmpty
+                    ? "Provider classified the page as \(extraction.pageKind) with no menu entries."
+                    : "Lossless extraction contract decoded successfully."
+            ),
+            usage: aggregateUsage,
+            errorMessage: nil
+        )
+    }
+
+    private static func failedDraftPage(
+        pageIndex: Int,
+        attempts: Int,
+        startedAt: Date,
+        message: String,
+        usage: MenuImportTokenUsage?
+    ) -> LLMRichPageResult {
+        LLMRichPageResult(
+            pageIndex: pageIndex,
+            extraction: nil,
+            outcome: MenuImportPageOutcome(
+                pageIndex: pageIndex,
+                status: .failed,
+                attempts: attempts,
+                latencyMilliseconds: max(0, Int(Date().timeIntervalSince(startedAt) * 1_000)),
+                detail: message
+            ),
+            usage: usage,
+            errorMessage: message
+        )
+    }
+
+    private static func runLLMExtractionCallWithTimeout(
+        apiKey: String,
+        userPrompt: String,
+        imageParts: [OpenAIChatRequest.Message.Part],
+        timeoutSeconds: Double
+    ) async -> LLMExtractionCallOutcome {
+        await withTaskGroup(of: LLMExtractionCallOutcome.self) { group in
+            group.addTask {
+                await runLLMExtractionCall(
+                    apiKey: apiKey,
+                    userPrompt: userPrompt,
+                    imageParts: imageParts
+                )
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
+                return LLMExtractionCallOutcome(
+                    extraction: nil,
+                    errorMessage: "timeout nach \(Int(timeoutSeconds))s",
+                    usage: nil
+                )
+            }
+            let first = await group.next() ?? LLMExtractionCallOutcome(
+                extraction: nil,
+                errorMessage: "Unbekannter KI-Fehler",
+                usage: nil
+            )
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// `gemini` = Googles `generateContent`, `openai` = Chat Completions.
+    /// Ohne Angabe entscheidet der Modellname.
+    private static var llmProtocolOverride: String? {
+        configValue(forKey: "KITCHENLINK_LLM_PROTOCOL")
+    }
+
+    private static var usesGeminiNativeProtocol: Bool {
+        MenuImportGeminiProtocol.usesNativeProtocol(
+            model: resolvedLLMModel,
+            override: llmProtocolOverride
+        )
+    }
+
+    /// Result of one raw provider call, already normalized across both
+    /// protocols so the extraction path stays protocol-agnostic.
+    private struct LLMRawCallResult {
+        let text: String?
+        let usage: MenuImportTokenUsage?
+        let errorMessage: String?
+    }
+
+    private static func performLLMExtractionRequest(
+        apiKey: String,
+        userPrompt: String,
+        imageParts: [OpenAIChatRequest.Message.Part]
+    ) async throws -> LLMRawCallResult {
+        let maximumOutputTokens = 10_000
+        let endpoint: URL?
+        let httpBody: Data
+
+        if usesGeminiNativeProtocol {
+            endpoint = MenuImportGeminiProtocol.endpointURL(
+                baseURL: resolvedLLMBaseURL,
+                model: resolvedLLMModel
+            )
+            httpBody = try MenuImportGeminiProtocol.requestBody(
+                systemPrompt: MenuImportExtractionPrompt.systemPrompt,
+                userText: userPrompt,
+                images: imageParts.compactMap { part -> MenuImportGeminiProtocol.InlineImage? in
+                    guard let dataURL = part.imageURL?.url else { return nil }
+                    return MenuImportGeminiProtocol.InlineImage(dataURL: dataURL)
+                },
+                maximumOutputTokens: maximumOutputTokens
+            )
+        } else {
+            let base = resolvedLLMBaseURL.hasSuffix("/")
+                ? String(resolvedLLMBaseURL.dropLast())
+                : resolvedLLMBaseURL
+            endpoint = URL(string: "\(base)/chat/completions")
+            httpBody = try JSONEncoder().encode(
+                OpenAIChatRequest(
+                    model: resolvedLLMModel,
+                    temperature: 0,
+                    reasoningEffort: llmReasoningEffort,
+                    responseFormat: .init(type: "json_object"),
+                    messages: [
+                        .init(
+                            role: "system",
+                            content: .text(MenuImportExtractionPrompt.systemPrompt)
+                        ),
+                        .init(
+                            role: "user",
+                            content: .parts([.text(userPrompt)] + imageParts)
+                        )
+                    ],
+                    maxTokens: maximumOutputTokens
+                )
+            )
+        }
+
+        guard let endpoint else {
+            return LLMRawCallResult(
+                text: nil,
+                usage: nil,
+                errorMessage: "ungültige LLM-Basis-URL: \(resolvedLLMBaseURL)"
+            )
+        }
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if apiKey != keylessSentinel {
+            if usesGeminiNativeProtocol {
+                request.setValue(
+                    apiKey,
+                    forHTTPHeaderField: MenuImportGeminiProtocol.apiKeyHeaderField
+                )
+            } else {
+                request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            }
+        }
+        request.httpBody = httpBody
+
+        let (data, response) = try await llmSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            return LLMRawCallResult(
+                text: nil,
+                usage: nil,
+                errorMessage: "ungültige HTTP-Antwort"
+            )
+        }
+        guard (200...299).contains(http.statusCode) else {
+            let structured = MenuImportGeminiProtocol.errorMessage(from: data)
+            let body = structured ?? (String(data: data, encoding: .utf8) ?? "")
+            let shortBody = body.trimmingCharacters(in: .whitespacesAndNewlines).prefix(180)
+            let message = http.statusCode == 401
+                ? "API-Key ungültig oder Modell nicht freigeschaltet (HTTP 401): \(shortBody)"
+                : "HTTP \(http.statusCode): \(shortBody)"
+            return LLMRawCallResult(text: nil, usage: nil, errorMessage: message)
+        }
+
+        if usesGeminiNativeProtocol {
+            guard let decoded = MenuImportGeminiProtocol.decodeResponse(data) else {
+                return LLMRawCallResult(
+                    text: nil,
+                    usage: nil,
+                    errorMessage: "Gemini-Antwort nicht lesbar"
+                )
+            }
+            let usage = MenuImportTokenUsage(
+                inputTokens: decoded.inputTokens,
+                outputTokens: decoded.outputTokens,
+                totalTokens: decoded.totalTokens
+            )
+            if decoded.text == nil, let finishReason = decoded.finishReason {
+                return LLMRawCallResult(
+                    text: nil,
+                    usage: usage,
+                    errorMessage: "Gemini beendet ohne Text (\(finishReason))"
+                )
+            }
+            return LLMRawCallResult(text: decoded.text, usage: usage, errorMessage: nil)
+        }
+
+        let chat = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
+        let usage = MenuImportTokenUsage(
+            inputTokens: chat.usage?.promptTokens,
+            outputTokens: chat.usage?.completionTokens,
+            totalTokens: chat.usage?.totalTokens
+        )
+        let message = chat.choices.first?.message
+        let text = [message?.content, message?.reasoning]
+            .compactMap { $0 }
+            .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return LLMRawCallResult(text: text, usage: usage, errorMessage: nil)
+    }
+
+    private static func runLLMExtractionCall(
+        apiKey: String,
+        userPrompt: String,
+        imageParts: [OpenAIChatRequest.Message.Part]
+    ) async -> LLMExtractionCallOutcome {
+        do {
+            let call = try await performLLMExtractionRequest(
+                apiKey: apiKey,
+                userPrompt: userPrompt,
+                imageParts: imageParts
+            )
+            let usage = call.usage
+            if let errorMessage = call.errorMessage {
+                return LLMExtractionCallOutcome(
+                    extraction: nil,
+                    errorMessage: errorMessage,
+                    usage: usage
+                )
+            }
+
+            guard let rawText = call.text,
+                  let jsonText = extractJSONObject(from: rawText) else {
+                return LLMExtractionCallOutcome(
+                    extraction: nil,
+                    errorMessage: "Antwort ohne parsebares JSON",
+                    usage: usage
+                )
+            }
+
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            for candidate in [jsonText, repairJSONStringQuotes(jsonText)] {
+                if let jsonData = candidate.data(using: .utf8),
+                   let extraction = try? decoder.decode(
+                       MenuImportPageExtraction.self,
+                       from: jsonData
+                   ) {
+                    return LLMExtractionCallOutcome(
+                        extraction: extraction,
+                        errorMessage: nil,
+                        usage: usage
+                    )
+                }
+            }
+            return LLMExtractionCallOutcome(
+                extraction: nil,
+                errorMessage: "JSON konnte nicht in den verlustfreien Extraktionsvertrag übertragen werden",
+                usage: usage
+            )
+        } catch {
+            return LLMExtractionCallOutcome(
+                extraction: nil,
+                errorMessage: error.localizedDescription,
+                usage: nil
+            )
+        }
+    }
+
+    private static func mergeTokenUsage(
+        _ lhs: MenuImportTokenUsage?,
+        _ rhs: MenuImportTokenUsage?
+    ) -> MenuImportTokenUsage? {
+        guard lhs != nil || rhs != nil else { return nil }
+        func sum(_ left: Int?, _ right: Int?) -> Int? {
+            guard left != nil || right != nil else { return nil }
+            return (left ?? 0) + (right ?? 0)
+        }
+        return MenuImportTokenUsage(
+            inputTokens: sum(lhs?.inputTokens, rhs?.inputTokens),
+            outputTokens: sum(lhs?.outputTokens, rhs?.outputTokens),
+            totalTokens: sum(lhs?.totalTokens, rhs?.totalTokens)
+        )
     }
 
     private struct LLMParseOutcome {
@@ -5626,6 +6484,7 @@ enum MenuImportService {
             let requestBody = OpenAIChatRequest(
                 model: resolvedLLMModel,
                 temperature: 0.1,
+                reasoningEffort: llmReasoningEffort,
                 responseFormat: .init(type: "json_object"),
                 messages: [
                     .init(role: "system", content: .text(systemPrompt)),
@@ -6228,7 +7087,7 @@ enum MenuImportService {
 
         let primary = try await runOCR(on: enhanced, pageIndex: pageIndex, method: .enhancedOCR)
         let secondary = try await runOCR(on: normalized, pageIndex: pageIndex, method: .ocr)
-        return mergeOCRLines(primary: primary, secondary: secondary)
+        return collapseDuplicateOCRLines(primary + secondary)
     }
 
     private static func runOCR(
@@ -6286,20 +7145,152 @@ enum MenuImportService {
         }
     }
 
-    private static func mergeOCRLines(primary: [OCRLineToken], secondary: [OCRLineToken]) -> [OCRLineToken] {
-        var result = primary
-        for line in secondary {
-            let normalizedLine = normalizedForMatching(line.text)
-            let exists = result.contains {
-                $0.pageIndex == line.pageIndex &&
-                abs($0.boundingBox.midY - line.boundingBox.midY) < 0.012 &&
-                    normalizedForMatching($0.text) == normalizedLine
+    /// Minimum normalized-text similarity for two readings to count as the same
+    /// visual line. Calibrated on the observed Vision confusions (`[`/`I`,
+    /// `K`/`<`, dropped trailing characters), which land at 0.90 and above.
+    static let ocrDuplicateSimilarityThreshold = 0.82
+
+    /// Readings shorter than this must match exactly. Short fragments (page
+    /// markers, single codes) are too easy to fold into each other.
+    static let ocrDuplicateMinimumFuzzyLength = 4
+
+    /// Every page is recognized twice — once on the contrast-enhanced image, once
+    /// on the plain one. Both passes normally read the same visual line, and the
+    /// two readings differ only where Vision confuses characters
+    /// (`Wiener Schnitzel [A,C,G,J]` vs `Wiener Schnitzel IA,C,G,J]`). The
+    /// previous exact-text match let those through, so the rule parser and the
+    /// extraction provider both turned one dish into two.
+    ///
+    /// Collapsing spatially overlapping near-duplicates removes an artifact of
+    /// our own double pass, not source content: the dropped reading describes
+    /// the same visual line, and the surviving one is the higher-confidence
+    /// reading of it.
+    static func collapseDuplicateOCRLines(_ lines: [OCRLineToken]) -> [OCRLineToken] {
+        var kept: [OCRLineToken] = []
+        kept.reserveCapacity(lines.count)
+
+        for line in lines {
+            let normalized = normalizedForMatching(line.text)
+            guard !normalized.isEmpty else {
+                kept.append(line)
+                continue
             }
-            if !exists {
-                result.append(line)
+
+            let duplicateIndex = kept.firstIndex { candidate in
+                guard candidate.pageIndex == line.pageIndex,
+                      occupySameVisualLine(candidate.boundingBox, line.boundingBox)
+                else {
+                    return false
+                }
+                let candidateNormalized = normalizedForMatching(candidate.text)
+                if candidateNormalized == normalized { return true }
+                guard max(candidateNormalized.count, normalized.count) >= ocrDuplicateMinimumFuzzyLength else {
+                    return false
+                }
+                return ocrTextSimilarity(candidateNormalized, normalized) >= ocrDuplicateSimilarityThreshold
+            }
+
+            guard let duplicateIndex else {
+                kept.append(line)
+                continue
+            }
+
+            if prefersReplacementReading(existing: kept[duplicateIndex], candidate: line) {
+                kept[duplicateIndex] = line
             }
         }
-        return result
+
+        return kept
+    }
+
+    /// True when both boxes cover the same visual line: they must overlap in
+    /// both axes by at least half of the smaller box. The horizontal test is
+    /// what keeps two-column cards apart — a left-column and a right-column
+    /// dish share a baseline but never share x.
+    private static func occupySameVisualLine(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+        let verticalOverlap = min(lhs.maxY, rhs.maxY) - max(lhs.minY, rhs.minY)
+        let horizontalOverlap = min(lhs.maxX, rhs.maxX) - max(lhs.minX, rhs.minX)
+        guard verticalOverlap > 0, horizontalOverlap > 0 else { return false }
+
+        let smallestHeight = min(lhs.height, rhs.height)
+        let smallestWidth = min(lhs.width, rhs.width)
+        guard smallestHeight > 0, smallestWidth > 0 else { return false }
+
+        return verticalOverlap / smallestHeight >= 0.5 && horizontalOverlap / smallestWidth >= 0.5
+    }
+
+    /// Normalized Levenshtein similarity in `0...1`. Inputs are expected to be
+    /// `normalizedForMatching` output, so this only judges residual OCR noise.
+    static func ocrTextSimilarity(_ lhs: String, _ rhs: String) -> Double {
+        if lhs == rhs { return 1 }
+        if lhs.isEmpty || rhs.isEmpty { return 0 }
+
+        let left = Array(lhs.prefix(240))
+        let right = Array(rhs.prefix(240))
+        var previous = Array(0 ... right.count)
+        var current = [Int](repeating: 0, count: right.count + 1)
+
+        for leftIndex in 1 ... left.count {
+            current[0] = leftIndex
+            for rightIndex in 1 ... right.count {
+                let substitution = previous[rightIndex - 1]
+                    + (left[leftIndex - 1] == right[rightIndex - 1] ? 0 : 1)
+                current[rightIndex] = min(
+                    previous[rightIndex] + 1,
+                    current[rightIndex - 1] + 1,
+                    substitution
+                )
+            }
+            swap(&previous, &current)
+        }
+
+        let distance = Double(previous[right.count])
+        let longest = Double(max(left.count, right.count))
+        return max(0, 1 - distance / longest)
+    }
+
+    /// Keeps the more trustworthy of two readings of the same visual line.
+    ///
+    /// Delimiter balance is checked before confidence on purpose. Vision is
+    /// frequently *confident* about a garbled code group (`Wiener Schnitzel
+    /// IA,C,G,J]` outscored the correct `[A,C,G,J]` reading), and the parser then
+    /// cannot separate the codes from the dish name, so the dish is lost
+    /// entirely. A balanced bracket run is the cheap deterministic signal that
+    /// the delimiters were read as printed.
+    private static func prefersReplacementReading(
+        existing: OCRLineToken,
+        candidate: OCRLineToken
+    ) -> Bool {
+        let existingBalanced = hasBalancedDelimiters(existing.text)
+        let candidateBalanced = hasBalancedDelimiters(candidate.text)
+        if existingBalanced != candidateBalanced {
+            return candidateBalanced
+        }
+
+        if abs(existing.confidence - candidate.confidence) >= 0.05 {
+            return candidate.confidence > existing.confidence
+        }
+
+        return candidate.text.count > existing.text.count
+    }
+
+    /// True when every bracket, parenthesis and brace in the text opens before
+    /// it closes and closes exactly once. Unbalanced delimiters in a menu line
+    /// are practically always a misread `[`, `(` or `]`.
+    static func hasBalancedDelimiters(_ text: String) -> Bool {
+        let pairs: [Character: Character] = ["]": "[", ")": "(", "}": "{"]
+        let openers = Set(pairs.values)
+        var stack: [Character] = []
+
+        for character in text {
+            if openers.contains(character) {
+                stack.append(character)
+            } else if let expectedOpener = pairs[character] {
+                guard stack.popLast() == expectedOpener else { return false }
+            }
+        }
+
+        return stack.isEmpty
     }
 
     private static func detectAllergenLegend(from lines: [OCRLineToken]) -> [String: String] {
