@@ -150,6 +150,85 @@ struct MenuImportMappingDiagnosticsTests {
         )
     }
 
+    /// A measured run lost a whole document to a single omitted empty array
+    /// (`Feld fehlt: sections[0].title.alternatives`). Absence must cost
+    /// nothing.
+    @Test("Fehlende leere Arrays kosten die Seite nicht mehr")
+    func absentArraysDecodeAsEmpty() throws {
+        let payload = """
+        {
+          "contract_version": "1.0.0",
+          "page_index": 0,
+          "page_kind": "menu",
+          "sections": [{
+            "title": {"value": "Vorspeisen"},
+            "order": 0,
+            "entries": [{
+              "kind": "food",
+              "name": {"value": "Bunter Marktsalat"},
+              "order": 0
+            }]
+          }]
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let page = try decoder.decode(
+            MenuImportPageExtraction.self,
+            from: Data(payload.utf8)
+        )
+        #expect(page.languages.isEmpty)
+        #expect(page.declarations.isEmpty)
+        #expect(page.sections.first?.title.alternatives.isEmpty == true)
+        #expect(page.sections.first?.entries.first?.offers.isEmpty == true)
+        // The content that *was* sent must survive untouched.
+        #expect(page.sections.first?.entries.first?.name.value == "Bunter Marktsalat")
+        #expect(page.recursiveEntryCount == 1)
+    }
+
+    /// The opposite direction must stay strict: swallowing a present-but-wrong
+    /// value would have hidden the review-code regression instead of reporting
+    /// it, which is what made that failure cost a paid run to find.
+    @Test("Vorhandenes Feld mit falschem Typ scheitert weiterhin")
+    func presentButWrongTypeStillThrows() throws {
+        let payload = """
+        {
+          "contract_version": "1.0.0",
+          "page_index": 0,
+          "page_kind": "menu",
+          "sections": [{
+            "title": {"value": "Vorspeisen"},
+            "order": 0,
+            "entries": [{
+              "kind": "food",
+              "name": {"value": "Salat"},
+              "order": 0,
+              "review_reasons": ["missing_visible_price"]
+            }]
+          }]
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        var captured: Error?
+        do {
+            _ = try decoder.decode(
+                MenuImportPageExtraction.self,
+                from: Data(payload.utf8)
+            )
+        } catch {
+            captured = error
+        }
+        #expect(captured != nil)
+        let message = MenuLLMDiagnostics.describeContractMappingFailure(
+            captured,
+            jsonText: payload,
+            rawText: payload
+        )
+        #expect(message.contains("Falscher Typ"))
+        #expect(message.contains("reviewReasons"))
+    }
+
     /// The whole point of keeping the decode error: the message must name the
     /// missing field instead of only stating that something went wrong.
     @Test("Fehlendes Feld wird mit Coding-Pfad benannt")
