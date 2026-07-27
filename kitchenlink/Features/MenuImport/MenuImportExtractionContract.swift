@@ -726,6 +726,11 @@ struct MenuImportDraftAssembler {
             enrichedSourceDocument.pages = sourcePages
         }
 
+        declarations = context.removingNameDerivedLegendEntries(
+            declarations,
+            sections: sections
+        )
+
         let returnedPages = Set(orderedPages.map(\.pageIndex))
         for missingPage in 0..<sourceDocument.pageCount where !returnedPages.contains(missingPage) {
             context.addFinding(
@@ -984,6 +989,71 @@ private struct AssemblyContext {
     /// of the purchasable name. Providers do not always duplicate those codes
     /// into `declarations`, so normalize the unambiguous syntax here while
     /// retaining the exact raw group and source evidence losslessly.
+    /// Drops document declarations that are only an entry or section name cut
+    /// after its first character.
+    ///
+    /// Measured on a real card without any legend: the provider returned an
+    /// eleven-entry "legend" built entirely this way — `a` meaning
+    /// `"a ntipasti-Vorspeisen"`, `b` meaning `"b üffel Mozzarella Käse …"`,
+    /// `c` meaning `"c arpaccio Di Manzo"`. The gate's forbidden-claim check
+    /// stayed silent because every `claim` was `unknown`, so nothing illegal
+    /// was asserted, but an operator would have been shown a fabricated
+    /// allergen legend.
+    ///
+    /// The test is exact rather than heuristic: strip all whitespace from the
+    /// declaration's raw text and from the candidate name, and drop it only on
+    /// full equality. A genuine legend line (`"A Glutenhaltiges Getreide"`)
+    /// never matches a dish name, so nothing real is lost.
+    mutating func removingNameDerivedLegendEntries(
+        _ declarations: [MenuImportDeclaration],
+        sections: [MenuImportSection]
+    ) -> [MenuImportDeclaration] {
+        var names: Set<String> = []
+        func collect(_ sections: [MenuImportSection]) {
+            for section in sections {
+                names.insert(compacted(section.title.value))
+                for entry in section.entries {
+                    names.insert(compacted(entry.name.value))
+                }
+                collect(section.subsections)
+            }
+        }
+        collect(sections)
+        names.remove("")
+        guard !names.isEmpty else { return declarations }
+
+        var kept: [MenuImportDeclaration] = []
+        for declaration in declarations {
+            let compactedRaw = compacted(declaration.rawText)
+            if declaration.localCode != nil,
+               !compactedRaw.isEmpty,
+               names.contains(compactedRaw) {
+                // Recorded rather than dropped quietly: the operator should be
+                // able to see that the provider offered a legend here and that
+                // it was rejected as a re-split entry name.
+                addFinding(
+                    code: "rejected_name_derived_legend_entry",
+                    path: "declarations",
+                    message: "A document declaration repeated an entry or section name split after its first character and was rejected as a fabricated legend entry: \(declaration.rawText)",
+                    severity: .warning,
+                    pageIndex: declaration.evidence.pageIndex
+                )
+                continue
+            }
+            kept.append(declaration)
+        }
+        return kept
+    }
+
+    private func compacted(_ value: String) -> String {
+        value
+            .lowercased()
+            .unicodeScalars
+            .filter { !CharacterSet.whitespacesAndNewlines.contains($0) }
+            .map(String.init)
+            .joined()
+    }
+
     /// Gathers the document's own legend codes from every page's declarations.
     mutating func collectLegendCodes(from pages: [MenuImportPageExtraction]) {
         for page in pages {
