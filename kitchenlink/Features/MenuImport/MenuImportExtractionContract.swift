@@ -1,6 +1,49 @@
 import CryptoKit
 import Foundation
 
+// MARK: - Absent-array tolerance
+
+/// An array field that decodes to `[]` when the provider omitted the key.
+///
+/// The prompt asks for every array to be present, using `[]` when empty, but a
+/// model that skips one empty array should not cost the page. A measured run
+/// lost a whole document to `Feld fehlt: sections[0].title.alternatives`.
+///
+/// Deliberately strict in the other direction: a key that *is* present but
+/// holds the wrong type still throws. That is how the review-code regression
+/// surfaced (`review_reasons` as strings rather than objects), and silently
+/// swallowing it would have hidden a real contract violation instead of
+/// reporting it.
+@propertyWrapper
+struct DefaultEmptyArray<Element: Codable & Equatable & Sendable>: Codable, Equatable, Sendable {
+    var wrappedValue: [Element]
+
+    init(wrappedValue: [Element]) {
+        self.wrappedValue = wrappedValue
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        wrappedValue = try container.decode([Element].self)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(wrappedValue)
+    }
+}
+
+extension KeyedDecodingContainer {
+    /// Absence alone yields the empty default; a present value is decoded
+    /// strictly and may still throw.
+    func decode<Element>(
+        _ type: DefaultEmptyArray<Element>.Type,
+        forKey key: Key
+    ) throws -> DefaultEmptyArray<Element> {
+        try decodeIfPresent(type, forKey: key) ?? DefaultEmptyArray<Element>(wrappedValue: [])
+    }
+}
+
 // MARK: - Provider-facing extraction contract
 
 /// Lossless, page-scoped response expected from a semantic extraction provider.
@@ -14,10 +57,10 @@ struct MenuImportPageExtraction: Codable, Equatable, Sendable {
     var contractVersion: String
     var pageIndex: Int
     var pageKind: String
-    var languages: [String]
-    var sections: [MenuImportExtractedSection]
-    var declarations: [MenuImportExtractedDeclaration]
-    var reviewReasons: [MenuImportExtractedReviewReason]
+    @DefaultEmptyArray var languages: [String]
+    @DefaultEmptyArray var sections: [MenuImportExtractedSection]
+    @DefaultEmptyArray var declarations: [MenuImportExtractedDeclaration]
+    @DefaultEmptyArray var reviewReasons: [MenuImportExtractedReviewReason]
 
     var recursiveEntryCount: Int {
         func count(_ sections: [MenuImportExtractedSection]) -> Int {
@@ -46,23 +89,23 @@ struct MenuImportExtractedLocalizedText: Codable, Equatable, Sendable {
     var languageTag: String?
     // `Ids` deliberately matches Foundation's snake_case conversion
     // (`evidence_line_ids` -> `evidenceLineIds`).
-    var evidenceLineIds: [String]
+    @DefaultEmptyArray var evidenceLineIds: [String]
 }
 
 struct MenuImportExtractedText: Codable, Equatable, Sendable {
     var value: String
     var languageTag: String?
-    var evidenceLineIds: [String]
-    var alternatives: [MenuImportExtractedLocalizedText]
+    @DefaultEmptyArray var evidenceLineIds: [String]
+    @DefaultEmptyArray var alternatives: [MenuImportExtractedLocalizedText]
 }
 
 struct MenuImportExtractedSection: Codable, Equatable, Sendable {
     var title: MenuImportExtractedText
     var order: Int
-    var entries: [MenuImportExtractedEntry]
-    var subsections: [MenuImportExtractedSection]
-    var declarations: [MenuImportExtractedDeclaration]
-    var reviewReasons: [MenuImportExtractedReviewReason]
+    @DefaultEmptyArray var entries: [MenuImportExtractedEntry]
+    @DefaultEmptyArray var subsections: [MenuImportExtractedSection]
+    @DefaultEmptyArray var declarations: [MenuImportExtractedDeclaration]
+    @DefaultEmptyArray var reviewReasons: [MenuImportExtractedReviewReason]
 }
 
 struct MenuImportExtractedEntry: Codable, Equatable, Sendable {
@@ -71,12 +114,12 @@ struct MenuImportExtractedEntry: Codable, Equatable, Sendable {
     var description: MenuImportExtractedText?
     var itemNumber: String?
     var order: Int
-    var offers: [MenuImportExtractedOffer]
-    var quantities: [MenuImportExtractedQuantity]
-    var optionGroups: [MenuImportExtractedOptionGroup]
-    var bundleComponents: [MenuImportExtractedBundleComponent]
-    var declarations: [MenuImportExtractedDeclaration]
-    var reviewReasons: [MenuImportExtractedReviewReason]
+    @DefaultEmptyArray var offers: [MenuImportExtractedOffer]
+    @DefaultEmptyArray var quantities: [MenuImportExtractedQuantity]
+    @DefaultEmptyArray var optionGroups: [MenuImportExtractedOptionGroup]
+    @DefaultEmptyArray var bundleComponents: [MenuImportExtractedBundleComponent]
+    @DefaultEmptyArray var declarations: [MenuImportExtractedDeclaration]
+    @DefaultEmptyArray var reviewReasons: [MenuImportExtractedReviewReason]
 }
 
 struct MenuImportExtractedOffer: Codable, Equatable, Sendable {
@@ -90,7 +133,7 @@ struct MenuImportExtractedOffer: Codable, Equatable, Sendable {
     var rawPrice: String?
     var basis: String
     var appliesToQuantityOrder: Int?
-    var evidenceLineIds: [String]
+    @DefaultEmptyArray var evidenceLineIds: [String]
 }
 
 struct MenuImportExtractedQuantity: Codable, Equatable, Sendable {
@@ -98,7 +141,7 @@ struct MenuImportExtractedQuantity: Codable, Equatable, Sendable {
     var value: Double?
     var unit: String
     var kind: String
-    var evidenceLineIds: [String]
+    @DefaultEmptyArray var evidenceLineIds: [String]
 }
 
 struct MenuImportExtractedSelectionRule: Codable, Equatable, Sendable {
@@ -113,8 +156,8 @@ struct MenuImportExtractedOptionGroup: Codable, Equatable, Sendable {
     var title: MenuImportExtractedText
     var order: Int
     var selectionRule: MenuImportExtractedSelectionRule
-    var choices: [MenuImportExtractedChoice]
-    var reviewReasons: [MenuImportExtractedReviewReason]
+    @DefaultEmptyArray var choices: [MenuImportExtractedChoice]
+    @DefaultEmptyArray var reviewReasons: [MenuImportExtractedReviewReason]
 }
 
 struct MenuImportExtractedChoice: Codable, Equatable, Sendable {
@@ -122,10 +165,10 @@ struct MenuImportExtractedChoice: Codable, Equatable, Sendable {
     var description: MenuImportExtractedText?
     var kind: String
     var order: Int
-    var offers: [MenuImportExtractedOffer]
+    @DefaultEmptyArray var offers: [MenuImportExtractedOffer]
     var quantity: MenuImportExtractedQuantity?
-    var declarations: [MenuImportExtractedDeclaration]
-    var reviewReasons: [MenuImportExtractedReviewReason]
+    @DefaultEmptyArray var declarations: [MenuImportExtractedDeclaration]
+    @DefaultEmptyArray var reviewReasons: [MenuImportExtractedReviewReason]
 }
 
 struct MenuImportExtractedBundleComponent: Codable, Equatable, Sendable {
@@ -135,9 +178,9 @@ struct MenuImportExtractedBundleComponent: Codable, Equatable, Sendable {
     var order: Int
     var quantity: MenuImportExtractedQuantity?
     var optionGroup: MenuImportExtractedOptionGroup?
-    var offers: [MenuImportExtractedOffer]
-    var declarations: [MenuImportExtractedDeclaration]
-    var reviewReasons: [MenuImportExtractedReviewReason]
+    @DefaultEmptyArray var offers: [MenuImportExtractedOffer]
+    @DefaultEmptyArray var declarations: [MenuImportExtractedDeclaration]
+    @DefaultEmptyArray var reviewReasons: [MenuImportExtractedReviewReason]
 }
 
 struct MenuImportExtractedDeclaration: Codable, Equatable, Sendable {
@@ -149,7 +192,7 @@ struct MenuImportExtractedDeclaration: Codable, Equatable, Sendable {
     var canonicalId: String?
     var claim: String
     var scope: String
-    var evidenceLineIds: [String]
+    @DefaultEmptyArray var evidenceLineIds: [String]
 }
 
 struct MenuImportExtractedReviewReason: Codable, Equatable, Sendable {
@@ -157,7 +200,7 @@ struct MenuImportExtractedReviewReason: Codable, Equatable, Sendable {
     var path: String
     var message: String
     var severity: String
-    var evidenceLineIds: [String]
+    @DefaultEmptyArray var evidenceLineIds: [String]
 }
 
 // MARK: - Stable OCR evidence references
