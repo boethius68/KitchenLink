@@ -1,6 +1,6 @@
 # Claude Code Handoff
 
-**Updated:** 26 July 2026 (Session-Teil 23: Legendenbasierte Namens-Normalisierung)
+**Updated:** 27 July 2026 (Session-Teil 24: Legendenfilter greift zur Laufzeit nicht)
 **Zuvor:** 26 July 2026 (Session-Teil 22: Menu-Import launch-fähig gemacht)
 
 ## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
@@ -201,6 +201,49 @@ KL-MENU-005 (§6.2). Details in Session-Teil 10 bis 12.
 Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
+
+## Session-Teil 24: Ungeklärt — Legendenfilter erreicht die Laufzeitdaten nicht (27. Juli 2026)
+
+### Stand
+
+`removingNameDerivedLegendEntries` (PR #33) verwirft Legendeneinträge, die nur
+ein nach dem ersten Zeichen zerschnittener Gerichtname sind. Auf
+Assembler-Ebene ist das durch
+`testFabricatedLegendBuiltFromEntryNamesIsRejected` bewiesen: zwei Fälschungen
+werden verworfen, eine echte Legendenzeile überlebt, beide Verwerfungen
+erscheinen als Befund.
+
+### Das ungelöste Problem
+
+Im echten Lauf greift der Filter **nicht**. Reproduziert auf einer einzelnen
+Lichtburg-Seite, auch nach vollständig gelöschtem `derivedDataPath` und
+frischem Build (Binary 00:55, Quelle 00:36):
+
+- `rejected_name_derived_legend_entry`: **0 Befunde**
+- Dokumentdeklarationen unverändert 7, darunter `c` -> `"c arpaccio Di Manzo"`
+- Auf denselben Reportdaten nachgerechnet: `compacted("c arpaccio Di Manzo")`
+  = `"carpacciodimanzo"` steht **nachweislich** im Namensindex des Entwurfs.
+
+Die Filterbedingung trifft also auf die Daten zu, die am Ende im Report stehen,
+wird aber nicht ausgelöst. `MenuImportDraftAssembler.assemble` ist laut
+`grep` die einzige `assemble`-Definition, und `parseDraftWithLLM`
+(`ContentView.swift`) reicht deren Rückgabe unverändert weiter.
+
+### Nächste Ansätze (ungeprüft)
+
+1. Prüfen, ob `MenuImportService.importMenu` die Dokumentdeklarationen nach
+   `assemble` erneut befüllt — Verdacht auf `mergedLegend(from: legacySections)`
+   in `MenuImportDraftAdapter`, das im Report-Entwurf landen könnte.
+2. Prüfen, ob der Report-Entwurf überhaupt `llmResult.draft` ist oder eine
+   Rekonstruktion aus `draftSection(from:)` im Harness.
+3. Erst danach wieder Geld ausgeben. Die Frage ist mit einem Unit-Test auf dem
+   echten Reportinhalt klärbar, nicht mit weiteren Läufen.
+
+### Wichtig für die Erwartung
+
+Der Defekt "erfundene Legende aus Gerichtnamen" ist damit **nicht behoben**.
+Der Mechanismus existiert und ist getestet, erreicht die Produktionsdaten aber
+nicht. `declarationF1` steht unverändert bei 0.201.
 
 ## Session-Teil 23: Legendenbasierte Namens-Normalisierung (26. Juli 2026)
 
