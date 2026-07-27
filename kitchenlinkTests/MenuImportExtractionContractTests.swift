@@ -802,6 +802,86 @@ final class MenuImportExtractionContractTests: XCTestCase {
         XCTAssertEqual(entries[0].declarations.compactMap(\.localCode), ["W", "I"])
     }
 
+    /// Measured on a real card that prints no legend at all: the provider
+    /// returned eleven "legend" entries built from dish names cut after their
+    /// first character (`a` = `"a ntipasti-Vorspeisen"`). Nothing illegal was
+    /// claimed, so the forbidden-claim check stayed silent, but the operator
+    /// would have seen a fabricated allergen legend.
+    func testFabricatedLegendBuiltFromEntryNamesIsRejected() throws {
+        let lines = [
+            line("Antipasti-Vorspeisen", page: 0, x: 0.1, y: 0.9),
+            line("Carpaccio Di Manzo", page: 0, x: 0.1, y: 0.8),
+            line("A Glutenhaltiges Getreide", page: 0, x: 0.1, y: 0.1)
+        ]
+        let declarations = [
+            // Fabricated: the dish name re-split after its first character.
+            ("a", "a ntipasti-Vorspeisen"),
+            ("c", "c arpaccio Di Manzo"),
+            // Genuine legend line on the same page — must survive.
+            ("g", "A Glutenhaltiges Getreide")
+        ].map { code, raw in
+            MenuImportExtractedDeclaration(
+                kind: "source_declaration",
+                rawText: raw,
+                alternatives: [],
+                localCode: code,
+                canonicalId: nil,
+                claim: "unknown",
+                scope: "document",
+                evidenceLineIds: ["p1-l3"]
+            )
+        }
+        let extraction = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 0,
+            pageKind: "menu",
+            languages: ["de"],
+            sections: [
+                MenuImportExtractedSection(
+                    title: text("Antipasti-Vorspeisen", language: "de", evidence: ["p1-l1"]),
+                    order: 0,
+                    entries: [
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            name: text("Carpaccio Di Manzo", language: "de", evidence: ["p1-l2"]),
+                            description: nil,
+                            itemNumber: nil,
+                            order: 0,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [],
+                            bundleComponents: [],
+                            declarations: [],
+                            reviewReasons: []
+                        )
+                    ],
+                    subsections: [],
+                    declarations: [],
+                    reviewReasons: []
+                )
+            ],
+            declarations: declarations,
+            reviewReasons: []
+        )
+
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: source(),
+            pageExtractions: [extraction],
+            ocrLines: lines,
+            processing: processing()
+        )
+
+        XCTAssertEqual(draft.declarations.compactMap(\.localCode), ["g"])
+        XCTAssertEqual(
+            draft.reviewFindings?.filter {
+                $0.code == "rejected_name_derived_legend_entry"
+            }.count,
+            2,
+            "Beide Fälschungen müssen sichtbar verworfen werden, nicht still."
+        )
+        XCTAssertTrue(draft.validate().errors.isEmpty)
+    }
+
     private func text(
         _ value: String,
         language: String?,
