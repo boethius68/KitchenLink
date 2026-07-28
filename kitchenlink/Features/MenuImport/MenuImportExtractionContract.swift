@@ -33,6 +33,36 @@ struct DefaultEmptyArray<Element: Codable & Equatable & Sendable>: Codable, Equa
     }
 }
 
+/// An open-vocabulary classifier that decodes to `"unknown"` when the provider
+/// omitted the key.
+///
+/// Same reasoning as `DefaultEmptyArray`, for the other tolerated absence:
+/// fields like `basis`, `kind`, `claim`, `scope` and `mode` are open values
+/// whose canonical model already treats `unknown` as a legitimate answer. A
+/// measured run discarded an entire card's semantic extraction over a single
+/// omitted `offers[0].basis` — an omission that costs nothing, since the
+/// assembler maps a blank value to `unknown` anyway.
+///
+/// A present value of the wrong type still throws, for the same reason.
+@propertyWrapper
+struct DefaultUnknown: Codable, Equatable, Sendable {
+    var wrappedValue: String
+
+    init(wrappedValue: String) {
+        self.wrappedValue = wrappedValue
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        wrappedValue = try container.decode(String.self)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(wrappedValue)
+    }
+}
+
 extension KeyedDecodingContainer {
     /// Absence alone yields the empty default; a present value is decoded
     /// strictly and may still throw.
@@ -41,6 +71,13 @@ extension KeyedDecodingContainer {
         forKey key: Key
     ) throws -> DefaultEmptyArray<Element> {
         try decodeIfPresent(type, forKey: key) ?? DefaultEmptyArray<Element>(wrappedValue: [])
+    }
+
+    func decode(
+        _ type: DefaultUnknown.Type,
+        forKey key: Key
+    ) throws -> DefaultUnknown {
+        try decodeIfPresent(type, forKey: key) ?? DefaultUnknown(wrappedValue: "unknown")
     }
 }
 
@@ -56,7 +93,7 @@ struct MenuImportPageExtraction: Codable, Equatable, Sendable {
 
     var contractVersion: String
     var pageIndex: Int
-    var pageKind: String
+    @DefaultUnknown var pageKind: String
     @DefaultEmptyArray var languages: [String]
     @DefaultEmptyArray var sections: [MenuImportExtractedSection]
     @DefaultEmptyArray var declarations: [MenuImportExtractedDeclaration]
@@ -109,7 +146,7 @@ struct MenuImportExtractedSection: Codable, Equatable, Sendable {
 }
 
 struct MenuImportExtractedEntry: Codable, Equatable, Sendable {
-    var kind: String
+    @DefaultUnknown var kind: String
     var name: MenuImportExtractedText
     var description: MenuImportExtractedText?
     var itemNumber: String?
@@ -124,14 +161,14 @@ struct MenuImportExtractedEntry: Codable, Equatable, Sendable {
 
 struct MenuImportExtractedOffer: Codable, Equatable, Sendable {
     var label: MenuImportExtractedText?
-    var priceKind: String
+    @DefaultUnknown var priceKind: String
     var amountCents: Int?
     var deltaCents: Int?
     var minimumAmountCents: Int?
     var maximumAmountCents: Int?
     var currencyCode: String?
     var rawPrice: String?
-    var basis: String
+    @DefaultUnknown var basis: String
     var appliesToQuantityOrder: Int?
     @DefaultEmptyArray var evidenceLineIds: [String]
 }
@@ -139,8 +176,8 @@ struct MenuImportExtractedOffer: Codable, Equatable, Sendable {
 struct MenuImportExtractedQuantity: Codable, Equatable, Sendable {
     var rawText: String
     var value: Double?
-    var unit: String
-    var kind: String
+    @DefaultUnknown var unit: String
+    @DefaultUnknown var kind: String
     @DefaultEmptyArray var evidenceLineIds: [String]
 }
 
@@ -148,7 +185,7 @@ struct MenuImportExtractedSelectionRule: Codable, Equatable, Sendable {
     var minimum: Int?
     var maximum: Int?
     var freeSelectionCount: Int?
-    var mode: String
+    @DefaultUnknown var mode: String
     var allowsRepeats: Bool?
 }
 
@@ -163,7 +200,7 @@ struct MenuImportExtractedOptionGroup: Codable, Equatable, Sendable {
 struct MenuImportExtractedChoice: Codable, Equatable, Sendable {
     var name: MenuImportExtractedText
     var description: MenuImportExtractedText?
-    var kind: String
+    @DefaultUnknown var kind: String
     var order: Int
     @DefaultEmptyArray var offers: [MenuImportExtractedOffer]
     var quantity: MenuImportExtractedQuantity?
@@ -174,7 +211,7 @@ struct MenuImportExtractedChoice: Codable, Equatable, Sendable {
 struct MenuImportExtractedBundleComponent: Codable, Equatable, Sendable {
     var title: MenuImportExtractedText
     var description: MenuImportExtractedText?
-    var kind: String
+    @DefaultUnknown var kind: String
     var order: Int
     var quantity: MenuImportExtractedQuantity?
     var optionGroup: MenuImportExtractedOptionGroup?
@@ -184,14 +221,14 @@ struct MenuImportExtractedBundleComponent: Codable, Equatable, Sendable {
 }
 
 struct MenuImportExtractedDeclaration: Codable, Equatable, Sendable {
-    var kind: String
+    @DefaultUnknown var kind: String
     var rawText: String
     var alternatives: [MenuImportExtractedLocalizedText]?
     var localCode: String?
     // `canonical_id` becomes `canonicalId` with `.convertFromSnakeCase`.
     var canonicalId: String?
-    var claim: String
-    var scope: String
+    @DefaultUnknown var claim: String
+    @DefaultUnknown var scope: String
     @DefaultEmptyArray var evidenceLineIds: [String]
 }
 
@@ -648,6 +685,7 @@ struct MenuImportDraftAssembler {
 
         let orderedPages = pageExtractions.sorted { $0.pageIndex < $1.pageIndex }
         context.collectLegendCodes(from: orderedPages)
+        context.collectDocumentCurrency(from: orderedPages, ocrLines: ocrLines)
         var seenPages: Set<Int> = []
         for page in orderedPages {
             let pagePath = "pages[\(page.pageIndex)]"
@@ -726,10 +764,27 @@ struct MenuImportDraftAssembler {
             enrichedSourceDocument.pages = sourcePages
         }
 
-        declarations = context.removingNameDerivedLegendEntries(
-            declarations,
+        let filtered = context.removingNameDerivedLegendEntries(
+            documentDeclarations: declarations,
             sections: sections
         )
+        declarations = filtered.declarations
+        sections = filtered.sections
+
+        context.deriveStructuralReviewCodes(
+            sections: sections,
+            declarations: declarations
+        )
+
+        if context.inferredCurrencyOffers > 0, let currency = context.documentCurrency {
+            context.addFinding(
+                code: "currency_completed_from_document",
+                path: "sections",
+                message: "\(context.inferredCurrencyOffers) price(s) carried no currency; the document's own single currency \(currency) was used.",
+                severity: .info,
+                pageIndex: nil
+            )
+        }
 
         let returnedPages = Set(orderedPages.map(\.pageIndex))
         for missingPage in 0..<sourceDocument.pageCount where !returnedPages.contains(missingPage) {
@@ -768,6 +823,14 @@ private struct AssemblyContext {
     /// guessing: `[FI]` is two codes on a card whose legend defines `F` and
     /// `I`, while `[XL]` on the same card is a size and must stay in the name.
     var legendCodes: Set<String> = []
+
+    /// The one currency the document itself evidences, if it evidences exactly
+    /// one. Filled before any offer is converted; see `collectDocumentCurrency`.
+    var documentCurrency: String?
+
+    /// How many offers were completed from `documentCurrency`. Reported once
+    /// per document rather than once per price, so the review stays readable.
+    var inferredCurrencyOffers = 0
 
     mutating func orderedIndices(
         _ orders: [Int],
@@ -963,14 +1026,17 @@ private struct AssemblyContext {
             )
         }
 
+        var name = makeText(
+            normalizedIdentity.name,
+            pageIndex: pageIndex,
+            path: "\(path).name"
+        )
+        restorePrintedName(&name, quantities: quantities)
+
         return MenuImportEntry(
             id: idPrefix,
             kind: nonblank(source.kind),
-            name: makeText(
-                normalizedIdentity.name,
-                pageIndex: pageIndex,
-                path: "\(path).name"
-            ),
+            name: name,
             description: source.description.map {
                 makeText($0, pageIndex: pageIndex, path: "\(path).description")
             },
@@ -1004,10 +1070,16 @@ private struct AssemblyContext {
     /// declaration's raw text and from the candidate name, and drop it only on
     /// full equality. A genuine legend line (`"A Glutenhaltiges Getreide"`)
     /// never matches a dish name, so nothing real is lost.
+    ///
+    /// The provider decides where it attaches such a fabricated legend: the
+    /// document, a section, an entry, an option choice or a bundle component.
+    /// Filtering the document list alone leaves the same fabricated text in the
+    /// draft one level down, so every declaration the assembler produces passes
+    /// through this filter, and each finding names the path it was found at.
     mutating func removingNameDerivedLegendEntries(
-        _ declarations: [MenuImportDeclaration],
+        documentDeclarations: [MenuImportDeclaration],
         sections: [MenuImportSection]
-    ) -> [MenuImportDeclaration] {
+    ) -> (declarations: [MenuImportDeclaration], sections: [MenuImportSection]) {
         var names: Set<String> = []
         func collect(_ sections: [MenuImportSection]) {
             for section in sections {
@@ -1020,8 +1092,23 @@ private struct AssemblyContext {
         }
         collect(sections)
         names.remove("")
-        guard !names.isEmpty else { return declarations }
+        guard !names.isEmpty else { return (documentDeclarations, sections) }
 
+        let keptDocumentDeclarations = removingNameDerivedLegendEntries(
+            in: documentDeclarations,
+            names: names,
+            path: "declarations"
+        )
+        var keptSections = sections
+        removeNameDerivedLegendEntries(in: &keptSections, names: names, path: "sections")
+        return (keptDocumentDeclarations, keptSections)
+    }
+
+    private mutating func removingNameDerivedLegendEntries(
+        in declarations: [MenuImportDeclaration],
+        names: Set<String>,
+        path: String
+    ) -> [MenuImportDeclaration] {
         var kept: [MenuImportDeclaration] = []
         for declaration in declarations {
             let compactedRaw = compacted(declaration.rawText)
@@ -1033,8 +1120,8 @@ private struct AssemblyContext {
                 // it was rejected as a re-split entry name.
                 addFinding(
                     code: "rejected_name_derived_legend_entry",
-                    path: "declarations",
-                    message: "A document declaration repeated an entry or section name split after its first character and was rejected as a fabricated legend entry: \(declaration.rawText)",
+                    path: path,
+                    message: "A declaration repeated an entry or section name split after its first character and was rejected as a fabricated legend entry: \(declaration.rawText)",
                     severity: .warning,
                     pageIndex: declaration.evidence.pageIndex
                 )
@@ -1043,6 +1130,108 @@ private struct AssemblyContext {
             kept.append(declaration)
         }
         return kept
+    }
+
+    private mutating func removeNameDerivedLegendEntries(
+        in sections: inout [MenuImportSection],
+        names: Set<String>,
+        path: String
+    ) {
+        for sectionIndex in sections.indices {
+            let sectionPath = "\(path)[\(sectionIndex)]"
+            sections[sectionIndex].declarations = removingNameDerivedLegendEntries(
+                in: sections[sectionIndex].declarations,
+                names: names,
+                path: "\(sectionPath).declarations"
+            )
+            for entryIndex in sections[sectionIndex].entries.indices {
+                let entryPath = "\(sectionPath).entries[\(entryIndex)]"
+                sections[sectionIndex].entries[entryIndex].declarations =
+                    removingNameDerivedLegendEntries(
+                        in: sections[sectionIndex].entries[entryIndex].declarations,
+                        names: names,
+                        path: "\(entryPath).declarations"
+                    )
+                let groupIndices = sections[sectionIndex].entries[entryIndex]
+                    .optionGroups.indices
+                for groupIndex in groupIndices {
+                    let choiceIndices = sections[sectionIndex].entries[entryIndex]
+                        .optionGroups[groupIndex].choices.indices
+                    for choiceIndex in choiceIndices {
+                        let choicePath =
+                            "\(entryPath).optionGroups[\(groupIndex)].choices[\(choiceIndex)]"
+                        sections[sectionIndex].entries[entryIndex]
+                            .optionGroups[groupIndex].choices[choiceIndex].declarations =
+                            removingNameDerivedLegendEntries(
+                                in: sections[sectionIndex].entries[entryIndex]
+                                    .optionGroups[groupIndex].choices[choiceIndex].declarations,
+                                names: names,
+                                path: "\(choicePath).declarations"
+                            )
+                    }
+                }
+                let componentIndices = sections[sectionIndex].entries[entryIndex]
+                    .bundleComponents.indices
+                for componentIndex in componentIndices {
+                    let componentPath = "\(entryPath).bundleComponents[\(componentIndex)]"
+                    sections[sectionIndex].entries[entryIndex]
+                        .bundleComponents[componentIndex].declarations =
+                        removingNameDerivedLegendEntries(
+                            in: sections[sectionIndex].entries[entryIndex]
+                                .bundleComponents[componentIndex].declarations,
+                            names: names,
+                            path: "\(componentPath).declarations"
+                        )
+                }
+            }
+            removeNameDerivedLegendEntries(
+                in: &sections[sectionIndex].subsections,
+                names: names,
+                path: "\(sectionPath).subsections"
+            )
+        }
+    }
+
+    /// Restores a printed name that the provider split into a shorter name and
+    /// a structured quantity.
+    ///
+    /// Measured on a real card: the printed `Hüftsteak(250gr)` came back as the
+    /// name `Hüftsteak` plus the quantity `250gr`. Structurally that is correct
+    /// — but the operator compares the draft against the printed card, and a
+    /// renamed dish reads like a different dish. The quantity stays recorded;
+    /// only the name goes back to what the card shows.
+    ///
+    /// The rewrite is evidence-bound, never a guess: it happens only when the
+    /// located OCR line equals the name followed by exactly the recorded
+    /// quantities, separated by nothing but brackets and punctuation.
+    private func restorePrintedName(
+        _ name: inout MenuImportText,
+        quantities: [MenuImportQuantity]
+    ) {
+        guard name.evidence.isLocated, !quantities.isEmpty else { return }
+        let printed = name.evidence.rawText.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        let compactedPrinted = compacted(printed)
+        let compactedName = compacted(name.value)
+        guard !compactedName.isEmpty,
+              compactedPrinted != compactedName,
+              compactedPrinted.hasPrefix(compactedName)
+        else { return }
+
+        let separators = CharacterSet(charactersIn: "()[]{}<>.,;:/|\\-–—·•*")
+        func stripped(_ value: String) -> String {
+            value.unicodeScalars
+                .filter { !separators.contains($0) }
+                .map(String.init)
+                .joined()
+        }
+        let remainder = stripped(String(compactedPrinted.dropFirst(compactedName.count)))
+        let recordedQuantities = stripped(
+            quantities.map { compacted($0.rawText) }.joined()
+        )
+        guard !recordedQuantities.isEmpty, remainder == recordedQuantities else { return }
+        name.value = printed
     }
 
     private func compacted(_ value: String) -> String {
@@ -1064,6 +1253,169 @@ private struct AssemblyContext {
                 legendCodes.insert(token)
             }
         }
+    }
+
+    /// Raises the review codes that follow from the finished draft itself.
+    ///
+    /// These three conditions are structural facts, not judgements: the draft
+    /// either contains an option group without a stated selection rule, or a
+    /// bundle course that offers a choice, or a legend code whose meaning was
+    /// never resolved. Each one is something the operator has to decide before
+    /// publishing, so it must not depend on the provider remembering to mention
+    /// it — measured on the gate cards, the provider raised such a reason on
+    /// one card and stayed silent about the identical situation on another.
+    ///
+    /// Raised once per document and per code. The point is to steer the review,
+    /// not to repeat the same sentence for forty option groups.
+    mutating func deriveStructuralReviewCodes(
+        sections: [MenuImportSection],
+        declarations: [MenuImportDeclaration]
+    ) {
+        var raised = Set(findings.map(\.code))
+        func raise(
+            _ code: String,
+            path: String,
+            message: String,
+            pageIndex: Int?
+        ) {
+            guard raised.insert(code).inserted else { return }
+            addFinding(
+                code: code,
+                path: path,
+                message: message,
+                severity: .warning,
+                pageIndex: pageIndex
+            )
+        }
+
+        func inspect(_ sections: [MenuImportSection], path: String) {
+            for (sectionIndex, section) in sections.enumerated() {
+                let sectionPath = "\(path)[\(sectionIndex)]"
+                for (entryIndex, entry) in section.entries.enumerated() {
+                    let entryPath = "\(sectionPath).entries[\(entryIndex)]"
+                    for (groupIndex, group) in entry.optionGroups.enumerated() {
+                        guard normalizedToken(group.selectionRule.mode) == "unknown",
+                              group.selectionRule.minimum == nil,
+                              group.selectionRule.maximum == nil
+                        else { continue }
+                        raise(
+                            "selection_rule_unknown",
+                            path: "\(entryPath).optionGroups[\(groupIndex)].selectionRule",
+                            message: "Options are visible but the card does not state how many may be chosen; the rule needs a decision.",
+                            pageIndex: group.title.evidence.pageIndex
+                        )
+                    }
+                    for (componentIndex, component) in entry.bundleComponents.enumerated()
+                    where component.optionGroup != nil {
+                        raise(
+                            "complex_bundle_choice",
+                            path: "\(entryPath).bundleComponents[\(componentIndex)]",
+                            message: "A course of this set menu offers a choice; its rule and price effect need confirmation.",
+                            pageIndex: component.title.evidence.pageIndex
+                        )
+                    }
+                }
+                inspect(section.subsections, path: "\(sectionPath).subsections")
+            }
+        }
+        inspect(sections, path: "sections")
+
+        for declaration in declarations {
+            guard declaration.localCode != nil,
+                  normalizedToken(declaration.claim) == "unknown",
+                  (declaration.canonicalID ?? "").isEmpty
+            else { continue }
+            raise(
+                "source_declaration_meaning_unknown",
+                path: "declarations",
+                message: "The card uses declaration codes whose meaning was not resolved; they stay unmapped until reviewed.",
+                pageIndex: declaration.evidence.pageIndex
+            )
+        }
+    }
+
+    /// Determines the document's currency from the document's own evidence.
+    ///
+    /// Providers state `currency_code` per page and drop it inconsistently:
+    /// measured on the gate cards, 66 of 92 prices came back without one while
+    /// other pages of the same card said `EUR`. A price without a currency is
+    /// unusable downstream, and asking the operator to fix 66 prices by hand is
+    /// exactly the effort this import exists to remove.
+    ///
+    /// Two sources count as evidence, in this order, and each is only used when
+    /// it is unambiguous — a single distinct currency across the whole document:
+    ///
+    /// 1. the currency codes the provider did state on other prices,
+    /// 2. the currency symbols printed on the card itself, read from the OCR
+    ///    lines (`€`, `$`, `£`, `CHF`).
+    ///
+    /// If the document evidences two currencies, or none, nothing is filled in:
+    /// a guessed currency is a wrong price, and this pipeline does not guess.
+    mutating func collectDocumentCurrency(
+        from pages: [MenuImportPageExtraction],
+        ocrLines: [MenuImportOCRLine]
+    ) {
+        var stated: Set<String> = []
+        func collectOffers(_ offers: [MenuImportExtractedOffer]) {
+            for offer in offers {
+                guard let code = offer.currencyCode else { continue }
+                let token = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                guard !token.isEmpty else { continue }
+                stated.insert(token)
+            }
+        }
+        func collectEntries(_ entries: [MenuImportExtractedEntry]) {
+            for entry in entries {
+                collectOffers(entry.offers)
+                for group in entry.optionGroups {
+                    for choice in group.choices { collectOffers(choice.offers) }
+                }
+                for component in entry.bundleComponents {
+                    collectOffers(component.offers)
+                    if let group = component.optionGroup {
+                        for choice in group.choices { collectOffers(choice.offers) }
+                    }
+                }
+            }
+        }
+        func collectSections(_ sections: [MenuImportExtractedSection]) {
+            for section in sections {
+                collectEntries(section.entries)
+                collectSections(section.subsections)
+            }
+        }
+        for page in pages { collectSections(page.sections) }
+
+        if stated.count == 1 {
+            documentCurrency = stated.first
+            return
+        }
+        guard stated.isEmpty else { return }
+
+        let symbols: [(String, String)] = [
+            ("€", "EUR"),
+            ("£", "GBP"),
+            ("CHF", "CHF"),
+            ("$", "USD")
+        ]
+        var printed: Set<String> = []
+        for line in ocrLines {
+            let text = line.text.uppercased()
+            for (symbol, code) in symbols where text.contains(symbol) {
+                printed.insert(code)
+            }
+        }
+        if printed.count == 1 { documentCurrency = printed.first }
+    }
+
+    /// Completes a price whose currency the provider left out, from the
+    /// document's own evidence. See `collectDocumentCurrency`.
+    mutating func resolvedCurrencyCode(_ stated: String?) -> String? {
+        let token = stated?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !token.isEmpty { return token }
+        guard let documentCurrency else { return nil }
+        inferredCurrencyOffers += 1
+        return documentCurrency
     }
 
     /// Splits a trailing declaration-code group off an entry name.
@@ -1493,6 +1845,16 @@ private struct AssemblyContext {
             ?? source.label?.value.trimmingCharacters(in: .whitespacesAndNewlines)
             ?? ""
 
+        // A choice the card prints no price for is included in the dish price.
+        // Providers express that as `fixed` with zero cents, which downstream
+        // reads as "this costs 0,00 €" — a different statement. Zero cents that
+        // were never printed become `included`; a printed "0,00 €" stays a
+        // price, because then the card really did state one.
+        if outputKind == .fixed, amount == 0, rawPrice == nil {
+            outputKind = .included
+            amount = nil
+        }
+
         return MenuImportOffer(
             id: id,
             label: source.label.map {
@@ -1503,7 +1865,7 @@ private struct AssemblyContext {
             deltaCents: delta,
             minimumAmountCents: minimum,
             maximumAmountCents: maximum,
-            currencyCode: source.currencyCode,
+            currencyCode: resolvedCurrencyCode(source.currencyCode),
             rawPrice: rawPrice,
             basis: nonblank(source.basis),
             appliesToQuantityID: appliesToQuantityID,

@@ -1,7 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 27 July 2026 (Session-Teil 24: Legendenfilter greift zur Laufzeit nicht)
-**Zuvor:** 26 July 2026 (Session-Teil 22: Menu-Import launch-fähig gemacht)
+**Updated:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+**Zuvor:** 27 July 2026 (Session-Teil 24: Legendenfilter greift zur Laufzeit nicht)
 
 ## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
 
@@ -201,6 +201,108 @@ KL-MENU-005 (§6.2). Details in Session-Teil 10 bis 12.
 Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
+
+## Session-Teil 25: Vier deterministische Reparaturen im Assembler (28. Juli 2026)
+
+### Der offene Befund aus Teil 24 ist geklärt
+
+Der Legendenfilter war **nicht defekt**. Die Prüfung von Teil 24 lief auf
+`lichtburg-berlin:0` — auf dieser Seite stehen die gefälschten Legendennamen
+(`Carpaccio Di Manzo`, `Antipasti-Vorspeisen`) gar nicht. Der Filter fand
+nichts, weil nichts zu finden war. Zusätzlich waren die Reportdateien unter
+`/tmp` inzwischen vom System-Cleaner geleert, weshalb der Vergleich in Teil 24
+vermutlich auf einem älteren Report basierte.
+
+Zwei Folgerungen, beide umgesetzt:
+
+- Der Filter deckte nur **Dokumentdeklarationen** ab. Der Anbieter entscheidet
+  aber, wo er eine erfundene Legende anhängt. Er greift jetzt auf Sektions-,
+  Eintrags-, Auswahl- und Komponentenebene, und jeder Befund nennt seinen Pfad.
+- Reportdaten gehören nicht nach `/tmp`. Die Läufe dieser Sitzung liegen unter
+  `.claude/artifacts/` (nicht versioniert, ausserhalb von git).
+
+Für das Protokoll: mit dem aktuellen Prompt erfindet `gemini-3.5-flash` keine
+Legenden mehr. Der Filter feuert in **null** echten Läufen. Er bleibt als Netz.
+
+### Vier Defekte, die kein Prompt zuverlässig löst
+
+Alle vier sitzen jetzt im Assembler, sind unit-getestet und anbieterunabhängig:
+
+1. **Gedruckter Name überlebt die Mengenabtrennung.** Die Karte druckt
+   `Hüftsteak(250gr)`, der Anbieter lieferte `Hüftsteak` plus Menge `250gr`.
+   Das Gate zählte das als fehlenden UND erfundenen Eintrag — 8 der 18
+   Korrekturen. Der Name wird aus der eigenen OCR-Belegzeile wiederhergestellt,
+   die Menge bleibt strukturiert erfasst. Die Rückschreibung passiert nur, wenn
+   die verortete Zeile exakt aus Name plus den erfassten Mengen besteht.
+2. **Währung aus Dokumentbeleg vervollständigt.** 66 von 92 Preisen kamen ohne
+   `currency_code`. Ergänzt wird aus genau zwei Quellen: den Codes, die der
+   Anbieter anderswo im selben Dokument genannt hat, und den auf der Karte
+   gedruckten Symbolen (OCR). Zwei Währungen im Dokument oder gar keine heisst:
+   nichts ergänzen.
+3. **`fixed`/0 Cent ohne gedruckten Preis ist `included`.** Ein gedrucktes
+   `0,00 €` bleibt ein Preis.
+4. **Drei Prüfcodes werden aus dem fertigen Entwurf abgeleitet**
+   (`selection_rule_unknown`, `complex_bundle_choice`,
+   `source_declaration_meaning_unknown`) statt darauf zu warten, dass der
+   Anbieter sie erwähnt — gemessen meldete er sie auf einer Karte und schwieg
+   bei identischer Lage auf der nächsten. Einmal pro Dokument und Code.
+
+`relationship_scope_ambiguous` wurde **bewusst nicht** abgeleitet: es gibt
+keinen ehrlichen strukturellen Auslöser dafür. Ihn zu erfinden hiesse, den
+Extraktor auf den Lösungsschlüssel des Gates zu tunen.
+
+### Robustheit gegen Anbieterausfälle
+
+- Die Abwesenheitstoleranz gilt jetzt auch für offene Klassifikatoren
+  (`basis`, `kind`, `claim`, `scope`, `mode`, `page_kind`) — ein einziges
+  ausgelassenes `offers[0].basis` hatte die komplette semantische Erfassung
+  einer Karte verworfen. Vorhandene Felder mit falschem Typ werfen weiterhin.
+- Eine Seite mit nicht abbildbarem JSON wird jetzt **zweimal** wiederholt statt
+  einmal. Begründung: eine gescheiterte Seite kostet die ganze Karte ihren
+  semantischen Entwurf (`parseDraftWithLLM` akzeptiert keinen Teilentwurf).
+- Der Auswerter benennt jetzt, **welche** Preise er für erfunden hält
+  (`diagnostics.inventedPrices` / `missingPrices`). Ohne das war die
+  Kennzahl nicht handhabbar.
+
+### Messung (10 Gate-Seiten, `gemini-3.5-flash`)
+
+| | vorher | nachher |
+|---|---|---|
+| Korrekturen/Seite | 1.80 | **1.00** |
+| Eintrags-Recall | 0.941 | **1.000** |
+| Einträge F1 | 0.941 | **1.000** |
+| Bereiche F1 | 1.000 | **1.000** |
+| Kategoriezuordnung | 0.941 | **1.000** |
+| Namen exakt | 0.863 | **0.971** |
+| Review-Erkennung | 0.571 | **0.714** |
+| fehlende / erfundene Einträge | 4 / 4 | **0 / 0** |
+| verbotene Claims · stille Seitenverluste | 0 · 0 | **0 · 0** |
+
+`declarationF1` ist **kein belastbares Signal**: über vier identische Läufe
+gemessen 0.053 / 0.210 / 0.210 / 0.443. Sie hängt daran, wie viele
+Allergencodes das Modell zufällig an Einträge hängt.
+
+### Offen — und wofür ich den Nutzer brauche
+
+- **Guthaben.** Das OpenCode-Zen-Konto war im zweiten von drei
+  Wiederholungsläufen leer ("Insufficient balance", danach HTTP 401).
+  `minimumRepeatRuns 3` ist damit weiter unerfüllt, und die Zahlen oben stehen
+  auf **einem** sauberen Lauf. Läufe 2 und 3 sind Fehlschläge, keine Messung.
+- **P95-Seitenlatenz 74 s** gegen 60 s Ziel. Das ist die Modellgeschwindigkeit
+  bei Vision auf dichten Seiten, nicht die Nebenläufigkeit (die steht auf 5).
+- **`expectedReviewRecall` 0.714** gegen Ziel 1.000. Der fehlende Code ist
+  `relationship_scope_ambiguous`. Das ist entweder eine Prompt-Frage oder eine
+  Ground-Truth-Frage, keine Assembler-Frage.
+- **Sporadisch unlesbares JSON** auf einer dichten Seite (scheune Seite 1, in
+  zwei von vier Läufen). Der doppelte Retry ist die Gegenmassnahme; der
+  Rohtext des Fehlschlags wurde noch nicht eingefangen. Nächster Schritt:
+  `KITCHENLINK_LLM_DIAGNOSTICS=1` und wiederholt genau diese Seite fahren, bis
+  sie fällt.
+- **Produktentscheidung, unverändert offen:** eine gescheiterte Seite verwirft
+  den semantischen Entwurf der **ganzen** Karte. In einem Lauf hat das zwei von
+  vier Karten gekostet. Seitenweise Rettung wäre die Alternative, erzeugt aber
+  einen Entwurf gemischter Herkunft — das ist eine Produktentscheidung des
+  Nutzers, keine technische.
 
 ## Session-Teil 24: Ungeklärt — Legendenfilter erreicht die Laufzeitdaten nicht (27. Juli 2026)
 

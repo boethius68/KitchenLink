@@ -5699,7 +5699,6 @@ enum MenuImportService {
                 || error.localizedCaseInsensitiveContains("parsebares json")
 
             if retryOnTimeout || retryOnBadJSON {
-                attempts += 1
                 let retryParts: [OpenAIChatRequest.Message.Part]
                 if retryOnTimeout {
                     let slimParts = makeLLMImageParts(
@@ -5714,14 +5713,25 @@ enum MenuImportService {
                 } else {
                     retryParts = imageParts
                 }
-                let retry = await runLLMExtractionCallWithTimeout(
-                    apiKey: apiKey,
-                    userPrompt: userPrompt,
-                    imageParts: retryParts,
-                    timeoutSeconds: llmRetryTimeoutSeconds
-                )
-                aggregateUsage = mergeTokenUsage(aggregateUsage, retry.usage)
-                call = retry
+                // A page that fails to map costs the WHOLE card its semantic
+                // extraction (`parseDraftWithLLM` accepts no partial draft), so
+                // the page is worth more than one extra call. Measured over
+                // three full gate runs, unparseable JSON hit the same dense page
+                // twice in a row while the identical request succeeded in the
+                // other run — retrying once was demonstrably not enough.
+                let maximumRetries = retryOnBadJSON ? 2 : 1
+                for _ in 0..<maximumRetries {
+                    attempts += 1
+                    let retry = await runLLMExtractionCallWithTimeout(
+                        apiKey: apiKey,
+                        userPrompt: userPrompt,
+                        imageParts: retryParts,
+                        timeoutSeconds: llmRetryTimeoutSeconds
+                    )
+                    aggregateUsage = mergeTokenUsage(aggregateUsage, retry.usage)
+                    call = retry
+                    if retry.extraction != nil { break }
+                }
             }
         }
 

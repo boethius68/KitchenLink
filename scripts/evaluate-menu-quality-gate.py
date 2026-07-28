@@ -381,6 +381,22 @@ def offer_key(context, offer, default_currency=None):
     )
 
 
+def describe_price_key(key):
+    """Turns a safety price key back into something a human can look up."""
+    context, kind, amount, delta, minimum, maximum = key
+    amounts = {
+        "amountCents": amount,
+        "deltaCents": delta,
+        "minimumAmountCents": minimum,
+        "maximumAmountCents": maximum,
+    }
+    return {
+        "context": context,
+        "priceKind": kind,
+        **{name: value for name, value in amounts.items() if value is not None},
+    }
+
+
 def safety_price_key(context, offer):
     return (
         context,
@@ -1606,6 +1622,17 @@ def score_document(manifest_document, truth, snapshot, mode):
             ],
             "extraNotices": [
                 notice.get("rawText") for notice in extra_notices
+            ],
+            # inventedPrices is a hard-gate count and one third of the headline
+            # correctionsPerPage, so the report has to say WHICH prices it
+            # means — otherwise the number cannot be acted on.
+            "inventedPrices": [
+                describe_price_key(key)
+                for key in (Counter(actual_safety_prices) - Counter(expected_safety_prices)).elements()
+            ],
+            "missingPrices": [
+                describe_price_key(key)
+                for key in (Counter(expected_safety_prices) - Counter(actual_safety_prices)).elements()
             ],
             "forbiddenEntryHits": forbidden_hits,
             "forbiddenClaimHits": forbidden_claim_hits,

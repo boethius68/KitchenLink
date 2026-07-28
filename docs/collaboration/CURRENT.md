@@ -1,6 +1,6 @@
 # KitchenLink Current State
 
-**Updated:** 22 July 2026
+**Updated:** 28 July 2026
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
@@ -505,5 +505,49 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   card with a legend, because `X` is not one of its codes. Without a legend
   neither new shape fires: leaving a run in the name is recoverable in review,
   inventing declarations from a size is not.
+- **Menu import, deterministic repairs (28 July):** four defects that a prompt
+  cannot reliably fix were moved into the assembler, where they are unit-tested
+  and provider-independent. Measured over the ten gate pages with
+  `gemini-3.5-flash`: corrections per page 1.80 → **1.00**, entry recall
+  0.941 → **1.000**, entry F1 0.941 → **1.000**, section F1 **1.000**, category
+  assignment **1.000**, names exact 0.863 → **0.971**, expected review recall
+  0.571 → **0.714**, missing entries 4 → **0**, invented entries 4 → **0**,
+  forbidden claims **0**, silent page losses **0**, validation errors **0**.
+  1. The printed name survives when the provider splits a quantity out of it:
+     the card prints `Hüftsteak(250gr)`, the provider returned `Hüftsteak` plus
+     the quantity, and the gate counted that as a missing *and* an invented
+     entry. The name is restored from its own OCR evidence line, the quantity
+     stays recorded, and the rewrite only happens when the located line equals
+     name plus exactly the recorded quantities.
+  2. A price without a currency is completed from the document's own evidence —
+     the codes the provider did state elsewhere, or the symbols printed on the
+     card. 66 of 92 prices arrived without one. Two currencies in one document,
+     or none, mean nothing is filled in.
+  3. A choice the card prints no price for is `included`, not `fixed`/0 cents.
+     A printed `0,00 €` stays a price.
+  4. Three review codes are now derived from the finished draft instead of
+     depending on the provider mentioning them: an option group without a stated
+     selection rule, a bundle course offering a choice, and an unresolved legend
+     code. Raised once per document and code.
+  The absent-key tolerance was extended from arrays to the open classifiers
+  (`basis`, `kind`, `claim`, `scope`, `mode`, `page_kind`): a single omitted
+  `offers[0].basis` had discarded a whole card's semantic extraction. A page
+  whose JSON does not map is now retried twice rather than once, because one
+  failed page costs the entire card its semantic draft.
+  The fabricated-legend filter from 27 July applied only to document-level
+  declarations; it now covers section, entry, choice and component level, and
+  each finding names its path. Note for the record: it fires on zero real runs —
+  with the current prompt the provider no longer fabricates legends.
+  `declarationF1` is **not** a stable signal: across four identical runs it
+  measured 0.053, 0.210, 0.210 and 0.443. It reflects how many allergen codes
+  the model happens to attach to entries, and it is the least repeatable part of
+  the extraction.
+  **Open, needs credit:** the OpenCode Zen balance ran out during the second of
+  three repeat runs ("Insufficient balance"), so `minimumRepeatRuns 3` is still
+  unmet and the numbers above rest on one clean run. Also open: `p95` page
+  latency 74 s against a 60 s target, `expectedReviewRecall` 0.714 against 1.000
+  (the missing code is `relationship_scope_ambiguous`, which has no honest
+  structural trigger and was deliberately not faked), and an intermittent
+  unparseable provider response on one dense page.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.
