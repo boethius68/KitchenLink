@@ -44,6 +44,16 @@
 #   Thinking bei einem lokalen Extraktionsmodell abschalten:
 #     KITCHENLINK_LLM_REASONING_EFFORT=none ./scripts/run-import-review.sh
 #
+#   Layoutstufe vorschalten (olmOCR 2 lokal über Ollama). Löst Spalten,
+#   Preisspalten und zweisprachige Paare auf, BEVOR der Vertrag gefüllt wird.
+#   Gemessen 42-49 s pro Seite, 450-710 Ausgabe-Token. Kombinierbar mit jedem
+#   Vertragsmodell, auch dem bezahlten:
+#     ollama serve &
+#     ollama pull hf.co/lmstudio-community/olmOCR-2-7B-1025-GGUF:Q4_K_M
+#     KITCHENLINK_LAYOUT_BASE_URL=http://localhost:11434/v1 \
+#     KITCHENLINK_LAYOUT_MODEL=hf.co/lmstudio-community/olmOCR-2-7B-1025-GGUF:Q4_K_M \
+#       ./scripts/run-import-review.sh
+#
 #   Modell auf DIESEM Mac als Server (kostenlos, unbegrenzt, ohne API-Kosten).
 #   Gemessen am 29. Juli 2026: qwen3.5:9b-32k auf M5 erzeugt ~19 Token/s, eine
 #   dichte Seite braucht 3000-6000 Ausgabe-Token, also 2,5-5 Minuten. Seiten
@@ -164,6 +174,10 @@ TEST_RUNNER_KITCHENLINK_LLM_MAX_CONCURRENT_PAGES="${KITCHENLINK_LLM_MAX_CONCURRE
 TEST_RUNNER_KITCHENLINK_LLM_DIAGNOSTICS="${KITCHENLINK_LLM_DIAGNOSTICS:-}" \
 TEST_RUNNER_KITCHENLINK_PROMPT_DELTAS="${KITCHENLINK_PROMPT_DELTAS:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS="${KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS:-}" \
+TEST_RUNNER_KITCHENLINK_LAYOUT_BASE_URL="${KITCHENLINK_LAYOUT_BASE_URL:-}" \
+TEST_RUNNER_KITCHENLINK_LAYOUT_MODEL="${KITCHENLINK_LAYOUT_MODEL:-}" \
+TEST_RUNNER_KITCHENLINK_LAYOUT_API_KEY="${KITCHENLINK_LAYOUT_API_KEY:-}" \
+TEST_RUNNER_KITCHENLINK_LAYOUT_PAGE_TIMEOUT_SECONDS="${KITCHENLINK_LAYOUT_PAGE_TIMEOUT_SECONDS:-}" \
 xcodebuild \
   test-without-building \
   -xctestrun "$xctestrun" \

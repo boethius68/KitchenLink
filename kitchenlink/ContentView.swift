@@ -5805,12 +5805,18 @@ enum MenuImportService {
         }
 
         let lineDump = evidenceIndex.promptDump(pageIndex: pageIndex)
+        // Optionale Layoutstufe (siehe MenuImportLayoutPass): löst Spalten,
+        // Preisspalten und zweisprachige Paare auf, bevor der Vertrag gefüllt
+        // wird. Scheitert sie, läuft der Seitenlauf unverändert weiter — sie ist
+        // Lesehilfe, keine Voraussetzung.
+        let layout = await runLayoutPass(pageIndex: pageIndex, image: image)
+        let layoutBlock = layout.map { "\n\n\(MenuImportLayoutPass.promptBlock(for: $0.text))" } ?? ""
         let userPrompt = """
         Source page_index (zero-based): \(pageIndex)
         Visible page number: \(pageIndex + 1) of \(totalPages)
 
         Supplied OCR evidence lines:
-        \(lineDump.isEmpty ? "(no OCR lines available)" : lineDump)
+        \(lineDump.isEmpty ? "(no OCR lines available)" : lineDump)\(layoutBlock)
 
         Extract exactly this page. The image is primary; OCR lines are the only
         valid evidence IDs. Return contract_version 1.0.0 and page_index \(pageIndex).
@@ -5929,9 +5935,19 @@ enum MenuImportService {
                 status: isEmpty ? .empty : .processed,
                 attempts: attempts,
                 latencyMilliseconds: latency,
-                detail: isEmpty
-                    ? "Provider classified the page as \(extraction.pageKind) with no menu entries."
-                    : "Lossless extraction contract decoded successfully."
+                detail: [
+                    isEmpty
+                        ? "Provider classified the page as \(extraction.pageKind) with no menu entries."
+                        : "Lossless extraction contract decoded successfully.",
+                    layout.map {
+                        "Layout pass \($0.model) supplied a resolved transcript (\($0.latencyMilliseconds) ms)."
+                    },
+                    layout == nil ? MenuImportLayoutPass.isConfigured
+                        ? "Layout pass was configured but produced nothing."
+                        : nil : nil
+                ]
+                .compactMap { $0 }
+                .joined(separator: " ")
             ),
             usage: aggregateUsage,
             errorMessage: nil
@@ -6753,6 +6769,75 @@ enum MenuImportService {
             return LLMCallOutcome(root: nil, errorMessage: error.localizedDescription)
         }
     }
+
+    /// Führt die optionale Layoutstufe für eine Seite aus.
+    ///
+    /// Bewusst fehlertolerant: jeder Fehlschlag liefert `nil` und der Seitenlauf
+    /// geht ohne Layoutkontext weiter. Diese Stufe darf einen Import nie
+    /// verhindern — sie kann ihn nur verbessern.
+    private static func runLayoutPass(
+        pageIndex: Int,
+        image: UIImage
+    ) async -> MenuImportLayoutPass.Result? {
+        guard MenuImportLayoutPass.isConfigured,
+              let baseURL = MenuImportLayoutPass.configuredBaseURL,
+              let model = MenuImportLayoutPass.configuredModel
+        else { return nil }
+
+        // Das Dokumentmodell braucht die Seite in guter Auflösung: es soll
+        // Spalten und Punktführung erkennen, nicht raten.
+        let parts = makeLLMImageParts(
+            from: [image],
+            maxPages: 1,
+            maxDimension: 1600,
+            maxRawBytes: 1_600_000,
+            perImageMaxBytes: 1_600_000,
+            detail: "high"
+        )
+        guard let dataURL = parts.first?.imageURL?.url else { return nil }
+
+        let trimmedBase = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        guard let endpoint = URL(string: "\(trimmedBase)/chat/completions") else { return nil }
+
+        let startedAt = Date()
+        do {
+            var request = URLRequest(url: endpoint)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            if let key = MenuImportLayoutPass.configuredAPIKey {
+                request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            }
+            request.timeoutInterval = MenuImportLayoutPass.timeoutSeconds
+            request.httpBody = try MenuImportLayoutPass.requestBody(
+                model: model,
+                instruction: MenuImportLayoutPass.instruction,
+                imageDataURL: dataURL
+            )
+
+            let (data, response) = try await llmSession.data(for: request)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                lastLayoutPassDiagnostics = "Layoutstufe HTTP \(http.statusCode) auf Seite \(pageIndex + 1)"
+                return nil
+            }
+            guard let text = MenuImportLayoutPass.text(fromResponse: data) else {
+                lastLayoutPassDiagnostics = "Layoutstufe ohne Text auf Seite \(pageIndex + 1)"
+                return nil
+            }
+            return MenuImportLayoutPass.Result(
+                text: text,
+                latencyMilliseconds: max(0, Int(Date().timeIntervalSince(startedAt) * 1_000)),
+                model: model
+            )
+        } catch {
+            lastLayoutPassDiagnostics =
+                "Layoutstufe fehlgeschlagen auf Seite \(pageIndex + 1): \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    /// Letzter Layoutstufen-Hinweis, damit ein stiller Ausfall im Report
+    /// sichtbar wird statt als "kein Unterschied" zu erscheinen.
+    nonisolated(unsafe) static var lastLayoutPassDiagnostics: String?
 
     private static func makeLLMImageParts(
         from images: [UIImage],
