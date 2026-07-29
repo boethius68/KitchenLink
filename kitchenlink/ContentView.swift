@@ -4546,13 +4546,21 @@ enum MenuImportService {
     static let llmKeyedGatewayURLDefault = "https://api.openai.com/v1"
     private static let llmModelDefault = "gpt-4.1"
     private static var lastImportDiagnosticsStorage = "Nur OCR-Regeln genutzt."
-    // Vision-Aufrufe an das (langsame, reasonende) Free-Modell dauern gemessen
-    // 33–37 s pro Bildseite. Die Timeouts liegen deutlich darüber, sonst würde
-    // eine korrekte Antwort abgeschnitten. Seiten laufen parallel (siehe
-    // parseSectionsWithLLMPageByPage), daher ist die Gesamtlaufzeit trotzdem
-    // niedrig.
-    private static let llmPrimaryTimeoutSeconds: Double = 150
-    private static let llmRetryTimeoutSeconds: Double = 150
+    // Seiten laufen parallel (siehe parseSectionsWithLLMPageByPage), daher ist
+    // die Gesamtlaufzeit trotz grosszügiger Einzel-Timeouts vertretbar.
+    //
+    // Der kostenlose Pfad braucht deutlich mehr Zeit, und das war kein Detail:
+    // im Simulator gemessen (29. Juli 2026, Prüfküche über die App) antwortete
+    // das Gateway nach 154,6 s mit Status 200 — das Limit lag bei 150 s. Von
+    // sechs Anfragen kam genau eine an, die übrigen brach die App selbst mit
+    // `-999 cancelled` ab. Der Import fiel deshalb komplett auf die lokalen
+    // Regeln zurück, obwohl der Anbieter korrekt geantwortet hätte.
+    private static var llmPrimaryTimeoutSeconds: Double {
+        usesKeylessFreeDefault ? 300 : 150
+    }
+    private static var llmRetryTimeoutSeconds: Double {
+        usesKeylessFreeDefault ? 300 : 150
+    }
     /// Maximale gleichzeitige Seitenanfragen pro Karte. Der produktnahe
     /// Gateway-Default bleibt fünf; lokale 16-GB-Modelle können im
     /// Review-Runner ausdrücklich seriell ausgeführt werden.
@@ -4568,8 +4576,11 @@ enum MenuImportService {
     }
     private static let llmSession: URLSession = {
         let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 180
-        configuration.timeoutIntervalForResource = 300
+        // Muss über dem grössten Seiten-Timeout liegen, sonst schneidet die
+        // Session ab, bevor die eigene Abbruchlogik greift — und der Abbruch
+        // sähe dann wie ein Netzfehler aus statt wie ein Zeitlimit.
+        configuration.timeoutIntervalForRequest = 330
+        configuration.timeoutIntervalForResource = 420
         configuration.waitsForConnectivity = false
         return URLSession(configuration: configuration)
     }()
