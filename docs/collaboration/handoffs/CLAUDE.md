@@ -1,6 +1,6 @@
 # Claude Code Handoff
 
-**Updated:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung)
+**Updated:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
 
 ## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
@@ -275,6 +275,32 @@ wenn **alle** Seiten an Authentifizierung scheiterten.
   Seite jetzt tatsächlich nur diese Seite kostet.
 - P95-Latenz, `expectedReviewRecall` und das sporadisch unlesbare JSON aus
   Teil 25 bleiben unverändert offen.
+
+### Nachtrag: der Import wurde erstmals in der App selbst gefahren
+
+Alle bisherigen Messungen liefen über `MenuImportReviewHarnessTests`, nie über
+die Oberfläche. Im Simulator (Prüfküche, kostenloser Standardpfad) kam damit
+die letzte fehlende Ursache ans Licht — und es war keine Modellfrage:
+
+Das Gateway antwortete nach **154,6 s** mit Status 200, das Zeitlimit pro Seite
+lag bei **150 s**. Von sechs Anfragen kam eine an, fünf brach die App selbst mit
+`-999 cancelled` ab. Der Import fiel deshalb komplett auf die lokalen Regeln
+zurück, obwohl der Anbieter korrekt geliefert hätte. Nachweis im Gerätelog über
+`transaction_duration_ms`.
+
+Kostenloser Pfad jetzt 300 s pro Seite, bezahlter Pfad unverändert 150 s
+(gemini antwortet in 40–75 s). Die URLSession-Limits liegen darüber, sonst
+schneidet die Session ab, bevor die eigene Abbruchlogik greift.
+
+Danach im selben Weg gemessen: **null Selbstabbrüche**, drei Antworten
+angekommen (2×200, 1×500). Die beantworteten Seiten tragen echte semantische
+Einträge samt Allergenpiktogrammen, die 500er-Seite kommt aus den lokalen
+Regeln — die Seitenrettung aus dieser Sitzung im echten Betrieb bestätigt.
+
+**Lehre für die nächste Sitzung:** der Harness misst die Pipeline, nicht das
+Produkt. Timeouts, Nebenläufigkeit und Provider-Verhalten zeigen sich erst in
+der App. Ein App-Durchlauf pro grösserer Änderung ist billig (kostenloser Pfad)
+und hat hier gefunden, was zehn bezahlte Harness-Läufe nicht gefunden haben.
 
 ## Session-Teil 25: Vier deterministische Reparaturen im Assembler (28. Juli 2026)
 

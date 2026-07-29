@@ -567,7 +567,21 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   `DECISIONS.md`): the pages that were extracted keep their semantic result and
   the gaps are filled from the local rules as `needsReview`, with a
   `page_filled_from_local_rules` finding per page.
-  The free path remains slow — 19 minutes for 17 pages in one run and a stall in
-  another — which is why the paid default of 26 July stands unchanged.
+  **Verified in the app, not only in the harness (29 July):** the import runs
+  end to end on the simulator — pick a card, OCR, semantic pass, review screen
+  with per-entry evidence. Driving it there produced the last missing root
+  cause: the gateway answered after **154.6 s** while the per-page timeout was
+  **150 s**, so five of six requests were cancelled by the app itself
+  (`-999 cancelled`) and the whole card fell back to the local rules although
+  the provider had answered correctly. The free path now gets 300 s per page,
+  the paid one keeps 150 s. Measured again on the same path afterwards: zero
+  self-cancellations, three responses received. The pages that answered carry
+  real semantic entries with allergen declarations; the one page the provider
+  answered with HTTP 500 comes from the local rules — which is exactly what the
+  new page salvage is for, and before it that single error would have cost all
+  three pages.
+  The free path remains slow — roughly 8 minutes for a three-page card, 19
+  minutes for 17 pages, and a stall in one run — which is why the paid default
+  of 26 July stands unchanged.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.
