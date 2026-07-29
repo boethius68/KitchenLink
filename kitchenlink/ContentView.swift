@@ -4555,11 +4555,25 @@ enum MenuImportService {
     // sechs Anfragen kam genau eine an, die übrigen brach die App selbst mit
     // `-999 cancelled` ab. Der Import fiel deshalb komplett auf die lokalen
     // Regeln zurück, obwohl der Anbieter korrekt geantwortet hätte.
+    //
+    // `KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS` hebt das Limit für Aufbauten an,
+    // die deutlich langsamer sind als jedes Gateway: ein Modell auf dem
+    // Entwickler-Mac erzeugt gemessen ~19 Token/s (qwen3.5:9b-32k auf M5), und
+    // eine dichte Seite braucht 3000–6000 Ausgabe-Token für den verlustfreien
+    // Vertrag — also 2,5 bis 5 Minuten. Ohne diesen Regler ist ein lokaler
+    // Server als kostenloses Messinstrument nicht nutzbar.
+    private static var llmConfiguredPageTimeoutSeconds: Double? {
+        guard let raw = configValue(forKey: "KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS"),
+              let value = Double(raw),
+              value > 0
+        else { return nil }
+        return min(value, 1800)
+    }
     private static var llmPrimaryTimeoutSeconds: Double {
-        usesKeylessFreeDefault ? 300 : 150
+        llmConfiguredPageTimeoutSeconds ?? (usesKeylessFreeDefault ? 300 : 150)
     }
     private static var llmRetryTimeoutSeconds: Double {
-        usesKeylessFreeDefault ? 300 : 150
+        llmPrimaryTimeoutSeconds
     }
     /// Maximale gleichzeitige Seitenanfragen pro Karte. Der produktnahe
     /// Gateway-Default bleibt fünf; lokale 16-GB-Modelle können im
@@ -4578,9 +4592,10 @@ enum MenuImportService {
         let configuration = URLSessionConfiguration.default
         // Muss über dem grössten Seiten-Timeout liegen, sonst schneidet die
         // Session ab, bevor die eigene Abbruchlogik greift — und der Abbruch
-        // sähe dann wie ein Netzfehler aus statt wie ein Zeitlimit.
-        configuration.timeoutIntervalForRequest = 330
-        configuration.timeoutIntervalForResource = 420
+        // sähe dann wie ein Netzfehler aus statt wie ein Zeitlimit. Der
+        // Seitenregler ist auf 1800 s gedeckelt, also liegt hier 1860/1920.
+        configuration.timeoutIntervalForRequest = 1860
+        configuration.timeoutIntervalForResource = 1920
         configuration.waitsForConnectivity = false
         return URLSession(configuration: configuration)
     }()

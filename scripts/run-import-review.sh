@@ -44,6 +44,21 @@
 #   Thinking bei einem lokalen Extraktionsmodell abschalten:
 #     KITCHENLINK_LLM_REASONING_EFFORT=none ./scripts/run-import-review.sh
 #
+#   Modell auf DIESEM Mac als Server (kostenlos, unbegrenzt, ohne API-Kosten).
+#   Gemessen am 29. Juli 2026: qwen3.5:9b-32k auf M5 erzeugt ~19 Token/s, eine
+#   dichte Seite braucht 3000-6000 Ausgabe-Token, also 2,5-5 Minuten. Seiten
+#   deshalb seriell, Zeitlimit hoch, Thinking aus (sonst verbraucht das Modell
+#   das Ausgabebudget im Nachdenken und liefert leeren content):
+#     ollama serve &
+#     KITCHENLINK_LLM_BASE_URL=http://localhost:11434/v1 \
+#     KITCHENLINK_LLM_MODEL=qwen3.5:9b-32k \
+#     KITCHENLINK_LLM_REASONING_EFFORT=none \
+#     KITCHENLINK_LLM_ALLOW_KEYLESS=1 \
+#     KITCHENLINK_LLM_SEND_IMAGES=0 \
+#     KITCHENLINK_LLM_MAX_CONCURRENT_PAGES=1 \
+#     KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS=900 \
+#       ./scripts/run-import-review.sh
+#
 # Jeder Lauf landet in einem eigenen Zeitstempel-Ordner; "latest" zeigt auf den
 # neuesten. Feedback aus dem Report bitte als import-review-feedback.json an
 # den Agenten zurückgeben.
@@ -148,6 +163,7 @@ TEST_RUNNER_KITCHENLINK_LLM_ALLOW_KEYLESS="${KITCHENLINK_LLM_ALLOW_KEYLESS:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_MAX_CONCURRENT_PAGES="${KITCHENLINK_LLM_MAX_CONCURRENT_PAGES:-}" \
 TEST_RUNNER_KITCHENLINK_LLM_DIAGNOSTICS="${KITCHENLINK_LLM_DIAGNOSTICS:-}" \
 TEST_RUNNER_KITCHENLINK_PROMPT_DELTAS="${KITCHENLINK_PROMPT_DELTAS:-}" \
+TEST_RUNNER_KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS="${KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS:-}" \
 xcodebuild \
   test-without-building \
   -xctestrun "$xctestrun" \

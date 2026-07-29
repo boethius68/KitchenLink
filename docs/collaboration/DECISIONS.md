@@ -259,6 +259,20 @@ append-only; superseded decisions are marked rather than deleted.
   device has no on-device model support. Measured on the development Mac
   (M5/16 GB) a 9B model needed 62 s for a single page with worse results than
   the free gateway. Revisit only as a later privacy option.
+- **A Mac-hosted model as a LAN server is supported but not a measurement
+  instrument (29 July 2026).** The app already speaks any OpenAI-compatible
+  gateway, `NSAllowsLocalNetworking` is set, and
+  `KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS` now lifts the per-page limit for slow
+  hosts. Two things are mandatory for a local reasoning model: thinking off
+  (`KITCHENLINK_LLM_REASONING_EFFORT=none`, otherwise it spends the whole output
+  budget on the reasoning transcript and returns empty `content`) and serial
+  pages. Measured on M5/16 GB with `qwen3.5:9b-32k`: prompt processing is fine
+  (6,142 tokens in 19 s) but generation runs at ~19 tokens/s, and one real
+  lossless-contract page did **not** finish within 900 s — three attempts, 30
+  minutes, no result. The lossless contract needs several thousand output tokens
+  per page, which is the binding constraint, not context size. A local server
+  therefore stays a debugging aid; release numbers still come from a contractual
+  model.
 
 ## Menu Import Page Salvage (approved 29 July 2026)
 
