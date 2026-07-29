@@ -549,5 +549,25 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   (the missing code is `relationship_scope_ambiguous`, which has no honest
   structural trigger and was deliberately not faked), and an intermittent
   unparseable provider response on one dense page.
+- **Free default path repaired, page salvage added (29 July):** the shipped
+  keyless default had never produced a semantic extraction at all. Every page
+  fell back to the local rules silently, and the only trace was "Antwort ohne
+  parsebares JSON". Two causes, both verified directly against the gateway:
+  the free model accepts no images (every vision request answered
+  `HTTP 400 · Upstream request failed`), and it is a reasoning model that
+  charges its thinking against the same output budget as the answer — a dense
+  page consumed the whole 10,000-token budget and returned `content: ""` with
+  `finish_reason: length`. The keyless path now runs without images, the budget
+  is 32,000 tokens, and the provider's finish reason is reported instead of
+  being swallowed.
+  A blank visible text used to invalidate the entire draft, which cost the
+  operator the whole card; it is now restored from its own OCR evidence line, or
+  left visibly marked when there is no evidence to restore it from.
+  **A failed page no longer discards the card** (user decision, recorded in
+  `DECISIONS.md`): the pages that were extracted keep their semantic result and
+  the gaps are filled from the local rules as `needsReview`, with a
+  `page_filled_from_local_rules` finding per page.
+  The free path remains slow — 19 minutes for 17 pages in one run and a stall in
+  another — which is why the paid default of 26 July stands unchanged.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

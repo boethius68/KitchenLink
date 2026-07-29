@@ -260,6 +260,25 @@ append-only; superseded decisions are marked rather than deleted.
   (M5/16 GB) a 9B model needed 62 s for a single page with worse results than
   the free gateway. Revisit only as a later privacy option.
 
+## Menu Import Page Salvage (approved 29 July 2026)
+
+- **A page that fails no longer discards the whole card.** Until this decision
+  the import accepted no partial semantic draft: one unusable provider response
+  threw away the semantic extraction of every other page too. Measured, that
+  was not an edge case — one paid run lost two of four cards and one free run
+  lost all four, each time because of a single page.
+- **The gap is filled from the local OCR rules, visibly.** Every salvaged
+  section enters the draft as `needsReview` and a `page_filled_from_local_rules`
+  finding names the page. This keeps the older rule above intact: the rule
+  parser never presents a card as finished, it declares its own semantic gap.
+- **The resulting draft is of mixed provenance.** That is the accepted trade:
+  the operator reviews every draft anyway, and losing correctly extracted pages
+  is a worse outcome than reviewing a page the rules produced.
+- The user confirmed on 29 July 2026 that this applies to the shipped product,
+  and separately that the paid-model default above stands unchanged — the
+  budget constraint concerned the project's own measurement runs, not the
+  operator's one-time import cost.
+
 ## Collaboration Governance
 
 - **Agent parity:** Claude Code and Codex work as equal technical collaborators.

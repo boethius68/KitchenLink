@@ -4874,7 +4874,7 @@ enum MenuImportService {
         )
         let adapter = MenuImportDraftAdapter()
         var sections = localParseResult.sections
-        var draft = adapter.makeDraft(
+        let localDraft = adapter.makeDraft(
             sourceDocument: sourceDocument,
             legacySections: localParseResult.sections,
             ocrLines: ocrLines,
@@ -4885,6 +4885,7 @@ enum MenuImportService {
                 pageOutcomes: localPageOutcomes
             )
         )
+        var draft = localDraft
 
         if isLLMEnabled(), hasConfiguredLLMAPIKey() {
             let llmOutcome = await parseDraftWithLLM(
@@ -4894,8 +4895,12 @@ enum MenuImportService {
             )
             if let semanticDraft = llmOutcome.draft,
                draftEntryCount(semanticDraft.sections) > 0 {
-                draft = semanticDraft
-                let compatibleSections = MenuImportDraftConverter.convert(semanticDraft)
+                draft = mergingLocalPages(
+                    into: semanticDraft,
+                    localDraft: localDraft,
+                    pages: llmOutcome.unextractedPages
+                )
+                let compatibleSections = MenuImportDraftConverter.convert(draft)
                 // `sections` is a compatibility view for the older sandbox
                 // preview. The lossless draft remains authoritative.
                 sections = compatibleSections.isEmpty
@@ -4903,9 +4908,7 @@ enum MenuImportService {
                     : compatibleSections
                 lastImportDiagnosticsStorage = llmOutcome.message
             } else {
-                let is401 = llmOutcome.message.localizedCaseInsensitiveContains("api-key ungültig")
-                    || llmOutcome.message.localizedCaseInsensitiveContains("http 401")
-                    || llmOutcome.message.localizedCaseInsensitiveContains("incorrect api key")
+                let is401 = llmOutcome.failedOnAuthentication
                 // Nur bei EIGENEM Schlüssel den Auth-Fehler an den Nutzer
                 // durchreichen (er hat einen falschen Key hinterlegt). Im
                 // kostenlosen Default-Pfad oder bei sonstigen KI-Fehlern (Netz,
@@ -5496,11 +5499,86 @@ enum MenuImportService {
 
     // MARK: Phase 1 lossless semantic extraction
 
+    /// Füllt die Seiten ohne KI-Erfassung aus dem lokalen Regelentwurf auf.
+    ///
+    /// Nutzerentscheidung vom 29. Juli 2026: eine gescheiterte Seite darf nicht
+    /// mehr die semantische Erfassung der ganzen Karte verwerfen. Gemessen kam
+    /// das regelmässig vor — im kostenlosen Pfad an allen vier Testkarten, im
+    /// bezahlten an zweien von vieren, jeweils wegen genau einer Seite.
+    ///
+    /// Der Entwurf ist danach gemischter Herkunft, und genau das muss sichtbar
+    /// sein: jeder übernommene Bereich geht als `needsReview` in den Entwurf,
+    /// und ein Befund pro Seite nennt die Herkunft. Die Regel aus DECISIONS.md
+    /// bleibt gewahrt — der Regelparser gibt nie eine fertige Karte aus, er
+    /// erklärt seine semantische Lücke.
+    static func mergingLocalPages(
+        into semanticDraft: MenuImportDraft,
+        localDraft: MenuImportDraft,
+        pages: Set<Int>
+    ) -> MenuImportDraft {
+        guard !pages.isEmpty else { return semanticDraft }
+
+        func page(of section: MenuImportSection) -> Int {
+            let entryPages = section.entries.map(\.name.evidence.pageIndex)
+            return entryPages.min() ?? section.title.evidence.pageIndex
+        }
+
+        var salvaged: [MenuImportSection] = []
+        for section in localDraft.sections {
+            let entries = section.entries.filter {
+                pages.contains($0.name.evidence.pageIndex)
+            }
+            guard !entries.isEmpty else { continue }
+            var rescued = section
+            rescued.entries = entries
+            rescued.subsections = []
+            rescued.reviewState = .needsReview
+            salvaged.append(rescued)
+        }
+        guard !salvaged.isEmpty else { return semanticDraft }
+
+        var merged = semanticDraft
+        merged.sections = (semanticDraft.sections + salvaged)
+            .enumerated()
+            .sorted { left, right in
+                let leftPage = page(of: left.element)
+                let rightPage = page(of: right.element)
+                if leftPage != rightPage { return leftPage < rightPage }
+                return left.offset < right.offset
+            }
+            .map(\.element)
+        for index in merged.sections.indices {
+            merged.sections[index].order = index
+        }
+
+        var findings = merged.reviewFindings ?? []
+        for pageIndex in pages.sorted() {
+            findings.append(
+                MenuImportReviewFinding(
+                    id: "finding-\(semanticDraft.id)-local-page-\(pageIndex)",
+                    code: "page_filled_from_local_rules",
+                    path: "sections",
+                    message: "This page had no semantic extraction; its entries come from the local OCR rules and are unconfirmed.",
+                    severity: .warning,
+                    pageIndex: pageIndex
+                )
+            )
+        }
+        merged.reviewFindings = findings
+        return merged
+    }
+
     private struct LLMDraftParseOutcome: Sendable {
         let draft: MenuImportDraft?
         let message: String
         let pageOutcomes: [MenuImportPageOutcome]
         let usage: MenuImportTokenUsage?
+        /// Seiten ohne semantische Erfassung, für die der Entwurf aus den
+        /// lokalen Regeln ergänzt werden muss. Leer heisst: vollständig.
+        var unextractedPages: Set<Int> = []
+        /// Alle Seiten scheiterten an einem ungültigen Schlüssel. Nur dann darf
+        /// der Import abbrechen statt zurückzufallen.
+        var failedOnAuthentication = false
     }
 
     private struct LLMRichPageResult: Sendable {
@@ -5594,24 +5672,33 @@ enum MenuImportService {
             guard let error = result.errorMessage else { return nil }
             return "Seite \(result.pageIndex + 1): \(error)"
         }
-        guard failures.isEmpty else {
+        let authenticationFailed = !orderedResults.isEmpty
+            && orderedResults.allSatisfy { result in
+                guard let error = result.errorMessage else { return false }
+                return error.localizedCaseInsensitiveContains("http 401")
+                    || error.localizedCaseInsensitiveContains("api-key ungültig")
+                    || error.localizedCaseInsensitiveContains("incorrect api key")
+            }
+
+        let extractions = orderedResults.compactMap(\.extraction)
+        // Seiten einzeln retten (Nutzerentscheidung, 29. Juli 2026): früher
+        // verwarf EINE gescheiterte Seite die semantische Erfassung der ganzen
+        // Karte. Gemessen hat das über vier Karten hinweg in einem Lauf zwei,
+        // im kostenlosen Pfad alle vier gekostet. Was erfasst wurde, bleibt
+        // jetzt erhalten; die Lücken füllt `importMenu` sichtbar markiert aus
+        // den lokalen Regeln.
+        guard !extractions.isEmpty else {
             return LLMDraftParseOutcome(
                 draft: nil,
                 message: "Verlustfreier KI-Vertrag unvollständig: \(failures.joined(separator: " | "))",
                 pageOutcomes: pageOutcomes,
-                usage: usage
+                usage: usage,
+                failedOnAuthentication: authenticationFailed
             )
         }
-
-        let extractions = orderedResults.compactMap(\.extraction)
-        guard extractions.count == sourceDocument.pageCount else {
-            return LLMDraftParseOutcome(
-                draft: nil,
-                message: "Verlustfreier KI-Vertrag lieferte nicht für jede Seite ein Ergebnis.",
-                pageOutcomes: pageOutcomes,
-                usage: usage
-            )
-        }
+        let extractedPages = Set(extractions.map(\.pageIndex))
+        let unextractedPages = Set(0..<sourceDocument.pageCount)
+            .subtracting(extractedPages)
 
         let processing = MenuImportProcessingMetadata(
             pipelineVersion: "menu-import/phase-1",
@@ -5645,12 +5732,17 @@ enum MenuImportService {
 
         let entryCount = draftEntryCount(draft.sections)
         let emptyPageCount = pageOutcomes.filter { $0.status == .empty }.count
+        let extractedPageCount = sourceImages.count - unextractedPages.count
         return LLMDraftParseOutcome(
             draft: draft,
-            message: "Verlustfreier KI-Draft: \(entryCount) Einträge aus \(sourceImages.count) vollständigen Seiten"
-                + (emptyPageCount > 0 ? " (\(emptyPageCount) leere/Deckseite(n))." : "."),
+            message: "Verlustfreier KI-Draft: \(entryCount) Einträge aus \(extractedPageCount) von \(sourceImages.count) Seiten"
+                + (emptyPageCount > 0 ? " (\(emptyPageCount) leere/Deckseite(n))" : "")
+                + (unextractedPages.isEmpty
+                   ? "."
+                   : ". Ohne KI-Erfassung: \(failures.joined(separator: " | "))"),
             pageOutcomes: pageOutcomes,
-            usage: usage
+            usage: usage,
+            unextractedPages: unextractedPages
         )
     }
 

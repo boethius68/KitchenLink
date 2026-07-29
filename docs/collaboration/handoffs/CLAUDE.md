@@ -1,7 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
-**Zuvor:** 27 July 2026 (Session-Teil 24: Legendenfilter greift zur Laufzeit nicht)
+**Updated:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung)
+**Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
 
 ## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
 
@@ -201,6 +201,80 @@ KL-MENU-005 (§6.2). Details in Session-Teil 10 bis 12.
 Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
+
+## Session-Teil 26: Kostenloser Standardpfad und Seitenrettung (29. Juli 2026)
+
+### Anlass
+
+Der Nutzer will kein Geld mehr für API-Nutzung ausgeben und fragte, ob der
+Import auch ohne fertig wird. Auf Rückfrage präzisiert: es geht um die
+**eigenen Messläufe**, nicht um das Produkt. Die Entscheidung vom 26. Juli
+(bezahltes Modell als Standard) bleibt damit gültig.
+
+### Der kostenlose Standardpfad war komplett tot
+
+Ohne hinterlegten Schlüssel liefert die App laut Code den keylosen Zen-Pfad.
+Der hat **nie** eine semantische Erfassung produziert — jede Seite fiel still
+auf die lokalen Regeln zurück. Beide Ursachen direkt am Gateway per `curl`
+nachgewiesen, nicht vermutet:
+
+1. **Das freie Modell nimmt keine Bilder an.** Jede Vision-Anfrage an
+   `big-pickle` beantwortet das Gateway mit `HTTP 400 · Upstream request
+   failed` — auf jeder Seite jeder Karte. Ohne eigenen Schlüssel läuft der Pfad
+   jetzt im Textmodus (der OCR-Dump trägt Seite und Koordinaten). Mit eigenem,
+   bildfähigem Zugang bleibt Vision aktiv.
+2. **`big-pickle` ist ein Reasoning-Modell** und rechnet sein Nachdenken gegen
+   dasselbe Ausgabebudget wie die Antwort. Belegt: "Antworte nur mit OK" kostet
+   82 Reasoning-Token; mit `max_tokens: 20` kommt `content: ""` und
+   `finish_reason: length`, mit 2000 kommt `OK`. Eine dichte Speisekartenseite
+   hat die bisherigen 10 000 restlos verbraucht. Budget jetzt 32 000 — das
+   Gateway akzeptiert auch 60 000.
+
+Damit die nächste Ursache dieser Art nicht wieder unsichtbar bleibt: der
+Abbruchgrund des Anbieters wird gemeldet, `reasoning_content` wird zusätzlich
+zu `reasoning` gelesen, und eine Antwort ohne JSON nennt Länge und Auszug.
+
+### Leerer sichtbarer Text verwarf den ganzen Entwurf
+
+Der Validator lehnt leeren sichtbaren Text ab, und ein abgelehnter Entwurf
+kostet die **ganze** Karte. Gemessen am freien Modell hat genau ein leerer
+`sections[2].title.value` das ausgelöst. Der Text wird jetzt aus seiner eigenen
+Belegzeile geholt; gibt es keine, bleibt die Lücke als `—` sichtbar markiert
+statt erfunden. Beide Fälle erzeugen einen Befund.
+
+### Seitenrettung (Nutzerentscheidung, in DECISIONS.md aufgenommen)
+
+Bisher galt "no partial semantic draft accepted": EINE gescheiterte Seite
+verwarf die semantische Erfassung der ganzen Karte. Gemessen ist das kein
+Randfall — ein bezahlter Lauf verlor zwei von vier Karten, ein freier Lauf alle
+vier, jedes Mal wegen genau einer Seite.
+
+Jetzt bleibt erhalten, was erfasst wurde. `parseDraftWithLLM` baut den Entwurf
+aus den vorhandenen Extraktionen; `MenuImportService.mergingLocalPages` füllt
+die Lücken aus dem lokalen Regelentwurf, seitengenau gefiltert über
+`entry.name.evidence.pageIndex`. Jeder übernommene Bereich geht als
+`needsReview` hinein, ein Befund `page_filled_from_local_rules` nennt die
+Seite, und die Bereiche stehen in Seitenreihenfolge. Vier Tests in
+`kitchenlinkTests/MenuImportPageSalvageTests.swift`.
+
+Der 401-Abbruch bleibt erhalten, hängt aber nicht mehr an einer
+Textsuche in der Sammelmeldung, sondern an `failedOnAuthentication` — wahr nur,
+wenn **alle** Seiten an Authentifizierung scheiterten.
+
+### Offen
+
+- **Wiederholbarkeit weiterhin ungemessen.** `minimumRepeatRuns 3` braucht drei
+  bezahlte Läufe; das Zen-Guthaben ist leer und soll nicht aufgefüllt werden.
+  Die Zahlen aus Teil 25 stehen auf einem sauberen Lauf.
+- **Der freie Pfad ist langsam.** 19 Minuten für 17 Seiten in einem Lauf, in
+  einem zweiten nach über einer Stunde ohne Fortschritt abgebrochen. Als
+  Fallback brauchbar, als Standard nicht — die Entscheidung vom 26. Juli bleibt
+  richtig.
+- **Die Seitenrettung ist unit-getestet, aber nicht am echten Anbieter
+  gemessen.** Der nächste bezahlte Lauf sollte prüfen, ob eine gescheiterte
+  Seite jetzt tatsächlich nur diese Seite kostet.
+- P95-Latenz, `expectedReviewRecall` und das sporadisch unlesbare JSON aus
+  Teil 25 bleiben unverändert offen.
 
 ## Session-Teil 25: Vier deterministische Reparaturen im Assembler (28. Juli 2026)
 
