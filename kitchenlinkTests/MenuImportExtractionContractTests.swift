@@ -1052,6 +1052,83 @@ final class MenuImportExtractionContractTests: XCTestCase {
         XCTAssertTrue(draft.validate().errors.isEmpty)
     }
 
+    /// Ein leerer sichtbarer Text macht den Entwurf ungültig — und ein
+    /// ungültiger Entwurf kostet den Betreiber die GANZE Karte. Gemessen am
+    /// kostenlosen Standardmodell hat genau ein leerer Bereichstitel das
+    /// ausgelöst. Der Text wird aus seiner eigenen Belegzeile geholt; gibt es
+    /// keine, bleibt die Lücke sichtbar statt erfunden.
+    func testEmptyVisibleTextIsRecoveredFromEvidenceInsteadOfInvalidatingTheDraft() throws {
+        let lines = [
+            line("Vorspeisen", page: 0, x: 0.1, y: 0.9),
+            line("Tomatensuppe", page: 0, x: 0.1, y: 0.8)
+        ]
+        let extraction = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 0,
+            pageKind: "menu",
+            languages: ["de"],
+            sections: [
+                MenuImportExtractedSection(
+                    // Titel leer, aber die Belegzeile trägt ihn.
+                    title: text("", language: "de", evidence: ["p1-l1"]),
+                    order: 0,
+                    entries: [
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            name: text("Tomatensuppe", language: "de", evidence: ["p1-l2"]),
+                            description: nil,
+                            itemNumber: nil,
+                            order: 0,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [],
+                            bundleComponents: [],
+                            declarations: [],
+                            reviewReasons: []
+                        ),
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            // Weder Text noch Beleg: die Lücke bleibt sichtbar.
+                            name: text("", language: "de", evidence: []),
+                            description: nil,
+                            itemNumber: nil,
+                            order: 1,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [],
+                            bundleComponents: [],
+                            declarations: [],
+                            reviewReasons: []
+                        )
+                    ],
+                    subsections: [],
+                    declarations: [],
+                    reviewReasons: []
+                )
+            ],
+            declarations: [],
+            reviewReasons: []
+        )
+
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: source(),
+            pageExtractions: [extraction],
+            ocrLines: lines,
+            processing: processing()
+        )
+
+        let section = try XCTUnwrap(draft.sections.first)
+        XCTAssertEqual(section.title.value, "Vorspeisen")
+        XCTAssertEqual(section.entries.last?.name.value, "—")
+        let codes = Set((draft.reviewFindings ?? []).map(\.code))
+        XCTAssertTrue(codes.contains("visible_text_recovered_from_evidence"))
+        XCTAssertTrue(codes.contains("empty_visible_text"))
+        XCTAssertTrue(
+            draft.validate().errors.isEmpty,
+            "Der Entwurf muss gültig bleiben — sonst verliert der Betreiber die ganze Karte."
+        )
+    }
+
     /// Der Anbieter nennt Prüfgründe unzuverlässig — auf einer Karte meldet er
     /// die unklare Auswahlregel, auf der nächsten schweigt er bei derselben
     /// Lage. Was strukturell im Entwurf steht, meldet der Assembler selbst.

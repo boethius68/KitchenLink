@@ -4791,8 +4791,18 @@ enum MenuImportService {
     /// Text-only-Modelle, z. B. die Free-Modelle des OpenCode-Zen-Gateways).
     /// Der OCR-Zeilen-Dump trägt Seite und x/y-Koordinaten, sodass auch ein
     /// reines Textmodell Spaltenlayouts auflösen kann.
+    ///
+    /// Der kostenlose Standardpfad läuft ohne Bilder, weil sein Modell keine
+    /// annimmt: gemessen beantwortet das Zen-Gateway jede Bildanfrage an
+    /// `big-pickle` mit `HTTP 400 · Upstream request failed`, und zwar auf
+    /// *jeder* Seite — der ausgelieferte Standard hätte damit nie eine
+    /// KI-Erfassung geliefert, sondern immer nur die lokalen Regeln. Wer einen
+    /// eigenen (bildfähigen) Zugang hinterlegt, bekommt weiterhin Vision.
     static var llmSendsImages: Bool {
-        configValue(forKey: "KITCHENLINK_LLM_SEND_IMAGES") != "0"
+        if let configured = configValue(forKey: "KITCHENLINK_LLM_SEND_IMAGES") {
+            return configured != "0"
+        }
+        return !usesKeylessFreeDefault
     }
 
     /// Optional OpenAI-compatible reasoning control. This is intentionally
@@ -5160,12 +5170,31 @@ enum MenuImportService {
             struct Message: Decodable {
                 // Reasoning-Modelle (z. B. big-pickle -> mimo) legen die
                 // Endantwort in `content`, das Nachdenken in `reasoning`.
-                // Bei zu knappem Token-Limit bleibt `content` null.
+                // Bei zu knappem Token-Limit bleibt `content` leer.
+                // Das Zen-Gateway benennt das Nachdenken `reasoning_content`;
+                // beide Schreibweisen werden akzeptiert.
                 let content: String?
                 let reasoning: String?
+                let reasoningContent: String?
+
+                enum CodingKeys: String, CodingKey {
+                    case content
+                    case reasoning
+                    case reasoningContent = "reasoning_content"
+                }
             }
 
+            // Ohne den Abbruchgrund ist eine leere Antwort nicht von einer
+            // verweigerten zu unterscheiden. Gemessen am freien Modell:
+            // `length` heisst, das Nachdenken hat das ganze Ausgabebudget
+            // aufgebraucht, bevor die Antwort geschrieben wurde.
+            let finishReason: String?
             let message: Message
+
+            enum CodingKeys: String, CodingKey {
+                case finishReason = "finish_reason"
+                case message
+            }
         }
 
         let choices: [Choice]
@@ -5871,7 +5900,15 @@ enum MenuImportService {
         userPrompt: String,
         imageParts: [OpenAIChatRequest.Message.Part]
     ) async throws -> LLMRawCallResult {
-        let maximumOutputTokens = 10_000
+        // Bei Reasoning-Modellen zählt das Nachdenken gegen dasselbe Budget wie
+        // die Antwort. Gemessen am kostenlosen Standardmodell `big-pickle`:
+        // schon "Antworte nur mit OK" verbraucht 82 Reasoning-Token, und eine
+        // dichte Speisekartenseite hat 10 000 restlos im Nachdenken verbraucht
+        // — der Anbieter lieferte dann `content: ""` mit `finish_reason: length`
+        // und die ganze Karte fiel auf die lokalen Regeln zurück. Das Gateway
+        // akzeptiert deutlich grössere Budgets; bezahlt wird ohnehin nur, was
+        // tatsächlich erzeugt wird.
+        let maximumOutputTokens = 32_000
         let endpoint: URL?
         let httpBody: Data
 
@@ -5985,10 +6022,24 @@ enum MenuImportService {
             outputTokens: chat.usage?.completionTokens,
             totalTokens: chat.usage?.totalTokens
         )
-        let message = chat.choices.first?.message
-        let text = [message?.content, message?.reasoning]
+        let choice = chat.choices.first
+        let message = choice?.message
+        let text = [message?.content, message?.reasoning, message?.reasoningContent]
             .compactMap { $0 }
             .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        // Ein Reasoning-Modell, das sein ganzes Ausgabebudget im Nachdenken
+        // verbraucht, liefert `content: ""` mit `finish_reason: length`. Ohne
+        // diese Meldung sah das aus wie "Anbieter antwortet nicht".
+        if text == nil, let finishReason = choice?.finishReason {
+            return LLMRawCallResult(
+                text: nil,
+                usage: usage,
+                errorMessage: "Anbieter beendet ohne Text (finish_reason=\(finishReason))"
+                    + (finishReason.lowercased() == "length"
+                       ? " — Ausgabebudget im Nachdenken verbraucht"
+                       : "")
+            )
+        }
         return LLMRawCallResult(text: text, usage: usage, errorMessage: nil)
     }
 
@@ -6016,7 +6067,7 @@ enum MenuImportService {
                   let jsonText = extractJSONObject(from: rawText) else {
                 return LLMExtractionCallOutcome(
                     extraction: nil,
-                    errorMessage: "Antwort ohne parsebares JSON",
+                    errorMessage: MenuLLMDiagnostics.describeUnparseableResponse(call.text),
                     usage: usage
                 )
             }

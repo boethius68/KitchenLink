@@ -100,6 +100,27 @@ enum MenuLLMDiagnostics {
     return braces == 0 && brackets == 0 && !insideString
     }
 
+    /// Describes a response that contained no JSON object at all.
+    ///
+    /// The contract-mapping path already names the offending field, but a
+    /// response the extractor cannot even find an object in reported only
+    /// "Antwort ohne parsebares JSON" — which says nothing about whether the
+    /// model refused, apologized, wrote prose, or returned an empty string.
+    /// Measured on the free keyless model, that message was the whole trail.
+    static func describeUnparseableResponse(_ rawText: String?) -> String {
+        let headline = "Antwort ohne parsebares JSON"
+        guard let rawText else { return "\(headline) · Anbieter lieferte keinen Text" }
+        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return "\(headline) · Antworttext war leer (\(rawText.count) Zeichen)"
+        }
+        var parts = [headline, "\(trimmed.count) Zeichen Text ohne '{'…'}'"]
+        if configValue(forKey: "KITCHENLINK_LLM_DIAGNOSTICS") == "1" {
+            parts.append("Rohantwort: \(excerpt(trimmed, limit: 1200))")
+        }
+        return parts.joined(separator: " · ")
+    }
+
     private static func excerpt(_ text: String, limit: Int) -> String {
     let collapsed = text
         .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)

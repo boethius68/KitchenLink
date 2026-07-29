@@ -306,6 +306,18 @@ struct MenuImportEvidenceLineIndex: Sendable {
         firstLineByPage[pageIndex]
     }
 
+    /// The printed text of the first of these evidence lines that exists.
+    /// Used to recover a visible text the provider left empty.
+    func text(forAnyOf ids: [String]) -> String? {
+        for id in ids {
+            guard let text = linesByID[id]?.text else { continue }
+            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return text
+            }
+        }
+        return nil
+    }
+
     func promptDump(pageIndex: Int, maximumCharacters: Int = 14_000) -> String {
         let lines = references
             .filter { $0.line.pageIndex == pageIndex }
@@ -810,6 +822,11 @@ struct MenuImportDraftAssembler {
 }
 
 private struct AssemblyContext {
+    /// Stands in for a visible text the provider left empty and that no
+    /// evidence line could supply. Deliberately not a guessed name: the review
+    /// has to show that something is missing here, not something plausible.
+    static let missingTextPlaceholder = "—"
+
     let sourceID: String
     let evidenceIndex: MenuImportEvidenceLineIndex
     var findings: [MenuImportReviewFinding] = []
@@ -1700,11 +1717,45 @@ private struct AssemblyContext {
         )
     }
 
+    /// Builds a visible text and never lets an empty one through.
+    ///
+    /// The draft validator rejects blank visible text, and a rejected draft
+    /// costs the operator the **entire** card — measured on the free default
+    /// model, one blank `sections[2].title.value` did exactly that. So a blank
+    /// value is recovered from its own OCR evidence line where one exists, and
+    /// otherwise marked for review rather than invented. Both cases are
+    /// recorded, because a title the provider did not read is something the
+    /// operator has to supply.
     mutating func makeText(
         _ source: MenuImportExtractedText,
         pageIndex: Int,
         path: String
     ) -> MenuImportText {
+        var source = source
+        if source.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let recovered = evidenceIndex.text(forAnyOf: source.evidenceLineIds)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if recovered.isEmpty {
+                addFinding(
+                    code: "empty_visible_text",
+                    path: "\(path).value",
+                    message: "The provider returned no visible text here and no evidence line to recover it from; the operator has to supply it.",
+                    severity: .error,
+                    pageIndex: pageIndex
+                )
+                source.value = Self.missingTextPlaceholder
+            } else {
+                addFinding(
+                    code: "visible_text_recovered_from_evidence",
+                    path: "\(path).value",
+                    message: "The provider left this text empty; it was restored from its own evidence line: \(recovered)",
+                    severity: .warning,
+                    pageIndex: pageIndex
+                )
+                source.value = recovered
+            }
+        }
+
         var alternatives: [MenuImportLocalizedText] = []
         for alternativeIndex in source.alternatives.indices {
             let alternative = source.alternatives[alternativeIndex]
