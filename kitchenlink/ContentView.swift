@@ -5702,7 +5702,8 @@ enum MenuImportService {
                         image: sourceImages[pageIndex],
                         totalPages: sourceImages.count,
                         evidenceIndex: evidenceIndex,
-                        apiKey: apiKey
+                        apiKey: apiKey,
+                        transcriptScope: sourceDocument.sourceTypeDetail
                     )
                 }
                 nextIndex += 1
@@ -5718,7 +5719,8 @@ enum MenuImportService {
                             image: sourceImages[pageIndex],
                             totalPages: sourceImages.count,
                             evidenceIndex: evidenceIndex,
-                            apiKey: apiKey
+                            apiKey: apiKey,
+                            transcriptScope: sourceDocument.sourceTypeDetail
                         )
                     }
                     nextIndex += 1
@@ -5827,7 +5829,11 @@ enum MenuImportService {
         image: UIImage,
         totalPages: Int,
         evidenceIndex: MenuImportEvidenceLineIndex,
-        apiKey: String
+        apiKey: String,
+        /// Herkunftsdetail der Karte. Nur für Aufzeichnung und Abspielen: der
+        /// Seitenindex allein ist nicht eindeutig, zwei Karten haben beide eine
+        /// Seite 2.
+        transcriptScope: String?
     ) async -> LLMRichPageResult {
         let startedAt = Date()
         let imageParts = makeLLMImageParts(
@@ -5872,7 +5878,7 @@ enum MenuImportService {
         // Netzaufruf, aber ausdrücklich NICHT den Dekodier- und Diagnosepfad.
         // Eine Aufzeichnung, die der Vertrag ablehnt, muss genauso auffallen wie
         // eine Live-Antwort, die er ablehnt.
-        if let replay = MenuImportProviderTranscript.replayText(pageIndex: pageIndex) {
+        if let replay = MenuImportProviderTranscript.replayText(pageIndex: pageIndex, scope: transcriptScope) {
             let outcome = decodeExtraction(from: replay)
             if let extraction = outcome.extraction {
                 let isEmpty = extraction.recursiveEntryCount == 0
@@ -5904,7 +5910,8 @@ enum MenuImportService {
             apiKey: apiKey,
             userPrompt: userPrompt,
             imageParts: imageParts,
-            timeoutSeconds: llmPrimaryTimeoutSeconds
+            timeoutSeconds: llmPrimaryTimeoutSeconds,
+            recordScope: transcriptScope
         )
         var aggregateUsage = call.usage
 
@@ -5956,7 +5963,8 @@ enum MenuImportService {
                         apiKey: apiKey,
                         userPrompt: userPrompt,
                         imageParts: retryParts,
-                        timeoutSeconds: llmRetryTimeoutSeconds
+                        timeoutSeconds: llmRetryTimeoutSeconds,
+                        recordScope: transcriptScope
                     )
                     aggregateUsage = mergeTokenUsage(aggregateUsage, retry.usage)
                     call = retry
@@ -6057,14 +6065,16 @@ enum MenuImportService {
         apiKey: String,
         userPrompt: String,
         imageParts: [OpenAIChatRequest.Message.Part],
-        timeoutSeconds: Double
+        timeoutSeconds: Double,
+        recordScope: String? = nil
     ) async -> LLMExtractionCallOutcome {
         await withTaskGroup(of: LLMExtractionCallOutcome.self) { group in
             group.addTask {
                 await runLLMExtractionCall(
                     apiKey: apiKey,
                     userPrompt: userPrompt,
-                    imageParts: imageParts
+                    imageParts: imageParts,
+                    recordScope: recordScope
                 )
             }
             group.addTask {
@@ -6322,7 +6332,8 @@ enum MenuImportService {
     /// Vertrag ablehnt, soll denselben Befund erzeugen wie eine Live-Antwort,
     /// die er ablehnt — sonst prüft der Abspielpfad etwas anderes als die App.
     static func decodeExtraction(
-        from rawText: String?
+        from rawText: String?,
+        recordScope: String? = nil
     ) -> (extraction: MenuImportPageExtraction?, errorMessage: String?) {
         guard let rawText,
               let jsonText = extractJSONObject(from: rawText) else {
@@ -6345,6 +6356,7 @@ enum MenuImportService {
                 )
                 MenuImportProviderTranscript.record(
                     pageIndex: extraction.pageIndex,
+                    scope: recordScope,
                     jsonText: candidate
                 )
                 return (extraction, nil)
@@ -6365,7 +6377,8 @@ enum MenuImportService {
     private static func runLLMExtractionCall(
         apiKey: String,
         userPrompt: String,
-        imageParts: [OpenAIChatRequest.Message.Part]
+        imageParts: [OpenAIChatRequest.Message.Part],
+        recordScope: String? = nil
     ) async -> LLMExtractionCallOutcome {
         do {
             let call = try await performLLMExtractionRequest(
@@ -6382,7 +6395,7 @@ enum MenuImportService {
                 )
             }
 
-            let decoded = decodeExtraction(from: call.text)
+            let decoded = decodeExtraction(from: call.text, recordScope: recordScope)
             return LLMExtractionCallOutcome(
                 extraction: decoded.extraction,
                 errorMessage: decoded.errorMessage,
