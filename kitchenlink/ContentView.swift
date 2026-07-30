@@ -5861,16 +5861,43 @@ enum MenuImportService {
         // Lesehilfe, keine Voraussetzung.
         let layout = await runLayoutPass(pageIndex: pageIndex, image: image)
         let layoutBlock = layout.map { "\n\n\(MenuImportLayoutPass.promptBlock(for: $0.text))" } ?? ""
-        let userPrompt = """
-        Source page_index (zero-based): \(pageIndex)
-        Visible page number: \(pageIndex + 1) of \(totalPages)
+        let userPrompt = extractionUserPrompt(
+            pageIndex: pageIndex,
+            totalPages: totalPages,
+            lineDump: lineDump,
+            layoutBlock: layoutBlock
+        )
 
-        Supplied OCR evidence lines:
-        \(lineDump.isEmpty ? "(no OCR lines available)" : lineDump)\(layoutBlock)
-
-        Extract exactly this page. The image is primary; OCR lines are the only
-        valid evidence IDs. Return contract_version 1.0.0 and page_index \(pageIndex).
-        """
+        // Aufgezeichnete Antwort abspielen, falls vorhanden: umgeht den
+        // Netzaufruf, aber ausdrücklich NICHT den Dekodier- und Diagnosepfad.
+        // Eine Aufzeichnung, die der Vertrag ablehnt, muss genauso auffallen wie
+        // eine Live-Antwort, die er ablehnt.
+        if let replay = MenuImportProviderTranscript.replayText(pageIndex: pageIndex) {
+            let outcome = decodeExtraction(from: replay)
+            if let extraction = outcome.extraction {
+                let isEmpty = extraction.recursiveEntryCount == 0
+                return LLMRichPageResult(
+                    pageIndex: pageIndex,
+                    extraction: extraction,
+                    outcome: MenuImportPageOutcome(
+                        pageIndex: pageIndex,
+                        status: isEmpty ? .empty : .processed,
+                        attempts: 1,
+                        latencyMilliseconds: 0,
+                        detail: "Replayed recorded provider response for this page."
+                    ),
+                    usage: nil,
+                    errorMessage: nil
+                )
+            }
+            return failedDraftPage(
+                pageIndex: pageIndex,
+                attempts: 1,
+                startedAt: startedAt,
+                message: outcome.errorMessage ?? "Aufzeichnung nicht abbildbar",
+                usage: nil
+            )
+        }
 
         var attempts = 1
         var call = await runLLMExtractionCallWithTimeout(
@@ -6227,6 +6254,114 @@ enum MenuImportService {
         return LLMRawCallResult(text: text, usage: usage, errorMessage: nil)
     }
 
+    /// Die Nutzeranweisung einer Seite.
+    ///
+    /// Als eigene Funktion, weil der Prompt-Export exakt denselben Text
+    /// erzeugen muss wie der Live-Aufruf. Wird er von Hand in ein Chatfenster
+    /// gegeben, soll das Ergebnis mit dem eines Gateway-Aufrufs vergleichbar
+    /// sein — eine abweichende Formulierung würde die Messung entwerten.
+    static func extractionUserPrompt(
+        pageIndex: Int,
+        totalPages: Int,
+        lineDump: String,
+        layoutBlock: String
+    ) -> String {
+        """
+        Source page_index (zero-based): \(pageIndex)
+        Visible page number: \(pageIndex + 1) of \(totalPages)
+
+        Supplied OCR evidence lines:
+        \(lineDump.isEmpty ? "(no OCR lines available)" : lineDump)\(layoutBlock)
+
+        Extract exactly this page. The image is primary; OCR lines are the only
+        valid evidence IDs. Return contract_version 1.0.0 and page_index \(pageIndex).
+        """
+    }
+
+    /// Erzeugt die vollständigen Prompt-Pakete für eine Karte, ohne einen
+    /// Anbieter aufzurufen.
+    ///
+    /// Damit lässt sich eine Antwort aus jeder beliebigen Quelle einsammeln —
+    /// auch aus einem Chatfenster — und über `KITCHENLINK_LLM_REPLAY_DIR`
+    /// beliebig oft kostenlos auswerten. Die optionale Layoutstufe wird
+    /// mitgenommen, wenn sie konfiguriert ist.
+    static func exportExtractionPrompts(
+        from images: [UIImage]
+    ) async throws -> [(pageIndex: Int, systemPrompt: String, userPrompt: String)] {
+        var allLines: [OCRLineToken] = []
+        for (pageIndex, image) in images.enumerated() {
+            allLines.append(contentsOf: try await recognizeLines(in: image, pageIndex: pageIndex))
+        }
+        let evidenceIndex = MenuImportEvidenceLineIndex(lines: allLines.map(snapshot))
+
+        var packages: [(pageIndex: Int, systemPrompt: String, userPrompt: String)] = []
+        for (pageIndex, image) in images.enumerated() {
+            let layout = await runLayoutPass(pageIndex: pageIndex, image: image)
+            let layoutBlock = layout.map {
+                "\n\n\(MenuImportLayoutPass.promptBlock(for: $0.text))"
+            } ?? ""
+            packages.append((
+                pageIndex: pageIndex,
+                systemPrompt: MenuImportExtractionPrompt.systemPrompt,
+                userPrompt: extractionUserPrompt(
+                    pageIndex: pageIndex,
+                    totalPages: images.count,
+                    lineDump: evidenceIndex.promptDump(pageIndex: pageIndex),
+                    layoutBlock: layoutBlock
+                )
+            ))
+        }
+        return packages
+    }
+
+    /// Bildet Anbietertext auf den Vertrag ab.
+    ///
+    /// Bewusst als eigene Funktion: der Abspielpfad
+    /// (`MenuImportProviderTranscript`) muss durch genau dieselbe Prüfung und
+    /// dieselbe Diagnose laufen wie ein Live-Aufruf. Eine Aufzeichnung, die der
+    /// Vertrag ablehnt, soll denselben Befund erzeugen wie eine Live-Antwort,
+    /// die er ablehnt — sonst prüft der Abspielpfad etwas anderes als die App.
+    static func decodeExtraction(
+        from rawText: String?
+    ) -> (extraction: MenuImportPageExtraction?, errorMessage: String?) {
+        guard let rawText,
+              let jsonText = extractJSONObject(from: rawText) else {
+            return (nil, MenuLLMDiagnostics.describeUnparseableResponse(rawText))
+        }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        // The decode error is the only thing that says *why* a provider
+        // response missed the contract. Swallowing it with `try?` made a
+        // real ten-page regression undiagnosable without paying for
+        // another run, so the last failure is kept and reported.
+        var lastDecodeFailure: Error?
+        for candidate in [jsonText, repairJSONStringQuotes(jsonText)] {
+            guard let jsonData = candidate.data(using: .utf8) else { continue }
+            do {
+                let extraction = try decoder.decode(
+                    MenuImportPageExtraction.self,
+                    from: jsonData
+                )
+                MenuImportProviderTranscript.record(
+                    pageIndex: extraction.pageIndex,
+                    jsonText: candidate
+                )
+                return (extraction, nil)
+            } catch {
+                lastDecodeFailure = error
+            }
+        }
+        return (
+            nil,
+            MenuLLMDiagnostics.describeContractMappingFailure(
+                lastDecodeFailure,
+                jsonText: jsonText,
+                rawText: rawText
+            )
+        )
+    }
+
     private static func runLLMExtractionCall(
         apiKey: String,
         userPrompt: String,
@@ -6247,45 +6382,10 @@ enum MenuImportService {
                 )
             }
 
-            guard let rawText = call.text,
-                  let jsonText = extractJSONObject(from: rawText) else {
-                return LLMExtractionCallOutcome(
-                    extraction: nil,
-                    errorMessage: MenuLLMDiagnostics.describeUnparseableResponse(call.text),
-                    usage: usage
-                )
-            }
-
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            // The decode error is the only thing that says *why* a provider
-            // response missed the contract. Swallowing it with `try?` made a
-            // real ten-page regression undiagnosable without paying for
-            // another run, so the last failure is kept and reported.
-            var lastDecodeFailure: Error?
-            for candidate in [jsonText, repairJSONStringQuotes(jsonText)] {
-                guard let jsonData = candidate.data(using: .utf8) else { continue }
-                do {
-                    let extraction = try decoder.decode(
-                        MenuImportPageExtraction.self,
-                        from: jsonData
-                    )
-                    return LLMExtractionCallOutcome(
-                        extraction: extraction,
-                        errorMessage: nil,
-                        usage: usage
-                    )
-                } catch {
-                    lastDecodeFailure = error
-                }
-            }
+            let decoded = decodeExtraction(from: call.text)
             return LLMExtractionCallOutcome(
-                extraction: nil,
-                errorMessage: MenuLLMDiagnostics.describeContractMappingFailure(
-                    lastDecodeFailure,
-                    jsonText: jsonText,
-                    rawText: rawText
-                ),
+                extraction: decoded.extraction,
+                errorMessage: decoded.errorMessage,
                 usage: usage
             )
         } catch {

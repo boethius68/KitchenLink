@@ -350,6 +350,55 @@ Debugging-Werkzeug; die Vertragsstufe braucht ein starkes Modell.
 - Ebenso ungemessen: ob Schemazwang beim bezahlten Modell hilft oder schadet.
 - Die drei Wiederholungsläufe aus Teil 25 fehlen weiterhin.
 
+### Nachtrag: Aufzeichnen, Abspielen und Prompt-Export (30. Juli 2026)
+
+Der Nutzer hat kein API-Modell mehr zur Verfügung und schlug vor, den Prompt
+notfalls von Hand in ein Chatfenster zu geben. Das hat eine Lücke aufgedeckt,
+die diese Pipeline von Anfang an teuer gemacht hat: **es gab keinen Weg, eine
+Anbieterantwort aufzuzeichnen und erneut abzuspielen.** Jede Messung brauchte
+einen Live-Aufruf, auch wenn nur eine Assembler-Änderung zu prüfen war. Eine
+einmal bezahlte gute Antwort war nach dem Lauf verloren.
+
+Neu:
+
+- `MenuImportProviderTranscript` mit `KITCHENLINK_LLM_REPLAY_DIR` (abspielen)
+  und `KITCHENLINK_LLM_RECORD_DIR` (mitschreiben). Eine Datei pro Seite,
+  `page-<index>.json`, mit dem rohen Vertrags-JSON. Fehlt eine Datei, gilt die
+  Seite als nicht erfasst und die Seitenrettung greift wie bei einem echten
+  Fehlschlag.
+- Der Abspielpfad umgeht ausdrücklich **nur** den Netzaufruf, nicht den
+  Dekodier- und Diagnosepfad: `decodeExtraction` ist dafür aus
+  `runLLMExtractionCall` herausgezogen. Eine Aufzeichnung, die der Vertrag
+  ablehnt, erzeugt denselben Befund wie eine Live-Antwort, die er ablehnt.
+- `scripts/export-extraction-prompts.sh` schreibt für alle zehn Gate-Seiten ein
+  fertiges Paket: Systemprompt, OCR-Belegzeilen, Layout-Transkript, Seitenbild
+  und eine Anweisung zum Zurückkopieren. `MenuImportService.extractionUserPrompt`
+  ist dafür herausgezogen, damit der exportierte Text **wortgleich** mit dem
+  Live-Aufruf ist — sonst wäre das eingesammelte Ergebnis nicht vergleichbar.
+
+Die Pakete liegen unter `.claude/artifacts/prompts/` (nicht versioniert,
+2,2 MB, zehn Seiten mit Bild und Transkript). Ablauf zum Einsammeln steht im
+Kopf des Skripts.
+
+### Offener Punkt: die Layoutstufe erhält im Simulator keine Konfiguration
+
+`MenuImportLayoutPass` funktioniert über HTTP nachweislich (per `curl`
+verifiziert, auch in der OpenAI-Form mit `detail`-Feld), aber im Simulator wurde
+**keine einzige** Anfrage abgesetzt — im Ollama-Log null neue POSTs, und der
+Export lief zu schnell für zehn Bildaufrufe. `KITCHENLINK_PROMPT_OUTPUT` kommt
+über denselben `TEST_RUNNER_`-Mechanismus an, `KITCHENLINK_LAYOUT_BASE_URL`
+offenbar nicht. Ursache ungeklärt.
+
+`print` aus dem Testprozess erreicht die xcodebuild-Ausgabe nicht — der nächste
+Versuch muss die Diagnose in eine **Datei** im Ausgabeverzeichnis schreiben.
+Bis dahin erzeugt `scripts/attach-layout-transcripts.py` die Transkripte
+ausserhalb der App, wortgleich zum Swift-Block. Für die Produktion ist der
+In-App-Pfad zu klären; für das Einsammeln jetzt ist er nicht nötig.
+
+Nebenbefund: Ollama lehnt die grösseren Fixtures (1654x2339) mit HTTP 400 ab,
+der Anfragekörper wird zu gross. Das Skript skaliert deshalb auf 1600 px
+Kantenlänge herunter — dieselbe Grenze, die die App verwendet.
+
 ## Nachtrag: der Import wurde erstmals in der App selbst gefahren
 
 Alle bisherigen Messungen liefen über `MenuImportReviewHarnessTests`, nie über
