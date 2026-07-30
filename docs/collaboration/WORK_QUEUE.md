@@ -930,6 +930,128 @@ Simulator-Runner-Flake liefen die drei betroffenen Navigations-UI-Tests im
 isolierten Wiederholungslauf vollständig grün. Keine neue Produkt- oder
 Designentscheidung; `DECISIONS.md` unberührt.
 
+### KL-TABLE-001 - Tischkontext: QR je Tisch, Tisch an der Bestellung
+
+**Status:** Implementiert auf `main` (30. Juli 2026); offen ist nur die reale
+Abnahme durch den Nutzer (Migration anwenden + einmal ueber einen Tisch-QR
+bestellen, `SANDBOX_SETUP.md` §6.3)
+**Abhaengigkeit:** KL-CLOUD-001 (venue_staff, Betreiber-Anmeldung), KL-WEB-004
+(Supabase-Lesepfad der Gastkarte)
+**Schreibbereich:** `supabase/migrations/20260730120000_table_context.sql` (neu),
+`scripts/verify-supabase-migrations.sh` + `scripts/tests/` (neu),
+`guest-web/src/lib/table-context.ts` (neu), `guest-web/src/lib/order-submit.ts`,
+`order-backend-supabase.ts`, `components/GuestMenuCard.tsx`, `app/globals.css`,
+`guest-web/__tests__/table-context.test.ts` (neu),
+`kitchenlink/Features/Tables/` (neu), `kitchenlink/OrderingDomain.swift`
+(Bezeichnungsregel), `OrderRelayService.swift`, `Features/Today/`,
+`Features/CloudOperations/KitchenLinkCloudOrderClient.swift`,
+`App/KitchenLinkV2BusinessHomeView.swift`,
+`App/KitchenLinkDesignPreviewConfiguration.swift`,
+`kitchenlinkTests/KitchenLinkTablesTests.swift` (neu),
+`kitchenlinkUITests/kitchenlinkUITests.swift`, `SANDBOX_SETUP.md`, dieser Eintrag
+und `docs/collaboration/handoffs/CLAUDE.md`
+
+Schliesst die erste der zwei tragenden Luecken nach dem Menue-Import: eine
+Gastbestellung gehoerte bisher dem **Lokal**, nicht einem Tisch. Weder App noch
+Gast-Web noch Datenbank kannten einen Tischbegriff im Produktpfad, obwohl
+`tables`, `qr_tokens`, `table_sessions` und `orders.table_id` seit dem
+Kernschema existieren.
+
+- **Sicherheitsbefund (behoben):** Diese drei Tabellen waren als **einzige**
+  des Gastschemas ohne Row Level Security, waehrend Supabase `anon`
+  Tabellenrechte per Default-Privileg gibt. Lokal reproduziert: vor der
+  Migration konnte `anon` einen QR-Token direkt schreiben. Jetzt: RLS aktiv,
+  Lesen nur fuer Personal, Schreiben ausschliesslich ueber RPCs.
+- **Migration (additiv):** `tables.area`/`sort_order`, Partial-Unique-Indizes
+  (genau eine offene Session je Tisch, genau ein aktives Tisch-Token je Tisch),
+  Staff-RPCs `operator_upsert_table`, `operator_delete_table`,
+  `operator_rotate_table_token`, Gastauskunft `guest_web_resolve_table` und ein
+  zusaetzlicher, vorbelegter Parameter `p_table_token` an
+  `guest_web_submit_order_v2` (Drop/Create in derselben Transaktion statt einer
+  v3, die 470 Zeilen Bestelllogik dupliziert haette).
+- **Gast-Web:** `?tisch=<token>` wird nach der Hydration gelesen, aufgeloest und
+  im Kartenkopf sowie im Bestell-Sheet angezeigt; das Token geht in den
+  Idempotenzschluessel ein. Die Seite bleibt ISR-gerendert (`Revalidate 1m`) —
+  `searchParams` serverseitig zu lesen haette den CDN-Cache jeder Karte gekostet.
+- **iOS:** neuer Bereich `Tische` (Bereiche, Tische, QR-Code je Tisch, Teilen/
+  Drucken, Umbenennen, Stilllegen, Code rotieren). Cloud-Bestellungen tragen
+  ihren Tisch jetzt bis in `Service` und `Heute`.
+- **Gemeinsame Tisch-Session (Blueprint §6.1):** die erste Bestellung eines
+  Tisches eroeffnet sie, jede weitere haengt sich an dieselbe; das Rennen
+  zwischen zwei gleichzeitig bestellenden Gaesten entscheidet der Index.
+
+**Produktentscheidung, die der Nutzer drehen kann:** ein unbekannter,
+abgelaufener oder stillgelegter QR-Code fuehrt zu einer **Absage** statt zu
+einer tischlosen Bestellung. Begruendung: eine nicht zuordenbare Bestellung
+kostet im Betrieb mehr als eine abgewiesene. Umschaltbar an einer Stelle
+(`tableUnknown` in `GuestMenuCard.tsx` plus die Abweisung in der RPC).
+
+Verifikation: **erstmals lief die RPC-SQL dieses Projekts vor der Abnahme gegen
+ein echtes PostgreSQL** — `scripts/verify-supabase-migrations.sh` faehrt eine
+Wegwerf-Instanz hoch, spielt alle zwoelf Migrationen ein und prueft
+Tischaufloesung, Session-Zusammenlegung, Idempotenz mit Tisch, Token-Rotation,
+Loeschschutz und die RLS-Sperre fuer `anon`. Der Lauf fand zwei echte Fehler
+(Loeschen verletzte die neue Token-Bedingung; ein mehrdeutiger Spaltenverweis
+im Test). Ausserdem: iOS-Unit-Suite und Standard-UI-Suite gruen (ein
+vorbestehender, von dieser Aenderung unabhaengiger Fehlschlag in
+`MenuManualEditorUITests`, auch auf ungeaendertem Stand reproduziert),
+Gast-Web typecheck/lint/105 Tests/Build mit ISR intakt, visuelle Pruefung
+hell und dunkel auf iPhone 17 Pro und mobil im Browser.
+
+### KL-TABLE-002 - Kellnerbestellung am Tisch
+
+**Status:** Implementiert auf `main` (31. Juli 2026); offen ist die reale
+Abnahme (Migrationen anwenden, eine Bestellung aufnehmen, Cloud-Ankunft
+pruefen, `SANDBOX_SETUP.md` §6.4)
+**Abhaengigkeit:** KL-TABLE-001 (Tische), KL-CLOUD-001 (Betreiber-Sitzung,
+Outbox-Versand)
+**Schreibbereich:** `supabase/migrations/20260730160000_operator_create_order_table.sql`
+(neu), `scripts/tests/table-context.sql`, `kitchenlink/Features/Tables/
+KitchenLinkWaiterOrderModel.swift` und `KitchenLinkV2WaiterOrderView.swift`
+(neu), `Features/LocalOperations/KitchenLinkV2LocalOperationsView.swift`,
+`Features/CloudOperations/KitchenLinkServiceOrderMerge.swift`,
+`KitchenLinkCloudOperationsModel.swift`, `KitchenLinkCloudOrderClient.swift`,
+`EventLogOrderRepository.swift`, `kitchenlinkTests/
+KitchenLinkWaiterOrderTests.swift` (neu), `KitchenLinkCloudOperationsTests.swift`,
+`KitchenLinkEventLogOrderRepositoryTests.swift`, `SANDBOX_SETUP.md`, dieser
+Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+Macht den in `DECISIONS.md` (Local-First, 23. Juli 2026) beschlossenen
+Offline-Pfad erstmals durchfuehrbar: „Gaeste bestellen verbal, der Kellner
+erfasst die Bestellung auf dem Service-iPhone." Im Produkt gab es diesen Weg
+nicht — `Service` konnte nur Status schalten, die Bestellaufnahme lag im
+stillgelegten Legacy-Checkout, und `operator_create_order` war ungenutzt.
+
+- **Reihenfolge als Zusage:** erst der dauerhafte Commit im lokalen
+  Ereignisprotokoll, dann die Bestaetigung, dann die Cloud. Der Kellner sieht
+  ausdruecklich, ob die Cloud die Bestellung schon kennt — ohne Verbindung
+  bleibt sie angenommen und wird von der Outbox nachgereicht.
+- **Migration (additiv):** `operator_create_order` bekommt `p_table_id`,
+  haengt die Bestellung an Tisch und offene Tisch-Session (gemeinsame Funktion
+  `kitchenlink_open_table_session`) und weist stillgelegte Tische ab.
+  **Behobener Idempotenzfehler:** die bisherige Fassung liess die Bestellung
+  dank `on conflict (id) do nothing` einmalig, fuegte die **Positionen** bei
+  einer Wiederholung aber erneut ein — bei jedem Outbox-Retry haette die
+  Bestellung doppelte Positionen und einen falschen Betrag gehabt.
+- **Zwei Fehler, die erst der Simulator zeigte:** die lokale Liste filterte auf
+  `preparing`, waehrend eine Kellnerbestellung `pending` startet (sie war
+  unsichtbar), und der Merge entdoppelte nicht nach ID (nach der
+  Synchronisation haette dieselbe Bestellung zweimal auf dem Pass gelegen).
+  Beides in `KitchenLinkServiceOrderMerge` behoben und getestet.
+- **Bestellkarte:** der Tisch fuehrt jetzt die Karte an (`Tisch 1`), Zeit und
+  Herkunft ruecken in die zweite Zeile. Die Kueche muss wissen, wohin.
+- **Nebenbefund behoben:** die Bestell-Abfrage holte `tables(label,area)`;
+  `area` kommt erst mit 20260730120000. Ein Betrieb mit neuer App und alter
+  Datenbank haette seine Bestellliste verloren. Jetzt nur `tables(label)`.
+
+Verifikation: SQL gegen echtes PostgreSQL (Kellnerbestellung teilt die offene
+Session der Gaeste, Wiederholung verdoppelt keine Positionen, stillgelegter
+Tisch und fehlende Personalrolle abgewiesen), iOS-Unit-Suite und Standard-UI-
+Suite gruen (410 bestanden; der eine Fehlschlag in `MenuManualEditorUITests`
+ist vorbestehend), sowie der vollstaendige Ablauf im Simulator: aufnehmen →
+dauerhaft gespeichert → Kueche zeigt `Tisch 1` → zubereitet → Kellner-Modus →
+serviert.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

@@ -102,6 +102,8 @@ actor KitchenLinkCloudTransportSpy: KitchenLinkCloudTransport {
                 serviceMode: order.serviceMode,
                 customerNote: order.customerNote,
                 sourceDevice: order.sourceDevice,
+                tableID: order.tableID,
+                table: order.table,
                 items: order.items
             )
         }
@@ -132,7 +134,8 @@ actor KitchenLinkCloudTransportSpy: KitchenLinkCloudTransport {
         totalCents: Int,
         serviceMode: String,
         customerNote: String,
-        itemsJSON: Data
+        itemsJSON: Data,
+        tableID: String?
     ) async throws -> Bool {
         true
     }
@@ -162,7 +165,9 @@ struct KitchenLinkCloudOperationsTests {
         createdAt: String = "2026-07-19T10:15:00.123456+00:00",
         status: String = "pending",
         note: String = "",
-        kind: String = "food"
+        kind: String = "food",
+        tableID: String? = nil,
+        table: KitchenLinkCloudWireOrderTable? = nil
     ) -> KitchenLinkCloudWireOrder {
         KitchenLinkCloudWireOrder(
             id: id,
@@ -173,6 +178,8 @@ struct KitchenLinkCloudOperationsTests {
             serviceMode: "dine_in",
             customerNote: note,
             sourceDevice: "guest_web",
+            tableID: tableID,
+            table: table,
             items: [
                 KitchenLinkCloudWireOrderItem(
                     id: "item-1",
@@ -470,5 +477,38 @@ struct KitchenLinkCloudOperationsTests {
         let waiter = KitchenLinkServiceOrderMerge.waiterOrders(local: local, online: online)
 
         #expect(waiter.map(\.id) == ["online-ready", "local-ready"])
+    }
+
+    /// KL-TABLE-002: Eine vom Kellner aufgenommene Bestellung startet
+    /// `pending` (Blueprint §6.3, automatische Annahme) — vorher zeigte die
+    /// lokale Liste nur `preparing` und ließ sie damit unter den Tisch fallen.
+    @Test func kitchenMergeShowsLocallyTakenPendingOrders() {
+        let base = Date(timeIntervalSince1970: 1_800_000_000)
+        let local = [
+            liveOrder(id: "waiter-pending", status: .pending, createdAt: base),
+            liveOrder(id: "waiter-served", status: .served, createdAt: base.addingTimeInterval(10))
+        ]
+
+        let kitchen = KitchenLinkServiceOrderMerge.kitchenOrders(local: local, online: [])
+
+        #expect(kitchen.map(\.id) == ["waiter-pending"])
+    }
+
+    /// Nach der Cloud-Synchronisation kennt die App dieselbe Bestellung aus
+    /// zwei Quellen. Sie darf nur einmal auf dem Pass liegen — und in der
+    /// Online-Fassung, weil dafür der Status-Schreibweg funktioniert.
+    @Test func mergeDeduplicatesTheSameOrderFromBothSources() {
+        let base = Date(timeIntervalSince1970: 1_800_000_000)
+        let local = [liveOrder(id: "shared", status: .pending, createdAt: base)]
+        let online = [
+            liveOrder(id: "shared", status: .preparing, createdAt: base),
+            liveOrder(id: "other", status: .pending, createdAt: base.addingTimeInterval(5))
+        ]
+
+        let kitchen = KitchenLinkServiceOrderMerge.kitchenOrders(local: local, online: online)
+
+        #expect(kitchen.count == 2)
+        #expect(kitchen.first?.id == "shared")
+        #expect(kitchen.first?.status == .preparing)
     }
 }

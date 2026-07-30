@@ -1,12 +1,17 @@
 import Foundation
 
 /// Zusammenführung von Online- und lokalen Bestellungen für die eine
-/// Service-Liste (KL-CLOUD-001). Lokale Hub-Bestellungen starten als
-/// `preparing`; Online-Bestellungen aus dem Gast-Web starten als `pending`
-/// (Blueprint §6.3: automatische Annahme ist der Standard, deshalb landen sie
-/// direkt in der Küche statt in einem eigenen Annahme-Schritt).
+/// Service-Liste (KL-CLOUD-001, erweitert um KL-TABLE-002).
+///
+/// Alle Quellen gelten als angenommen: Gastbestellungen aus dem Gast-Web
+/// (Blueprint §6.3, automatische Annahme ist der Standard), Bestellungen des
+/// lokalen Hubs und die vom Kellner aufgenommenen. Sie unterscheiden sich nur
+/// im Startstatus — der Hub setzt `preparing`, Gast-Web und Kellner `pending` —
+/// und dürfen deshalb nicht unterschiedlich gefiltert werden. Vorher fiel eine
+/// Kellnerbestellung durch: sie startet `pending`, die lokale Liste zeigte aber
+/// nur `preparing`.
 enum KitchenLinkServiceOrderMerge {
-    static let kitchenOnlineStatuses: Set<OrderLifecycleStatus> = [
+    static let kitchenStatuses: Set<OrderLifecycleStatus> = [
         .pending, .accepted, .preparing
     ]
 
@@ -15,9 +20,7 @@ enum KitchenLinkServiceOrderMerge {
         local: [LiveOrderMessage],
         online: [LiveOrderMessage]
     ) -> [LiveOrderMessage] {
-        let merged = local.filter { $0.status == .preparing }
-            + online.filter { kitchenOnlineStatuses.contains($0.status) }
-        return merged.sorted { $0.createdAt < $1.createdAt }
+        merge(local: local, online: online) { kitchenStatuses.contains($0.status) }
     }
 
     /// Kellner: alles Bereite am Pass, älteste zuerst.
@@ -25,8 +28,29 @@ enum KitchenLinkServiceOrderMerge {
         local: [LiveOrderMessage],
         online: [LiveOrderMessage]
     ) -> [LiveOrderMessage] {
-        let merged = local.filter { $0.status == .ready }
-            + online.filter { $0.status == .ready }
-        return merged.sorted { $0.createdAt < $1.createdAt }
+        merge(local: local, online: online) { $0.status == .ready }
+    }
+
+    /// Eine lokal aufgenommene Bestellung taucht nach der Cloud-Synchronisation
+    /// ein zweites Mal auf — dieselbe ID, zwei Quellen. Die Online-Fassung
+    /// gewinnt: für sie funktioniert der Status-Schreibweg über die RPC, und
+    /// sie ist der Stand, den auch andere Geräte sehen.
+    private static func merge(
+        local: [LiveOrderMessage],
+        online: [LiveOrderMessage],
+        matching predicate: (LiveOrderMessage) -> Bool
+    ) -> [LiveOrderMessage] {
+        var byID: [String: LiveOrderMessage] = [:]
+        for order in local where predicate(order) {
+            byID[order.id] = order
+        }
+        for order in online where predicate(order) {
+            byID[order.id] = order
+        }
+        return byID.values.sorted { left, right in
+            left.createdAt == right.createdAt
+                ? left.id < right.id
+                : left.createdAt < right.createdAt
+        }
     }
 }

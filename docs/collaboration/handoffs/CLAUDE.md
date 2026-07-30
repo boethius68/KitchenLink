@@ -1,10 +1,226 @@
 # Claude Code Handoff
 
-**Updated:** 30 July 2026 (Session-Teil 29: Staffelregel belegt, drei Fehlerklassen geschlossen)
+**Updated:** 31 July 2026 (Session-Teil 31: KL-TABLE-002, Kellnerbestellung)
+**Zuvor:** 30 July 2026 (Session-Teil 30: KL-TABLE-001, Tischkontext)
+**Zuvor:** 30 July 2026 (Session-Teil 29: Staffelregel belegt, drei Fehlerklassen geschlossen)
 **Zuvor:** 30 July 2026 (Session-Teil 28: Layoutstufe an einem starken Modell belegt)
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 31: KL-TABLE-002 — Kellnerbestellung (31. Juli 2026)
+
+### Anlass
+
+Die zweite tragende Lücke aus Teil 30. `DECISIONS.md` (Local-First, 23. Juli)
+macht „Gäste bestellen verbal, der Kellner erfasst auf dem Service-iPhone" zum
+Offline-Pfad der Sandbox-Beta — und genau diesen Weg gab es im Produkt nicht.
+
+### Umgesetzt
+
+- **Reihenfolge ist die Aussage** (`KitchenLinkWaiterOrderModel`): erst der
+  dauerhafte Commit im lokalen Ereignisprotokoll, dann die Bestätigung, dann
+  die Cloud. Schlägt der lokale Schreibvorgang fehl, gibt es **keine**
+  Bestätigung und die aufgenommenen Positionen bleiben stehen; die Cloud wird
+  in dem Fall gar nicht erst gefragt (ein Test sichert genau das ab).
+  Der Kellner sieht ausdrücklich, ob die Cloud die Bestellung schon kennt.
+- **Migration `20260730160000`:** `operator_create_order` bekommt `p_table_id`,
+  öffnet bzw. verwendet die gemeinsame Tisch-Session (neue Funktion
+  `kitchenlink_open_table_session`) und weist stillgelegte Tische ab.
+- **Echter Idempotenzfehler behoben.** Die bisherige Fassung hielt die
+  Bestellung per `on conflict (id) do nothing` einmalig, fügte die
+  **Positionen** bei einer Wiederholung aber erneut ein. Der Outbox-Versand
+  wiederholt nach jedem Zustellfehler — die Bestellung hätte doppelte
+  Positionen und einen falschen Betrag gehabt. Jetzt bekommt nur die wirklich
+  neu eingefügte Bestellung Positionen; die Antwort meldet `replayed`.
+- **Oberfläche:** `Service → Bestellung aufnehmen` mit Kanal, Tischraster,
+  der eigenen Karte (nur verfügbare Artikel) und Küchenhinweis.
+
+### Drei Fehler, die erst das Durchspielen im Simulator zeigte
+
+1. **Die Bestätigung war unsichtbar.** Sie stand am Ende des Scrollbereichs —
+   hinter über hundert Artikeln der echten Karte. Der Kellner hätte nach dem
+   Tippen nur einen leeren Warenkorb gesehen. Jetzt steht sie direkt über der
+   Aktion.
+2. **Die Kellnerbestellung tauchte in keiner Liste auf.** Die lokale Liste
+   filterte auf `preparing` (so startet der Hub), eine Kellnerbestellung
+   startet aber `pending` (Blueprint §6.3: automatische Annahme). Beide Quellen
+   werden jetzt gleich behandelt.
+3. **Der Merge entdoppelte nicht.** Nach der Cloud-Synchronisation kennt die
+   App dieselbe Bestellung aus zwei Quellen — sie hätte zweimal auf dem Pass
+   gelegen. Jetzt gewinnt die Online-Fassung (für sie funktioniert der
+   Status-Schreibweg).
+
+Dazu ein Nebenbefund aus Teil 30, ebenfalls im Simulator sichtbar geworden:
+die Bestell-Abfrage holte `tables(label,area)`. `area` kommt erst mit der
+Tisch-Migration — ein Betrieb mit neuer App und noch nicht angewendeter
+Migration hätte seine **komplette Bestellliste** verloren (im Screenshot:
+`column tables_1.area does not exist`). Die Abfrage holt jetzt nur `label`,
+das seit dem Kernschema existiert.
+
+### Architektur-Notiz für die nächste Scheibe
+
+Es gibt zwei lokale Ereignisprotokolle: `KitchenLinkOrders/orders.sqlite`
+(App-Repository, an der Cloud-Outbox) und `KitchenLinkVenueHub/events.sqlite`
+(Foreground-Hub, Quelle der lokalen Gastbestellungen). Die Service-Liste liest
+jetzt beide. Das ist ehrlich, aber kein Zielzustand — der autoritative lokale
+Knoten sollte einer sein. Nicht in dieser Scheibe zusammengelegt, weil das den
+Hub-Pfad (KL-OFFLINE-004 bis 007, auf echten Geräten abgenommen) anfassen
+würde. Nebenwirkung heute: die Outbox des Hubs wird von niemandem geleert,
+lokale **Gast**bestellungen erreichen die Cloud also nicht — vorbestehend und
+konsistent damit, dass lokale Gastbestellung laut Entscheidung vom 23. Juli
+keine Pflichtfähigkeit ist.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL:** Kellnerbestellung hängt am Tisch und teilt
+  die offene Session der Gäste, Wiederholung erzeugt keine zweiten Positionen
+  (`replayed = true`), Bestellung ohne Tisch bleibt möglich, stillgelegter
+  Tisch und fehlende Personalrolle werden abgewiesen.
+- **iOS:** Unit- und Standard-UI-Suite grün, **410 Testfälle bestanden, 1
+  Fehlschlag** — weiterhin der vorbestehende `MenuManualEditorUITests`
+  (separater Task).
+- **Vollständiger Ablauf im Simulator:** aufnehmen → „Angenommen · dauerhaft
+  gespeichert" → Küchenliste zeigt `Tisch 1` → „Bestellung zubereitet" →
+  Kellner-Modus zeigt sie am Pass mit „Bestellung serviert".
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme** beider Tisch-Migrationen auf der echten Instanz
+   (`SANDBOX_SETUP.md` §6.3 und §6.4). Erst dort lässt sich prüfen, ob die
+   Kellnerbestellung tatsächlich in der Cloud ankommt — im Simulator meldet die
+   App korrekt „noch nicht in der Cloud", weil die RPC dort fehlt.
+2. **Rechnung und Zahlung** (Blueprint §8) — die Tisch-Session, auf der ein
+   Splitten aufsetzt, existiert jetzt.
+3. Offen aus dieser Scheibe: Zusammenführung der zwei lokalen Ereignis-
+   protokolle, Tisch-Token im lokalen Hub-Gastpfad, Bestellung im Nachhinein
+   korrigieren/stornieren.
+
+## Session-Teil 30: KL-TABLE-001 — Tischkontext (30. Juli 2026)
+
+### Anlass
+
+Der Menü-Import ist weit ausgebaut; der Nutzer fragte, womit es weitergeht. Aus
+Blueprint-Abgleich und Codebefund ergaben sich vier Lücken in Meilenstein 1.
+Der Nutzer hat aus vier Vorschlägen den **Tisch- und Bestellkern** gewählt.
+
+Die zwei tragenden Befunde, die zu dieser Wahl geführt haben:
+
+1. **Kein Tischbegriff im Produktpfad.** Kein Treffer für `table_number`/
+   `tableId` in `kitchenlink/`, `guest-web/src/` oder `supabase/migrations/` —
+   obwohl `tables`, `qr_tokens`, `table_sessions` und `orders.table_id` seit dem
+   Kernschema (20260318011000) existieren. Eine Bestellung gehörte dem Lokal.
+2. **Der Kellner kann keine Bestellung aufnehmen.** Die Local-First-Entscheidung
+   vom 23. Juli macht „Gast bestellt mündlich, Kellner tippt ein" zum
+   Offline-Pfad der Sandbox-Beta. Im Produktpfad gibt es das nicht: `Service`
+   schaltet nur Status. Die Bestellaufnahme liegt im stillgelegten
+   Legacy-Checkout und als ungenutzte RPC `operator_create_order`.
+
+Diese Scheibe schließt (1). (2) ist der nächste Schritt und braucht (1).
+
+### Sicherheitsbefund (behoben, belegt)
+
+`tables`, `qr_tokens` und `table_sessions` waren die **einzigen** Tabellen des
+Gastschemas ohne Row Level Security — KL-WEB-002 hatte sechs Tabellen
+abgesichert, diese drei lagen als ungenutzt daneben. Supabase vergibt
+`anon`/`authenticated` per Default-Privileg Tabellenrechte, also war das keine
+Theorie. Lokal auf dem Stand **vor** dieser Migration reproduziert:
+`relrowsecurity = f` für alle drei, und `set role anon; insert into qr_tokens …`
+ging durch. Nach der Migration: RLS aktiv, nur Staff-Lese-Policies, kein
+einziger Schreibweg für Clients.
+
+### Umgesetzt
+
+- **Migration `20260730120000_table_context.sql`** (additiv): RLS + Policies,
+  `tables.area`/`sort_order`, zwei Partial-Unique-Indizes als tragende
+  Invarianten (**genau eine offene Session je Tisch**, **genau ein aktives
+  Token je Tisch**), die Staff-RPCs `operator_upsert_table`,
+  `operator_delete_table`, `operator_rotate_table_token`, die Gastauskunft
+  `guest_web_resolve_table` und ein zusätzlicher, vorbelegter Parameter
+  `p_table_token` an `guest_web_submit_order_v2`.
+  **Warum kein v3:** `create or replace` kann die Parameterliste nicht
+  erweitern, und ein zweiter Name hätte 470 Zeilen Bestelllogik dupliziert.
+  Stattdessen Drop + Create in derselben Transaktion; Aufrufer mit fünf
+  benannten Argumenten bleiben gültig.
+  Der Tisch geht in den Payload-Hash ein: gleicher Schlüssel, anderer Tisch ist
+  ein Konflikt, nicht stillschweigend derselbe Vorgang.
+- **`scripts/verify-supabase-migrations.sh` + `scripts/tests/`** (neu): fährt
+  eine Wegwerf-PostgreSQL-Instanz hoch, legt die drei Supabase-Stubs an
+  (`anon`/`authenticated`, pgcrypto im Schema `extensions`, `auth.uid()`/
+  `auth.jwt()` aus `request.jwt.claims`), spielt **alle zwölf Migrationen** ein
+  und lässt SQL-Assertions laufen. Das schließt die Lücke, die bei KL-WEB-003
+  zwei echte Fehler erst auf der öffentlichen Instanz sichtbar machte.
+  **Der Lauf hat sofort zwei echte Fehler gefunden:** `operator_delete_table`
+  verletzte über den `on delete set null`-FK die neue Token-Bedingung, und ein
+  mehrdeutiger Spaltenverweis in meinem eigenen Test. Beide behoben.
+- **Gast-Web:** `table-context.ts` (Token lesen, auflösen, Bezeichnung bilden,
+  Gast-URL bauen), Token durch `order-submit`/`order-backend-supabase` bis in
+  die RPC, Anzeige im Kartenkopf und im Bestell-Sheet, eigener Fehlerzustand.
+  **Warum das Token clientseitig gelesen wird:** die Menüseite ist ISR
+  (`revalidate = 60`). `searchParams` serverseitig zu lesen macht die Route
+  dynamisch und kostet jeder Karte den CDN-Cache; `useSearchParams` zwingt den
+  Baum bis zur nächsten Suspense-Grenze ins clientseitige Rendern, was hier die
+  ganze Karte wäre. Der Build meldet weiterhin `Revalidate 1m`.
+- **iOS:** `Features/Tables/` mit Transport (PostgREST-Lesen + drei RPCs),
+  Modell (Sitzung, genau-einmaliger 401-Refresh, Neuladen nach jeder Änderung
+  statt erfundenem lokalem Ergebnis) und Ansicht (Gruppierung nach Bereich,
+  QR-Code, Teilen/Drucken, Umbenennen, Stilllegen, Rotieren). Cloud-Bestellungen
+  tragen ihren Tisch jetzt bis in `Service` und `Heute`.
+- **Eine gemeinsame Bezeichnungsregel** (`KitchenLinkTableLabel.headline`,
+  gespiegelt in `tableHeadline`): ein zusammenhängendes Kürzel mit Ziffer ist
+  eine Tischnummer („Tisch 3", „Tisch A1"), alles andere ein Name („Theke",
+  „Terrasse 1"). Vorher stand app-weit „Tisch \(label)" — „Tisch Theke".
+  Die Regel `erstes Zeichen ist Ziffer` war mein erster Versuch; ein
+  **bestehender** Test (`Tisch A1`) hat sie widerlegt, bevor sie einzog.
+
+### Produktentscheidung, die noch offen ist
+
+Ein unbekannter, abgelaufener oder stillgelegter QR-Code führt zu einer
+**Absage** statt zu einer tischlosen Bestellung. Meine Begründung: eine
+Bestellung, die niemand zuordnen kann, kostet im Betrieb mehr als eine
+abgewiesene. Das ist eine Produktentscheidung, keine technische — sie steht
+bewusst **nicht** in `DECISIONS.md` und ist an einer Stelle umschaltbar
+(`tableUnknown` in `GuestMenuCard.tsx` plus die Abweisung in der RPC).
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL 16:** alle zwölf Migrationen + `table-context`
+  bestanden (Tischauflösung, Session-Zusammenlegung über zwei Gäste,
+  Bestellung ohne Token unverändert, Abholung mit Tisch abgewiesen, Idempotenz
+  inkl. Tischwechsel-Konflikt, Token-Rotation, Löschschutz bei Bestellungen,
+  RLS-Sperre für `anon`).
+- **iOS:** Unit-Suite und Standard-UI-Suite grün, 398 Testfälle bestanden,
+  **1 Fehlschlag: `MenuManualEditorUITests.testManualMenuEditorCoreFlow` —
+  vorbestehend.** Auf ungeändertem Stand (`git stash`) reproduziert und auf
+  einem zweiten, sauberen Simulator ebenfalls rot. Nicht von dieser Scheibe
+  verursacht und nicht in ihrem Schreibbereich.
+- **Gast-Web:** typecheck und ESLint sauber, 105 Vitest-Tests (21 neu), Build
+  mit `Revalidate 1m` intakt.
+- **Visuell:** Gastkarte mobil (375×812) in beiden Zuständen — „Tisch 3 ·
+  Gastraum" im Kopf und „Für Tisch 3 · Gastraum" im Sheet gegen einen
+  Wegwerf-Mock, „Tisch nicht erkannt" gegen die echte Instanz ohne angewendete
+  Migration. iPhone 17 Pro hell und dunkel: Tischliste nach Bereichen,
+  QR-Detail mit Gast-URL.
+- Zwei eigene UI-Fehler dabei gefunden und behoben: die Farbe für „Tisch
+  löschen" lag außerhalb des Button-Styles und blieb wirkungslos, und der
+  app-weite Legacy-Tint (dunkles Petrol aus `KitchenTheme`) machte „Fertig" im
+  Dunkelmodus fast unlesbar (lokal überschrieben; **app-weit besteht das
+  weiter** — eigener Folgepunkt).
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme:** Migration `20260730120000` auf der echten Instanz
+   anwenden und einmal über einen Tisch-QR bestellen (`SANDBOX_SETUP.md` §6.3).
+   Ohne sie zeigt die App ehrlich `column tables.area does not exist`.
+2. **KL-TABLE-002 — Kellnerbestellung am iPhone** auf eine Tisch-Session. Das
+   ist die zweite tragende Lücke und macht den beschlossenen Offline-Pfad
+   erstmals wirklich durchführbar. `operator_create_order` existiert bereits
+   und braucht den Tischparameter.
+3. Danach Rechnung/Zahlung (Blueprint §8) — sinnvolles Splitten setzt die
+   Tisch-Session voraus, die jetzt existiert.
+4. Kleinere Punkte: Tisch-Token im lokalen Hub-Gastpfad (heute nur Cloud),
+   app-weiter Legacy-Tint im Dunkelmodus, der vorbestehende
+   `MenuManualEditorUITests`-Fehlschlag.
 
 ## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
 

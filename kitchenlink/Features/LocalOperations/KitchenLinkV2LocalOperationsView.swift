@@ -82,6 +82,8 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
     @State private var cloudEmailField = ""
     @State private var cloudPasswordField = ""
     @State private var isCloudSigningIn = false
+    /// Vom Kellner auf diesem Gerät aufgenommene Bestellungen (KL-TABLE-002).
+    @State private var waiterOrders: [LiveOrderMessage] = []
 
     var body: some View {
         ZStack {
@@ -98,6 +100,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                     if cloud.connectionState == .signedOut {
                         cloudCard
                     }
+                    takeOrderLink
                     orderSection
                     if cloud.connectionState != .signedOut {
                         cloudCard
@@ -120,6 +123,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
             }
             cloud.connectIfPossible()
             hubDiscovery.start()
+            reloadWaiterOrders()
             await startVenueHub()
         }
         .task(id: venueHub.endpoint?.guestURL) {
@@ -130,6 +134,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
             case .active:
                 cloud.connectIfPossible()
                 hubDiscovery.start()
+                reloadWaiterOrders()
                 if usesExternalHub {
                     model.connect()
                 } else {
@@ -158,16 +163,23 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
     }
 
     /// Online- und lokale Bestellungen in einer Liste, älteste zuerst.
+    /// Hub-Projektion **und** die auf diesem Gerät aufgenommenen Bestellungen
+    /// (KL-TABLE-002). Beide sind lokal autoritativ; sie liegen nur in
+    /// verschiedenen Ereignisprotokollen.
+    private var localOrders: [LiveOrderMessage] {
+        model.orders + waiterOrders
+    }
+
     private var visibleOrders: [LiveOrderMessage] {
         switch mode {
         case .kitchen:
             return KitchenLinkServiceOrderMerge.kitchenOrders(
-                local: model.orders,
+                local: localOrders,
                 online: cloud.orders
             )
         case .waiter:
             return KitchenLinkServiceOrderMerge.waiterOrders(
-                local: model.orders,
+                local: localOrders,
                 online: cloud.orders
             )
         }
@@ -219,6 +231,61 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
     private var badgeAccessibilityLabel: String {
         if cloud.isConnected { return "Online-Service verbunden" }
         return "Lokaler Bestell-Speicher aktiv; Cloud nicht verbunden"
+    }
+
+    /// KL-TABLE-002: der Weg für eine mündlich aufgegebene Bestellung. Er steht
+    /// bewusst über der Bestellliste und nicht in einem Untermenü: bei
+    /// Cloud-Ausfall ist das der einzige Weg, wie eine Bestellung ins System
+    /// kommt (DECISIONS.md, Local-First).
+    private var takeOrderLink: some View {
+        NavigationLink {
+            KitchenLinkV2WaiterOrderView(
+                model: KitchenLinkWaiterOrderModel(
+                    repository: appStore.repository,
+                    venue: appStore.venueProfile,
+                    sections: appStore.menuSections,
+                    syncCloud: { [weak cloud] in
+                        await cloud?.syncOutboxNow() ?? false
+                    }
+                )
+            )
+            .environmentObject(appStore)
+            .onDisappear { reloadWaiterOrders() }
+        } label: {
+            HStack(spacing: KitchenLinkV2Spacing.medium) {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .frame(width: 28)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Bestellung aufnehmen")
+                        .font(KitchenLinkV2Typography.primaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                    Text("Für einen Tisch, die Theke oder telefonisch")
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .accessibilityHidden(true)
+            }
+            .padding(KitchenLinkV2Spacing.large)
+            .frame(minHeight: KitchenLinkV2GuestMenuMetrics.minimumTapTarget)
+            .background(
+                KitchenLinkV2Palette.Surface.raised,
+                in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                    .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("localOperations.takeOrder")
     }
 
     private var modePicker: some View {
@@ -673,10 +740,13 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(order.sourceDevice.replacingOccurrences(of: "Lokales Gast-WLAN · ", with: "Lokal · "))
+                    // Der Tisch führt, sobald es einen gibt (KL-TABLE-002):
+                    // die Küche muss wissen, wohin — die Herkunft des Auftrags
+                    // ist dafür zweitrangig.
+                    Text(orderTitle(order))
                         .font(KitchenLinkV2Typography.primaryLine)
                         .foregroundStyle(KitchenLinkV2Palette.Content.primary)
-                    Text(order.createdAt.formatted(date: .omitted, time: .shortened))
+                    Text(orderSubtitle(order))
                         .font(KitchenLinkV2Typography.meta)
                         .foregroundStyle(KitchenLinkV2Palette.Content.muted)
                 }
@@ -736,12 +806,42 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
         mode == .kitchen ? "Bestellung zubereitet" : "Bestellung serviert"
     }
 
+    private func orderTitle(_ order: LiveOrderMessage) -> String {
+        if let label = order.tableLabel, !label.isEmpty {
+            return KitchenLinkTableLabel.headline(label)
+        }
+        return order.sourceDevice.replacingOccurrences(
+            of: "Lokales Gast-WLAN · ",
+            with: "Lokal · "
+        )
+    }
+
+    private func orderSubtitle(_ order: LiveOrderMessage) -> String {
+        let time = order.createdAt.formatted(date: .omitted, time: .shortened)
+        guard let label = order.tableLabel, !label.isEmpty else { return time }
+        // Bei einer Tischbestellung rutscht die Herkunft in die zweite Zeile,
+        // damit sie nicht ganz verschwindet.
+        let source = order.sourceDevice.replacingOccurrences(
+            of: "Lokales Gast-WLAN · ",
+            with: "Lokal · "
+        )
+        return "\(time) · \(source)"
+    }
+
     private func advance(_ order: LiveOrderMessage) {
         let target: OrderLifecycleStatus = mode == .kitchen ? .ready : .served
         Task {
             let success: Bool
             if cloud.containsOrder(id: order.id) {
                 success = await cloud.update(order: order, to: target)
+            } else if waiterOrders.contains(where: { $0.id == order.id }) {
+                // Auf diesem Gerät aufgenommen: der Status gehört in dasselbe
+                // Ereignisprotokoll, in dem die Bestellung entstanden ist.
+                success = (try? appStore.repository.updateOrderStatus(
+                    orderID: order.id,
+                    to: target
+                )) != nil
+                reloadWaiterOrders()
             } else {
                 success = await model.update(order: order, to: target)
             }
@@ -749,6 +849,13 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                 successFeedback += 1
             }
         }
+    }
+
+    /// Liest die lokal aufgenommenen Bestellungen neu. Bewusst kein Polling:
+    /// sie entstehen nur auf diesem Gerät, also genügt ein Nachladen bei
+    /// Rückkehr, nach einer Aufnahme und nach einem Statuswechsel.
+    private func reloadWaiterOrders() {
+        waiterOrders = (try? appStore.repository.loadOrders()) ?? []
     }
 
     private var hubStatusColor: Color {

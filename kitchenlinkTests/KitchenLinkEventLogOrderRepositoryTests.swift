@@ -14,6 +14,8 @@ private actor CloudTransportSpy: KitchenLinkCloudTransport {
     }
 
     private(set) var createOrderCalls: [CreateOrderCall] = []
+    /// KL-TABLE-002: der Tisch muss den Weg durch die Outbox überstehen.
+    private(set) var lastTableID: String?
     private var createOrderResult: Bool = true
 
     func setCreateOrderResult(_ value: Bool) {
@@ -30,8 +32,10 @@ private actor CloudTransportSpy: KitchenLinkCloudTransport {
         totalCents: Int,
         serviceMode: String,
         customerNote: String,
-        itemsJSON: Data
+        itemsJSON: Data,
+        tableID: String?
     ) async throws -> Bool {
+        lastTableID = tableID
         createOrderCalls.append(CreateOrderCall(id: id, totalCents: totalCents, sourceDevice: sourceDevice, serviceMode: serviceMode))
         return createOrderResult
     }
@@ -148,6 +152,38 @@ struct CloudOutboxTransportTests {
         #expect(calls.first?.totalCents == 700)
         #expect(calls.first?.sourceDevice == "ios-waiter")
         #expect(calls.first?.serviceMode == "dine_in")
+    }
+
+    /// KL-TABLE-002: Der Tisch der Kellnerbestellung muss den Weg durch das
+    /// Ereignisprotokoll und die Outbox überstehen — sonst käme sie in der
+    /// Cloud ohne Platz an und die Küche wüsste nicht, wohin damit.
+    @Test func placedDeliveryCarriesTheTable() async throws {
+        let spy = CloudTransportSpy()
+        let transport = CloudOutboxTransport(config: config, session: session, cloudTransport: spy)
+        let order = LiveOrderMessage(
+            id: "b1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            createdAt: Date(timeIntervalSince1970: 1_720_000_000),
+            sourceDevice: "Kellner",
+            venueID: "v1",
+            venueName: "Venue",
+            serviceMode: .dineIn,
+            tableID: "table-7",
+            tableLabel: "7",
+            customerNote: "",
+            items: [LiveOrderLine(id: "li1", name: "Suppe", quantity: 1, unitPriceCents: 690, kind: .food)],
+            totalCents: 690,
+            status: .pending
+        )
+        let payload = try placedPayload(order: order)
+        let claim = makeClaim(eventType: "operator_order_placed", payload: payload)
+
+        let result = try await transport.deliver(claim)
+
+        guard case .acknowledged = result else {
+            Issue.record("expected .acknowledged, got \(result)")
+            return
+        }
+        #expect(await spy.lastTableID == "table-7")
     }
 
     @Test func placedDeliveryTransportError() async throws {

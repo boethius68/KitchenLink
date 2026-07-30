@@ -39,12 +39,14 @@ export function createSupabaseOrderBackend(
       items,
       serviceMode,
       customerNote,
+      tableToken,
     }: {
       venueSlug: string;
       idempotencyKey: string;
       items: SubmitItem[];
       serviceMode: ServiceMode;
       customerNote: string;
+      tableToken: string | null;
     }): Promise<OrderRpcRow> {
       const { data, error } = await supabase.rpc("guest_web_submit_order_v2", {
         p_venue_slug: venueSlug,
@@ -52,6 +54,8 @@ export function createSupabaseOrderBackend(
         p_items: items,
         p_service_mode: serviceMode,
         p_customer_note: customerNote,
+        // KL-TABLE-001: zusaetzlicher, vorbelegter Parameter derselben RPC.
+        p_table_token: tableToken,
       });
 
       if (error) {

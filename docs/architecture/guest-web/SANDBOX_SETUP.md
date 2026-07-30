@@ -302,6 +302,61 @@ fällt der Import automatisch auf die lokalen OCR-Regeln zurück, statt den Scan
 abzubrechen. **Für Produktion** ist ein verlässlicher, vertraglich geregelter
 Anbieter statt des anonymen Free-Gateways vorzusehen (in §7 als offener Punkt).
 
+## 6.3 Tische und ihre QR-Codes (KL-TABLE-001)
+
+Ab dieser Migration gehört eine Gastbestellung zu einem **Tisch**, nicht mehr
+nur zum Lokal. Voraussetzung ist wieder das Betreiber-Konto aus 6.1.
+
+1. Migration `20260730120000_table_context.sql` anwenden (Abschnitt 2). Sie
+   aktiviert Row Level Security auf `tables`, `qr_tokens` und `table_sessions`
+   — diese drei Tabellen waren bis dahin als einzige des Gastschemas
+   ungeschützt — und legt für die Sandbox-Venue sechs Tische mit festen Tokens
+   an (`sandbox-tisch-1` … `sandbox-tisch-5`, `sandbox-theke`).
+2. In der App **„Tische"** öffnen (Startseite, unter Küche). Beim ersten Mal
+   einmal mit den Betreiber-Zugangsdaten anmelden.
+3. Einen Tisch antippen: QR-Code, Gast-URL, Teilen/Drucken, Umbenennen,
+   Stilllegen, neuen Code ausgeben.
+4. Gegenprobe: die Gast-URL im Browser öffnen
+   (`kitchenlink.luneq.eu/alte-muehle/menu?tisch=sandbox-tisch-3`). Im Kopf der
+   Karte steht jetzt „Tisch 3 · Gastraum". Eine Bestellung darüber erscheint im
+   Bereich **Service** mit ihrer Tischangabe.
+
+**Semantik:** Der QR-Code trägt ein Token aus `qr_tokens`, nicht die
+Tischnummer. Umbenennen lässt gedruckte Codes gültig; „Neuen QR-Code ausgeben"
+macht genau den alten ungültig. Ein unbekannter, abgelaufener oder stillgelegter
+Code führt bewusst zu einer **Absage** statt zu einer tischlosen Bestellung —
+eine Bestellung, die niemand zuordnen kann, kostet im Betrieb mehr als eine
+abgewiesene. Die erste Bestellung eines Tisches eröffnet seine gemeinsame
+Tisch-Session; jede weitere Bestellung desselben Tisches hängt sich an dieselbe
+(Blueprint §6.1). Ohne Tisch-Token verhält sich die Bestellung exakt wie bisher.
+
+**Die Sandbox-Tokens sind absichtlich vorhersagbar**, damit Doku, Tests und
+Vorführung eine feste URL haben. Neu angelegte Tische bekommen zufällige Tokens;
+`operator_rotate_table_token` ersetzt auch die Sandbox-Tokens jederzeit.
+
+## 6.4 Bestellung durch den Kellner (KL-TABLE-002)
+
+Der Weg für eine mündlich aufgegebene Bestellung — und der Pfad, der bei
+Cloud-Ausfall trägt (`DECISIONS.md`, Local-First).
+
+1. Migrationen bis einschließlich
+   `20260730160000_operator_create_order_table.sql` anwenden (Abschnitt 2).
+2. In der App **Service → „Bestellung aufnehmen"** öffnen.
+3. Kanal wählen (Vor Ort / Bar / Abholung), bei „Vor Ort" den Tisch antippen,
+   Artikel über die Plus-Knöpfe aufnehmen, optional einen Küchenhinweis
+   erfassen, dann **annehmen**.
+4. Die Bestätigung erscheint direkt über der Aktion: „Angenommen · dauerhaft
+   gespeichert" plus die Aussage, ob die Cloud sie schon kennt.
+5. Gegenprobe: die Bestellung steht in der Küchenliste mit ihrem Tisch als
+   Überschrift, lässt sich auf „zubereitet" schalten und erscheint dann im
+   Kellner-Modus.
+
+**Semantik:** Die Bestellung gilt erst als angenommen, wenn sie im lokalen
+Ereignisprotokoll festgeschrieben ist — nie vorher. Die Cloud ist Folge, nicht
+Bedingung: ohne Verbindung bleibt die Bestellung gültig und wird von der Outbox
+nachgereicht, sobald das Gerät wieder online ist. Am selben Tisch schreiben
+Kellner und Gäste in **dieselbe** offene Tisch-Session.
+
 ---
 
 ## 7. Was bewusst NICHT hier gelöst ist
@@ -323,4 +378,6 @@ Anbieter statt des anonymen Free-Gateways vorzusehen (in §7 als offener Punkt).
 | Bestellung schlägt mit `unauthenticated` fehl | Anonymous Sign-in im Dashboard nicht aktiviert (Abschnitt 1.1) |
 | RPC-Fehler `unknown_venue` | Migrationen nicht (vollständig) angewendet; Seed fehlt |
 | `permission denied` auf RPC | Migration 20260717… nicht angewendet (grants fehlen) |
+| Gastkarte meldet „Tisch nicht erkannt" | Migration `20260730120000` nicht angewendet, Token rotiert oder Tisch stillgelegt |
+| App meldet `column tables.area does not exist` | Migration `20260730120000` fehlt auf der Instanz |
 | Bestellung klappt lokal, nicht auf Hostinger | Env-Variablen im Hostinger-Projekt fehlen oder die URL endet fälschlich auf `.supabase.com` statt `.supabase.co` (Abschnitt 5) |

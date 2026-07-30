@@ -762,6 +762,13 @@ button {
   margin: 0 0 var(--kl-space-4);
 }
 
+/* Tischangabe im Bestell-Sheet: ruhige Bestaetigung dessen, was im Kopf der
+   Karte steht — keine eigene Farbe, kein zusaetzliches Gewicht. */
+.kl-sheet-table {
+  margin: calc(var(--kl-space-4) * -1 + var(--kl-space-1)) 0 var(--kl-space-4);
+  color: var(--kl-text-muted);
+}
+
 .kl-sheet-lines {
   list-style: none;
   margin: 0 0 var(--kl-space-4);

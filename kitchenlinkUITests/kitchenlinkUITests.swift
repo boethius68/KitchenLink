@@ -69,6 +69,39 @@ final class kitchenlinkUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["kitchen.connection"].waitForExistence(timeout: 5))
     }
 
+    /// KL-TABLE-001: Der Tischbereich ist erreichbar, gruppiert nach Bereich,
+    /// und der QR-Code eines Tisches steht mit seiner Gast-URL bereit.
+    @MainActor
+    func testTablesAreReachableAndShowTheirGuestQRCode() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--kitchenlink-design-v2", "--kitchenlink-demo-tables"]
+        app.launch()
+
+        let tablesLink = app.buttons["business.openTables"]
+        XCTAssertTrue(tablesLink.waitForExistence(timeout: 5))
+        scrollTo(tablesLink, in: app)
+        tablesLink.tap()
+
+        XCTAssertTrue(app.navigationBars["Tische"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["GASTRAUM"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["tables.add"].exists)
+
+        let firstTable = app.buttons["tables.row.1"]
+        XCTAssertTrue(firstTable.waitForExistence(timeout: 5))
+        firstTable.tap()
+
+        let qrCode = app.descendants(matching: .any)
+            .matching(identifier: "tableDetail.qrCode")
+            .firstMatch
+        XCTAssertTrue(qrCode.waitForExistence(timeout: 5))
+        let guestURL = app.staticTexts["tableDetail.guestURL"]
+        XCTAssertTrue(guestURL.waitForExistence(timeout: 5))
+        // Die Gast-URL muss den Tischparameter tragen — sonst zeigt der
+        // gedruckte Code auf die tischlose Karte.
+        XCTAssertTrue((guestURL.label).contains("?tisch="))
+        XCTAssertTrue(app.buttons["tableDetail.rotate"].exists)
+    }
+
     @MainActor
     func testLocalServiceNavigationRespondsBeforeHubStartup() throws {
         let app = XCUIApplication()

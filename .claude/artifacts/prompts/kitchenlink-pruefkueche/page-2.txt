@@ -1,0 +1,333 @@
+===== SYSTEM =====
+You extract a restaurant menu page into lossless JSON. Return one JSON object
+only, without Markdown. The object MUST use snake_case and this exact shape:
+{
+  "contract_version": "1.0.0",
+  "page_index": 0,
+  "page_kind": "menu|cover|information|legend|mixed|unknown",
+  "languages": ["de", "en"],
+  "sections": [{
+    "title": TEXT,
+    "order": 0,
+    "entries": [ENTRY],
+    "subsections": [],
+    "declarations": [],
+    "review_reasons": []
+  }],
+  "declarations": [DECLARATION],
+  "review_reasons": [REVIEW_REASON]
+}
+
+TEXT is:
+{
+  "value": "visible primary text, unchanged",
+  "language_tag": "de",
+  "evidence_line_ids": ["p1-l1"],
+  "alternatives": [{
+    "value": "visible translation, unchanged",
+    "language_tag": "en",
+    "evidence_line_ids": ["p1-l2"]
+  }]
+}
+
+ENTRY is:
+{
+  "kind": "food|drink|bundle|unknown",
+  "name": TEXT,
+  "description": TEXT or null,
+  "item_number": null,
+  "order": 0,
+  "offers": [OFFER],
+  "quantities": [QUANTITY],
+  "option_groups": [OPTION_GROUP],
+  "bundle_components": [BUNDLE_COMPONENT],
+  "declarations": [DECLARATION],
+  "review_reasons": [REVIEW_REASON]
+}
+
+OFFER is:
+{
+  "label": TEXT or null,
+  "price_kind": "fixed|from|range|market|on_request|included|free|delta|unknown",
+  "amount_cents": 1290 or null,
+  "delta_cents": null,
+  "minimum_amount_cents": null,
+  "maximum_amount_cents": null,
+  "currency_code": "EUR" or null,
+  "raw_price": "12,90 €" or null,
+  "basis": "per_item|per_person|unknown",
+  "applies_to_quantity_order": null,
+  "evidence_line_ids": ["p1-l3"]
+}
+
+QUANTITY is:
+{
+  "raw_text": "250gr",
+  "value": 250,
+  "unit": "g",
+  "kind": "weight|volume|diameter|portion|unknown",
+  "evidence_line_ids": ["p1-l4"]
+}
+
+OPTION_GROUP is:
+{
+  "title": TEXT,
+  "order": 0,
+  "selection_rule": {
+    "minimum": 1 or null,
+    "maximum": 1 or null,
+    "free_selection_count": null,
+    "mode": "single|multiple|unknown",
+    "allows_repeats": false or null
+  },
+  "choices": [{
+    "name": TEXT,
+    "description": TEXT or null,
+    "kind": "size|portion|extra|side|variant|bundle_choice|unknown",
+    "order": 0,
+    "offers": [OFFER],
+    "quantity": QUANTITY or null,
+    "declarations": [],
+    "review_reasons": []
+  }],
+  "review_reasons": []
+}
+
+BUNDLE_COMPONENT is:
+{
+  "title": TEXT,
+  "description": TEXT or null,
+  "kind": "course|choice_course|unknown",
+  "order": 0,
+  "quantity": null,
+  "option_group": OPTION_GROUP or null,
+  "offers": [],
+  "declarations": [],
+  "review_reasons": []
+}
+
+DECLARATION is:
+{
+  "kind": "source_declaration|dietary_claim|notice|unknown",
+  "raw_text": "visible source text, unchanged",
+  "alternatives": [{
+    "value": "visible translation, unchanged",
+    "language_tag": "en",
+    "evidence_line_ids": ["p1-l6"]
+  }],
+  "local_code": "a" or null,
+  "canonical_id": null,
+  "claim": "declared|vegan|vegetarian|unknown",
+  "scope": "entry|choice|section|document|unknown",
+  "evidence_line_ids": ["p1-l5"]
+}
+
+REVIEW_REASON is:
+{
+  "code": "one of the codes listed below",
+  "path": "human-readable local path",
+  "message": "what a person must verify",
+  "severity": "info|warning|error",
+  "evidence_line_ids": ["p1-l7"]
+}
+
+Every element of review_reasons stays a REVIEW_REASON object with all five
+fields. Never write a review reason as a bare string and never replace the
+object with its code.
+
+The "code" field must be exactly one of the following values. They are what
+the operator's review screen knows how to present; an unlisted value is
+dropped. The text after each value explains when to use it and is not itself
+part of the JSON:
+- missing_visible_price: the entry shows no price on this page.
+- source_declaration_meaning_unknown: a declaration code is used but no
+  visible legend on this page explains it.
+- selection_rule_unknown: options are visible but the page does not state
+  how many a guest must or may pick.
+- complex_bundle_choice: a bundle course offers a choice whose rule or
+  pricing is not fully printed.
+- chef_composed_bundle: the menu is described as composed by the kitchen
+  rather than listing its courses.
+- headline_price_unmapped_to_portion_choice: a price stands at the entry
+  while the page also prints portion or size prices, so which one the
+  headline price belongs to is not proven.
+- relationship_scope_ambiguous: it is not provable whether a price,
+  declaration or option belongs to the entry, the section or the page.
+- translation_pairing_unproven: two languages are visible but their pairing
+  is not certain.
+- evidence_missing: a visible value has no matching OCR line.
+Rules:
+- Keep every visible purchasable entry, including entries with no visible
+  price. An unpriced entry has an empty offers array plus a
+  missing_visible_price review reason. Never discard it.
+- Copy visible spelling, punctuation, spacing, capitalization, quantities,
+  price strings, and source codes. Do not silently correct source typos.
+- Cite only OCR line IDs supplied by the user. Cite every visible value.
+  Never invent a line ID. An empty evidence_line_ids array is permitted only
+  when no supplied OCR line contains that value; add evidence_missing.
+- Do not guess text, prices, currencies, selection limits, declaration
+  meanings, dietary claims, or relationships. Use unknown/null and add a
+  review reason whenever the page does not prove them.
+- A fixed price uses amount_cents; a surcharge/discount uses delta_cents; a
+  from price uses minimum_amount_cents; a range uses both minimum and
+  maximum. Do not copy a neighboring price.
+- Keep absolute variant/portion prices as fixed. Keep explicit surcharges as
+  delta. Included choices use included and no numeric amount.
+- Set applies_to_quantity_order to the zero-based quantity index whenever an
+  offer belongs to a specific quantity. For a choice or component with its
+  single quantity, use 0. Leave it null only when no quantity relationship
+  is visible.
+- Keep translations as TEXT.alternatives on the same entity. Never emit a
+  translation as a second item and never delete either language.
+- Keep a set or course menu as one bundle entry. Put fixed courses and
+  exactly-one course choices in bundle_components. Never copy the bundle
+  price onto a component.
+- A cover, logo, slogan, heading, color, font, or watermark is not a menu
+  item. A cover page returns page_kind cover and empty sections.
+  A page classified as menu or mixed must not return zero menu entries.
+- A declaration code has no canonical meaning unless a visible legend on
+  this page proves it. Preserve raw codes with canonical_id null otherwise.
+- An entry name never ends in a declaration code run. Move every trailing
+  code group into declarations, whether or not it is bracketed and whether it
+  is one letter or several: "Bunter Marktsalat [V]", "Bunter Marktsalat V"
+  and "Veganes Kokoscurry [F,I]" all have the name "Bunter Marktsalat" or
+  "Veganes Kokoscurry" plus declarations. Keep the code run verbatim in
+  declaration.raw_text. A quantity or size that is part of the dish name
+  ("Pizza 30cm", "0,5 l") is not a code run and stays in the name.
+- Set currency_code on every offer whose price text shows a currency:
+  "€" or "EUR" is "EUR". Leave it null only when the page prints a bare
+  number with no currency anywhere.
+- Return all array fields, using [] when empty. Return the zero-based
+  page_index supplied by the user and contract_version 1.0.0 exactly.
+  Every order value is zero-based, unique among siblings, and follows the
+  visible reading order.
+
+===== USER =====
+Source page_index (zero-based): 2
+Visible page number: 3 of 3
+
+Supplied OCR evidence lines:
+p3-l1 [x=0.0678 y=0.9359 w=0.4292 h=0.0249 confidence=1.0000] KITCHENLINK PRÜFKÜCHE
+p3-l2 [x=0.0678 y=0.9141 w=0.3039 h=0.0132 confidence=1.0000] GETRÄNKE • ZUSATZSTOFFE • LEGENDE
+p3-l3 [x=0.8665 y=0.9113 w=0.0370 h=0.0174 confidence=1.0000] 3/3
+p3-l4 [x=0.0534 y=0.8474 w=0.2587 h=0.0160 confidence=1.0000] ALKOHOLFREIE GETRÄNKE
+p3-l5 [x=0.5154 y=0.8474 w=0.1232 h=0.0160 confidence=1.0000] WEIN & BIER
+p3-l6 [x=0.0534 y=0.8197 w=0.1684 h=0.0132 confidence=1.0000] Hauslimonade Zitrone
+p3-l7 [x=0.4333 y=0.8183 w=0.0513 h=0.0176 confidence=1.0000] 4,20 €
+p3-l8 [x=0.5154 y=0.8183 w=0.1684 h=0.0189 confidence=1.0000] Riesling trocken [L,13]
+p3-l9 [x=0.8993 y=0.8168 w=0.0576 h=0.0176 confidence=1.0000] 6,90 €
+p3-l10 [x=0.0534 y=0.8067 w=0.1335 h=0.0102 confidence=1.0000] Zitrone, Minze und Soda
+p3-l11 [x=0.0554 y=0.7965 w=0.1663 h=0.0103 confidence=1.0000] Größen: 0,3 1 4,20 € • 0,5 l 5,90 €
+p3-l12 [x=0.5154 y=0.8051 w=0.1622 h=0.0132 confidence=1.0000] Mosel, mineralisch und frisch
+p3-l13 [x=0.5175 y=0.7949 w=0.1807 h=0.0147 confidence=1.0000] Größen: 0,2 1 6,90 € • 0,75 1 24,00 €
+p3-l14 [x=0.0534 y=0.7674 w=0.1211 h=0.0146 confidence=1.0000] Cola Zero [1,9,11]
+p3-l15 [x=0.4353 y=0.7674 w=0.0493 h=0.0160 confidence=1.0000] 3,60 €
+p3-l16 [x=0.5153 y=0.7657 w=0.1172 h=0.0166 confidence=1.0000] Kellerpils [A, 13]
+p3-l17 [x=0.8994 y=0.7658 w=0.0575 h=0.0176 confidence=1.0000] 4,20 €
+p3-l18 [x=0.0534 y=0.7543 w=0.1027 h=0.0103 confidence=1.0000] Eisgekühlt serviert
+p3-l19 [x=0.0554 y=0.7440 w=0.1643 h=0.0090 confidence=1.0000] Größen: 0,2 | 3,60 € • 0,4 | 5,20 €
+p3-l20 [x=0.5154 y=0.7543 w=0.1109 h=0.0103 confidence=1.0000] Naturtrüb vom Fass
+p3-l21 [x=0.5175 y=0.7440 w=0.1663 h=0.0103 confidence=1.0000] Größen: 0,3 | 4,20 € • 0,5 | 5,60 €
+p3-l22 [x=0.0534 y=0.7179 w=0.1170 h=0.0117 confidence=1.0000] Tonic Water [12]
+p3-l23 [x=0.4352 y=0.7149 w=0.0475 h=0.0151 confidence=1.0000] 3,80 €
+p3-l24 [x=0.0534 y=0.7034 w=0.1109 h=0.0090 confidence=1.0000] Mit Limettenscheibe
+p3-l25 [x=0.5154 y=0.7034 w=0.3696 h=0.0175 confidence=1.0000] ALLERGEN-& ZUSATZSTOFF-LEGENDE
+p3-l26 [x=0.5133 y=0.6773 w=0.1376 h=0.0133 confidence=1.0000] A Glutenhaltiges Getreide
+p3-l27 [x=0.0513 y=0.6641 w=0.1396 h=0.0147 confidence=1.0000] KAFFEE & TEE
+p3-l28 [x=0.5132 y=0.6639 w=0.0722 h=0.0168 confidence=1.0000] B Krebstiere
+p3-l29 [x=0.5154 y=0.6541 w=0.0390 h=0.0117 confidence=1.0000] C Eier
+p3-l30 [x=0.0533 y=0.6349 w=0.1172 h=0.0150 confidence=1.0000] Cappuccino [G]
+p3-l31 [x=0.4353 y=0.6350 w=0.0472 h=0.0147 confidence=1.0000] 3,90 €
+p3-l32 [x=0.5154 y=0.6424 w=0.0432 h=0.0118 confidence=1.0000] D Fisch
+p3-l33 [x=0.0534 y=0.6132 w=0.1478 h=0.0074 confidence=1.0000] Variante: Haferdrink +0,50 €
+p3-l34 [x=0.0534 y=0.6235 w=0.2053 h=0.0090 confidence=1.0000] Doppelter Espresso und Milchschaum
+p3-l35 [x=0.5175 y=0.6308 w=0.0370 h=0.0103 confidence=1.0000] F Soja
+p3-l36 [x=0.5154 y=0.6175 w=0.0924 h=0.0104 confidence=1.0000] G Milch / Laktose
+p3-l37 [x=0.5175 y=0.6060 w=0.0903 h=0.0103 confidence=1.0000] H Schalenfrüchte
+p3-l38 [x=0.0513 y=0.5840 w=0.1028 h=0.0151 confidence=1.0000] Espresso [11]
+p3-l39 [x=0.4353 y=0.5828 w=0.0472 h=0.0146 confidence=1.0000] 2,80 €
+p3-l40 [x=0.5154 y=0.5929 w=0.0514 h=0.0104 confidence=1.0000] I Sellerie
+p3-l41 [x=0.0534 y=0.5712 w=0.1170 h=0.0102 confidence=1.0000] Kräftige Hausröstung
+p3-l42 [x=0.5154 y=0.5799 w=0.0390 h=0.0117 confidence=1.0000] J Senf
+p3-l43 [x=0.5154 y=0.5668 w=0.0473 h=0.0132 confidence=1.0000] L Sulfite
+p3-l44 [x=0.5174 y=0.5551 w=0.0699 h=0.0133 confidence=1.0000] O Knoblauch
+p3-l45 [x=0.5154 y=0.5436 w=0.0780 h=0.0116 confidence=1.0000] 1 mit Farbstoff
+p3-l46 [x=0.5175 y=0.5320 w=0.1335 h=0.0103 confidence=1.0000] 2 mit Konservierungsstoff
+p3-l47 [x=0.5153 y=0.5170 w=0.0762 h=0.0125 confidence=1.0000] 5 geschwefelt
+p3-l48 [x=0.5174 y=0.5057 w=0.0720 h=0.0105 confidence=1.0000] 6 geschwärzt
+p3-l49 [x=0.5153 y=0.4925 w=0.0823 h=0.0121 confidence=1.0000] 8 mit Phosphat
+p3-l50 [x=0.5154 y=0.4795 w=0.1068 h=0.0132 confidence=1.0000] 9 mit Süßungsmittel
+p3-l51 [x=0.5153 y=0.4676 w=0.0803 h=0.0124 confidence=1.0000] 11 koffeinhaltig
+p3-l52 [x=0.5154 y=0.4548 w=0.0781 h=0.0133 confidence=1.0000] 12 chininhaltig
+p3-l53 [x=0.5173 y=0.4441 w=0.0824 h=0.0115 confidence=1.0000] 13 alkoholhaltig
+p3-l54 [x=0.0534 y=0.0261 w=0.2834 h=0.0090 confidence=1.0000] SANDBOX-TESTKARTE • NICHT FÜR DEN GASTBETRIEB
+
+Extract exactly this page. The image is primary; OCR lines are the only
+valid evidence IDs. Return contract_version 1.0.0 and page_index 2.
+
+Layout-resolved transcript of this page (from a document model, reading order and column structure already resolved). Use it to decide which price, portion and option belongs to which entry. It carries no evidence IDs: cite only the supplied OCR evidence lines.
+
+KITCHENLINK PRÜFKÜCHE
+GETRÄNKE · ZUSATZSTOFFE · LEGENDE
+
+ALKOHOLFREIE GETRÄNKE
+
+Hauslimonade Zitrone 4,20 €
+Zitrone, Minze und Soda
+Größen: 0,3 l 4,20 € · 0,5 l 5,90 €
+
+Cola Zero [1,9,11] 3,60 €
+Eisgekühlt serviert
+Größen: 0,2 l 3,60 € · 0,4 l 5,20 €
+
+Tonic Water [12] 3,80 €
+Mit Limettenscheibe
+
+KAFFEE & TEE
+
+Cappuccino [G] 3,90 €
+Doppelter Espresso und Milchschaum
+Variante: Haferdrink +0,50 €
+
+Espresso [11] 2,80 €
+Kräftige Hausröstung
+
+WEIN & BIER
+
+Riesling trocken [L,13] 6,90 €
+Mosel, mineralisch und frisch
+Größen: 0,2 l 6,90 € · 0,75 l 24,00 €
+
+Kellerpils [A,13] 4,20 €
+Naturtrüb vom Fass
+Größen: 0,3 l 4,20 € · 0,5 l 5,60 €
+
+ALLERGEN- & ZUSATZSTOFF-LEGENDE
+
+A Glutenhaltiges Getreide
+B Krebstiere
+C Eier
+D Fisch
+F Soja
+G Milch / Laktose
+H Schalenfrüchte
+I Sellerie
+J Senf
+L Sulfite
+O Knoblauch
+1 mit Farbstoff
+2 mit Konservierungsstoff
+5 geschwefelt
+6 geschwärzt
+8 mit Phosphat
+9 mit Süßungsmittel
+11 koffeinhaltig
+12 chininhaltig
+13 alkoholhaltig
+
+===== ANWEISUNG AN DIE PERSON, DIE DAS EINFÜGT =====
+Das zugehörige Seitenbild liegt daneben als page-2.png und
+gehört mit in die Anfrage. Die Antwort muss reines JSON sein, ohne
+Codeblock-Zäune und ohne Vor- oder Nachtext. Zurücklegen als
+page-2.json im Zielverzeichnis, dann auswerten mit
+KITCHENLINK_LLM_REPLAY_DIR=<zielverzeichnis>.

@@ -1,0 +1,324 @@
+{
+  "contract_version": "1.0.0",
+  "page_index": 2,
+  "page_kind": "menu",
+  "languages": ["de"],
+  "sections": [
+    {
+      "title": {"value": "Hauptspeise", "language_tag": "de", "evidence_line_ids": ["p3-l1"], "alternatives": []},
+      "order": 0,
+      "declarations": [],
+      "review_reasons": [],
+      "subsections": [],
+      "entries": [
+        {
+          "kind": "food",
+          "name": {"value": "Lotte", "language_tag": "de", "evidence_line_ids": ["p3-l2"], "alternatives": []},
+          "description": {"value": "gebratener Seeteufel / hausgemachte Gnocchi / frischer Blattspinat / Fischvelouté", "language_tag": "de", "evidence_line_ids": ["p3-l3", "p3-l4"], "alternatives": []},
+          "item_number": null,
+          "order": 0,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": {"value": "Zwischengericht", "language_tag": "de", "evidence_line_ids": ["p3-l7"], "alternatives": []},
+              "price_kind": "fixed",
+              "amount_cents": 2800,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "28 €",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l5"]
+            },
+            {
+              "label": {"value": "Hauptgericht", "language_tag": "de", "evidence_line_ids": ["p3-l8"], "alternatives": []},
+              "price_kind": "fixed",
+              "amount_cents": 3600,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "36 €",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l6"]
+            }
+          ]
+        },
+        {
+          "kind": "food",
+          "name": {"value": "See-Saibling", "language_tag": "de", "evidence_line_ids": ["p3-l9"], "alternatives": []},
+          "description": {"value": "in Thymianbutter gebratenes Saiblingsfilet / wilder Blumenkohl / Bimi / Risotto von getrocknete Tomaten / Fischvelouté", "language_tag": "de", "evidence_line_ids": ["p3-l10", "p3-l11"], "alternatives": []},
+          "item_number": null,
+          "order": 1,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": {"value": "Zwischengericht", "language_tag": "de", "evidence_line_ids": ["p3-l14"], "alternatives": []},
+              "price_kind": "fixed",
+              "amount_cents": 2500,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "25 €",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l12"]
+            },
+            {
+              "label": {"value": "Hauptgericht", "language_tag": "de", "evidence_line_ids": ["p3-l15"], "alternatives": []},
+              "price_kind": "fixed",
+              "amount_cents": 3200,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "32€",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l13"]
+            }
+          ]
+        },
+        {
+          "kind": "food",
+          "name": {"value": "Rinderfiletgeschnetzeltes", "language_tag": "de", "evidence_line_ids": ["p3-l16"], "alternatives": []},
+          "description": {"value": "in Pfifferlingsrahm / Thymian / Erbsen / Bandnudeln", "language_tag": "de", "evidence_line_ids": ["p3-l17"], "alternatives": []},
+          "item_number": null,
+          "order": 2,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": null,
+              "price_kind": "fixed",
+              "amount_cents": 2500,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "25€",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l18"]
+            }
+          ]
+        },
+        {
+          "kind": "food",
+          "name": {"value": "Rinderfilet", "language_tag": "de", "evidence_line_ids": ["p3-l19"], "alternatives": []},
+          "description": {"value": "rosa gebratenes Rinderfilet / cremige Parmesan-Polenta / gebratene Pfifferlinge / Portweinjus", "language_tag": "de", "evidence_line_ids": ["p3-l20", "p3-l21"], "alternatives": []},
+          "item_number": null,
+          "order": 3,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": null,
+              "price_kind": "fixed",
+              "amount_cents": 4600,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "46 €",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l22"]
+            }
+          ]
+        },
+        {
+          "kind": "food",
+          "name": {"value": "Unser Wiener Schnitzel", "language_tag": "de", "evidence_line_ids": ["p3-l23"], "alternatives": []},
+          "description": {"value": "vom Milchkalb / cremiger Gurkensalat / Bratkartoffeln / Zitrone / Preiselbeeren", "language_tag": "de", "evidence_line_ids": ["p3-l24", "p3-l25"], "alternatives": []},
+          "item_number": null,
+          "order": 4,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": null,
+              "price_kind": "fixed",
+              "amount_cents": 2900,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "29€",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l26"]
+            }
+          ]
+        },
+        {
+          "kind": "food",
+          "name": {"value": "Hähnchen-Roulade", "language_tag": "de", "evidence_line_ids": ["p3-l27"], "alternatives": []},
+          "description": {"value": "zart geschmorte Hähnchen-Roulade / gefüllt mit Parmaschinken und Salbei / Zitronen-Parmesan-Risotto / grünen Spargelspitzen", "language_tag": "de", "evidence_line_ids": ["p3-l28", "p3-l29"], "alternatives": []},
+          "item_number": null,
+          "order": 5,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": null,
+              "price_kind": "fixed",
+              "amount_cents": 2500,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "25 €",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l30"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": {"value": "Pasta / vegetarisch", "language_tag": "de", "evidence_line_ids": ["p3-l31"], "alternatives": []},
+      "order": 1,
+      "declarations": [],
+      "review_reasons": [],
+      "subsections": [],
+      "entries": [
+        {
+          "kind": "food",
+          "name": {"value": "Spaghetti al Limone", "language_tag": "de", "evidence_line_ids": ["p3-l32"], "alternatives": []},
+          "description": {"value": "Spaghetti / Zitronen-Parmesan-Sauce / Chili-Knoblauch-Garnelen", "language_tag": "de", "evidence_line_ids": ["p3-l33"], "alternatives": []},
+          "item_number": null,
+          "order": 0,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": null,
+              "price_kind": "fixed",
+              "amount_cents": 2400,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "24€",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l34"]
+            }
+          ]
+        },
+        {
+          "kind": "food",
+          "name": {"value": "Kohlrabischnitzel", "language_tag": "de", "evidence_line_ids": ["p3-l35"], "alternatives": []},
+          "description": {"value": "in Haselnusspanade gebackenes Kohlrabischnitzel / Kartoffelpüree / Radieschen / Pilzrahm", "language_tag": "de", "evidence_line_ids": ["p3-l36", "p3-l37"], "alternatives": []},
+          "item_number": null,
+          "order": 1,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": null,
+              "price_kind": "fixed",
+              "amount_cents": 2400,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "24€",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l38"]
+            }
+          ]
+        },
+        {
+          "kind": "food",
+          "name": {"value": "Taglioline", "language_tag": "de", "evidence_line_ids": ["p3-l39"], "alternatives": []},
+          "description": {"value": "frische Taglioline / Basilikumsugo / Tomatenjulienne / Burrata / gehobelter Trüffel", "language_tag": "de", "evidence_line_ids": ["p3-l40", "p3-l41"], "alternatives": []},
+          "item_number": null,
+          "order": 2,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": null,
+              "price_kind": "fixed",
+              "amount_cents": 2400,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "24€",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l42"]
+            }
+          ]
+        },
+        {
+          "kind": "food",
+          "name": {"value": "Wassermelonen-Steak", "language_tag": "de", "evidence_line_ids": ["p3-l43"], "alternatives": []},
+          "description": {"value": "gegrillte Wassermelone / Fetakäse-Creme / knusprige Kichererbsen / Minze", "language_tag": "de", "evidence_line_ids": ["p3-l44", "p3-l45"], "alternatives": []},
+          "item_number": null,
+          "order": 3,
+          "quantities": [],
+          "option_groups": [],
+          "bundle_components": [],
+          "declarations": [],
+          "review_reasons": [],
+          "offers": [
+            {
+              "label": null,
+              "price_kind": "fixed",
+              "amount_cents": 2300,
+              "delta_cents": null,
+              "minimum_amount_cents": null,
+              "maximum_amount_cents": null,
+              "currency_code": "EUR",
+              "raw_price": "23€",
+              "basis": "per_item",
+              "applies_to_quantity_order": null,
+              "evidence_line_ids": ["p3-l46"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "declarations": [],
+  "review_reasons": []
+}

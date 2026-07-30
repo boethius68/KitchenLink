@@ -1,6 +1,6 @@
 # KitchenLink Current State
 
-**Updated:** 28 July 2026
+**Updated:** 30 July 2026
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
@@ -583,5 +583,54 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   The free path remains slow — roughly 8 minutes for a three-page card, 19
   minutes for 17 pages, and a stall in one run — which is why the paid default
   of 26 July stands unchanged.
+- **Table context (KL-TABLE-001, 30 July):** a guest order now belongs to a
+  **table**, not just to the venue. The dormant `tables`/`qr_tokens`/
+  `table_sessions` layer from the core schema is activated by migration
+  `20260730120000` — and secured: these three were the only guest-schema tables
+  without Row Level Security, and `anon` could write QR tokens directly
+  (reproduced locally before the fix). Now RLS is on, staff read through
+  policies, every write goes through `operator_upsert_table`,
+  `operator_delete_table` or `operator_rotate_table_token`.
+  The table QR carries an opaque token (`qr_tokens`), not the table number:
+  renaming keeps printed codes valid, rotating invalidates exactly them. The
+  guest card reads `?tisch=<token>`, resolves it through
+  `guest_web_resolve_table` and shows "Tisch 3 · Gastraum" in the header and
+  the order sheet; the token enters the idempotency key and
+  `guest_web_submit_order_v2` (one additional, defaulted parameter) attaches
+  the order to the table **and** to the table's open session. First order opens
+  the shared session, every further order of that table joins it (Blueprint
+  §6.1). The page stays ISR-rendered — reading `searchParams` server-side would
+  have cost every card its CDN cache. An unknown, expired or deactivated code
+  is deliberately **rejected** rather than silently becoming a table-less
+  order; that is a reversible product decision, not an approved one.
+  iOS gains a `Tische` area (areas, tables, per-table QR with share/print,
+  rename, deactivate, rotate) and cloud orders now carry their table into
+  `Service` and `Heute`.
+  New: `scripts/verify-supabase-migrations.sh` runs all twelve migrations plus
+  SQL assertions against a throwaway local PostgreSQL — the first time this
+  project's RPC SQL was executed before the user applied it to the real
+  instance. It immediately found two real defects.
+  **Pending:** applying `20260730120000` on the real instance and one order
+  through a table QR (`SANDBOX_SETUP.md` §6.3).
+- **Waiter-entered orders (KL-TABLE-002, 31 July):** the Local-First decision
+  of 23 July made "guests order verbally, the waiter enters it on the service
+  iPhone" the offline path of the sandbox beta — and the product had no such
+  path: `Service` only advanced statuses, order entry lived in the retired
+  legacy checkout, and `operator_create_order` was unused. `Service` now has
+  **„Bestellung aufnehmen"**: channel, table, the venue's own card, a kitchen
+  note. The order is committed to the local event log **first**, confirmed
+  only then, and pushed to the cloud afterwards — the waiter sees explicitly
+  whether the cloud already has it. Migration `20260730160000` gives
+  `operator_create_order` a table, attaches it to the table's open session
+  (shared with the guests' orders) and **fixes a real idempotency defect**: the
+  previous version kept the order unique on replay but inserted its *items*
+  again, so any outbox retry produced doubled lines and a wrong total.
+  Driving it in the simulator surfaced two more defects, both fixed: the local
+  order list filtered on `preparing` while a waiter order starts `pending` (it
+  was invisible), and the merge did not deduplicate by id (after cloud sync the
+  same order would have sat on the pass twice). Order cards now lead with the
+  table.
+  **Pending:** applying `20260730120000` + `20260730160000` on the real
+  instance and one real waiter order (`SANDBOX_SETUP.md` §6.3/§6.4).
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

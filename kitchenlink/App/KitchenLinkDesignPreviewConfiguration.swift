@@ -14,6 +14,12 @@ enum KitchenLinkDesignPreviewConfiguration {
     /// demo paths stay independently controllable from launch arguments.
     static let demoInventoryLaunchArgument = "--kitchenlink-demo-inventory"
 
+    /// Sandbox-only: shows a demo table set in the Tische surface instead of
+    /// loading from the cloud. Same purpose as the two arguments above — the
+    /// layout, the QR sheet and the empty/inactive states stay reviewable
+    /// without an operator session or an applied migration.
+    static let demoTablesLaunchArgument = "--kitchenlink-demo-tables"
+
     /// Sandbox-only: forces an appearance for reproducible visual checks.
     static let lightAppearanceLaunchArgument = "--kitchenlink-appearance-light"
     static let darkAppearanceLaunchArgument = "--kitchenlink-appearance-dark"
@@ -28,6 +34,12 @@ enum KitchenLinkDesignPreviewConfiguration {
         arguments: [String] = ProcessInfo.processInfo.arguments
     ) -> Bool {
         arguments.contains(demoInventoryLaunchArgument)
+    }
+
+    static func shouldSeedDemoTables(
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    ) -> Bool {
+        arguments.contains(demoTablesLaunchArgument)
     }
 
     static func forcedAppearance(

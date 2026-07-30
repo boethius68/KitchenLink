@@ -273,6 +273,23 @@ final class KitchenLinkCloudOperationsModel: ObservableObject {
 
     static let outboxInterval: Duration = .seconds(5)
 
+    /// KL-TABLE-002: schiebt die Outbox sofort, statt bis zu fünf Sekunden auf
+    /// den nächsten Lauf zu warten. Gibt zurück, ob in **diesem** Versuch etwas
+    /// bestätigt wurde — die Kellner-Bestätigung sagt damit die Wahrheit statt
+    /// „ist gleich weg". Ein `false` ist kein Fehler: die Bestellung liegt
+    /// dauerhaft lokal, der Schleifenlauf holt sie nach.
+    @discardableResult
+    func syncOutboxNow() async -> Bool {
+        guard let session, let drain = onDrainOutbox else { return false }
+        outboxSyncState = .syncing
+        let acknowledged = await drain(config, session)
+        outboxSyncState = .idle
+        guard let acknowledged else { return false }
+        lastOutboxSync = Date()
+        pendingOutboxCount = 0
+        return acknowledged > 0
+    }
+
     private func startOutboxSync() {
         outboxTask?.cancel()
         outboxTask = Task { [weak self] in

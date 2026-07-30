@@ -80,6 +80,13 @@ struct KitchenLinkCloudWireOrderItem: Codable, Equatable {
     }
 }
 
+/// Eingebetteter Tisch der Bestellung (KL-TABLE-001). PostgREST liefert die
+/// Beziehung `orders.table_id -> tables.id` als eingebettetes Objekt.
+struct KitchenLinkCloudWireOrderTable: Codable, Equatable {
+    let label: String
+    let area: String?
+}
+
 struct KitchenLinkCloudWireOrder: Codable, Equatable {
     let id: String
     let createdAt: String
@@ -89,6 +96,8 @@ struct KitchenLinkCloudWireOrder: Codable, Equatable {
     let serviceMode: String?
     let customerNote: String?
     let sourceDevice: String?
+    let tableID: String?
+    let table: KitchenLinkCloudWireOrderTable?
     let items: [KitchenLinkCloudWireOrderItem]
 
     enum CodingKeys: String, CodingKey {
@@ -100,6 +109,8 @@ struct KitchenLinkCloudWireOrder: Codable, Equatable {
         case serviceMode = "service_mode"
         case customerNote = "customer_note"
         case sourceDevice = "source_device"
+        case tableID = "table_id"
+        case table = "tables"
         case items = "order_items"
     }
 
@@ -118,8 +129,8 @@ struct KitchenLinkCloudWireOrder: Codable, Equatable {
             venueID: venueID,
             venueName: venueName,
             serviceMode: serviceMode.flatMap(ServiceMode.init(rawValue:)),
-            tableID: nil,
-            tableLabel: nil,
+            tableID: tableID,
+            tableLabel: table?.label,
             customerNote: customerNote ?? "",
             items: items.map { item in
                 LiveOrderLine(
@@ -244,7 +255,10 @@ protocol KitchenLinkCloudTransport: KitchenLinkCloudAuthenticating {
         totalCents: Int,
         serviceMode: String,
         customerNote: String,
-        itemsJSON: Data
+        itemsJSON: Data,
+        /// Tisch der Kellnerbestellung (KL-TABLE-002); `nil` für Theke,
+        /// Abholung oder Telefon.
+        tableID: String?
     ) async throws -> Bool
 }
 
@@ -368,8 +382,13 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
         session: KitchenLinkCloudSession,
         venueID: String
     ) async throws -> [KitchenLinkCloudWireOrder] {
+        // Bewusst nur `label`: `tables.area` kommt erst mit der Tisch-Migration
+        // (20260730120000). Ein Betrieb, der die App aktualisiert hat, aber die
+        // Migration noch nicht, soll seine Bestellungen weiter sehen — die
+        // Bestellliste braucht den Bereich nicht.
         let select = "id,created_at,status,total_cents,currency,service_mode,"
-            + "customer_note,source_device,"
+            + "customer_note,source_device,table_id,"
+            + "tables(label),"
             + "order_items(id,name,quantity,unit_price_cents,kind)"
         let data = try await get(
             config: config,
@@ -440,7 +459,8 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
         totalCents: Int,
         serviceMode: String,
         customerNote: String,
-        itemsJSON: Data
+        itemsJSON: Data,
+        tableID: String?
     ) async throws -> Bool {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -456,6 +476,7 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
             /// Sent as raw JSON array, not a string — PostgREST maps it directly
             /// to the `jsonb` function parameter.
             let p_items: JSONValue
+            let p_table_id: String?
         }
         let items: JSONValue = try JSONDecoder().decode(JSONValue.self, from: itemsJSON)
         let body = CreateOrderBody(
@@ -466,7 +487,8 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
             p_total_cents: totalCents,
             p_service_mode: serviceMode,
             p_customer_note: customerNote,
-            p_items: items
+            p_items: items,
+            p_table_id: tableID
         )
         _ = try await rpcData(
             config: config,
@@ -561,6 +583,23 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
             accessToken: urlSessionSession.accessToken,
             function: function,
             bodyData: try JSONEncoder().encode(body)
+        )
+    }
+
+    /// Gemeinsames PostgREST-GET für Erweiterungen in anderen Dateien (Swift
+    /// `private` ist dateiweit, `get` selbst bleibt daher intern). Genutzt von
+    /// der Tischverwaltung (KL-TABLE-001).
+    func restGet(
+        config: KitchenLinkCloudConfig,
+        accessToken: String,
+        path: String,
+        queryItems: [URLQueryItem]
+    ) async throws -> Data {
+        try await get(
+            config: config,
+            bearer: accessToken,
+            path: path,
+            queryItems: queryItems
         )
     }
 

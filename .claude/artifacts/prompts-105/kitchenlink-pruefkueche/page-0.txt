@@ -1,0 +1,275 @@
+===== SYSTEM =====
+You extract a restaurant menu page into lossless JSON. Return one JSON object
+only, without Markdown. The object MUST use snake_case and this exact shape:
+{
+  "contract_version": "1.0.0",
+  "page_index": 0,
+  "page_kind": "menu|cover|information|legend|mixed|unknown",
+  "languages": ["de", "en"],
+  "sections": [{
+    "title": TEXT,
+    "order": 0,
+    "entries": [ENTRY],
+    "subsections": [],
+    "declarations": [],
+    "review_reasons": []
+  }],
+  "declarations": [DECLARATION],
+  "review_reasons": [REVIEW_REASON]
+}
+
+TEXT is:
+{
+  "value": "visible primary text, unchanged",
+  "language_tag": "de",
+  "evidence_line_ids": ["p1-l1"],
+  "alternatives": [{
+    "value": "visible translation, unchanged",
+    "language_tag": "en",
+    "evidence_line_ids": ["p1-l2"]
+  }]
+}
+
+ENTRY is:
+{
+  "kind": "food|drink|bundle|unknown",
+  "name": TEXT,
+  "description": TEXT or null,
+  "item_number": null,
+  "order": 0,
+  "offers": [OFFER],
+  "quantities": [QUANTITY],
+  "option_groups": [OPTION_GROUP],
+  "bundle_components": [BUNDLE_COMPONENT],
+  "declarations": [DECLARATION],
+  "review_reasons": [REVIEW_REASON]
+}
+
+OFFER is:
+{
+  "label": TEXT or null,
+  "price_kind": "fixed|from|range|market|on_request|included|free|delta|unknown",
+  "amount_cents": 1290 or null,
+  "delta_cents": null,
+  "minimum_amount_cents": null,
+  "maximum_amount_cents": null,
+  "currency_code": "EUR" or null,
+  "raw_price": "12,90 €" or null,
+  "basis": "per_item|per_person|unknown",
+  "applies_to_quantity_order": null,
+  "evidence_line_ids": ["p1-l3"]
+}
+
+QUANTITY is:
+{
+  "raw_text": "250gr",
+  "value": 250,
+  "unit": "g",
+  "kind": "weight|volume|diameter|portion|unknown",
+  "evidence_line_ids": ["p1-l4"]
+}
+
+OPTION_GROUP is:
+{
+  "title": TEXT,
+  "order": 0,
+  "selection_rule": {
+    "minimum": 1 or null,
+    "maximum": 1 or null,
+    "free_selection_count": null,
+    "mode": "single|multiple|unknown",
+    "allows_repeats": false or null
+  },
+  "choices": [{
+    "name": TEXT,
+    "description": TEXT or null,
+    "kind": "size|portion|extra|side|variant|bundle_choice|unknown",
+    "order": 0,
+    "offers": [OFFER],
+    "quantity": QUANTITY or null,
+    "declarations": [],
+    "review_reasons": []
+  }],
+  "review_reasons": []
+}
+
+BUNDLE_COMPONENT is:
+{
+  "title": TEXT,
+  "description": TEXT or null,
+  "kind": "course|choice_course|unknown",
+  "order": 0,
+  "quantity": null,
+  "option_group": OPTION_GROUP or null,
+  "offers": [],
+  "declarations": [],
+  "review_reasons": []
+}
+
+DECLARATION is:
+{
+  "kind": "source_declaration|dietary_claim|notice|unknown",
+  "raw_text": "visible source text, unchanged",
+  "alternatives": [{
+    "value": "visible translation, unchanged",
+    "language_tag": "en",
+    "evidence_line_ids": ["p1-l6"]
+  }],
+  "local_code": "a" or null,
+  "canonical_id": null,
+  "claim": "declared|vegan|vegetarian|unknown",
+  "scope": "entry|choice|section|document|unknown",
+  "evidence_line_ids": ["p1-l5"]
+}
+
+REVIEW_REASON is:
+{
+  "code": "one of the codes listed below",
+  "path": "human-readable local path",
+  "message": "what a person must verify",
+  "severity": "info|warning|error",
+  "evidence_line_ids": ["p1-l7"]
+}
+
+Every element of review_reasons stays a REVIEW_REASON object with all five
+fields. Never write a review reason as a bare string and never replace the
+object with its code.
+
+The "code" field must be exactly one of the following values. They are what
+the operator's review screen knows how to present; an unlisted value is
+dropped. The text after each value explains when to use it and is not itself
+part of the JSON:
+- missing_visible_price: the entry shows no price on this page.
+- source_declaration_meaning_unknown: a declaration code is used but no
+  visible legend on this page explains it.
+- selection_rule_unknown: options are visible but the page does not state
+  how many a guest must or may pick.
+- complex_bundle_choice: a bundle course offers a choice whose rule or
+  pricing is not fully printed.
+- chef_composed_bundle: the menu is described as composed by the kitchen
+  rather than listing its courses.
+- headline_price_unmapped_to_portion_choice: a price stands at the entry
+  while the page also prints portion or size prices, so which one the
+  headline price belongs to is not proven.
+- relationship_scope_ambiguous: it is not provable whether a price,
+  declaration or option belongs to the entry, the section or the page.
+- translation_pairing_unproven: two languages are visible but their pairing
+  is not certain.
+- evidence_missing: a visible value has no matching OCR line.
+Rules:
+- Keep every visible purchasable entry, including entries with no visible
+  price. An unpriced entry has an empty offers array plus a
+  missing_visible_price review reason. Never discard it.
+- Copy visible spelling, punctuation, spacing, capitalization, quantities,
+  price strings, and source codes. Do not silently correct source typos.
+- Cite only OCR line IDs supplied by the user. Cite every visible value.
+  Never invent a line ID. An empty evidence_line_ids array is permitted only
+  when no supplied OCR line contains that value; add evidence_missing.
+- Do not guess text, prices, currencies, selection limits, declaration
+  meanings, dietary claims, or relationships. Use unknown/null and add a
+  review reason whenever the page does not prove them.
+- A fixed price uses amount_cents; a surcharge/discount uses delta_cents; a
+  from price uses minimum_amount_cents; a range uses both minimum and
+  maximum. Do not copy a neighboring price.
+- Keep absolute variant/portion prices as fixed. Keep explicit surcharges as
+  delta. Included choices use included and no numeric amount.
+- Set applies_to_quantity_order to the zero-based quantity index whenever an
+  offer belongs to a specific quantity. For a choice or component with its
+  single quantity, use 0. Leave it null only when no quantity relationship
+  is visible.
+- Keep translations as TEXT.alternatives on the same entity. Never emit a
+  translation as a second item and never delete either language.
+- Keep a set or course menu as one bundle entry. Put fixed courses and
+  exactly-one course choices in bundle_components. Never copy the bundle
+  price onto a component.
+- A cover, logo, slogan, heading, color, font, or watermark is not a menu
+  item. A cover page returns page_kind cover and empty sections.
+  A page classified as menu or mixed must not return zero menu entries.
+- A declaration code has no canonical meaning unless a visible legend on
+  this page proves it. Preserve raw codes with canonical_id null otherwise.
+- An entry name never ends in a declaration code run. Move every trailing
+  code group into declarations, whether or not it is bracketed and whether it
+  is one letter or several: "Bunter Marktsalat [V]", "Bunter Marktsalat V"
+  and "Veganes Kokoscurry [F,I]" all have the name "Bunter Marktsalat" or
+  "Veganes Kokoscurry" plus declarations. Keep the code run verbatim in
+  declaration.raw_text. A quantity or size that is part of the dish name
+  ("Pizza 30cm", "0,5 l") is not a code run and stays in the name.
+- Set currency_code on every offer whose price text shows a currency:
+  "€" or "EUR" is "EUR". Leave it null only when the page prints a bare
+  number with no currency anywhere.
+- A line that introduces a list ("Größen:", "Portionen:", "Variante:",
+  "Extras:", "Wahlweise:") makes an option_group on that entry: one choice
+  per printed item, in printed order, the choice name being the printed
+  label verbatim. When that label states an amount and a unit ("0,3 l",
+  "250 gr"), fill the choice quantity as well. This holds even when one of
+  the listed prices repeats the entry's headline price — repeat that price
+  as the choice's own offer. Never drop the list and never flatten it into
+  several offers on the entry.
+- Labelled prices printed WITHOUT such an introducing line stay offers on
+  the entry, each carrying its printed label ("28 € Zwischengericht",
+  "36 € Hauptgericht"). Do not turn those into an option group.
+- A headline price beside the entry name stays an offer on the entry. If it
+  also appears inside an introduced list, add
+  headline_price_unmapped_to_portion_choice, because the page does not prove
+  which listed item the headline price belongs to.
+- Return all array fields, using [] when empty. Return the zero-based
+  page_index supplied by the user and contract_version 1.0.0 exactly.
+  Every order value is zero-based, unique among siblings, and follows the
+  visible reading order.
+
+===== USER =====
+Source page_index (zero-based): 0
+Visible page number: 1 of 3
+
+Supplied OCR evidence lines:
+p1-l1 [x=0.0678 y=0.9359 w=0.4292 h=0.0249 confidence=1.0000] KITCHENLINK PRÜFKÜCHE
+p1-l2 [x=0.0678 y=0.9141 w=0.2423 h=0.0120 confidence=1.0000] SPEISEN • VARIANTEN • EXTRAS
+p1-l3 [x=0.8665 y=0.9113 w=0.0370 h=0.0160 confidence=1.0000] 1/3
+p1-l4 [x=0.0534 y=0.8474 w=0.1232 h=0.0145 confidence=1.0000] VORSPEISEN
+p1-l5 [x=0.5153 y=0.8470 w=0.1152 h=0.0168 confidence=1.0000] KLASSIKER
+p1-l6 [x=0.0534 y=0.8183 w=0.2115 h=0.0176 confidence=1.0000] Geröstetes Bauernbrot [A,G]
+p1-l7 [x=0.4353 y=0.8183 w=0.0493 h=0.0160 confidence=1.0000] 6,90 €
+p1-l8 [x=0.5154 y=0.8197 w=0.1889 h=0.0146 confidence=1.0000] Wiener Schnitzel [A,C,G,J]
+p1-l9 [x=0.8911 y=0.8167 w=0.0659 h=0.0191 confidence=1.0000] 17,90 €
+p1-l10 [x=0.0513 y=0.8051 w=0.2259 h=0.0146 confidence=1.0000] Kräuterbutter, Tomaten-Dip und Meersalz
+p1-l11 [x=0.5175 y=0.8051 w=0.2587 h=0.0117 confidence=1.0000] Kalbsschnitzel, Preiselbeeren und Kartoffelsalat
+p1-l12 [x=0.5216 y=0.7936 w=0.1910 h=0.0145 confidence=1.0000] Portionen: klein 14,90 € • groß 20,90 €
+p1-l13 [x=0.0534 y=0.7776 w=0.1869 h=0.0160 confidence=1.0000] Knoblauchgarnelen [B,0]
+p1-l14 [x=0.4271 y=0.7776 w=0.0575 h=0.0160 confidence=1.0000] 12,90 €
+p1-l15 [x=0.0534 y=0.7645 w=0.2444 h=0.0132 confidence=1.0000] Garnelen aus der Pfanne, Chili und Petersilie
+p1-l16 [x=0.5175 y=0.7658 w=0.2238 h=0.0162 confidence=1.0000] Prüfküchen-Burger [A,C, G,0, 2,8]
+p1-l17 [x=0.8909 y=0.7655 w=0.0662 h=0.0184 confidence=1.0000] 16,90 €
+p1-l18 [x=0.5175 y=0.7529 w=0.2834 h=0.0116 confidence=1.0000] Rindfleisch, Brioche, Cheddar, Salat und Haussauce
+p1-l19 [x=0.0493 y=0.7384 w=0.1602 h=0.0131 confidence=1.0000] Bunter Marktsalat WI
+p1-l20 [x=0.4353 y=0.7368 w=0.0493 h=0.0162 confidence=1.0000] 8,90 €
+p1-l21 [x=0.5175 y=0.7427 w=0.2567 h=0.0116 confidence=1.0000] Extras: doppelt Fleisch +5,00 € • Cheddar +1,50 €
+p1-l22 [x=0.0534 y=0.7137 w=0.2279 h=0.0087 confidence=1.0000] Extra: Hähnchenbrust +4,00 € • Feta +2,00 €
+p1-l23 [x=0.0534 y=0.7252 w=0.2587 h=0.0090 confidence=1.0000] Blattsalate, Tomate, Gurke und Senf-Vinaigrette
+p1-l24 [x=0.5154 y=0.7150 w=0.1437 h=0.0147 confidence=1.0000] Käsespätzle [A,C,G]
+p1-l25 [x=0.8912 y=0.7137 w=0.0657 h=0.0175 confidence=1.0000] 14,50 €
+p1-l26 [x=0.5236 y=0.6904 w=0.1951 h=0.0117 confidence=1.0000] Portionen: klein 10,90 € • normal 14,50
+p1-l27 [x=0.5257 y=0.7004 w=0.2669 h=0.0103 confidence=1.0000] lausgemachte Spatzle, Bergkase und Rostzwiebe
+p1-l28 [x=0.0534 y=0.6744 w=0.1663 h=0.0174 confidence=1.0000] HAUPTGERICHTE
+p1-l29 [x=0.5154 y=0.6628 w=0.1745 h=0.0176 confidence=1.0000] Hähnchen vom Grill "'
+p1-l30 [x=0.8912 y=0.6613 w=0.0657 h=0.0174 confidence=1.0000] 18,90 €
+p1-l31 [x=0.0513 y=0.6468 w=0.1869 h=0.0147 confidence=1.0000] Veganes Kokoscurry [FI]
+p1-l32 [x=0.4271 y=0.6468 w=0.0554 h=0.0131 confidence=1.0000] 15,90 €
+p1-l33 [x=0.5133 y=0.6483 w=0.2546 h=0.0133 confidence=1.0000] Maispoularde, Rosmarinjus und Marktgemüse
+p1-l34 [x=0.0513 y=0.6337 w=0.2875 h=0.0133 confidence=1.0000] Gemüse, Kichererbsen, Kokosmilch und Basmatireis
+p1-l35 [x=0.5175 y=0.6395 w=0.3573 h=0.0102 confidence=1.0000] Beilage wählen: Pommes 0,00 € • Salat 0,00 € • Bratkartoffeln +1,50 €
+p1-l36 [x=0.0554 y=0.6206 w=0.0411 h=0.0102 confidence=1.0000] VEGAN
+p1-l37 [x=0.0513 y=0.6030 w=0.1355 h=0.0104 confidence=1.0000] Variante: mit Tofu +2,50 €
+p1-l38 [x=0.0554 y=0.5785 w=0.1273 h=0.0102 confidence=1.0000] Küstenfisch [D,G]
+p1-l39 [x=0.4270 y=0.5754 w=0.0556 h=0.0135 confidence=1.0000] 22,90 €
+p1-l40 [x=0.0534 y=0.5624 w=0.3183 h=0.0103 confidence=1.0000] Gebratenes Kabeljaufilet, Kartoffelstampf und Beurre blanc
+p1-l41 [x=0.0534 y=0.0261 w=0.2834 h=0.0090 confidence=1.0000] SANDBOX-TESTKARTE • NICHT FÜR DEN GASTBETRIEB
+
+Extract exactly this page. The image is primary; OCR lines are the only
+valid evidence IDs. Return contract_version 1.0.0 and page_index 0.
+
+===== ANWEISUNG AN DIE PERSON, DIE DAS EINFÜGT =====
+Das zugehörige Seitenbild liegt daneben als page-0.png und
+gehört mit in die Anfrage. Die Antwort muss reines JSON sein, ohne
+Codeblock-Zäune und ohne Vor- oder Nachtext. Zurücklegen als
+page-0.json im Zielverzeichnis, dann auswerten mit
+KITCHENLINK_LLM_REPLAY_DIR=<zielverzeichnis>.

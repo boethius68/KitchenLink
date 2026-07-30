@@ -31,7 +31,7 @@ struct LiveOrderMessage: Identifiable, Codable {
         let segments: [String] = [
             venueName,
             serviceMode?.title,
-            tableLabel.map { "Tisch \($0)" }
+            tableLabel.map { KitchenLinkTableLabel.headline($0) }
         ].compactMap { value in
             guard let value, !value.isEmpty else { return nil }
             return value

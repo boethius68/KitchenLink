@@ -1,0 +1,2007 @@
+{
+  "documents": [
+    {
+      "categoryAssignment": {
+        "accuracy": 1.0,
+        "correct": 23,
+        "total": 23
+      },
+      "declarationCounts": {
+        "f1": 0.052631578947368425,
+        "falseNegative": 72,
+        "falsePositive": 36,
+        "precision": 0.07692307692307693,
+        "recall": 0.04,
+        "truePositive": 3
+      },
+      "descriptionCounts": {
+        "f1": 0.9565217391304348,
+        "falseNegative": 1,
+        "falsePositive": 1,
+        "precision": 0.9565217391304348,
+        "recall": 0.9565217391304348,
+        "truePositive": 22
+      },
+      "descriptionExact": {
+        "accuracy": 0.9166666666666666,
+        "f1": 0.9565217391304348,
+        "falseNegative": 1,
+        "falsePositive": 1,
+        "precision": 0.9565217391304348,
+        "recall": 0.9565217391304348,
+        "truePositive": 22
+      },
+      "diagnostics": {
+        "extraEntries": [],
+        "extraNotices": [],
+        "extraSections": [],
+        "forbiddenClaimHits": [],
+        "forbiddenEntryHits": [],
+        "fuzzyNameHints": [],
+        "inventedPrices": [
+          {
+            "amountCents": 0,
+            "context": "group:beilage wahlen:choice:pommes",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 0,
+            "context": "group:beilage wahlen:choice:salat",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 0,
+            "context": "group:variante:choice:ohne parmesan",
+            "priceKind": "fixed"
+          }
+        ],
+        "missingEntries": [],
+        "missingNotices": [],
+        "missingPrices": [
+          {
+            "context": "group:beilage wahlen:choice:pommes",
+            "priceKind": "included"
+          },
+          {
+            "context": "group:beilage wahlen:choice:salat",
+            "priceKind": "included"
+          },
+          {
+            "context": "group:variante:choice:ohne parmesan",
+            "priceKind": "included"
+          },
+          {
+            "context": "component:marktsalat",
+            "priceKind": "included"
+          },
+          {
+            "context": "component:hauptgang:group:wahl:choice:kustenfisch",
+            "priceKind": "included"
+          },
+          {
+            "context": "component:hauptgang:group:wahl:choice:veganes curry",
+            "priceKind": "included"
+          },
+          {
+            "context": "component:schokoladenkuchlein",
+            "priceKind": "included"
+          }
+        ],
+        "missingSections": [],
+        "silentPages": [],
+        "uncoveredEvidencePaths": [],
+        "unsupportedEvidencePaths": [
+          "sections[2].entries[1].declarations[0]",
+          "sections[6].entries[0].optionGroups[0].choices[0].name",
+          "sections[6].entries[0].optionGroups[0].choices[0].quantity",
+          "sections[6].entries[1].optionGroups[0].choices[0].name",
+          "sections[6].entries[1].optionGroups[0].choices[0].quantity",
+          "sections[6].entries[1].optionGroups[0].choices[1].name",
+          "sections[6].entries[1].optionGroups[0].choices[1].quantity",
+          "sections[7].entries[0].optionGroups[0].choices[0].name",
+          "sections[7].entries[0].optionGroups[0].choices[0].quantity",
+          "sections[7].entries[0].optionGroups[0].choices[1].name",
+          "sections[7].entries[0].optionGroups[0].choices[1].quantity",
+          "sections[7].entries[1].optionGroups[0].choices[0].name",
+          "sections[7].entries[1].optionGroups[0].choices[0].quantity",
+          "sections[7].entries[1].optionGroups[0].choices[1].name",
+          "sections[7].entries[1].optionGroups[0].choices[1].quantity"
+        ]
+      },
+      "entryCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 23
+      },
+      "evidence": {
+        "correct": 205,
+        "coverage": 1.0,
+        "supportAccuracy": 0.926829268292683,
+        "supported": 190,
+        "total": 205
+      },
+      "fixtureID": "kitchenlink-pruefkueche",
+      "groundTruthEvidence": {
+        "accuracy": 0.9871794871794872,
+        "correct": 77,
+        "total": 78
+      },
+      "missingDraft": false,
+      "nameExact": {
+        "accuracy": 1.0,
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 23
+      },
+      "noticeCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 0
+      },
+      "offerCounts": {
+        "f1": 0.7199999999999999,
+        "falseNegative": 16,
+        "falsePositive": 12,
+        "precision": 0.75,
+        "recall": 0.6923076923076923,
+        "truePositive": 36
+      },
+      "operational": {
+        "attempts": 3,
+        "failedPageIndexes": [],
+        "failedPages": 0,
+        "latencyCoverage": 1.0,
+        "model": "gemini-3.5-flash",
+        "pageFailureRate": 0.0,
+        "pageLatenciesMilliseconds": [
+          41193,
+          30161,
+          38283
+        ],
+        "provider": "https://opencode.ai/zen/v1",
+        "reportedPageOutcomes": 3,
+        "retries": 0,
+        "selectedPages": 3,
+        "tokenUsage": {
+          "inputTokens": 17635,
+          "outputTokens": 22932,
+          "totalTokens": 40567
+        }
+      },
+      "priceFields": {
+        "basis": {
+          "accuracy": 0.6923076923076923,
+          "correct": 36,
+          "total": 52
+        },
+        "currency": {
+          "accuracy": 0.8653846153846154,
+          "correct": 45,
+          "total": 52
+        },
+        "rawTextExact": {
+          "accuracy": 0.9166666666666666,
+          "correct": 44,
+          "total": 48
+        }
+      },
+      "relationCounts": {
+        "f1": 0.4888888888888889,
+        "falseNegative": 23,
+        "falsePositive": 23,
+        "precision": 0.4888888888888889,
+        "recall": 0.4888888888888889,
+        "truePositive": 22
+      },
+      "reviews": {
+        "actual": [
+          "complex_bundle_choice",
+          "currency_completed_from_document",
+          "headline_price_unmapped_to_portion_choice"
+        ],
+        "expected": [
+          "headline_price_unmapped_to_portion_choice"
+        ],
+        "recall": 1.0
+      },
+      "safety": {
+        "coverFalsePositives": 0,
+        "forbiddenClaimHits": 0,
+        "inventedItems": 0,
+        "inventedPrices": 3,
+        "missingItems": 0,
+        "silentPageLosses": 0,
+        "validationErrors": 0
+      },
+      "sectionCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 9
+      },
+      "translationCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 0
+      }
+    },
+    {
+      "categoryAssignment": {
+        "accuracy": 1.0,
+        "correct": 9,
+        "total": 9
+      },
+      "declarationCounts": {
+        "f1": 0.0,
+        "falseNegative": 9,
+        "falsePositive": 7,
+        "precision": 0.0,
+        "recall": 0.0,
+        "truePositive": 0
+      },
+      "descriptionCounts": {
+        "f1": 0.6666666666666666,
+        "falseNegative": 3,
+        "falsePositive": 3,
+        "precision": 0.6666666666666666,
+        "recall": 0.6666666666666666,
+        "truePositive": 6
+      },
+      "descriptionExact": {
+        "accuracy": 0.38461538461538464,
+        "f1": 0.5555555555555556,
+        "falseNegative": 4,
+        "falsePositive": 4,
+        "precision": 0.5555555555555556,
+        "recall": 0.5555555555555556,
+        "truePositive": 5
+      },
+      "diagnostics": {
+        "extraEntries": [],
+        "extraNotices": [],
+        "extraSections": [],
+        "forbiddenClaimHits": [],
+        "forbiddenEntryHits": [],
+        "fuzzyNameHints": [],
+        "inventedPrices": [
+          {
+            "amountCents": 1190,
+            "context": "group:varianten:choice:ohne hahnchenbrust",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 1190,
+            "context": "group:portionen:choice:als vorspeise",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 1490,
+            "context": "group:portionen:choice:als vorspeise",
+            "priceKind": "fixed"
+          }
+        ],
+        "missingEntries": [],
+        "missingNotices": [],
+        "missingPrices": [
+          {
+            "amountCents": 1190,
+            "context": "entry",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 1190,
+            "context": "entry",
+            "priceKind": "fixed"
+          },
+          {
+            "context": "group:wahlweise:choice:gemischter salat",
+            "priceKind": "included"
+          },
+          {
+            "context": "group:wahlweise:choice:tomatensalat",
+            "priceKind": "included"
+          },
+          {
+            "context": "group:wahlweise:choice:gurkensalat",
+            "priceKind": "included"
+          },
+          {
+            "context": "group:wahlweise:choice:krautsalat",
+            "priceKind": "included"
+          },
+          {
+            "context": "group:wahlweise:choice:cole slaw",
+            "priceKind": "included"
+          },
+          {
+            "amountCents": 1490,
+            "context": "entry",
+            "priceKind": "fixed"
+          }
+        ],
+        "missingSections": [],
+        "silentPages": [],
+        "uncoveredEvidencePaths": [
+          "sections[1].entries[1].optionGroups[0].title",
+          "sections[1].entries[2].optionGroups[0].title",
+          "sections[1].entries[3].optionGroups[0].title"
+        ],
+        "unsupportedEvidencePaths": [
+          "sections[1].entries[1].optionGroups[0].title",
+          "sections[1].entries[2].optionGroups[0].title",
+          "sections[1].entries[3].optionGroups[0].title",
+          "declarations[0]",
+          "declarations[1]",
+          "declarations[4]",
+          "declarations[6]"
+        ]
+      },
+      "entryCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 9
+      },
+      "evidence": {
+        "correct": 39,
+        "coverage": 0.9285714285714286,
+        "supportAccuracy": 0.8333333333333334,
+        "supported": 35,
+        "total": 42
+      },
+      "fixtureID": "scheune-berlin",
+      "groundTruthEvidence": {
+        "accuracy": 0.90625,
+        "correct": 29,
+        "total": 32
+      },
+      "missingDraft": false,
+      "nameExact": {
+        "accuracy": 1.0,
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 9
+      },
+      "noticeCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 0
+      },
+      "offerCounts": {
+        "f1": 0.6206896551724139,
+        "falseNegative": 8,
+        "falsePositive": 3,
+        "precision": 0.75,
+        "recall": 0.5294117647058824,
+        "truePositive": 9
+      },
+      "operational": {
+        "attempts": 4,
+        "failedPageIndexes": [
+          0
+        ],
+        "failedPages": 1,
+        "latencyCoverage": 1.0,
+        "model": "gemini-3.5-flash",
+        "pageFailureRate": 1.0,
+        "pageLatenciesMilliseconds": [
+          74053
+        ],
+        "provider": "apple-vision-plus-local-rules",
+        "reportedPageOutcomes": 1,
+        "retries": 3,
+        "selectedPages": 1,
+        "tokenUsage": {
+          "inputTokens": 28520,
+          "outputTokens": 25663,
+          "totalTokens": 54183
+        }
+      },
+      "priceFields": {
+        "basis": {
+          "accuracy": 0.5294117647058824,
+          "correct": 9,
+          "total": 17
+        },
+        "currency": {
+          "accuracy": 0.5294117647058824,
+          "correct": 9,
+          "total": 17
+        },
+        "rawTextExact": {
+          "accuracy": 0.75,
+          "correct": 9,
+          "total": 12
+        }
+      },
+      "relationCounts": {
+        "f1": 0.0,
+        "falseNegative": 6,
+        "falsePositive": 6,
+        "precision": 0.0,
+        "recall": 0.0,
+        "truePositive": 0
+      },
+      "reviews": {
+        "actual": [
+          "rule_parser_semantics_unverified",
+          "selection_rule_unknown",
+          "semantic_extraction_fallback"
+        ],
+        "expected": [
+          "source_declaration_meaning_unknown"
+        ],
+        "recall": 0.0
+      },
+      "safety": {
+        "coverFalsePositives": 0,
+        "forbiddenClaimHits": 0,
+        "inventedItems": 0,
+        "inventedPrices": 3,
+        "missingItems": 0,
+        "silentPageLosses": 0,
+        "validationErrors": 0
+      },
+      "sectionCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 2
+      },
+      "translationCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 0
+      }
+    },
+    {
+      "categoryAssignment": {
+        "accuracy": 1.0,
+        "correct": 21,
+        "total": 21
+      },
+      "declarationCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 0
+      },
+      "descriptionCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 12
+      },
+      "descriptionExact": {
+        "accuracy": 0.8461538461538461,
+        "f1": 0.9166666666666666,
+        "falseNegative": 1,
+        "falsePositive": 1,
+        "precision": 0.9166666666666666,
+        "recall": 0.9166666666666666,
+        "truePositive": 11
+      },
+      "diagnostics": {
+        "extraEntries": [],
+        "extraNotices": [],
+        "extraSections": [],
+        "forbiddenClaimHits": [],
+        "forbiddenEntryHits": [],
+        "fuzzyNameHints": [],
+        "inventedPrices": [],
+        "missingEntries": [],
+        "missingNotices": [],
+        "missingPrices": [
+          {
+            "context": "component:antipasti",
+            "priceKind": "included"
+          },
+          {
+            "context": "component:haupgerichte:group:oder or:choice:original wiener schnitzel",
+            "priceKind": "included"
+          },
+          {
+            "context": "component:haupgerichte:group:oder or:choice:rumpsteak bratkartoffeln",
+            "priceKind": "included"
+          },
+          {
+            "context": "component:haupgerichte:group:oder or:choice:gebratenes lachsfilet",
+            "priceKind": "included"
+          },
+          {
+            "context": "component:tiramisu",
+            "priceKind": "included"
+          }
+        ],
+        "missingSections": [],
+        "silentPages": [],
+        "uncoveredEvidencePaths": [],
+        "unsupportedEvidencePaths": []
+      },
+      "entryCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 21
+      },
+      "evidence": {
+        "correct": 107,
+        "coverage": 1.0,
+        "supportAccuracy": 1.0,
+        "supported": 107,
+        "total": 107
+      },
+      "fixtureID": "lichtburg-berlin",
+      "groundTruthEvidence": {
+        "accuracy": 0.9830508474576272,
+        "correct": 58,
+        "total": 59
+      },
+      "missingDraft": false,
+      "nameExact": {
+        "accuracy": 1.0,
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 21
+      },
+      "noticeCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 1
+      },
+      "offerCounts": {
+        "f1": 0.8444444444444444,
+        "falseNegative": 6,
+        "falsePositive": 1,
+        "precision": 0.95,
+        "recall": 0.76,
+        "truePositive": 19
+      },
+      "operational": {
+        "attempts": 3,
+        "failedPageIndexes": [],
+        "failedPages": 0,
+        "latencyCoverage": 1.0,
+        "model": "gemini-3.5-flash",
+        "pageFailureRate": 0.0,
+        "pageLatenciesMilliseconds": [
+          28495,
+          13434,
+          12924
+        ],
+        "provider": "https://opencode.ai/zen/v1",
+        "reportedPageOutcomes": 3,
+        "retries": 0,
+        "selectedPages": 3,
+        "tokenUsage": {
+          "inputTokens": 35966,
+          "outputTokens": 22323,
+          "totalTokens": 58289
+        }
+      },
+      "priceFields": {
+        "basis": {
+          "accuracy": 0.8,
+          "correct": 20,
+          "total": 25
+        },
+        "currency": {
+          "accuracy": 0.8,
+          "correct": 20,
+          "total": 25
+        },
+        "rawTextExact": {
+          "accuracy": 0.95,
+          "correct": 19,
+          "total": 20
+        }
+      },
+      "relationCounts": {
+        "f1": 0.5,
+        "falseNegative": 8,
+        "falsePositive": 10,
+        "precision": 0.47368421052631576,
+        "recall": 0.5294117647058824,
+        "truePositive": 9
+      },
+      "reviews": {
+        "actual": [
+          "complex_bundle_choice",
+          "currency_completed_from_document",
+          "missing_visible_price"
+        ],
+        "expected": [
+          "complex_bundle_choice",
+          "missing_visible_price",
+          "relationship_scope_ambiguous",
+          "selection_rule_unknown"
+        ],
+        "recall": 0.5
+      },
+      "safety": {
+        "coverFalsePositives": 0,
+        "forbiddenClaimHits": 0,
+        "inventedItems": 0,
+        "inventedPrices": 0,
+        "missingItems": 0,
+        "silentPageLosses": 0,
+        "validationErrors": 0
+      },
+      "sectionCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 4
+      },
+      "translationCounts": {
+        "f1": 0.8461538461538461,
+        "falseNegative": 3,
+        "falsePositive": 5,
+        "precision": 0.8148148148148148,
+        "recall": 0.88,
+        "truePositive": 22
+      }
+    },
+    {
+      "categoryAssignment": {
+        "accuracy": 1.0,
+        "correct": 15,
+        "total": 15
+      },
+      "declarationCounts": {
+        "f1": 0.0,
+        "falseNegative": 2,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 0.0,
+        "truePositive": 0
+      },
+      "descriptionCounts": {
+        "f1": 0.9333333333333333,
+        "falseNegative": 1,
+        "falsePositive": 1,
+        "precision": 0.9333333333333333,
+        "recall": 0.9333333333333333,
+        "truePositive": 14
+      },
+      "descriptionExact": {
+        "accuracy": 0.1111111111111111,
+        "f1": 0.20000000000000004,
+        "falseNegative": 12,
+        "falsePositive": 12,
+        "precision": 0.2,
+        "recall": 0.2,
+        "truePositive": 3
+      },
+      "diagnostics": {
+        "extraEntries": [],
+        "extraNotices": [],
+        "extraSections": [],
+        "forbiddenClaimHits": [],
+        "forbiddenEntryHits": [],
+        "fuzzyNameHints": [],
+        "inventedPrices": [
+          {
+            "amountCents": 2800,
+            "context": "group:portion:choice:zwischengericht",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 3600,
+            "context": "group:portion:choice:hauptgericht",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 2500,
+            "context": "group:portion:choice:zwischengericht",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 3200,
+            "context": "group:portion:choice:hauptgericht",
+            "priceKind": "fixed"
+          }
+        ],
+        "missingEntries": [],
+        "missingNotices": [
+          "Eine individuelle Auswahl der Speisen ist bei diesem Menue nicht vorgesehen, die Zusammenstellung der Gänge erfolgt ausschließlich durch unseren Küchenchef."
+        ],
+        "missingPrices": [
+          {
+            "amountCents": 2800,
+            "context": "entry",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 3600,
+            "context": "entry",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 2500,
+            "context": "entry",
+            "priceKind": "fixed"
+          },
+          {
+            "amountCents": 3200,
+            "context": "entry",
+            "priceKind": "fixed"
+          }
+        ],
+        "missingSections": [],
+        "silentPages": [],
+        "uncoveredEvidencePaths": [
+          "sections[2].entries[0].optionGroups[0].title",
+          "sections[2].entries[1].optionGroups[0].title"
+        ],
+        "unsupportedEvidencePaths": [
+          "sections[2].entries[0].optionGroups[0].title",
+          "sections[2].entries[1].optionGroups[0].title"
+        ]
+      },
+      "entryCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 15
+      },
+      "evidence": {
+        "correct": 56,
+        "coverage": 0.9655172413793104,
+        "supportAccuracy": 0.9655172413793104,
+        "supported": 56,
+        "total": 58
+      },
+      "fixtureID": "alexxanders-chemnitz",
+      "groundTruthEvidence": {
+        "accuracy": 0.8846153846153846,
+        "correct": 46,
+        "total": 52
+      },
+      "missingDraft": false,
+      "nameExact": {
+        "accuracy": 0.875,
+        "f1": 0.9333333333333333,
+        "falseNegative": 1,
+        "falsePositive": 1,
+        "precision": 0.9333333333333333,
+        "recall": 0.9333333333333333,
+        "truePositive": 14
+      },
+      "noticeCounts": {
+        "f1": 0.0,
+        "falseNegative": 1,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 0.0,
+        "truePositive": 0
+      },
+      "offerCounts": {
+        "f1": 0.7058823529411765,
+        "falseNegative": 5,
+        "falsePositive": 5,
+        "precision": 0.7058823529411765,
+        "recall": 0.7058823529411765,
+        "truePositive": 12
+      },
+      "operational": {
+        "attempts": 3,
+        "failedPageIndexes": [],
+        "failedPages": 0,
+        "latencyCoverage": 1.0,
+        "model": "gemini-3.5-flash",
+        "pageFailureRate": 0.0,
+        "pageLatenciesMilliseconds": [
+          3290,
+          22698,
+          11806
+        ],
+        "provider": "https://opencode.ai/zen/v1",
+        "reportedPageOutcomes": 3,
+        "retries": 0,
+        "selectedPages": 3,
+        "tokenUsage": {
+          "inputTokens": 19700,
+          "outputTokens": 10241,
+          "totalTokens": 29941
+        }
+      },
+      "priceFields": {
+        "basis": {
+          "accuracy": 0.7647058823529411,
+          "correct": 13,
+          "total": 17
+        },
+        "currency": {
+          "accuracy": 0.7647058823529411,
+          "correct": 13,
+          "total": 17
+        },
+        "rawTextExact": {
+          "accuracy": 0.4117647058823529,
+          "correct": 7,
+          "total": 17
+        }
+      },
+      "relationCounts": {
+        "f1": 0.0,
+        "falseNegative": 2,
+        "falsePositive": 6,
+        "precision": 0.0,
+        "recall": 0.0,
+        "truePositive": 0
+      },
+      "reviews": {
+        "actual": [
+          "chef_composed_bundle",
+          "evidence_missing",
+          "missing_visible_price"
+        ],
+        "expected": [
+          "chef_composed_bundle"
+        ],
+        "recall": 1.0
+      },
+      "safety": {
+        "coverFalsePositives": 0,
+        "forbiddenClaimHits": 0,
+        "inventedItems": 0,
+        "inventedPrices": 4,
+        "missingItems": 0,
+        "silentPageLosses": 0,
+        "validationErrors": 0
+      },
+      "sectionCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 4
+      },
+      "translationCounts": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 0
+      }
+    }
+  ],
+  "enforcement": {
+    "failures": [
+      "run 1: expectedReviewRecall 0.714 < 1.000",
+      "run 1: currencyAccuracy 0.784 < 0.950",
+      "run 1: p95PageLatencyMilliseconds 74053 > 60000",
+      "run 1: pageFailureRate 0.100 > 0.000",
+      "run 1 / kitchenlink-pruefkueche: currencyAccuracy 0.865 < 0.950",
+      "run 1 / scheune-berlin: expectedReviewRecall 0.000 < 1.000",
+      "run 1 / scheune-berlin: currencyAccuracy 0.529 < 0.950",
+      "run 1 / scheune-berlin: evidenceCoverage 0.929 < 0.950",
+      "run 1 / scheune-berlin: p95PageLatencyMilliseconds 74053 > 60000",
+      "run 1 / scheune-berlin: pageFailureRate 1.000 > 0.000",
+      "run 1 / lichtburg-berlin: expectedReviewRecall 0.500 < 1.000",
+      "run 1 / lichtburg-berlin: currencyAccuracy 0.800 < 0.950",
+      "run 1 / alexxanders-chemnitz: currencyAccuracy 0.765 < 0.950",
+      "all runs: repeatRuns 1 < 3"
+    ],
+    "passed": false,
+    "profile": "launch",
+    "requested": false
+  },
+  "groundTruth": {
+    "entries": 68,
+    "pages": 10,
+    "valid": true
+  },
+  "metrics": {
+    "categoryAssignmentAccuracy": 1.0,
+    "correctionsPerPage": 1.0,
+    "counts": {
+      "categories": {
+        "correct": 68,
+        "total": 68
+      },
+      "currency": {
+        "correct": 87,
+        "total": 111
+      },
+      "declarations": {
+        "f1": 0.045454545454545456,
+        "falseNegative": 83,
+        "falsePositive": 43,
+        "precision": 0.06521739130434782,
+        "recall": 0.03488372093023256,
+        "truePositive": 3
+      },
+      "descriptionExact": {
+        "correct": 41,
+        "union": 77
+      },
+      "descriptions": {
+        "f1": 0.9152542372881356,
+        "falseNegative": 5,
+        "falsePositive": 5,
+        "precision": 0.9152542372881356,
+        "recall": 0.9152542372881356,
+        "truePositive": 54
+      },
+      "entries": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 68
+      },
+      "evidence": {
+        "correct": 407,
+        "supported": 388,
+        "total": 412
+      },
+      "groundTruthEvidence": {
+        "correct": 210,
+        "total": 221
+      },
+      "namesExact": {
+        "correct": 67,
+        "union": 69
+      },
+      "notices": {
+        "f1": 0.6666666666666666,
+        "falseNegative": 1,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 0.5,
+        "truePositive": 1
+      },
+      "offers": {
+        "f1": 0.7307692307692308,
+        "falseNegative": 35,
+        "falsePositive": 21,
+        "precision": 0.7835051546391752,
+        "recall": 0.6846846846846847,
+        "truePositive": 76
+      },
+      "priceBasis": {
+        "correct": 78,
+        "total": 111
+      },
+      "priceTextExact": {
+        "correct": 79,
+        "total": 97
+      },
+      "relations": {
+        "f1": 0.42465753424657526,
+        "falseNegative": 39,
+        "falsePositive": 45,
+        "precision": 0.40789473684210525,
+        "recall": 0.44285714285714284,
+        "truePositive": 31
+      },
+      "sections": {
+        "f1": 1.0,
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "truePositive": 19
+      },
+      "translations": {
+        "f1": 0.8461538461538461,
+        "falseNegative": 3,
+        "falsePositive": 5,
+        "precision": 0.8148148148148148,
+        "recall": 0.88,
+        "truePositive": 22
+      }
+    },
+    "currencyAccuracy": 0.7837837837837838,
+    "declarationF1": 0.045454545454545456,
+    "descriptionExactAccuracy": 0.5324675324675324,
+    "descriptionF1": 0.9152542372881356,
+    "entryF1": 1.0,
+    "entryRecall": 1.0,
+    "evidenceCoverage": 0.9878640776699029,
+    "evidenceSupportAccuracy": 0.941747572815534,
+    "expectedReviewRecall": 0.7142857142857143,
+    "groundTruthEvidenceAccuracy": 0.9502262443438914,
+    "nameExactAccuracy": 0.9710144927536232,
+    "noticeF1": 0.6666666666666666,
+    "offerF1": 0.7307692307692308,
+    "operational": {
+      "attempts": 13,
+      "failedPages": 1,
+      "latencyCoverage": 1.0,
+      "maximumPageLatencyMilliseconds": 74053,
+      "measuredLatencyPages": 10,
+      "models": [
+        "gemini-3.5-flash"
+      ],
+      "p50PageLatencyMilliseconds": 22698,
+      "p95PageLatencyMilliseconds": 74053,
+      "pageFailureRate": 0.1,
+      "providers": [
+        "apple-vision-plus-local-rules",
+        "https://opencode.ai/zen/v1"
+      ],
+      "repeatability": {
+        "documents": [
+          {
+            "exactPairwiseAgreement": null,
+            "fixtureID": "kitchenlink-pruefkueche",
+            "matchingPairs": 0,
+            "totalPairs": 0,
+            "uniqueSemanticOutputs": 1
+          },
+          {
+            "exactPairwiseAgreement": null,
+            "fixtureID": "scheune-berlin",
+            "matchingPairs": 0,
+            "totalPairs": 0,
+            "uniqueSemanticOutputs": 1
+          },
+          {
+            "exactPairwiseAgreement": null,
+            "fixtureID": "lichtburg-berlin",
+            "matchingPairs": 0,
+            "totalPairs": 0,
+            "uniqueSemanticOutputs": 1
+          },
+          {
+            "exactPairwiseAgreement": null,
+            "fixtureID": "alexxanders-chemnitz",
+            "matchingPairs": 0,
+            "totalPairs": 0,
+            "uniqueSemanticOutputs": 1
+          }
+        ],
+        "exactSemanticRepeatability": null,
+        "matchingDocumentPairs": 0,
+        "repeatRuns": 1,
+        "totalDocumentPairs": 0
+      },
+      "retries": 3,
+      "selectedPages": 10,
+      "tokenUsage": {
+        "inputTokens": 101821,
+        "outputTokens": 81159,
+        "totalTokens": 182980
+      }
+    },
+    "priceBasisAccuracy": 0.7027027027027027,
+    "priceTextExactAccuracy": 0.8144329896907216,
+    "relationF1": 0.42465753424657526,
+    "safety": {
+      "coverFalsePositives": 0,
+      "forbiddenClaimHits": 0,
+      "inventedItems": 0,
+      "inventedPrices": 10,
+      "missingItems": 0,
+      "silentPageLosses": 0,
+      "validationErrors": 0
+    },
+    "sectionF1": 1.0,
+    "translationF1": 0.8461538461538461
+  },
+  "mode": "llm",
+  "profileComparison": {
+    "launch": {
+      "failureCount": 14,
+      "failures": [
+        "run 1: expectedReviewRecall 0.714 < 1.000",
+        "run 1: currencyAccuracy 0.784 < 0.950",
+        "run 1: p95PageLatencyMilliseconds 74053 > 60000",
+        "run 1: pageFailureRate 0.100 > 0.000",
+        "run 1 / kitchenlink-pruefkueche: currencyAccuracy 0.865 < 0.950",
+        "run 1 / scheune-berlin: expectedReviewRecall 0.000 < 1.000",
+        "run 1 / scheune-berlin: currencyAccuracy 0.529 < 0.950",
+        "run 1 / scheune-berlin: evidenceCoverage 0.929 < 0.950",
+        "run 1 / scheune-berlin: p95PageLatencyMilliseconds 74053 > 60000",
+        "run 1 / scheune-berlin: pageFailureRate 1.000 > 0.000",
+        "run 1 / lichtburg-berlin: expectedReviewRecall 0.500 < 1.000",
+        "run 1 / lichtburg-berlin: currencyAccuracy 0.800 < 0.950",
+        "run 1 / alexxanders-chemnitz: currencyAccuracy 0.765 < 0.950",
+        "all runs: repeatRuns 1 < 3"
+      ],
+      "passed": false
+    },
+    "strict": {
+      "failureCount": 61,
+      "failures": [
+        "run 1: descriptionF1 0.915 < 0.950",
+        "run 1: descriptionExactAccuracy 0.532 < 0.950",
+        "run 1: offerF1 0.731 < 0.970",
+        "run 1: priceTextExactAccuracy 0.814 < 0.970",
+        "run 1: priceBasisAccuracy 0.703 < 0.990",
+        "run 1: currencyAccuracy 0.784 < 1.000",
+        "run 1: relationF1 0.425 < 0.950",
+        "run 1: declarationF1 0.045 < 0.950",
+        "run 1: noticeF1 0.667 < 0.950",
+        "run 1: translationF1 0.846 < 0.950",
+        "run 1: evidenceSupportAccuracy 0.942 < 0.950",
+        "run 1: expectedReviewRecall 0.714 < 1.000",
+        "run 1: inventedPrices 10 > 0",
+        "run 1: p95PageLatencyMilliseconds 74053 > 60000",
+        "run 1: pageFailureRate 0.100 > 0.000",
+        "run 1 / kitchenlink-pruefkueche: descriptionExactAccuracy 0.917 < 0.950",
+        "run 1 / kitchenlink-pruefkueche: offerF1 0.720 < 0.970",
+        "run 1 / kitchenlink-pruefkueche: priceTextExactAccuracy 0.917 < 0.970",
+        "run 1 / kitchenlink-pruefkueche: priceBasisAccuracy 0.692 < 0.990",
+        "run 1 / kitchenlink-pruefkueche: currencyAccuracy 0.865 < 1.000",
+        "run 1 / kitchenlink-pruefkueche: relationF1 0.489 < 0.950",
+        "run 1 / kitchenlink-pruefkueche: declarationF1 0.053 < 0.950",
+        "run 1 / kitchenlink-pruefkueche: evidenceSupportAccuracy 0.927 < 0.950",
+        "run 1 / kitchenlink-pruefkueche: inventedPrices 3 > 0",
+        "run 1 / scheune-berlin: descriptionF1 0.667 < 0.950",
+        "run 1 / scheune-berlin: descriptionExactAccuracy 0.385 < 0.950",
+        "run 1 / scheune-berlin: offerF1 0.621 < 0.970",
+        "run 1 / scheune-berlin: priceTextExactAccuracy 0.750 < 0.970",
+        "run 1 / scheune-berlin: priceBasisAccuracy 0.529 < 0.990",
+        "run 1 / scheune-berlin: currencyAccuracy 0.529 < 1.000",
+        "run 1 / scheune-berlin: relationF1 0.000 < 0.950",
+        "run 1 / scheune-berlin: declarationF1 0.000 < 0.950",
+        "run 1 / scheune-berlin: evidenceCoverage 0.929 < 0.950",
+        "run 1 / scheune-berlin: evidenceSupportAccuracy 0.833 < 0.950",
+        "run 1 / scheune-berlin: groundTruthEvidenceAccuracy 0.906 < 0.950",
+        "run 1 / scheune-berlin: expectedReviewRecall 0.000 < 1.000",
+        "run 1 / scheune-berlin: inventedPrices 3 > 0",
+        "run 1 / scheune-berlin: p95PageLatencyMilliseconds 74053 > 60000",
+        "run 1 / scheune-berlin: pageFailureRate 1.000 > 0.000",
+        "run 1 / lichtburg-berlin: descriptionExactAccuracy 0.846 < 0.950",
+        "run 1 / lichtburg-berlin: offerF1 0.844 < 0.970",
+        "run 1 / lichtburg-berlin: priceTextExactAccuracy 0.950 < 0.970",
+        "run 1 / lichtburg-berlin: priceBasisAccuracy 0.800 < 0.990",
+        "run 1 / lichtburg-berlin: currencyAccuracy 0.800 < 1.000",
+        "run 1 / lichtburg-berlin: relationF1 0.500 < 0.950",
+        "run 1 / lichtburg-berlin: translationF1 0.846 < 0.950",
+        "run 1 / lichtburg-berlin: expectedReviewRecall 0.500 < 1.000",
+        "run 1 / alexxanders-chemnitz: nameExactAccuracy 0.875 < 0.950",
+        "run 1 / alexxanders-chemnitz: descriptionF1 0.933 < 0.950",
+        "run 1 / alexxanders-chemnitz: descriptionExactAccuracy 0.111 < 0.950",
+        "run 1 / alexxanders-chemnitz: offerF1 0.706 < 0.970",
+        "run 1 / alexxanders-chemnitz: priceTextExactAccuracy 0.412 < 0.970",
+        "run 1 / alexxanders-chemnitz: priceBasisAccuracy 0.765 < 0.990",
+        "run 1 / alexxanders-chemnitz: currencyAccuracy 0.765 < 1.000",
+        "run 1 / alexxanders-chemnitz: relationF1 0.000 < 0.950",
+        "run 1 / alexxanders-chemnitz: declarationF1 0.000 < 0.950",
+        "run 1 / alexxanders-chemnitz: noticeF1 0.000 < 0.950",
+        "run 1 / alexxanders-chemnitz: groundTruthEvidenceAccuracy 0.885 < 0.950",
+        "run 1 / alexxanders-chemnitz: inventedPrices 4 > 0",
+        "all runs: repeatRuns 1 < 3",
+        "all runs: exactSemanticRepeatability not measured"
+      ],
+      "passed": false
+    }
+  },
+  "runSummaries": [
+    {
+      "documents": [
+        {
+          "fixtureID": "kitchenlink-pruefkueche",
+          "metrics": {
+            "categoryAssignmentAccuracy": 1.0,
+            "correctionsPerPage": 1.0,
+            "counts": {
+              "categories": {
+                "correct": 23,
+                "total": 23
+              },
+              "currency": {
+                "correct": 45,
+                "total": 52
+              },
+              "declarations": {
+                "f1": 0.052631578947368425,
+                "falseNegative": 72,
+                "falsePositive": 36,
+                "precision": 0.07692307692307693,
+                "recall": 0.04,
+                "truePositive": 3
+              },
+              "descriptionExact": {
+                "correct": 22,
+                "union": 24
+              },
+              "descriptions": {
+                "f1": 0.9565217391304348,
+                "falseNegative": 1,
+                "falsePositive": 1,
+                "precision": 0.9565217391304348,
+                "recall": 0.9565217391304348,
+                "truePositive": 22
+              },
+              "entries": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 23
+              },
+              "evidence": {
+                "correct": 205,
+                "supported": 190,
+                "total": 205
+              },
+              "groundTruthEvidence": {
+                "correct": 77,
+                "total": 78
+              },
+              "namesExact": {
+                "correct": 23,
+                "union": 23
+              },
+              "notices": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 0
+              },
+              "offers": {
+                "f1": 0.7199999999999999,
+                "falseNegative": 16,
+                "falsePositive": 12,
+                "precision": 0.75,
+                "recall": 0.6923076923076923,
+                "truePositive": 36
+              },
+              "priceBasis": {
+                "correct": 36,
+                "total": 52
+              },
+              "priceTextExact": {
+                "correct": 44,
+                "total": 48
+              },
+              "relations": {
+                "f1": 0.4888888888888889,
+                "falseNegative": 23,
+                "falsePositive": 23,
+                "precision": 0.4888888888888889,
+                "recall": 0.4888888888888889,
+                "truePositive": 22
+              },
+              "sections": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 9
+              },
+              "translations": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 0
+              }
+            },
+            "currencyAccuracy": 0.8653846153846154,
+            "declarationF1": 0.052631578947368425,
+            "descriptionExactAccuracy": 0.9166666666666666,
+            "descriptionF1": 0.9565217391304348,
+            "entryF1": 1.0,
+            "entryRecall": 1.0,
+            "evidenceCoverage": 1.0,
+            "evidenceSupportAccuracy": 0.926829268292683,
+            "expectedReviewRecall": 1.0,
+            "groundTruthEvidenceAccuracy": 0.9871794871794872,
+            "nameExactAccuracy": 1.0,
+            "noticeF1": 1.0,
+            "offerF1": 0.7199999999999999,
+            "operational": {
+              "attempts": 3,
+              "failedPages": 0,
+              "latencyCoverage": 1.0,
+              "maximumPageLatencyMilliseconds": 41193,
+              "measuredLatencyPages": 3,
+              "models": [
+                "gemini-3.5-flash"
+              ],
+              "p50PageLatencyMilliseconds": 38283,
+              "p95PageLatencyMilliseconds": 41193,
+              "pageFailureRate": 0.0,
+              "providers": [
+                "https://opencode.ai/zen/v1"
+              ],
+              "retries": 0,
+              "selectedPages": 3,
+              "tokenUsage": {
+                "inputTokens": 17635,
+                "outputTokens": 22932,
+                "totalTokens": 40567
+              }
+            },
+            "priceBasisAccuracy": 0.6923076923076923,
+            "priceTextExactAccuracy": 0.9166666666666666,
+            "relationF1": 0.4888888888888889,
+            "safety": {
+              "coverFalsePositives": 0,
+              "forbiddenClaimHits": 0,
+              "inventedItems": 0,
+              "inventedPrices": 3,
+              "missingItems": 0,
+              "silentPageLosses": 0,
+              "validationErrors": 0
+            },
+            "sectionF1": 1.0,
+            "translationF1": 1.0
+          }
+        },
+        {
+          "fixtureID": "scheune-berlin",
+          "metrics": {
+            "categoryAssignmentAccuracy": 1.0,
+            "correctionsPerPage": 3.0,
+            "counts": {
+              "categories": {
+                "correct": 9,
+                "total": 9
+              },
+              "currency": {
+                "correct": 9,
+                "total": 17
+              },
+              "declarations": {
+                "f1": 0.0,
+                "falseNegative": 9,
+                "falsePositive": 7,
+                "precision": 0.0,
+                "recall": 0.0,
+                "truePositive": 0
+              },
+              "descriptionExact": {
+                "correct": 5,
+                "union": 13
+              },
+              "descriptions": {
+                "f1": 0.6666666666666666,
+                "falseNegative": 3,
+                "falsePositive": 3,
+                "precision": 0.6666666666666666,
+                "recall": 0.6666666666666666,
+                "truePositive": 6
+              },
+              "entries": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 9
+              },
+              "evidence": {
+                "correct": 39,
+                "supported": 35,
+                "total": 42
+              },
+              "groundTruthEvidence": {
+                "correct": 29,
+                "total": 32
+              },
+              "namesExact": {
+                "correct": 9,
+                "union": 9
+              },
+              "notices": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 0
+              },
+              "offers": {
+                "f1": 0.6206896551724139,
+                "falseNegative": 8,
+                "falsePositive": 3,
+                "precision": 0.75,
+                "recall": 0.5294117647058824,
+                "truePositive": 9
+              },
+              "priceBasis": {
+                "correct": 9,
+                "total": 17
+              },
+              "priceTextExact": {
+                "correct": 9,
+                "total": 12
+              },
+              "relations": {
+                "f1": 0.0,
+                "falseNegative": 6,
+                "falsePositive": 6,
+                "precision": 0.0,
+                "recall": 0.0,
+                "truePositive": 0
+              },
+              "sections": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 2
+              },
+              "translations": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 0
+              }
+            },
+            "currencyAccuracy": 0.5294117647058824,
+            "declarationF1": 0.0,
+            "descriptionExactAccuracy": 0.38461538461538464,
+            "descriptionF1": 0.6666666666666666,
+            "entryF1": 1.0,
+            "entryRecall": 1.0,
+            "evidenceCoverage": 0.9285714285714286,
+            "evidenceSupportAccuracy": 0.8333333333333334,
+            "expectedReviewRecall": 0.0,
+            "groundTruthEvidenceAccuracy": 0.90625,
+            "nameExactAccuracy": 1.0,
+            "noticeF1": 1.0,
+            "offerF1": 0.6206896551724139,
+            "operational": {
+              "attempts": 4,
+              "failedPages": 1,
+              "latencyCoverage": 1.0,
+              "maximumPageLatencyMilliseconds": 74053,
+              "measuredLatencyPages": 1,
+              "models": [
+                "gemini-3.5-flash"
+              ],
+              "p50PageLatencyMilliseconds": 74053,
+              "p95PageLatencyMilliseconds": 74053,
+              "pageFailureRate": 1.0,
+              "providers": [
+                "apple-vision-plus-local-rules"
+              ],
+              "retries": 3,
+              "selectedPages": 1,
+              "tokenUsage": {
+                "inputTokens": 28520,
+                "outputTokens": 25663,
+                "totalTokens": 54183
+              }
+            },
+            "priceBasisAccuracy": 0.5294117647058824,
+            "priceTextExactAccuracy": 0.75,
+            "relationF1": 0.0,
+            "safety": {
+              "coverFalsePositives": 0,
+              "forbiddenClaimHits": 0,
+              "inventedItems": 0,
+              "inventedPrices": 3,
+              "missingItems": 0,
+              "silentPageLosses": 0,
+              "validationErrors": 0
+            },
+            "sectionF1": 1.0,
+            "translationF1": 1.0
+          }
+        },
+        {
+          "fixtureID": "lichtburg-berlin",
+          "metrics": {
+            "categoryAssignmentAccuracy": 1.0,
+            "correctionsPerPage": 0.0,
+            "counts": {
+              "categories": {
+                "correct": 21,
+                "total": 21
+              },
+              "currency": {
+                "correct": 20,
+                "total": 25
+              },
+              "declarations": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 0
+              },
+              "descriptionExact": {
+                "correct": 11,
+                "union": 13
+              },
+              "descriptions": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 12
+              },
+              "entries": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 21
+              },
+              "evidence": {
+                "correct": 107,
+                "supported": 107,
+                "total": 107
+              },
+              "groundTruthEvidence": {
+                "correct": 58,
+                "total": 59
+              },
+              "namesExact": {
+                "correct": 21,
+                "union": 21
+              },
+              "notices": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 1
+              },
+              "offers": {
+                "f1": 0.8444444444444444,
+                "falseNegative": 6,
+                "falsePositive": 1,
+                "precision": 0.95,
+                "recall": 0.76,
+                "truePositive": 19
+              },
+              "priceBasis": {
+                "correct": 20,
+                "total": 25
+              },
+              "priceTextExact": {
+                "correct": 19,
+                "total": 20
+              },
+              "relations": {
+                "f1": 0.5,
+                "falseNegative": 8,
+                "falsePositive": 10,
+                "precision": 0.47368421052631576,
+                "recall": 0.5294117647058824,
+                "truePositive": 9
+              },
+              "sections": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 4
+              },
+              "translations": {
+                "f1": 0.8461538461538461,
+                "falseNegative": 3,
+                "falsePositive": 5,
+                "precision": 0.8148148148148148,
+                "recall": 0.88,
+                "truePositive": 22
+              }
+            },
+            "currencyAccuracy": 0.8,
+            "declarationF1": 1.0,
+            "descriptionExactAccuracy": 0.8461538461538461,
+            "descriptionF1": 1.0,
+            "entryF1": 1.0,
+            "entryRecall": 1.0,
+            "evidenceCoverage": 1.0,
+            "evidenceSupportAccuracy": 1.0,
+            "expectedReviewRecall": 0.5,
+            "groundTruthEvidenceAccuracy": 0.9830508474576272,
+            "nameExactAccuracy": 1.0,
+            "noticeF1": 1.0,
+            "offerF1": 0.8444444444444444,
+            "operational": {
+              "attempts": 3,
+              "failedPages": 0,
+              "latencyCoverage": 1.0,
+              "maximumPageLatencyMilliseconds": 28495,
+              "measuredLatencyPages": 3,
+              "models": [
+                "gemini-3.5-flash"
+              ],
+              "p50PageLatencyMilliseconds": 13434,
+              "p95PageLatencyMilliseconds": 28495,
+              "pageFailureRate": 0.0,
+              "providers": [
+                "https://opencode.ai/zen/v1"
+              ],
+              "retries": 0,
+              "selectedPages": 3,
+              "tokenUsage": {
+                "inputTokens": 35966,
+                "outputTokens": 22323,
+                "totalTokens": 58289
+              }
+            },
+            "priceBasisAccuracy": 0.8,
+            "priceTextExactAccuracy": 0.95,
+            "relationF1": 0.5,
+            "safety": {
+              "coverFalsePositives": 0,
+              "forbiddenClaimHits": 0,
+              "inventedItems": 0,
+              "inventedPrices": 0,
+              "missingItems": 0,
+              "silentPageLosses": 0,
+              "validationErrors": 0
+            },
+            "sectionF1": 1.0,
+            "translationF1": 0.8461538461538461
+          }
+        },
+        {
+          "fixtureID": "alexxanders-chemnitz",
+          "metrics": {
+            "categoryAssignmentAccuracy": 1.0,
+            "correctionsPerPage": 1.3333333333333333,
+            "counts": {
+              "categories": {
+                "correct": 15,
+                "total": 15
+              },
+              "currency": {
+                "correct": 13,
+                "total": 17
+              },
+              "declarations": {
+                "f1": 0.0,
+                "falseNegative": 2,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 0.0,
+                "truePositive": 0
+              },
+              "descriptionExact": {
+                "correct": 3,
+                "union": 27
+              },
+              "descriptions": {
+                "f1": 0.9333333333333333,
+                "falseNegative": 1,
+                "falsePositive": 1,
+                "precision": 0.9333333333333333,
+                "recall": 0.9333333333333333,
+                "truePositive": 14
+              },
+              "entries": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 15
+              },
+              "evidence": {
+                "correct": 56,
+                "supported": 56,
+                "total": 58
+              },
+              "groundTruthEvidence": {
+                "correct": 46,
+                "total": 52
+              },
+              "namesExact": {
+                "correct": 14,
+                "union": 16
+              },
+              "notices": {
+                "f1": 0.0,
+                "falseNegative": 1,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 0.0,
+                "truePositive": 0
+              },
+              "offers": {
+                "f1": 0.7058823529411765,
+                "falseNegative": 5,
+                "falsePositive": 5,
+                "precision": 0.7058823529411765,
+                "recall": 0.7058823529411765,
+                "truePositive": 12
+              },
+              "priceBasis": {
+                "correct": 13,
+                "total": 17
+              },
+              "priceTextExact": {
+                "correct": 7,
+                "total": 17
+              },
+              "relations": {
+                "f1": 0.0,
+                "falseNegative": 2,
+                "falsePositive": 6,
+                "precision": 0.0,
+                "recall": 0.0,
+                "truePositive": 0
+              },
+              "sections": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 4
+              },
+              "translations": {
+                "f1": 1.0,
+                "falseNegative": 0,
+                "falsePositive": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "truePositive": 0
+              }
+            },
+            "currencyAccuracy": 0.7647058823529411,
+            "declarationF1": 0.0,
+            "descriptionExactAccuracy": 0.1111111111111111,
+            "descriptionF1": 0.9333333333333333,
+            "entryF1": 1.0,
+            "entryRecall": 1.0,
+            "evidenceCoverage": 0.9655172413793104,
+            "evidenceSupportAccuracy": 0.9655172413793104,
+            "expectedReviewRecall": 1.0,
+            "groundTruthEvidenceAccuracy": 0.8846153846153846,
+            "nameExactAccuracy": 0.875,
+            "noticeF1": 0.0,
+            "offerF1": 0.7058823529411765,
+            "operational": {
+              "attempts": 3,
+              "failedPages": 0,
+              "latencyCoverage": 1.0,
+              "maximumPageLatencyMilliseconds": 22698,
+              "measuredLatencyPages": 3,
+              "models": [
+                "gemini-3.5-flash"
+              ],
+              "p50PageLatencyMilliseconds": 11806,
+              "p95PageLatencyMilliseconds": 22698,
+              "pageFailureRate": 0.0,
+              "providers": [
+                "https://opencode.ai/zen/v1"
+              ],
+              "retries": 0,
+              "selectedPages": 3,
+              "tokenUsage": {
+                "inputTokens": 19700,
+                "outputTokens": 10241,
+                "totalTokens": 29941
+              }
+            },
+            "priceBasisAccuracy": 0.7647058823529411,
+            "priceTextExactAccuracy": 0.4117647058823529,
+            "relationF1": 0.0,
+            "safety": {
+              "coverFalsePositives": 0,
+              "forbiddenClaimHits": 0,
+              "inventedItems": 0,
+              "inventedPrices": 4,
+              "missingItems": 0,
+              "silentPageLosses": 0,
+              "validationErrors": 0
+            },
+            "sectionF1": 1.0,
+            "translationF1": 1.0
+          }
+        }
+      ],
+      "metrics": {
+        "categoryAssignmentAccuracy": 1.0,
+        "correctionsPerPage": 1.0,
+        "counts": {
+          "categories": {
+            "correct": 68,
+            "total": 68
+          },
+          "currency": {
+            "correct": 87,
+            "total": 111
+          },
+          "declarations": {
+            "f1": 0.045454545454545456,
+            "falseNegative": 83,
+            "falsePositive": 43,
+            "precision": 0.06521739130434782,
+            "recall": 0.03488372093023256,
+            "truePositive": 3
+          },
+          "descriptionExact": {
+            "correct": 41,
+            "union": 77
+          },
+          "descriptions": {
+            "f1": 0.9152542372881356,
+            "falseNegative": 5,
+            "falsePositive": 5,
+            "precision": 0.9152542372881356,
+            "recall": 0.9152542372881356,
+            "truePositive": 54
+          },
+          "entries": {
+            "f1": 1.0,
+            "falseNegative": 0,
+            "falsePositive": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "truePositive": 68
+          },
+          "evidence": {
+            "correct": 407,
+            "supported": 388,
+            "total": 412
+          },
+          "groundTruthEvidence": {
+            "correct": 210,
+            "total": 221
+          },
+          "namesExact": {
+            "correct": 67,
+            "union": 69
+          },
+          "notices": {
+            "f1": 0.6666666666666666,
+            "falseNegative": 1,
+            "falsePositive": 0,
+            "precision": 1.0,
+            "recall": 0.5,
+            "truePositive": 1
+          },
+          "offers": {
+            "f1": 0.7307692307692308,
+            "falseNegative": 35,
+            "falsePositive": 21,
+            "precision": 0.7835051546391752,
+            "recall": 0.6846846846846847,
+            "truePositive": 76
+          },
+          "priceBasis": {
+            "correct": 78,
+            "total": 111
+          },
+          "priceTextExact": {
+            "correct": 79,
+            "total": 97
+          },
+          "relations": {
+            "f1": 0.42465753424657526,
+            "falseNegative": 39,
+            "falsePositive": 45,
+            "precision": 0.40789473684210525,
+            "recall": 0.44285714285714284,
+            "truePositive": 31
+          },
+          "sections": {
+            "f1": 1.0,
+            "falseNegative": 0,
+            "falsePositive": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "truePositive": 19
+          },
+          "translations": {
+            "f1": 0.8461538461538461,
+            "falseNegative": 3,
+            "falsePositive": 5,
+            "precision": 0.8148148148148148,
+            "recall": 0.88,
+            "truePositive": 22
+          }
+        },
+        "currencyAccuracy": 0.7837837837837838,
+        "declarationF1": 0.045454545454545456,
+        "descriptionExactAccuracy": 0.5324675324675324,
+        "descriptionF1": 0.9152542372881356,
+        "entryF1": 1.0,
+        "entryRecall": 1.0,
+        "evidenceCoverage": 0.9878640776699029,
+        "evidenceSupportAccuracy": 0.941747572815534,
+        "expectedReviewRecall": 0.7142857142857143,
+        "groundTruthEvidenceAccuracy": 0.9502262443438914,
+        "nameExactAccuracy": 0.9710144927536232,
+        "noticeF1": 0.6666666666666666,
+        "offerF1": 0.7307692307692308,
+        "operational": {
+          "attempts": 13,
+          "failedPages": 1,
+          "latencyCoverage": 1.0,
+          "maximumPageLatencyMilliseconds": 74053,
+          "measuredLatencyPages": 10,
+          "models": [
+            "gemini-3.5-flash"
+          ],
+          "p50PageLatencyMilliseconds": 22698,
+          "p95PageLatencyMilliseconds": 74053,
+          "pageFailureRate": 0.1,
+          "providers": [
+            "apple-vision-plus-local-rules",
+            "https://opencode.ai/zen/v1"
+          ],
+          "retries": 3,
+          "selectedPages": 10,
+          "tokenUsage": {
+            "inputTokens": 101821,
+            "outputTokens": 81159,
+            "totalTokens": 182980
+          }
+        },
+        "priceBasisAccuracy": 0.7027027027027027,
+        "priceTextExactAccuracy": 0.8144329896907216,
+        "relationF1": 0.42465753424657526,
+        "safety": {
+          "coverFalsePositives": 0,
+          "forbiddenClaimHits": 0,
+          "inventedItems": 0,
+          "inventedPrices": 10,
+          "missingItems": 0,
+          "silentPageLosses": 0,
+          "validationErrors": 0
+        },
+        "sectionF1": 1.0,
+        "translationF1": 0.8461538461538461
+      },
+      "runIndex": 1
+    }
+  ],
+  "schemaVersion": "kitchenlink-menu-quality-result/1.3.0"
+}

@@ -184,6 +184,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2TablesView()
+            } label: {
+                operationsRow(
+                    title: "Tische",
+                    subtitle: "Bereiche, Tische und ihre QR-Codes",
+                    systemImage: "qrcode"
+                )
+            }
+            .accessibilityIdentifier("business.openTables")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 InventoryOperatorView()
             } label: {
                 operationsRow(

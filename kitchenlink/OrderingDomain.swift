@@ -1,5 +1,22 @@
 import Foundation
 
+/// Sichtbare Tischbezeichnung (KL-TABLE-001). Betreiber vergeben Nummern,
+/// Kürzel *und* Namen: „Tisch 7" und „Tisch A1" sind richtig, „Tisch Theke"
+/// nicht. Regel: ein zusammenhängendes Kürzel mit mindestens einer Ziffer ist
+/// eine Tischnummer und bekommt das Präfix; alles mit Leerzeichen oder ganz
+/// ohne Ziffer ist ein Name und bleibt, wie er ist. Dieselbe Regel gilt im
+/// Gast-Web (`tableHeadline` in `table-context.ts`), damit Gast und Personal
+/// denselben Platz gleich benennen.
+enum KitchenLinkTableLabel {
+    static func headline(_ label: String) -> String {
+        let trimmed = label.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return "" }
+        let isTableCode = trimmed.contains(where: \.isNumber)
+            && trimmed.allSatisfy { $0.isLetter || $0.isNumber }
+        return isTableCode ? "Tisch \(trimmed)" : trimmed
+    }
+}
+
 enum ServiceMode: String, CaseIterable, Codable, Identifiable, Hashable {
     case dineIn = "dine_in"
     case bar
