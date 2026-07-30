@@ -408,7 +408,7 @@ struct MenuImportEntry: Codable, Equatable, Sendable {
     }
 }
 
-enum MenuImportPriceKind: String, Codable, Equatable, Sendable {
+enum MenuImportPriceKind: String, Codable, Equatable, Sendable, CaseIterable {
     case fixed
     case from
     case range

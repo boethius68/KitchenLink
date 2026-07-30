@@ -259,6 +259,34 @@ append-only; superseded decisions are marked rather than deleted.
   device has no on-device model support. Measured on the development Mac
   (M5/16 GB) a 9B model needed 62 s for a single page with worse results than
   the free gateway. Revisit only as a later privacy option.
+- **Layout resolution is its own pipeline stage (approved 30 July 2026).** A
+  document model resolves the page layout before the contract model interprets
+  it. Rationale, measured: the text layer is already right (evidence coverage
+  0.988, names exact 0.971) while the *relational* metrics are not (offers 0.731,
+  price basis 0.703, relationships 0.425). A flat list of OCR lines with
+  coordinates is not a structure. Verified with `olmOCR-2-7B` locally at 42–49 s
+  per page: two price columns beside one dish come out as
+  `28 € Zwischengericht  36 € Hauptgericht` **under** that dish instead of as two
+  separate options; `Hüftsteak (250gr)` keeps its printed weight; a two-column
+  side-dish list arrives as a correctly paired table; bilingual pairs stay on
+  their dish. The stage is pluggable, works with any contract model including the
+  paid one, and is deliberately fault-tolerant — it can only improve an import,
+  never prevent one. Apple Vision remains the sole evidence layer, because the
+  review has to point at the original page.
+- **Schema-constrained decoding is available and off by default (30 July
+  2026).** `KITCHENLINK_LLM_RESPONSE_FORMAT=json_schema` sends the contract as a
+  JSON schema. Measured on Ollama it turns a page that three times hit a 900 s
+  timeout into a 21 s answer: the failure was a repetition loop on long rigid
+  JSON, not slowness. It also makes the format regressions of 27 July
+  (`review_reasons` as bare strings) structurally impossible. Off by default
+  because a rigid schema buys nothing with a strong model and some gateways
+  reject it.
+- **Local 8–9B models cannot fill the lossless contract (measured 30 July
+  2026).** With the layout transcript supplied *and* schema-constrained decoding,
+  both `qwen3.5:9b-32k` and `gemma4:32k` returned schema-valid but **empty**
+  extractions — page classified, zero entries. The limit is comprehension, not
+  format, speed or context (their windows are 128k–262k). A local server stays a
+  debugging aid; the contract stage needs a strong model.
 - **A Mac-hosted model as a LAN server is supported but not a measurement
   instrument (29 July 2026).** The app already speaks any OpenAI-compatible
   gateway, `NSAllowsLocalNetworking` is set, and

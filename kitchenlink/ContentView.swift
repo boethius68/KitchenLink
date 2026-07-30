@@ -4562,6 +4562,28 @@ enum MenuImportService {
     // eine dichte Seite braucht 3000–6000 Ausgabe-Token für den verlustfreien
     // Vertrag — also 2,5 bis 5 Minuten. Ohne diesen Regler ist ein lokaler
     // Server als kostenloses Messinstrument nicht nutzbar.
+    /// Antwortformat für die Vertragsstufe.
+    ///
+    /// Standard bleibt `json_object` — nur gültiges JSON, keine
+    /// Strukturvorgabe — weil ein starres Schema bei einem starken Modell nichts
+    /// gewinnt und je nach Gateway abgelehnt werden kann.
+    /// `KITCHENLINK_LLM_RESPONSE_FORMAT=json_schema` schaltet die erzwungene
+    /// Struktur zu; das ist der Hebel für lokale kleine Modelle, die sonst in
+    /// Wiederholungsschleifen laufen (siehe MenuImportExtractionSchema).
+    private static var llmExtractionResponseFormat: OpenAIChatRequest.ResponseFormat {
+        guard configValue(forKey: "KITCHENLINK_LLM_RESPONSE_FORMAT")?.lowercased()
+                == "json_schema"
+        else { return .init(type: "json_object") }
+        return .init(
+            type: "json_schema",
+            jsonSchema: .init(
+                name: "menu_import_page_extraction",
+                schema: MenuImportExtractionSchema.pageSchema(),
+                strict: false
+            )
+        )
+    }
+
     private static var llmConfiguredPageTimeoutSeconds: Double? {
         guard let raw = configValue(forKey: "KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS"),
               let value = Double(raw),
@@ -5161,8 +5183,36 @@ enum MenuImportService {
             let content: Content
         }
 
+        /// `json_object` erzwingt gültiges JSON, `json_schema` zusätzlich die
+        /// Struktur. Letzteres ist der Unterschied zwischen "das Modell
+        /// schreibt JSON" und "das Modell kann nichts anderes schreiben als
+        /// unseren Vertrag" — siehe MenuImportExtractionSchema.
+        /// `json_object` erzwingt gültiges JSON, `json_schema` zusätzlich die
+        /// Struktur. Letzteres ist der Unterschied zwischen "das Modell schreibt
+        /// JSON" und "das Modell kann nichts anderes schreiben als unseren
+        /// Vertrag" — siehe `MenuImportExtractionSchema`.
         struct ResponseFormat: Encodable {
+            struct JSONSchema: Encodable {
+                let name: String
+                let schema: MenuImportJSONValue
+                /// `strict` verlangt bei OpenAI, dass jedes Feld `required` ist.
+                /// Der Vertrag toleriert fehlende Felder absichtlich, deshalb
+                /// bleibt es aus; die Grammatik greift trotzdem.
+                let strict: Bool
+            }
+
             let type: String
+            let jsonSchema: JSONSchema?
+
+            init(type: String, jsonSchema: JSONSchema? = nil) {
+                self.type = type
+                self.jsonSchema = jsonSchema
+            }
+
+            enum CodingKeys: String, CodingKey {
+                case type
+                case jsonSchema = "json_schema"
+            }
         }
 
         let model: String
@@ -6070,7 +6120,7 @@ enum MenuImportService {
                     model: resolvedLLMModel,
                     temperature: 0,
                     reasoningEffort: llmReasoningEffort,
-                    responseFormat: .init(type: "json_object"),
+                    responseFormat: llmExtractionResponseFormat,
                     messages: [
                         .init(
                             role: "system",

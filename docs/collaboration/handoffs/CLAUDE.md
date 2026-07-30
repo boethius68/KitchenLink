@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
+**Updated:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
+**Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
 
 ## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
@@ -276,7 +277,80 @@ wenn **alle** Seiten an Authentifizierung scheiterten.
 - P95-Latenz, `expectedReviewRecall` und das sporadisch unlesbare JSON aus
   Teil 25 bleiben unverändert offen.
 
-### Nachtrag: der Import wurde erstmals in der App selbst gefahren
+### Session-Teil 27: Layoutstufe und erzwungenes Dekodieren (30. Juli 2026)
+
+### Anlass und Korrektur einer eigenen Fehleinschätzung
+
+Der Nutzer schlug vor, ein Dokumentmodell wie olmOCR 2 als erste Stufe
+vorzuschalten und erst danach den Vertrag zu füllen. Ich hatte das zunächst
+abgetan mit dem Argument, die Belegabdeckung liege schon bei 0,988. Das war
+falsch begründet: 0,988 sagt, dass der **Text** gefunden wird — nicht, dass die
+**räumlichen Beziehungen** aufgelöst sind. Genau dort sitzt die verbleibende
+Fehlermasse (Angebote 0,731, Preisbasis 0,703, Beziehungen 0,425).
+
+### olmOCR 2 nachgemessen — die Idee trägt
+
+`hf.co/lmstudio-community/olmOCR-2-7B-1025-GGUF:Q4_K_M` über Ollama, 42–49 s pro
+Seite, 450–710 Ausgabe-Token, an genau den Seiten, die heute scheitern:
+
+- `28 € Zwischengericht    36 € Hauptgericht` erscheint **unter** dem Gericht
+  Lotte statt als zwei eigenständige Optionen. Das war einer der zehn
+  "erfundenen Preise".
+- `Hüftsteak (250gr)` behält den gedruckten Namen samt Gewicht — der Defekt, den
+  ich in Teil 25 deterministisch nachbauen musste, entsteht hier nicht.
+- Die zweispaltige Beilagenliste kommt als HTML-Tabelle mit korrekter Paarung.
+- Zweisprachige Karten behalten die Paarung Deutsch/Englisch pro Gericht.
+- Der geltungsbeschränkte Hinweis ("außer Burger") steht als eigener Block.
+
+Umgesetzt als `MenuImportLayoutPass`: austauschbar über
+`KITCHENLINK_LAYOUT_BASE_URL` und `_MODEL`, läuft mit jedem Vertragsmodell auch
+dem bezahlten, und ausdrücklich fehlertolerant — jeder Fehlschlag liefert `nil`
+und der Seitenlauf geht ohne Layoutkontext weiter. Apple Vision bleibt die
+einzige Belegquelle; ein Test hält fest, dass der Prompt das abgrenzt, sonst
+erfindet das Vertragsmodell IDs für Zeilen des Transkripts.
+
+### Erzwungenes Dekodieren — der Blocker der Vertragsstufe
+
+Diagnose aus Teil 26 bestätigt: die 900-s-Zeitlimits waren keine Langsamkeit,
+sondern eine Wiederholungsschleife (rund 17 000 Ausgabe-Token für eine Seite,
+die 3 000–8 000 braucht).
+
+`MenuImportExtractionSchema` liefert den Vertrag als JSON-Schema,
+`KITCHENLINK_LLM_RESPONSE_FORMAT=json_schema` schaltet es zu. Ollama nimmt es an
+und setzt es durch. Wirkung gemessen: **dieselbe Seite, die dreimal 900 s
+Zeitlimit riss, antwortet in 21 s.** Zwei bewusste Abweichungen vom Vertrag sind
+im Dateikopf begründet: begrenzte statt rekursiver Verschachtelung (llama.cpp
+kommt mit `$ref` schlecht zurecht) und kein `required` (der Vertrag toleriert
+fehlende Felder absichtlich). Fünf Tests koppeln Schema und Vertrag, unter
+anderem: jeder Prüfcode des Schemas muss im Prompt-Vokabular stehen.
+
+Standard bleibt `json_object`. Ein starres Schema gewinnt bei einem starken
+Modell nichts und wird von manchen Gateways abgelehnt.
+
+### Der harte Befund: lokale 8–9B-Modelle können den Vertrag nicht füllen
+
+Mit Layout-Transkript **und** Schemazwang, an derselben Seite:
+
+| Modell | Ergebnis |
+|---|---|
+| `qwen3.5:9b-32k` | Seite als `unknown`, **null Einträge**, 21 s |
+| `gemma4:32k` | Seite als `menu`, **null Einträge**, 139 s |
+
+Schemakonform und inhaltsleer. Der Engpass ist **Verständnis**, nicht Format,
+Geschwindigkeit oder Kontext (128k–262k Fenster). Ein lokaler Server bleibt
+Debugging-Werkzeug; die Vertragsstufe braucht ein starkes Modell.
+
+### Offen
+
+- **Der Nutzen der Layoutstufe ist noch nicht in Kennzahlen belegt.** Dazu
+  braucht es einen Lauf mit einem Vertragsmodell, das die Aufgabe kann — also
+  einen bezahlten. Genau eine Messung würde klären, ob Angebote 0,731 und
+  Beziehungen 0,425 mit vorgeschalteter Layoutstufe steigen. Das ist die
+  wertvollste einzelne Messung, die derzeit aussteht.
+- Ebenso ungemessen: ob Schemazwang beim bezahlten Modell hilft oder schadet.
+- Die drei Wiederholungsläufe aus Teil 25 fehlen weiterhin.
+
+## Nachtrag: der Import wurde erstmals in der App selbst gefahren
 
 Alle bisherigen Messungen liefen über `MenuImportReviewHarnessTests`, nie über
 die Oberfläche. Im Simulator (Prüfküche, kostenloser Standardpfad) kam damit
