@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 30 July 2026 (Session-Teil 28: Layoutstufe an einem starken Modell belegt)
+**Updated:** 30 July 2026 (Session-Teil 29: Staffelregel belegt, drei Fehlerklassen geschlossen)
+**Zuvor:** 30 July 2026 (Session-Teil 28: Layoutstufe an einem starken Modell belegt)
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
@@ -278,7 +279,50 @@ wenn **alle** Seiten an Authentifizierung scheiterten.
 - P95-Latenz, `expectedReviewRecall` und das sporadisch unlesbare JSON aus
   Teil 25 bleiben unverändert offen.
 
-### Session-Teil 28: Die Layoutstufe an einem starken Modell belegt (30. Juli 2026)
+### Session-Teil 29: Staffelregel belegt (30. Juli 2026)
+
+Zweite eingesammelte Antwort für dieselbe Seite, diesmal mit Prompt `1.0.5`
+(Delta `portion_tiers`). Ausgewertet über den Abspielpfad, wieder ohne bezahlten
+Aufruf.
+
+### Ergebnis
+
+| Prüfpunkt | Ergebnis |
+|---|---|
+| Optionsgruppe `Größen` | ✓ mit `kind=size` und geparster Menge (`0,3 l` → 0.3 l) |
+| Kopfpreis bleibt am Eintrag | ✓ |
+| `headline_price_unmapped_to_portion_choice` | ✓ viermal |
+| `Variante: Haferdrink` unverändert | ✓ weiterhin als `delta` |
+
+Die Regel verallgemeinert über ihr Beispiel hinaus: Cola Zero, Riesling und
+Kellerpils bekamen dieselbe Behandlung. Für das Dokument fallen erfundene Preise
+von **26 auf 18** und fehlende von **33 auf 25** — genau acht weniger, also die
+vier Getränke mit je zwei Preisen. Alle verbleibenden tragen die Handschrift des
+Regelparsers (`choice:variante 1`) und stammen von den nicht abgespielten
+Seiten 0 und 1.
+
+Damit sind alle drei Fehlerklassen aus Teil 28 auf den abgespielten Seiten
+geschlossen.
+
+### Offener Zielkonflikt zwischen Ground Truth und Vertrag
+
+Die Auswahlregeln kommen als `mode=unknown, minimum=null, maximum=null` zurück,
+dazu fünfmal `selection_rule_unknown`. Die Ground Truth erwartet dagegen
+`minimum 1, maximum 1, mode single, allowsRepeats false`.
+
+Das Modell hat sich **korrekt** verhalten: die Karte druckt nirgends, wie viele
+Größen ein Gast wählen darf, und der Vertrag verbietet ausdrücklich, Auswahl-
+grenzen zu raten. Die Ground Truth trifft hier eine menschlich naheliegende
+Annahme (eine Größenliste heisst: genau eine wählen), die auf der Karte nicht
+steht.
+
+Das ist **keine Prompt-Frage**. Entweder die Ground Truth nimmt `unknown` plus
+Prüfgrund als richtige Antwort an, oder der Vertrag bekommt eine ausdrückliche
+Ausnahme für Größenlisten. Beides ist eine Produktentscheidung des Nutzers, und
+ich habe bewusst nichts davon einseitig umgesetzt — die Nicht-Rate-Regel ist
+eine der Leitplanken, die erfundene Preise verhindert.
+
+## Session-Teil 28: Die Layoutstufe an einem starken Modell belegt (30. Juli 2026)
 
 Der Nutzer hat drei Gate-Seiten von Hand durch ChatGPT gegeben — die exportierten
 Pakete inklusive olmOCR-Transkript — und die Antworten zurückgelegt. Ausgewertet

@@ -254,6 +254,40 @@ struct MenuImportMappingDiagnosticsTests {
         #expect(message.contains("pageIndex") || message.contains("page_index"))
     }
 
+    /// Die Staffel-Regel trennt zwei Fälle, die auf der Karte unterschiedlich
+    /// gedruckt sind und in der Ground Truth unterschiedlich modelliert werden:
+    /// eine eingeleitete Liste wird zur Optionsgruppe, bezeichnete Preise ohne
+    /// Einleitung bleiben Angebote am Eintrag. Verliert der Prompt eine der
+    /// beiden Hälften, kippt der jeweils andere Fall.
+    @Test("Staffel-Regel nennt beide Formen und die Wiederholung des Kopfpreises")
+    func portionTierRuleSeparatesIntroducedListsFromLabelledOffers() throws {
+        setenv("KITCHENLINK_PROMPT_DELTAS", "portion_tiers", 1)
+        defer { unsetenv("KITCHENLINK_PROMPT_DELTAS") }
+        let prompt = MenuImportExtractionPrompt.systemPrompt
+
+        // Eingeleitete Liste -> Optionsgruppe.
+        #expect(prompt.contains("Größen:"))
+        #expect(prompt.localizedCaseInsensitiveContains("makes an option_group"))
+        // Genau der gemessene Ausfall: ein Preis der Liste wiederholt den
+        // Kopfpreis, und das Modell wirft daraufhin die Struktur weg.
+        #expect(prompt.localizedCaseInsensitiveContains("repeats the entry's headline price"))
+        // Ohne Einleitung -> bezeichnete Angebote am Eintrag.
+        #expect(prompt.contains("28 € Zwischengericht"))
+        #expect(prompt.localizedCaseInsensitiveContains("Do not turn those into an option group"))
+        #expect(prompt.contains("headline_price_unmapped_to_portion_choice"))
+    }
+
+    @Test("Ohne die Staffel-Regel fehlen beide Formen")
+    func portionTierRuleIsAbsentWhenSwitchedOff() throws {
+        setenv("KITCHENLINK_PROMPT_DELTAS", "none", 1)
+        defer { unsetenv("KITCHENLINK_PROMPT_DELTAS") }
+        let prompt = MenuImportExtractionPrompt.systemPrompt
+        #expect(!prompt.contains("makes an option_group"))
+        #expect(!prompt.contains("28 € Zwischengericht"))
+        // Der Vertragsrumpf muss trotzdem stehen.
+        #expect(prompt.contains("contract_version"))
+    }
+
     /// Gemessen: ein einziges ausgelassenes `basis` hat die komplette
     /// semantische Erfassung einer Karte verworfen. Offene Klassifikatoren
     /// dürfen fehlen — der Vertrag kennt `unknown` als gültige Antwort.
