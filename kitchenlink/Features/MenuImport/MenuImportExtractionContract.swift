@@ -353,7 +353,7 @@ enum MenuImportExtractionPrompt {
     /// inside entry names — the only two "missing" entries of the run were
     /// `Bunter Marktsalat WI` and `Veganes Kokoscurry [FI]`, which are not
     /// losses but unnormalized names.
-    static let version = "menu-import-extraction/1.0.4"
+    static let version = "menu-import-extraction/1.0.5"
 
     private static let promptBase = """
     You extract a restaurant menu page into lossless JSON. Return one JSON object
@@ -590,6 +590,43 @@ enum MenuImportExtractionPrompt {
       number with no currency anywhere.
     """
 
+    /// Delta `portion_tiers` (new in `1.0.5`).
+    ///
+    /// Gemessen am 30. Juli 2026 an einer von Hand eingesammelten Antwort eines
+    /// starken Modells: die Staffel `Größen: 0,3 l 4,20 € · 0,5 l 5,90 €` wurde
+    /// zu drei **unbezeichneten** Angeboten am Eintrag verflacht. Das
+    /// Layout-Transkript enthielt die Zeile wortwörtlich — der Fehler liegt in
+    /// der Modellierungsentscheidung, nicht im Lesen.
+    ///
+    /// Aufschlussreich war, was auf derselben Seite **funktionierte**:
+    /// `Variante: Haferdrink +0,50 €` wurde korrekt zur Optionsgruppe. Der
+    /// Unterschied ist, dass die Größenstaffel einen Preis des Kopfpreises
+    /// wiederholt — offenbar liest das Modell die Wiederholung als Dublette und
+    /// wirft die Struktur weg. Die Regel adressiert genau das.
+    ///
+    /// Die Abgrenzung ist auf der Karte gedruckt und damit belegbar, nicht
+    /// geraten: eine **eingeleitete Liste** ist eine Optionsgruppe, bezeichnete
+    /// Preise **ohne** Einleitung bleiben Angebote am Eintrag. Beide Formen
+    /// stehen so in der Ground Truth (`Größen:` als Gruppe bei der Prüfküche,
+    /// `28 € Zwischengericht` als Eintragsangebot bei Alexxanders).
+    private static let portionTierRule = """
+    - A line that introduces a list ("Größen:", "Portionen:", "Variante:",
+      "Extras:", "Wahlweise:") makes an option_group on that entry: one choice
+      per printed item, in printed order, the choice name being the printed
+      label verbatim. When that label states an amount and a unit ("0,3 l",
+      "250 gr"), fill the choice quantity as well. This holds even when one of
+      the listed prices repeats the entry's headline price — repeat that price
+      as the choice's own offer. Never drop the list and never flatten it into
+      several offers on the entry.
+    - Labelled prices printed WITHOUT such an introducing line stay offers on
+      the entry, each carrying its printed label ("28 € Zwischengericht",
+      "36 € Hauptgericht"). Do not turn those into an option group.
+    - A headline price beside the entry name stays an offer on the entry. If it
+      also appears inside an introduced list, add
+      headline_price_unmapped_to_portion_choice, because the page does not prove
+      which listed item the headline price belongs to.
+    """
+
     private static let closingRules = """
     - Return all array fields, using [] when empty. Return the zero-based
       page_index supplied by the user and contract_version 1.0.0 exactly.
@@ -610,9 +647,10 @@ enum MenuImportExtractionPrompt {
         case reviewCodes = "review_codes"
         case trailingCodes = "trailing_codes"
         case currencyCode = "currency_code"
+        case portionTiers = "portion_tiers"
     }
 
-    /// Active deltas, defaulting to all three.
+    /// Active deltas, defaulting to all of them.
     ///
     /// `KITCHENLINK_PROMPT_DELTAS` takes a comma-separated list of the raw
     /// values, `none` for the reconstructed base, or `all`. An unknown name is
@@ -643,11 +681,14 @@ enum MenuImportExtractionPrompt {
         if deltas.contains(.currencyCode) {
             blocks.append(currencyCodeRule)
         }
+        if deltas.contains(.portionTiers) {
+            blocks.append(portionTierRule)
+        }
         blocks.append(closingRules)
         return blocks.joined(separator: "\n")
     }
 
-    /// `1.0.4` with every delta active; otherwise the version names exactly
+    /// `1.0.5` with every delta active; otherwise the version names exactly
     /// which blocks were sent, so a run archive is never ambiguous about the
     /// prompt it measured.
     static var resolvedVersion: String {
