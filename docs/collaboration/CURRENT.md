@@ -632,5 +632,26 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   table.
   **Pending:** applying `20260730120000` + `20260730160000` on the real
   instance and one real waiter order (`SANDBOX_SETUP.md` §6.3/§6.4).
+- **Bill, tip and simulated payment (KL-PAY-001, 31 July):** Milestone 1 is
+  closed — the shared table session now has a bill. Multiple payments, multiple
+  methods (cash, card, Tap to Pay, voucher), splitting **by items** (which is
+  what "getrennt zahlen" means at a German table), tip per payment, refund.
+  **No sandbox payment moves real money.**
+  The amount never comes from the device: with items selected the database
+  computes it from their line totals and rejects a differing claim. The
+  load-bearing invariant is an index, not app logic —
+  `payment_items_one_open_payment_per_item` means two devices cashing the same
+  table cannot bill the same course twice; the loser gets a clean refusal.
+  Every payment carries an idempotency key that survives a session refresh, so
+  a retry never books twice. A refund keeps the payment as `refunded` (audited,
+  §8.2), frees its items and reopens the bill — unless new guests are already
+  seated at that table. `KitchenLinkPaymentProviding` is the §8.2 seam: card
+  and Tap to Pay run through the simulated provider, a declined authorization
+  produces no booking, and card data never reaches the app.
+  Deliberately not included: operating shift and day close (§8.3), guest-web
+  online payment, voucher/balance accounts, payment on delivery, fiscalization
+  and receipt printing.
+  **Pending:** applying `20260731100000` on the real instance and one real
+  split payment (`SANDBOX_SETUP.md` §6.5).
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

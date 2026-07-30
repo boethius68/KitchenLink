@@ -357,6 +357,38 @@ Bedingung: ohne Verbindung bleibt die Bestellung gültig und wird von der Outbox
 nachgereicht, sobald das Gerät wieder online ist. Am selben Tisch schreiben
 Kellner und Gäste in **dieselbe** offene Tisch-Session.
 
+## 6.5 Rechnung kassieren (KL-PAY-001)
+
+Blueprint §8.1, Meilenstein 1.11 — der Abschluss des Ablaufs vom Scan bis zur
+Zahlung. **Keine Sandbox-Zahlung bewegt echtes Geld.**
+
+1. Migration `20260731100000_sandbox_payments.sql` anwenden (Abschnitt 2).
+2. **Service → „Rechnung kassieren"**, Tisch wählen.
+3. Die Rechnung listet alle Positionen der gemeinsamen Tisch-Session — auch die
+   von mehreren Gästen und vom Kellner.
+   - **Gemeinsam zahlen:** nichts auswählen, „Kassieren".
+   - **Getrennt zahlen:** die Positionen antippen, die dieser Gast zahlt.
+   - **Teilbetrag:** ohne Auswahl kassiert die App den offenen Betrag; ein
+     abweichender Teilbetrag ist über die RPC möglich.
+4. Zahlart wählen (Bar, Karte, Tap to Pay, Gutschein) und optional Trinkgeld.
+   Karte und Tap to Pay laufen über den simulierten Zahlungsanbieter.
+5. Der Beleg nennt Betrag, Trinkgeld, den verbleibenden offenen Betrag und die
+   Sandbox-Referenz. „Zahlung stornieren" gibt die Positionen wieder frei.
+6. Ist nichts mehr offen, schließt sich die Tisch-Session; der nächste Gast an
+   diesem Tisch eröffnet eine neue.
+
+**Semantik:** Der Betrag kommt nie vom Gerät. Bei ausgewählten Positionen
+rechnet die Datenbank ihn aus deren Zeilensummen und weist eine abweichende
+Behauptung ab. Eine Position kann nicht zweimal offen bezahlt sein — das
+erzwingt ein Index, nicht die App; zwei gleichzeitig kassierende Geräte können
+denselben Gang also nicht doppelt abrechnen. Jede Zahlung trägt einen
+Idempotenz-Schlüssel: ein wiederholter Versuch bucht nicht erneut.
+
+**Noch nicht enthalten** (eigene Scheiben): Betriebsschicht und Tagesabschluss
+(§8.3), Onlinezahlung im Gast-Web, Gutschein-/Guthabenkonten, Zahlung bei
+Lieferung, Fiskalisierung und Belegdruck (§8.2 `FiscalizationProvider`,
+`ReceiptProvider`).
+
 ---
 
 ## 7. Was bewusst NICHT hier gelöst ist

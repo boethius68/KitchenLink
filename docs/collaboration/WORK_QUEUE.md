@@ -1052,6 +1052,56 @@ ist vorbestehend), sowie der vollstaendige Ablauf im Simulator: aufnehmen →
 dauerhaft gespeichert → Kueche zeigt `Tisch 1` → zubereitet → Kellner-Modus →
 serviert.
 
+### KL-PAY-001 - Rechnung, Trinkgeld und simulierte Zahlung
+
+**Status:** Implementiert auf `main` (31. Juli 2026); offen ist die reale
+Abnahme (Migration anwenden, einmal getrennt kassieren, `SANDBOX_SETUP.md` §6.5)
+**Abhaengigkeit:** KL-TABLE-001 (Tisch-Session), KL-TABLE-002 (Bestellungen am
+Tisch), KL-CLOUD-001 (Betreiber-Sitzung)
+**Schreibbereich:** `supabase/migrations/20260731100000_sandbox_payments.sql`
+(neu), `scripts/tests/payments.sql` (neu), `kitchenlink/Features/Payments/`
+(neu: Provider, Transport, Modell, Ansicht, Demo-Transport),
+`Features/LocalOperations/KitchenLinkV2LocalOperationsView.swift` (Einstieg),
+`Features/Tables/KitchenLinkV2TablesView.swift` (geteilte Anmeldekarte),
+`kitchenlinkTests/KitchenLinkPaymentTests.swift` (neu), `SANDBOX_SETUP.md`,
+dieser Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+Schliesst Meilenstein 1 (Blueprint §8.1, „Split-Rechnung, Trinkgeld und
+Sandbox-Zahlung"): die gemeinsame Tisch-Session bekommt eine Rechnung.
+Mehrere Zahlungen, mehrere Zahlarten, getrennt nach Positionen, Trinkgeld je
+Zahlung, Storno. **Keine Sandbox-Zahlung bewegt echtes Geld.**
+
+- **Der Betrag kommt nie vom Geraet.** Bei ausgewaehlten Positionen rechnet die
+  Datenbank ihn aus deren Zeilensummen; ein abweichender behaupteter Betrag
+  wird abgewiesen (`payment_amount_mismatch`).
+- **Tragende Invariante als Index:** `payment_items_one_open_payment_per_item`
+  — eine Position kann nicht zweimal offen bezahlt sein. Zwei gleichzeitig
+  kassierende Geraete koennen denselben Gang nicht doppelt abrechnen; der
+  Verlierer bekommt eine klare Absage statt eines rohen Datenbankfehlers.
+- **Idempotenz:** jede Zahlung traegt einen Schluessel; eine Wiederholung
+  liefert die erste Antwort zurueck statt einer zweiten Buchung. Der Schluessel
+  ueberlebt auch die Sitzungserneuerung nach einem 401.
+- **Storno** laesst die Zahlung als `refunded` stehen (auditiert, §8.2), gibt
+  ihre Positionen wieder frei und oeffnet die Rechnung erneut — aber nur, wenn
+  am Tisch nicht laengst neue Gaeste sitzen.
+- **Provider-Naht (§8.2):** `KitchenLinkPaymentProviding` mit
+  `KitchenLinkSandboxPaymentProvider`. Karte und Tap to Pay laufen darueber;
+  eine abgelehnte Autorisierung erzeugt keine Buchung. Bar und Gutschein
+  brauchen keinen Anbieter. Kartendaten sieht die App nie.
+
+Bewusst nicht enthalten: Betriebsschicht und Tagesabschluss (§8.3),
+Onlinezahlung im Gast-Web, Gutschein-/Guthabenkonten, Zahlung bei Lieferung,
+Fiskalisierung und Belegdruck.
+
+Verifikation: SQL gegen echtes PostgreSQL (Rechnung ueber zwei Gastbestellungen,
+serverseitig gerechneter Betrag, doppelte Position abgewiesen, Replay ohne
+zweite Buchung, Teilbetrag ueber offenem Betrag abgewiesen, Rechnung schliesst
+sich, Storno gibt frei, `anon` sieht nichts), iOS 427 Testfaelle bestanden (der
+eine Fehlschlag in `MenuManualEditorUITests` ist weiterhin vorbestehend), und
+der Ablauf im Simulator: eine Position gewaehlt, 10 % Trinkgeld, Karte ueber den
+simulierten Anbieter, Beleg mit Restbetrag, danach Storno mit wieder offener
+Position.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

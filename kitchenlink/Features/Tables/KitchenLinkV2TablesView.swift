@@ -208,7 +208,10 @@ struct KitchenLinkV2TablesView: View {
 
 // MARK: - Anmeldung
 
-private struct KitchenLinkTablesSignInCard: View {
+/// Geteilte Anmeldekarte: dieselben vertrauten Zugangsdaten wie unter
+/// „Service". Auch vom Kassieren genutzt (KL-PAY-001), damit es dafür keine
+/// zweite Anmeldung gibt.
+struct KitchenLinkTablesSignInCard: View {
     let onSignIn: (String, String) async -> Void
 
     @State private var email = ""

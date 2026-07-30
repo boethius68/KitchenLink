@@ -101,6 +101,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                         cloudCard
                     }
                     takeOrderLink
+                    checkLink
                     orderSection
                     if cloud.connectionState != .signedOut {
                         cloudCard
@@ -286,6 +287,48 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("localOperations.takeOrder")
+    }
+
+    /// KL-PAY-001: Kassieren steht neben dem Aufnehmen — beides sind Handgriffe
+    /// am Tisch, keine Verwaltung.
+    private var checkLink: some View {
+        NavigationLink {
+            KitchenLinkV2CheckOverviewView()
+        } label: {
+            HStack(spacing: KitchenLinkV2Spacing.medium) {
+                Image(systemName: "eurosign.circle")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .frame(width: 28)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Rechnung kassieren")
+                        .font(KitchenLinkV2Typography.primaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                    Text("Gemeinsam, getrennt oder als Teilbetrag · Sandbox")
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .accessibilityHidden(true)
+            }
+            .padding(KitchenLinkV2Spacing.large)
+            .frame(minHeight: KitchenLinkV2GuestMenuMetrics.minimumTapTarget)
+            .background(
+                KitchenLinkV2Palette.Surface.raised,
+                in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                    .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("localOperations.openCheck")
     }
 
     private var modePicker: some View {

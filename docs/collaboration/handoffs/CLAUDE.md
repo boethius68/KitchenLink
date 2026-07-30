@@ -1,12 +1,94 @@
 # Claude Code Handoff
 
-**Updated:** 31 July 2026 (Session-Teil 31: KL-TABLE-002, Kellnerbestellung)
+**Updated:** 31 July 2026 (Session-Teil 32: KL-PAY-001, Rechnung und Zahlung)
+**Zuvor:** 31 July 2026 (Session-Teil 31: KL-TABLE-002, Kellnerbestellung)
 **Zuvor:** 30 July 2026 (Session-Teil 30: KL-TABLE-001, Tischkontext)
 **Zuvor:** 30 July 2026 (Session-Teil 29: Staffelregel belegt, drei Fehlerklassen geschlossen)
 **Zuvor:** 30 July 2026 (Session-Teil 28: Layoutstufe an einem starken Modell belegt)
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 32: KL-PAY-001 — Rechnung und Zahlung (31. Juli 2026)
+
+### Anlass
+
+Der Nutzer hat die Abnahme der beiden Tisch-Migrationen bestätigt und
+Blueprint §8 als nächstes gesetzt. Geschnitten auf Meilenstein 1.11
+(„Split-Rechnung, Trinkgeld und Sandbox-Zahlung") — damit ist Meilenstein 1
+geschlossen. §8.3 (Betriebsschicht, Tagesabschluss) bleibt eine eigene Scheibe.
+
+### Umgesetzt
+
+- **Migration `20260731100000`:** `payments` und `payment_items` mit RLS
+  (Lesen nur für Personal, kein Schreibweg für Clients), dazu
+  `operator_table_check`, `operator_record_payment` und
+  `operator_refund_payment`.
+- **Der Betrag kommt nie vom Gerät.** Bei ausgewählten Positionen rechnet die
+  Datenbank ihn aus den Zeilensummen; ein mitgeschickter Betrag wird nur
+  gegengeprüft (`payment_amount_mismatch`). Dieselbe Regel wie bei der
+  Gastbestellung.
+- **Die tragende Zusage steht als Index, nicht als App-Logik:**
+  `payment_items_one_open_payment_per_item`. Zwei gleichzeitig kassierende
+  Geräte können denselben Gang nicht zweimal abrechnen; der Verlierer bekommt
+  `payment_item_unavailable` statt eines rohen Datenbankfehlers.
+- **Storno** lässt die Zahlung als `refunded` stehen (auditiert, §8.2), setzt
+  ihre Positionszuordnung inaktiv und öffnet die Rechnung wieder — aber nur,
+  wenn am Tisch nicht längst eine neue Session offen ist. Sonst bliebe der
+  Storno an der Index-Invariante „eine offene Session je Tisch" hängen; die
+  Ansicht meldet den Fall über `session_reopened`.
+- **Provider-Naht (§8.2):** `KitchenLinkPaymentProviding` +
+  `KitchenLinkSandboxPaymentProvider`. Karte und Tap to Pay laufen darüber,
+  Bar und Gutschein nicht. Eine abgelehnte Autorisierung erzeugt **keine**
+  Buchung — dafür gibt es einen eigenen Test. Die Referenz des Anbieters wandert
+  in die Zahlung; ein echter PSP schreibt später seine Autorisierung an dieselbe
+  Stelle.
+- **Oberfläche:** `Service → Rechnung kassieren`. Positionen antippen ist
+  „getrennt zahlen", ohne Auswahl wird der offene Betrag kassiert. Trinkgeld
+  liegt neben der Zahlart statt in einem eigenen Schritt; der Beleg nennt
+  Betrag, Trinkgeld, Restbetrag und Sandbox-Referenz.
+- **Demo-Transport** hinter dem bestehenden Launch-Argument
+  `--kitchenlink-demo-tables`, damit der Ablauf ohne Cloud vorführ- und
+  prüfbar bleibt. Er rechnet bewusst wie die Datenbank (Auswahl bestimmt den
+  Betrag, bezahlte Position gesperrt, Storno gibt frei), damit die Demo nichts
+  anderes zeigt als der echte Weg.
+
+### Zwei Dinge, die ich beim Schreiben korrigiert habe
+
+1. **Endlosschleife im Fehlerfall.** Der 401-Pfad rief `pay()` rekursiv auf.
+   Erneuert sich die Sitzung erfolgreich, während die RPC weiter 401 liefert,
+   hätte das ohne Ende gedreht. Jetzt genau ein Refresh (`allowRefresh`).
+2. **Idempotenz-Schlüssel aus `hashValue`.** Swifts Hashing ist pro Prozess
+   zufällig; als Bestandteil eines Schlüssels, der einen Zahlungsvorgang
+   identifiziert, ist das eine schlechte Idee. Der Schlüssel ist jetzt eine
+   UUID, die über Wiederholungen desselben Vorgangs gehalten und bei geänderter
+   Auswahl verworfen wird.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL** (`scripts/tests/payments.sql`): Rechnung über
+  zwei Gastbestellungen desselben Tisches, serverseitig gerechneter Betrag,
+  behaupteter Falschbetrag abgewiesen, doppelte Position abgewiesen, Replay
+  ohne zweite Buchung, Teilbetrag über dem offenen Betrag abgewiesen, Rechnung
+  schließt sich, geschlossene Rechnung nimmt nichts mehr an, Storno gibt die
+  Position frei und sie ist erneut kassierbar, `anon` sieht nichts.
+- **iOS: 427 Testfälle bestanden, 1 Fehlschlag** — weiterhin der vorbestehende
+  `MenuManualEditorUITests`.
+- **Simulator:** eine Position gewählt (13,80 €), 10 % Trinkgeld (1,38 €),
+  Zahlart Karte über den simulierten Anbieter, Beleg mit Restbetrag 30,80 €,
+  bezahlte Position gesperrt, danach Storno — Position wieder offen, Rechnung
+  zurück auf 44,60 €.
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme:** Migration anwenden und einmal echt getrennt kassieren
+   (`SANDBOX_SETUP.md` §6.5).
+2. **§8.3 Betriebsschicht und Tagesabschluss:** gemeinsame Schicht, Bargeld-
+   Anfangsbestand, Einnahmen/Trinkgeld/Stornos gesammelt, Bargeldzählung,
+   Tagesbericht und Sandbox-Z-Bericht. Die Zahlungen dafür liegen jetzt vor.
+3. Offen aus dieser Scheibe: Onlinezahlung im Gast-Web (der Gast zahlt selbst),
+   Gutschein-/Guthabenkonten (die Zahlart existiert, das Konto dahinter nicht),
+   Beleg als Dokument (`ReceiptProvider`).
 
 ## Session-Teil 31: KL-TABLE-002 — Kellnerbestellung (31. Juli 2026)
 
