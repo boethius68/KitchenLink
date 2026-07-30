@@ -380,6 +380,40 @@ Die Pakete liegen unter `.claude/artifacts/prompts/` (nicht versioniert,
 2,2 MB, zehn Seiten mit Bild und Transkript). Ablauf zum Einsammeln steht im
 Kopf des Skripts.
 
+### Abspielpfad verifiziert — und der erste belastbare Beleg für die Layoutstufe
+
+Zwei Durchleitungsfehler gefunden: `KITCHENLINK_LLM_REPLAY_DIR` und
+`_RECORD_DIR` fehlten in der `TEST_RUNNER_`-Liste von
+`run-import-review.sh`. Danach lief die Kette durch.
+
+Test: Vertrag für `alexxanders-chemnitz` Seite 2 von Hand geschrieben (mit dem
+exportierten Paket als Eingabe, also OCR-Zeilen plus Layout-Transkript),
+absichtlich **nur** diese eine Seite abgelegt. Ergebnis:
+
+- Seite 2: `processed — Replayed recorded provider response for this page.`
+- Seiten 0, 1, 3: `failed` → aus den lokalen Regeln gefüllt, alle als
+  `needsReview`, dazu dreimal `page_filled_from_local_rules`. Vor der
+  Seitenrettung hätte das die ganze Karte gekostet.
+- Preiszuordnung: `Lotte -> ('28 €', 'Zwischengericht'), ('36 €',
+  'Hauptgericht')` — beide Portionspreise **am Eintrag** mit Bezeichnung, genau
+  wie die Ground Truth es erwartet. Der Phantom-Eintrag "Zwischengericht" des
+  Regelparsers ist weg.
+
+Gate für dieses Dokument: **erfundene Preise 0 (vorher 4), fehlende Preise 0
+(vorher 4)**, Eintrags-Recall 1,000. Die verbleibenden Auffälligkeiten
+(`silentPageLosses 2`, `coverFalsePositives 1`, ein erfundener Eintrag) kommen
+sämtlich von den drei regelbasierten Seiten, nicht von Seite 2.
+
+**Ehrliche Einordnung:** das zeigt, dass die Pipeline aus korrekt zugeordneten
+Rohdaten das Richtige macht und dass das Layout-Transkript die richtige Antwort
+verfügbar macht. Es zeigt **nicht**, dass `gemini-3.5-flash` diese Zuordnung nun
+selbst trifft. Dafür braucht es einen bezahlten Lauf oder ein eingesammeltes
+Ergebnis aus einem Chatfenster — beides ist jetzt ohne weitere Infrastruktur
+messbar.
+
+Die Aufzeichnung liegt als `.claude/artifacts/replay-alexxanders/page-2.json`
+(nicht versioniert). Sie taugt als Ausgangspunkt für eine echte Testfixtur.
+
 ### Offener Punkt: die Layoutstufe erhält im Simulator keine Konfiguration
 
 `MenuImportLayoutPass` funktioniert über HTTP nachweislich (per `curl`
