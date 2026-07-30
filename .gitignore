@@ -17,5 +17,7 @@ supabase/.temp/
 # ZCode agent session state (transient, agent-specific).
 .zcode/
 
-# Python-Cache der Gate-Skripte (transient).
-scripts/__pycache__/
+# Python-Cache der Gate-Skripte (transient). Bewusst ohne Pfadpräfix: die
+# frühere Regel deckte `scripts/tests/__pycache__/` nicht ab, und eine .pyc ist
+# so in einen Merge gerutscht.
+__pycache__/
