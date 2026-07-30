@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
+**Updated:** 30 July 2026 (Session-Teil 28: Layoutstufe an einem starken Modell belegt)
+**Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
 
@@ -277,7 +278,66 @@ wenn **alle** Seiten an Authentifizierung scheiterten.
 - P95-Latenz, `expectedReviewRecall` und das sporadisch unlesbare JSON aus
   Teil 25 bleiben unverändert offen.
 
-### Session-Teil 27: Layoutstufe und erzwungenes Dekodieren (30. Juli 2026)
+### Session-Teil 28: Die Layoutstufe an einem starken Modell belegt (30. Juli 2026)
+
+Der Nutzer hat drei Gate-Seiten von Hand durch ChatGPT gegeben — die exportierten
+Pakete inklusive olmOCR-Transkript — und die Antworten zurückgelegt. Ausgewertet
+über den Abspielpfad, ohne einen einzigen bezahlten Aufruf.
+
+### Vorher gefunden: der Abspielpfad war nicht kartenscharf
+
+`replayText` kannte nur den Seitenindex. Zwei Karten haben aber beide eine
+Seite 2, und ein flaches Verzeichnis hätte die Prüfküchen-Antwort in die
+Alexxanders-Karte gespielt — still und falsch. Aufzeichnung und Abspielen sind
+jetzt über das Herkunftsdetail der Karte einem Unterordner zugeordnet; die
+Zuordnung ist nachsichtig (Ordnername muss im Herkunftsdetail vorkommen), damit
+niemand interne IDs kennen muss.
+
+### Ergebnis: zwei von drei Fehlerklassen gelöst
+
+| Seite | Fehlerklasse | Ergebnis |
+|---|---|---|
+| `alexxanders` S. 2 | Portionspreise landeten an Auswahloptionen statt am Gericht | **gelöst** |
+| `lichtburg` S. 4 | gedruckter Name mit Gewicht, zweispaltige Beilagenliste | **gelöst** |
+| `pruefkueche` S. 2 | Größenstaffel als Optionsgruppe | **nicht gelöst** |
+
+Im Einzelnen:
+
+- `Lotte -> ('28 €', 'Zwischengericht'), ('36 €', 'Hauptgericht')` — beide
+  Portionspreise als bezeichnete Angebote **am Eintrag**. Für dieses Dokument
+  fallen erfundene und fehlende Preise von je **4 auf 0**.
+- `Hüftsteak(250gr)` behält den gedruckten Namen samt Gewicht. Der Defekt, der
+  in Teil 25 deterministisch nachgebaut werden musste, entsteht hier nicht mehr
+  an der Quelle. Die zweispaltige Beilagenliste ist sauber in Einzeleinträge
+  aufgelöst (`Salat 4,90 €`, `Pfefferrahmsoße 3,90 €`), erfundene Preise **0**.
+- Bei den Getränken hat das Modell die Staffel `Größen: 0,3 l 4,20 € · 0,5 l
+  5,90 €` zu drei **unbezeichneten** Angeboten am Eintrag verflacht. Die Ground
+  Truth erwartet eine Optionsgruppe "Größen" mit Mengen je Auswahl. Das
+  Transkript enthielt die Information wortwörtlich — der Fehler liegt also in
+  der **Modellierungsentscheidung**, nicht im Lesen.
+
+### Was daraus folgt
+
+Die Layoutstufe löst die **relationalen** Leseprobleme (welcher Preis gehört zu
+welchem Gericht, welcher Portion, welcher Spalte). Sie löst **nicht** die Frage,
+wann eine Staffel als Optionsgruppe zu modellieren ist. Das ist eine Prompt- und
+Vertragsfrage und der nächste klar umrissene Schritt: der Vertrag kennt dafür
+bereits `headline_price_unmapped_to_portion_choice`, und die Ground Truth führt
+den Code für genau diese Karte.
+
+**Die Stufe bleibt.** Damit ist auch die Verkabelung in der App wieder relevant
+(offener Punkt aus Teil 27: null Anfragen im Simulator, Diagnose muss in eine
+Datei statt in `print`).
+
+### Lesehinweis zu den Zahlen
+
+Pro Karte ist nur **eine** Gate-Seite abgespielt, die übrigen kommen aus den
+lokalen Regeln mit ihrer Grundlinie von 8,5 Korrekturen pro Seite. Die
+Dokumentwerte für `pruefkueche` und `lichtburg` sind deshalb nicht mit den
+bezahlten Läufen vergleichbar — belastbar sind nur die Aussagen zu den
+abgespielten Seiten.
+
+## Session-Teil 27: Layoutstufe und erzwungenes Dekodieren (30. Juli 2026)
 
 ### Anlass und Korrektur einer eigenen Fehleinschätzung
 

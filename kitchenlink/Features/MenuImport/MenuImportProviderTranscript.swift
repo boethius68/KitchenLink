@@ -44,31 +44,81 @@ enum MenuImportProviderTranscript {
         "page-\(pageIndex).json"
     }
 
+    /// Ordner für eine bestimmte Karte innerhalb des Ablageverzeichnisses.
+    ///
+    /// Nötig, weil der Seitenindex allein nicht eindeutig ist: zwei Karten
+    /// haben beide eine Seite 2, und ein flaches Verzeichnis würde sie
+    /// verwechseln — die Aufzeichnung der einen Karte landete stillschweigend in
+    /// der anderen. Beim ersten Versuch ist genau das passiert.
+    ///
+    /// Die Zuordnung ist absichtlich nachsichtig: gewinnt der Unterordner, dessen
+    /// Name im Herkunftsdetail der Karte vorkommt (längster Treffer). So genügt
+    /// `alexxanders-chemnitz/`, ohne dass jemand das interne
+    /// `review-llm-alexxanders-chemnitz` kennen muss.
+    static func scopedDirectory(in directory: URL, scope: String?) -> URL? {
+        guard let scope = scope?.lowercased(), !scope.isEmpty else { return nil }
+        let entries = (try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isDirectoryKey]
+        )) ?? []
+        let candidates = entries.filter { url in
+            var isDirectory: ObjCBool = false
+            let exists = FileManager.default.fileExists(
+                atPath: url.path,
+                isDirectory: &isDirectory
+            )
+            guard exists, isDirectory.boolValue else { return false }
+            return scope.contains(url.lastPathComponent.lowercased())
+        }
+        return candidates.max { $0.lastPathComponent.count < $1.lastPathComponent.count }
+    }
+
     /// Liest eine aufgezeichnete Antwort für diese Seite.
     ///
     /// Gibt den Rohtext zurück statt der dekodierten Struktur, damit der
     /// Abspielpfad **denselben** Dekodier- und Diagnosepfad durchläuft wie ein
     /// Live-Aufruf. Eine Aufzeichnung, die der Vertrag nicht annimmt, muss
     /// genauso auffallen wie eine Live-Antwort, die er nicht annimmt.
-    static func replayText(pageIndex: Int) -> String? {
+    static func replayText(pageIndex: Int, scope: String?) -> String? {
         guard let directory = replayDirectory else { return nil }
-        let url = directory.appendingPathComponent(fileName(pageIndex: pageIndex))
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        let text = String(decoding: data, as: UTF8.self)
-        return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
+        let name = fileName(pageIndex: pageIndex)
+        let candidates = [
+            scopedDirectory(in: directory, scope: scope)?.appendingPathComponent(name),
+            directory.appendingPathComponent(name)
+        ].compactMap { $0 }
+        for url in candidates {
+            guard let data = try? Data(contentsOf: url) else { continue }
+            let text = String(decoding: data, as: UTF8.self)
+            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return text
+            }
+        }
+        return nil
     }
 
     /// Legt eine Live-Antwort für spätere Läufe ab. Fehler beim Schreiben sind
     /// bewusst still: eine Aufzeichnung darf einen Import nicht scheitern
     /// lassen.
-    static func record(pageIndex: Int, jsonText: String) {
+    static func record(pageIndex: Int, scope: String?, jsonText: String) {
         guard let directory = recordDirectory else { return }
+        // Beim Schreiben wird der Kartenordner angelegt, nicht gesucht: sonst
+        // überschreiben zwei Karten gegenseitig ihre Seite 2.
+        let target = scope.map { value -> URL in
+            let folder = value
+                .lowercased()
+                .replacingOccurrences(of: "/", with: "-")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return folder.isEmpty
+                ? directory
+                : directory.appendingPathComponent(folder, isDirectory: true)
+        } ?? directory
         try? FileManager.default.createDirectory(
-            at: directory,
+            at: target,
             withIntermediateDirectories: true
         )
-        let url = directory.appendingPathComponent(fileName(pageIndex: pageIndex))
-        try? Data(jsonText.utf8).write(to: url)
+        try? Data(jsonText.utf8).write(
+            to: target.appendingPathComponent(fileName(pageIndex: pageIndex))
+        )
     }
 
     private static func configValue(forKey key: String) -> String? {
