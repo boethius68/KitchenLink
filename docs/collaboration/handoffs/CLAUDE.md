@@ -1,7 +1,8 @@
 # Claude Code Handoff
 
-**Updated:** 27 July 2026 (Session-Teil 24: Legendenfilter greift zur Laufzeit nicht)
-**Zuvor:** 26 July 2026 (Session-Teil 22: Menu-Import launch-fähig gemacht)
+**Updated:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
+**Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
+**Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
 
 ## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
 
@@ -201,6 +202,364 @@ KL-MENU-005 (§6.2). Details in Session-Teil 10 bis 12.
 Zur Vorsession (Session-Teil 9): KL-CLOUD-001 und KL-OFFLINE-008 sind in
 `main` gemergt; nicht gemergte Branch-Staende liegen als `archive/*`-Tags,
 das Loeschen der Remote-Branches wartet auf Nutzerbestaetigung.
+
+## Session-Teil 26: Kostenloser Standardpfad und Seitenrettung (29. Juli 2026)
+
+### Anlass
+
+Der Nutzer will kein Geld mehr für API-Nutzung ausgeben und fragte, ob der
+Import auch ohne fertig wird. Auf Rückfrage präzisiert: es geht um die
+**eigenen Messläufe**, nicht um das Produkt. Die Entscheidung vom 26. Juli
+(bezahltes Modell als Standard) bleibt damit gültig.
+
+### Der kostenlose Standardpfad war komplett tot
+
+Ohne hinterlegten Schlüssel liefert die App laut Code den keylosen Zen-Pfad.
+Der hat **nie** eine semantische Erfassung produziert — jede Seite fiel still
+auf die lokalen Regeln zurück. Beide Ursachen direkt am Gateway per `curl`
+nachgewiesen, nicht vermutet:
+
+1. **Das freie Modell nimmt keine Bilder an.** Jede Vision-Anfrage an
+   `big-pickle` beantwortet das Gateway mit `HTTP 400 · Upstream request
+   failed` — auf jeder Seite jeder Karte. Ohne eigenen Schlüssel läuft der Pfad
+   jetzt im Textmodus (der OCR-Dump trägt Seite und Koordinaten). Mit eigenem,
+   bildfähigem Zugang bleibt Vision aktiv.
+2. **`big-pickle` ist ein Reasoning-Modell** und rechnet sein Nachdenken gegen
+   dasselbe Ausgabebudget wie die Antwort. Belegt: "Antworte nur mit OK" kostet
+   82 Reasoning-Token; mit `max_tokens: 20` kommt `content: ""` und
+   `finish_reason: length`, mit 2000 kommt `OK`. Eine dichte Speisekartenseite
+   hat die bisherigen 10 000 restlos verbraucht. Budget jetzt 32 000 — das
+   Gateway akzeptiert auch 60 000.
+
+Damit die nächste Ursache dieser Art nicht wieder unsichtbar bleibt: der
+Abbruchgrund des Anbieters wird gemeldet, `reasoning_content` wird zusätzlich
+zu `reasoning` gelesen, und eine Antwort ohne JSON nennt Länge und Auszug.
+
+### Leerer sichtbarer Text verwarf den ganzen Entwurf
+
+Der Validator lehnt leeren sichtbaren Text ab, und ein abgelehnter Entwurf
+kostet die **ganze** Karte. Gemessen am freien Modell hat genau ein leerer
+`sections[2].title.value` das ausgelöst. Der Text wird jetzt aus seiner eigenen
+Belegzeile geholt; gibt es keine, bleibt die Lücke als `—` sichtbar markiert
+statt erfunden. Beide Fälle erzeugen einen Befund.
+
+### Seitenrettung (Nutzerentscheidung, in DECISIONS.md aufgenommen)
+
+Bisher galt "no partial semantic draft accepted": EINE gescheiterte Seite
+verwarf die semantische Erfassung der ganzen Karte. Gemessen ist das kein
+Randfall — ein bezahlter Lauf verlor zwei von vier Karten, ein freier Lauf alle
+vier, jedes Mal wegen genau einer Seite.
+
+Jetzt bleibt erhalten, was erfasst wurde. `parseDraftWithLLM` baut den Entwurf
+aus den vorhandenen Extraktionen; `MenuImportService.mergingLocalPages` füllt
+die Lücken aus dem lokalen Regelentwurf, seitengenau gefiltert über
+`entry.name.evidence.pageIndex`. Jeder übernommene Bereich geht als
+`needsReview` hinein, ein Befund `page_filled_from_local_rules` nennt die
+Seite, und die Bereiche stehen in Seitenreihenfolge. Vier Tests in
+`kitchenlinkTests/MenuImportPageSalvageTests.swift`.
+
+Der 401-Abbruch bleibt erhalten, hängt aber nicht mehr an einer
+Textsuche in der Sammelmeldung, sondern an `failedOnAuthentication` — wahr nur,
+wenn **alle** Seiten an Authentifizierung scheiterten.
+
+### Offen
+
+- **Wiederholbarkeit weiterhin ungemessen.** `minimumRepeatRuns 3` braucht drei
+  bezahlte Läufe; das Zen-Guthaben ist leer und soll nicht aufgefüllt werden.
+  Die Zahlen aus Teil 25 stehen auf einem sauberen Lauf.
+- **Der freie Pfad ist langsam.** 19 Minuten für 17 Seiten in einem Lauf, in
+  einem zweiten nach über einer Stunde ohne Fortschritt abgebrochen. Als
+  Fallback brauchbar, als Standard nicht — die Entscheidung vom 26. Juli bleibt
+  richtig.
+- **Die Seitenrettung ist unit-getestet, aber nicht am echten Anbieter
+  gemessen.** Der nächste bezahlte Lauf sollte prüfen, ob eine gescheiterte
+  Seite jetzt tatsächlich nur diese Seite kostet.
+- P95-Latenz, `expectedReviewRecall` und das sporadisch unlesbare JSON aus
+  Teil 25 bleiben unverändert offen.
+
+### Session-Teil 27: Layoutstufe und erzwungenes Dekodieren (30. Juli 2026)
+
+### Anlass und Korrektur einer eigenen Fehleinschätzung
+
+Der Nutzer schlug vor, ein Dokumentmodell wie olmOCR 2 als erste Stufe
+vorzuschalten und erst danach den Vertrag zu füllen. Ich hatte das zunächst
+abgetan mit dem Argument, die Belegabdeckung liege schon bei 0,988. Das war
+falsch begründet: 0,988 sagt, dass der **Text** gefunden wird — nicht, dass die
+**räumlichen Beziehungen** aufgelöst sind. Genau dort sitzt die verbleibende
+Fehlermasse (Angebote 0,731, Preisbasis 0,703, Beziehungen 0,425).
+
+### olmOCR 2 nachgemessen — die Idee trägt
+
+`hf.co/lmstudio-community/olmOCR-2-7B-1025-GGUF:Q4_K_M` über Ollama, 42–49 s pro
+Seite, 450–710 Ausgabe-Token, an genau den Seiten, die heute scheitern:
+
+- `28 € Zwischengericht    36 € Hauptgericht` erscheint **unter** dem Gericht
+  Lotte statt als zwei eigenständige Optionen. Das war einer der zehn
+  "erfundenen Preise".
+- `Hüftsteak (250gr)` behält den gedruckten Namen samt Gewicht — der Defekt, den
+  ich in Teil 25 deterministisch nachbauen musste, entsteht hier nicht.
+- Die zweispaltige Beilagenliste kommt als HTML-Tabelle mit korrekter Paarung.
+- Zweisprachige Karten behalten die Paarung Deutsch/Englisch pro Gericht.
+- Der geltungsbeschränkte Hinweis ("außer Burger") steht als eigener Block.
+
+Umgesetzt als `MenuImportLayoutPass`: austauschbar über
+`KITCHENLINK_LAYOUT_BASE_URL` und `_MODEL`, läuft mit jedem Vertragsmodell auch
+dem bezahlten, und ausdrücklich fehlertolerant — jeder Fehlschlag liefert `nil`
+und der Seitenlauf geht ohne Layoutkontext weiter. Apple Vision bleibt die
+einzige Belegquelle; ein Test hält fest, dass der Prompt das abgrenzt, sonst
+erfindet das Vertragsmodell IDs für Zeilen des Transkripts.
+
+### Erzwungenes Dekodieren — der Blocker der Vertragsstufe
+
+Diagnose aus Teil 26 bestätigt: die 900-s-Zeitlimits waren keine Langsamkeit,
+sondern eine Wiederholungsschleife (rund 17 000 Ausgabe-Token für eine Seite,
+die 3 000–8 000 braucht).
+
+`MenuImportExtractionSchema` liefert den Vertrag als JSON-Schema,
+`KITCHENLINK_LLM_RESPONSE_FORMAT=json_schema` schaltet es zu. Ollama nimmt es an
+und setzt es durch. Wirkung gemessen: **dieselbe Seite, die dreimal 900 s
+Zeitlimit riss, antwortet in 21 s.** Zwei bewusste Abweichungen vom Vertrag sind
+im Dateikopf begründet: begrenzte statt rekursiver Verschachtelung (llama.cpp
+kommt mit `$ref` schlecht zurecht) und kein `required` (der Vertrag toleriert
+fehlende Felder absichtlich). Fünf Tests koppeln Schema und Vertrag, unter
+anderem: jeder Prüfcode des Schemas muss im Prompt-Vokabular stehen.
+
+Standard bleibt `json_object`. Ein starres Schema gewinnt bei einem starken
+Modell nichts und wird von manchen Gateways abgelehnt.
+
+### Der harte Befund: lokale 8–9B-Modelle können den Vertrag nicht füllen
+
+Mit Layout-Transkript **und** Schemazwang, an derselben Seite:
+
+| Modell | Ergebnis |
+|---|---|
+| `qwen3.5:9b-32k` | Seite als `unknown`, **null Einträge**, 21 s |
+| `gemma4:32k` | Seite als `menu`, **null Einträge**, 139 s |
+
+Schemakonform und inhaltsleer. Der Engpass ist **Verständnis**, nicht Format,
+Geschwindigkeit oder Kontext (128k–262k Fenster). Ein lokaler Server bleibt
+Debugging-Werkzeug; die Vertragsstufe braucht ein starkes Modell.
+
+### Offen
+
+- **Der Nutzen der Layoutstufe ist noch nicht in Kennzahlen belegt.** Dazu
+  braucht es einen Lauf mit einem Vertragsmodell, das die Aufgabe kann — also
+  einen bezahlten. Genau eine Messung würde klären, ob Angebote 0,731 und
+  Beziehungen 0,425 mit vorgeschalteter Layoutstufe steigen. Das ist die
+  wertvollste einzelne Messung, die derzeit aussteht.
+- Ebenso ungemessen: ob Schemazwang beim bezahlten Modell hilft oder schadet.
+- Die drei Wiederholungsläufe aus Teil 25 fehlen weiterhin.
+
+### Nachtrag: Aufzeichnen, Abspielen und Prompt-Export (30. Juli 2026)
+
+Der Nutzer hat kein API-Modell mehr zur Verfügung und schlug vor, den Prompt
+notfalls von Hand in ein Chatfenster zu geben. Das hat eine Lücke aufgedeckt,
+die diese Pipeline von Anfang an teuer gemacht hat: **es gab keinen Weg, eine
+Anbieterantwort aufzuzeichnen und erneut abzuspielen.** Jede Messung brauchte
+einen Live-Aufruf, auch wenn nur eine Assembler-Änderung zu prüfen war. Eine
+einmal bezahlte gute Antwort war nach dem Lauf verloren.
+
+Neu:
+
+- `MenuImportProviderTranscript` mit `KITCHENLINK_LLM_REPLAY_DIR` (abspielen)
+  und `KITCHENLINK_LLM_RECORD_DIR` (mitschreiben). Eine Datei pro Seite,
+  `page-<index>.json`, mit dem rohen Vertrags-JSON. Fehlt eine Datei, gilt die
+  Seite als nicht erfasst und die Seitenrettung greift wie bei einem echten
+  Fehlschlag.
+- Der Abspielpfad umgeht ausdrücklich **nur** den Netzaufruf, nicht den
+  Dekodier- und Diagnosepfad: `decodeExtraction` ist dafür aus
+  `runLLMExtractionCall` herausgezogen. Eine Aufzeichnung, die der Vertrag
+  ablehnt, erzeugt denselben Befund wie eine Live-Antwort, die er ablehnt.
+- `scripts/export-extraction-prompts.sh` schreibt für alle zehn Gate-Seiten ein
+  fertiges Paket: Systemprompt, OCR-Belegzeilen, Layout-Transkript, Seitenbild
+  und eine Anweisung zum Zurückkopieren. `MenuImportService.extractionUserPrompt`
+  ist dafür herausgezogen, damit der exportierte Text **wortgleich** mit dem
+  Live-Aufruf ist — sonst wäre das eingesammelte Ergebnis nicht vergleichbar.
+
+Die Pakete liegen unter `.claude/artifacts/prompts/` (nicht versioniert,
+2,2 MB, zehn Seiten mit Bild und Transkript). Ablauf zum Einsammeln steht im
+Kopf des Skripts.
+
+### Abspielpfad verifiziert — und der erste belastbare Beleg für die Layoutstufe
+
+Zwei Durchleitungsfehler gefunden: `KITCHENLINK_LLM_REPLAY_DIR` und
+`_RECORD_DIR` fehlten in der `TEST_RUNNER_`-Liste von
+`run-import-review.sh`. Danach lief die Kette durch.
+
+Test: Vertrag für `alexxanders-chemnitz` Seite 2 von Hand geschrieben (mit dem
+exportierten Paket als Eingabe, also OCR-Zeilen plus Layout-Transkript),
+absichtlich **nur** diese eine Seite abgelegt. Ergebnis:
+
+- Seite 2: `processed — Replayed recorded provider response for this page.`
+- Seiten 0, 1, 3: `failed` → aus den lokalen Regeln gefüllt, alle als
+  `needsReview`, dazu dreimal `page_filled_from_local_rules`. Vor der
+  Seitenrettung hätte das die ganze Karte gekostet.
+- Preiszuordnung: `Lotte -> ('28 €', 'Zwischengericht'), ('36 €',
+  'Hauptgericht')` — beide Portionspreise **am Eintrag** mit Bezeichnung, genau
+  wie die Ground Truth es erwartet. Der Phantom-Eintrag "Zwischengericht" des
+  Regelparsers ist weg.
+
+Gate für dieses Dokument: **erfundene Preise 0 (vorher 4), fehlende Preise 0
+(vorher 4)**, Eintrags-Recall 1,000. Die verbleibenden Auffälligkeiten
+(`silentPageLosses 2`, `coverFalsePositives 1`, ein erfundener Eintrag) kommen
+sämtlich von den drei regelbasierten Seiten, nicht von Seite 2.
+
+**Ehrliche Einordnung:** das zeigt, dass die Pipeline aus korrekt zugeordneten
+Rohdaten das Richtige macht und dass das Layout-Transkript die richtige Antwort
+verfügbar macht. Es zeigt **nicht**, dass `gemini-3.5-flash` diese Zuordnung nun
+selbst trifft. Dafür braucht es einen bezahlten Lauf oder ein eingesammeltes
+Ergebnis aus einem Chatfenster — beides ist jetzt ohne weitere Infrastruktur
+messbar.
+
+Die Aufzeichnung liegt als `.claude/artifacts/replay-alexxanders/page-2.json`
+(nicht versioniert). Sie taugt als Ausgangspunkt für eine echte Testfixtur.
+
+### Offener Punkt: die Layoutstufe erhält im Simulator keine Konfiguration
+
+`MenuImportLayoutPass` funktioniert über HTTP nachweislich (per `curl`
+verifiziert, auch in der OpenAI-Form mit `detail`-Feld), aber im Simulator wurde
+**keine einzige** Anfrage abgesetzt — im Ollama-Log null neue POSTs, und der
+Export lief zu schnell für zehn Bildaufrufe. `KITCHENLINK_PROMPT_OUTPUT` kommt
+über denselben `TEST_RUNNER_`-Mechanismus an, `KITCHENLINK_LAYOUT_BASE_URL`
+offenbar nicht. Ursache ungeklärt.
+
+`print` aus dem Testprozess erreicht die xcodebuild-Ausgabe nicht — der nächste
+Versuch muss die Diagnose in eine **Datei** im Ausgabeverzeichnis schreiben.
+Bis dahin erzeugt `scripts/attach-layout-transcripts.py` die Transkripte
+ausserhalb der App, wortgleich zum Swift-Block. Für die Produktion ist der
+In-App-Pfad zu klären; für das Einsammeln jetzt ist er nicht nötig.
+
+Nebenbefund: Ollama lehnt die grösseren Fixtures (1654x2339) mit HTTP 400 ab,
+der Anfragekörper wird zu gross. Das Skript skaliert deshalb auf 1600 px
+Kantenlänge herunter — dieselbe Grenze, die die App verwendet.
+
+## Nachtrag: der Import wurde erstmals in der App selbst gefahren
+
+Alle bisherigen Messungen liefen über `MenuImportReviewHarnessTests`, nie über
+die Oberfläche. Im Simulator (Prüfküche, kostenloser Standardpfad) kam damit
+die letzte fehlende Ursache ans Licht — und es war keine Modellfrage:
+
+Das Gateway antwortete nach **154,6 s** mit Status 200, das Zeitlimit pro Seite
+lag bei **150 s**. Von sechs Anfragen kam eine an, fünf brach die App selbst mit
+`-999 cancelled` ab. Der Import fiel deshalb komplett auf die lokalen Regeln
+zurück, obwohl der Anbieter korrekt geliefert hätte. Nachweis im Gerätelog über
+`transaction_duration_ms`.
+
+Kostenloser Pfad jetzt 300 s pro Seite, bezahlter Pfad unverändert 150 s
+(gemini antwortet in 40–75 s). Die URLSession-Limits liegen darüber, sonst
+schneidet die Session ab, bevor die eigene Abbruchlogik greift.
+
+Danach im selben Weg gemessen: **null Selbstabbrüche**, drei Antworten
+angekommen (2×200, 1×500). Die beantworteten Seiten tragen echte semantische
+Einträge samt Allergenpiktogrammen, die 500er-Seite kommt aus den lokalen
+Regeln — die Seitenrettung aus dieser Sitzung im echten Betrieb bestätigt.
+
+**Lehre für die nächste Sitzung:** der Harness misst die Pipeline, nicht das
+Produkt. Timeouts, Nebenläufigkeit und Provider-Verhalten zeigen sich erst in
+der App. Ein App-Durchlauf pro grösserer Änderung ist billig (kostenloser Pfad)
+und hat hier gefunden, was zehn bezahlte Harness-Läufe nicht gefunden haben.
+
+## Session-Teil 25: Vier deterministische Reparaturen im Assembler (28. Juli 2026)
+
+### Der offene Befund aus Teil 24 ist geklärt
+
+Der Legendenfilter war **nicht defekt**. Die Prüfung von Teil 24 lief auf
+`lichtburg-berlin:0` — auf dieser Seite stehen die gefälschten Legendennamen
+(`Carpaccio Di Manzo`, `Antipasti-Vorspeisen`) gar nicht. Der Filter fand
+nichts, weil nichts zu finden war. Zusätzlich waren die Reportdateien unter
+`/tmp` inzwischen vom System-Cleaner geleert, weshalb der Vergleich in Teil 24
+vermutlich auf einem älteren Report basierte.
+
+Zwei Folgerungen, beide umgesetzt:
+
+- Der Filter deckte nur **Dokumentdeklarationen** ab. Der Anbieter entscheidet
+  aber, wo er eine erfundene Legende anhängt. Er greift jetzt auf Sektions-,
+  Eintrags-, Auswahl- und Komponentenebene, und jeder Befund nennt seinen Pfad.
+- Reportdaten gehören nicht nach `/tmp`. Die Läufe dieser Sitzung liegen unter
+  `.claude/artifacts/` (nicht versioniert, ausserhalb von git).
+
+Für das Protokoll: mit dem aktuellen Prompt erfindet `gemini-3.5-flash` keine
+Legenden mehr. Der Filter feuert in **null** echten Läufen. Er bleibt als Netz.
+
+### Vier Defekte, die kein Prompt zuverlässig löst
+
+Alle vier sitzen jetzt im Assembler, sind unit-getestet und anbieterunabhängig:
+
+1. **Gedruckter Name überlebt die Mengenabtrennung.** Die Karte druckt
+   `Hüftsteak(250gr)`, der Anbieter lieferte `Hüftsteak` plus Menge `250gr`.
+   Das Gate zählte das als fehlenden UND erfundenen Eintrag — 8 der 18
+   Korrekturen. Der Name wird aus der eigenen OCR-Belegzeile wiederhergestellt,
+   die Menge bleibt strukturiert erfasst. Die Rückschreibung passiert nur, wenn
+   die verortete Zeile exakt aus Name plus den erfassten Mengen besteht.
+2. **Währung aus Dokumentbeleg vervollständigt.** 66 von 92 Preisen kamen ohne
+   `currency_code`. Ergänzt wird aus genau zwei Quellen: den Codes, die der
+   Anbieter anderswo im selben Dokument genannt hat, und den auf der Karte
+   gedruckten Symbolen (OCR). Zwei Währungen im Dokument oder gar keine heisst:
+   nichts ergänzen.
+3. **`fixed`/0 Cent ohne gedruckten Preis ist `included`.** Ein gedrucktes
+   `0,00 €` bleibt ein Preis.
+4. **Drei Prüfcodes werden aus dem fertigen Entwurf abgeleitet**
+   (`selection_rule_unknown`, `complex_bundle_choice`,
+   `source_declaration_meaning_unknown`) statt darauf zu warten, dass der
+   Anbieter sie erwähnt — gemessen meldete er sie auf einer Karte und schwieg
+   bei identischer Lage auf der nächsten. Einmal pro Dokument und Code.
+
+`relationship_scope_ambiguous` wurde **bewusst nicht** abgeleitet: es gibt
+keinen ehrlichen strukturellen Auslöser dafür. Ihn zu erfinden hiesse, den
+Extraktor auf den Lösungsschlüssel des Gates zu tunen.
+
+### Robustheit gegen Anbieterausfälle
+
+- Die Abwesenheitstoleranz gilt jetzt auch für offene Klassifikatoren
+  (`basis`, `kind`, `claim`, `scope`, `mode`, `page_kind`) — ein einziges
+  ausgelassenes `offers[0].basis` hatte die komplette semantische Erfassung
+  einer Karte verworfen. Vorhandene Felder mit falschem Typ werfen weiterhin.
+- Eine Seite mit nicht abbildbarem JSON wird jetzt **zweimal** wiederholt statt
+  einmal. Begründung: eine gescheiterte Seite kostet die ganze Karte ihren
+  semantischen Entwurf (`parseDraftWithLLM` akzeptiert keinen Teilentwurf).
+- Der Auswerter benennt jetzt, **welche** Preise er für erfunden hält
+  (`diagnostics.inventedPrices` / `missingPrices`). Ohne das war die
+  Kennzahl nicht handhabbar.
+
+### Messung (10 Gate-Seiten, `gemini-3.5-flash`)
+
+| | vorher | nachher |
+|---|---|---|
+| Korrekturen/Seite | 1.80 | **1.00** |
+| Eintrags-Recall | 0.941 | **1.000** |
+| Einträge F1 | 0.941 | **1.000** |
+| Bereiche F1 | 1.000 | **1.000** |
+| Kategoriezuordnung | 0.941 | **1.000** |
+| Namen exakt | 0.863 | **0.971** |
+| Review-Erkennung | 0.571 | **0.714** |
+| fehlende / erfundene Einträge | 4 / 4 | **0 / 0** |
+| verbotene Claims · stille Seitenverluste | 0 · 0 | **0 · 0** |
+
+`declarationF1` ist **kein belastbares Signal**: über vier identische Läufe
+gemessen 0.053 / 0.210 / 0.210 / 0.443. Sie hängt daran, wie viele
+Allergencodes das Modell zufällig an Einträge hängt.
+
+### Offen — und wofür ich den Nutzer brauche
+
+- **Guthaben.** Das OpenCode-Zen-Konto war im zweiten von drei
+  Wiederholungsläufen leer ("Insufficient balance", danach HTTP 401).
+  `minimumRepeatRuns 3` ist damit weiter unerfüllt, und die Zahlen oben stehen
+  auf **einem** sauberen Lauf. Läufe 2 und 3 sind Fehlschläge, keine Messung.
+- **P95-Seitenlatenz 74 s** gegen 60 s Ziel. Das ist die Modellgeschwindigkeit
+  bei Vision auf dichten Seiten, nicht die Nebenläufigkeit (die steht auf 5).
+- **`expectedReviewRecall` 0.714** gegen Ziel 1.000. Der fehlende Code ist
+  `relationship_scope_ambiguous`. Das ist entweder eine Prompt-Frage oder eine
+  Ground-Truth-Frage, keine Assembler-Frage.
+- **Sporadisch unlesbares JSON** auf einer dichten Seite (scheune Seite 1, in
+  zwei von vier Läufen). Der doppelte Retry ist die Gegenmassnahme; der
+  Rohtext des Fehlschlags wurde noch nicht eingefangen. Nächster Schritt:
+  `KITCHENLINK_LLM_DIAGNOSTICS=1` und wiederholt genau diese Seite fahren, bis
+  sie fällt.
+- **Produktentscheidung, unverändert offen:** eine gescheiterte Seite verwirft
+  den semantischen Entwurf der **ganzen** Karte. In einem Lauf hat das zwei von
+  vier Karten gekostet. Seitenweise Rettung wäre die Alternative, erzeugt aber
+  einen Entwurf gemischter Herkunft — das ist eine Produktentscheidung des
+  Nutzers, keine technische.
 
 ## Session-Teil 24: Ungeklärt — Legendenfilter erreicht die Laufzeitdaten nicht (27. Juli 2026)
 

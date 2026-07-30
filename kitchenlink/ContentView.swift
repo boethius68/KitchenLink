@@ -4546,13 +4546,57 @@ enum MenuImportService {
     static let llmKeyedGatewayURLDefault = "https://api.openai.com/v1"
     private static let llmModelDefault = "gpt-4.1"
     private static var lastImportDiagnosticsStorage = "Nur OCR-Regeln genutzt."
-    // Vision-Aufrufe an das (langsame, reasonende) Free-Modell dauern gemessen
-    // 33–37 s pro Bildseite. Die Timeouts liegen deutlich darüber, sonst würde
-    // eine korrekte Antwort abgeschnitten. Seiten laufen parallel (siehe
-    // parseSectionsWithLLMPageByPage), daher ist die Gesamtlaufzeit trotzdem
-    // niedrig.
-    private static let llmPrimaryTimeoutSeconds: Double = 150
-    private static let llmRetryTimeoutSeconds: Double = 150
+    // Seiten laufen parallel (siehe parseSectionsWithLLMPageByPage), daher ist
+    // die Gesamtlaufzeit trotz grosszügiger Einzel-Timeouts vertretbar.
+    //
+    // Der kostenlose Pfad braucht deutlich mehr Zeit, und das war kein Detail:
+    // im Simulator gemessen (29. Juli 2026, Prüfküche über die App) antwortete
+    // das Gateway nach 154,6 s mit Status 200 — das Limit lag bei 150 s. Von
+    // sechs Anfragen kam genau eine an, die übrigen brach die App selbst mit
+    // `-999 cancelled` ab. Der Import fiel deshalb komplett auf die lokalen
+    // Regeln zurück, obwohl der Anbieter korrekt geantwortet hätte.
+    //
+    // `KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS` hebt das Limit für Aufbauten an,
+    // die deutlich langsamer sind als jedes Gateway: ein Modell auf dem
+    // Entwickler-Mac erzeugt gemessen ~19 Token/s (qwen3.5:9b-32k auf M5), und
+    // eine dichte Seite braucht 3000–6000 Ausgabe-Token für den verlustfreien
+    // Vertrag — also 2,5 bis 5 Minuten. Ohne diesen Regler ist ein lokaler
+    // Server als kostenloses Messinstrument nicht nutzbar.
+    /// Antwortformat für die Vertragsstufe.
+    ///
+    /// Standard bleibt `json_object` — nur gültiges JSON, keine
+    /// Strukturvorgabe — weil ein starres Schema bei einem starken Modell nichts
+    /// gewinnt und je nach Gateway abgelehnt werden kann.
+    /// `KITCHENLINK_LLM_RESPONSE_FORMAT=json_schema` schaltet die erzwungene
+    /// Struktur zu; das ist der Hebel für lokale kleine Modelle, die sonst in
+    /// Wiederholungsschleifen laufen (siehe MenuImportExtractionSchema).
+    private static var llmExtractionResponseFormat: OpenAIChatRequest.ResponseFormat {
+        guard configValue(forKey: "KITCHENLINK_LLM_RESPONSE_FORMAT")?.lowercased()
+                == "json_schema"
+        else { return .init(type: "json_object") }
+        return .init(
+            type: "json_schema",
+            jsonSchema: .init(
+                name: "menu_import_page_extraction",
+                schema: MenuImportExtractionSchema.pageSchema(),
+                strict: false
+            )
+        )
+    }
+
+    private static var llmConfiguredPageTimeoutSeconds: Double? {
+        guard let raw = configValue(forKey: "KITCHENLINK_LLM_PAGE_TIMEOUT_SECONDS"),
+              let value = Double(raw),
+              value > 0
+        else { return nil }
+        return min(value, 1800)
+    }
+    private static var llmPrimaryTimeoutSeconds: Double {
+        llmConfiguredPageTimeoutSeconds ?? (usesKeylessFreeDefault ? 300 : 150)
+    }
+    private static var llmRetryTimeoutSeconds: Double {
+        llmPrimaryTimeoutSeconds
+    }
     /// Maximale gleichzeitige Seitenanfragen pro Karte. Der produktnahe
     /// Gateway-Default bleibt fünf; lokale 16-GB-Modelle können im
     /// Review-Runner ausdrücklich seriell ausgeführt werden.
@@ -4568,8 +4612,12 @@ enum MenuImportService {
     }
     private static let llmSession: URLSession = {
         let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 180
-        configuration.timeoutIntervalForResource = 300
+        // Muss über dem grössten Seiten-Timeout liegen, sonst schneidet die
+        // Session ab, bevor die eigene Abbruchlogik greift — und der Abbruch
+        // sähe dann wie ein Netzfehler aus statt wie ein Zeitlimit. Der
+        // Seitenregler ist auf 1800 s gedeckelt, also liegt hier 1860/1920.
+        configuration.timeoutIntervalForRequest = 1860
+        configuration.timeoutIntervalForResource = 1920
         configuration.waitsForConnectivity = false
         return URLSession(configuration: configuration)
     }()
@@ -4791,8 +4839,18 @@ enum MenuImportService {
     /// Text-only-Modelle, z. B. die Free-Modelle des OpenCode-Zen-Gateways).
     /// Der OCR-Zeilen-Dump trägt Seite und x/y-Koordinaten, sodass auch ein
     /// reines Textmodell Spaltenlayouts auflösen kann.
+    ///
+    /// Der kostenlose Standardpfad läuft ohne Bilder, weil sein Modell keine
+    /// annimmt: gemessen beantwortet das Zen-Gateway jede Bildanfrage an
+    /// `big-pickle` mit `HTTP 400 · Upstream request failed`, und zwar auf
+    /// *jeder* Seite — der ausgelieferte Standard hätte damit nie eine
+    /// KI-Erfassung geliefert, sondern immer nur die lokalen Regeln. Wer einen
+    /// eigenen (bildfähigen) Zugang hinterlegt, bekommt weiterhin Vision.
     static var llmSendsImages: Bool {
-        configValue(forKey: "KITCHENLINK_LLM_SEND_IMAGES") != "0"
+        if let configured = configValue(forKey: "KITCHENLINK_LLM_SEND_IMAGES") {
+            return configured != "0"
+        }
+        return !usesKeylessFreeDefault
     }
 
     /// Optional OpenAI-compatible reasoning control. This is intentionally
@@ -4864,7 +4922,7 @@ enum MenuImportService {
         )
         let adapter = MenuImportDraftAdapter()
         var sections = localParseResult.sections
-        var draft = adapter.makeDraft(
+        let localDraft = adapter.makeDraft(
             sourceDocument: sourceDocument,
             legacySections: localParseResult.sections,
             ocrLines: ocrLines,
@@ -4875,6 +4933,7 @@ enum MenuImportService {
                 pageOutcomes: localPageOutcomes
             )
         )
+        var draft = localDraft
 
         if isLLMEnabled(), hasConfiguredLLMAPIKey() {
             let llmOutcome = await parseDraftWithLLM(
@@ -4884,8 +4943,12 @@ enum MenuImportService {
             )
             if let semanticDraft = llmOutcome.draft,
                draftEntryCount(semanticDraft.sections) > 0 {
-                draft = semanticDraft
-                let compatibleSections = MenuImportDraftConverter.convert(semanticDraft)
+                draft = mergingLocalPages(
+                    into: semanticDraft,
+                    localDraft: localDraft,
+                    pages: llmOutcome.unextractedPages
+                )
+                let compatibleSections = MenuImportDraftConverter.convert(draft)
                 // `sections` is a compatibility view for the older sandbox
                 // preview. The lossless draft remains authoritative.
                 sections = compatibleSections.isEmpty
@@ -4893,9 +4956,7 @@ enum MenuImportService {
                     : compatibleSections
                 lastImportDiagnosticsStorage = llmOutcome.message
             } else {
-                let is401 = llmOutcome.message.localizedCaseInsensitiveContains("api-key ungültig")
-                    || llmOutcome.message.localizedCaseInsensitiveContains("http 401")
-                    || llmOutcome.message.localizedCaseInsensitiveContains("incorrect api key")
+                let is401 = llmOutcome.failedOnAuthentication
                 // Nur bei EIGENEM Schlüssel den Auth-Fehler an den Nutzer
                 // durchreichen (er hat einen falschen Key hinterlegt). Im
                 // kostenlosen Default-Pfad oder bei sonstigen KI-Fehlern (Netz,
@@ -5122,8 +5183,36 @@ enum MenuImportService {
             let content: Content
         }
 
+        /// `json_object` erzwingt gültiges JSON, `json_schema` zusätzlich die
+        /// Struktur. Letzteres ist der Unterschied zwischen "das Modell
+        /// schreibt JSON" und "das Modell kann nichts anderes schreiben als
+        /// unseren Vertrag" — siehe MenuImportExtractionSchema.
+        /// `json_object` erzwingt gültiges JSON, `json_schema` zusätzlich die
+        /// Struktur. Letzteres ist der Unterschied zwischen "das Modell schreibt
+        /// JSON" und "das Modell kann nichts anderes schreiben als unseren
+        /// Vertrag" — siehe `MenuImportExtractionSchema`.
         struct ResponseFormat: Encodable {
+            struct JSONSchema: Encodable {
+                let name: String
+                let schema: MenuImportJSONValue
+                /// `strict` verlangt bei OpenAI, dass jedes Feld `required` ist.
+                /// Der Vertrag toleriert fehlende Felder absichtlich, deshalb
+                /// bleibt es aus; die Grammatik greift trotzdem.
+                let strict: Bool
+            }
+
             let type: String
+            let jsonSchema: JSONSchema?
+
+            init(type: String, jsonSchema: JSONSchema? = nil) {
+                self.type = type
+                self.jsonSchema = jsonSchema
+            }
+
+            enum CodingKeys: String, CodingKey {
+                case type
+                case jsonSchema = "json_schema"
+            }
         }
 
         let model: String
@@ -5160,12 +5249,31 @@ enum MenuImportService {
             struct Message: Decodable {
                 // Reasoning-Modelle (z. B. big-pickle -> mimo) legen die
                 // Endantwort in `content`, das Nachdenken in `reasoning`.
-                // Bei zu knappem Token-Limit bleibt `content` null.
+                // Bei zu knappem Token-Limit bleibt `content` leer.
+                // Das Zen-Gateway benennt das Nachdenken `reasoning_content`;
+                // beide Schreibweisen werden akzeptiert.
                 let content: String?
                 let reasoning: String?
+                let reasoningContent: String?
+
+                enum CodingKeys: String, CodingKey {
+                    case content
+                    case reasoning
+                    case reasoningContent = "reasoning_content"
+                }
             }
 
+            // Ohne den Abbruchgrund ist eine leere Antwort nicht von einer
+            // verweigerten zu unterscheiden. Gemessen am freien Modell:
+            // `length` heisst, das Nachdenken hat das ganze Ausgabebudget
+            // aufgebraucht, bevor die Antwort geschrieben wurde.
+            let finishReason: String?
             let message: Message
+
+            enum CodingKeys: String, CodingKey {
+                case finishReason = "finish_reason"
+                case message
+            }
         }
 
         let choices: [Choice]
@@ -5467,11 +5575,86 @@ enum MenuImportService {
 
     // MARK: Phase 1 lossless semantic extraction
 
+    /// Füllt die Seiten ohne KI-Erfassung aus dem lokalen Regelentwurf auf.
+    ///
+    /// Nutzerentscheidung vom 29. Juli 2026: eine gescheiterte Seite darf nicht
+    /// mehr die semantische Erfassung der ganzen Karte verwerfen. Gemessen kam
+    /// das regelmässig vor — im kostenlosen Pfad an allen vier Testkarten, im
+    /// bezahlten an zweien von vieren, jeweils wegen genau einer Seite.
+    ///
+    /// Der Entwurf ist danach gemischter Herkunft, und genau das muss sichtbar
+    /// sein: jeder übernommene Bereich geht als `needsReview` in den Entwurf,
+    /// und ein Befund pro Seite nennt die Herkunft. Die Regel aus DECISIONS.md
+    /// bleibt gewahrt — der Regelparser gibt nie eine fertige Karte aus, er
+    /// erklärt seine semantische Lücke.
+    static func mergingLocalPages(
+        into semanticDraft: MenuImportDraft,
+        localDraft: MenuImportDraft,
+        pages: Set<Int>
+    ) -> MenuImportDraft {
+        guard !pages.isEmpty else { return semanticDraft }
+
+        func page(of section: MenuImportSection) -> Int {
+            let entryPages = section.entries.map(\.name.evidence.pageIndex)
+            return entryPages.min() ?? section.title.evidence.pageIndex
+        }
+
+        var salvaged: [MenuImportSection] = []
+        for section in localDraft.sections {
+            let entries = section.entries.filter {
+                pages.contains($0.name.evidence.pageIndex)
+            }
+            guard !entries.isEmpty else { continue }
+            var rescued = section
+            rescued.entries = entries
+            rescued.subsections = []
+            rescued.reviewState = .needsReview
+            salvaged.append(rescued)
+        }
+        guard !salvaged.isEmpty else { return semanticDraft }
+
+        var merged = semanticDraft
+        merged.sections = (semanticDraft.sections + salvaged)
+            .enumerated()
+            .sorted { left, right in
+                let leftPage = page(of: left.element)
+                let rightPage = page(of: right.element)
+                if leftPage != rightPage { return leftPage < rightPage }
+                return left.offset < right.offset
+            }
+            .map(\.element)
+        for index in merged.sections.indices {
+            merged.sections[index].order = index
+        }
+
+        var findings = merged.reviewFindings ?? []
+        for pageIndex in pages.sorted() {
+            findings.append(
+                MenuImportReviewFinding(
+                    id: "finding-\(semanticDraft.id)-local-page-\(pageIndex)",
+                    code: "page_filled_from_local_rules",
+                    path: "sections",
+                    message: "This page had no semantic extraction; its entries come from the local OCR rules and are unconfirmed.",
+                    severity: .warning,
+                    pageIndex: pageIndex
+                )
+            )
+        }
+        merged.reviewFindings = findings
+        return merged
+    }
+
     private struct LLMDraftParseOutcome: Sendable {
         let draft: MenuImportDraft?
         let message: String
         let pageOutcomes: [MenuImportPageOutcome]
         let usage: MenuImportTokenUsage?
+        /// Seiten ohne semantische Erfassung, für die der Entwurf aus den
+        /// lokalen Regeln ergänzt werden muss. Leer heisst: vollständig.
+        var unextractedPages: Set<Int> = []
+        /// Alle Seiten scheiterten an einem ungültigen Schlüssel. Nur dann darf
+        /// der Import abbrechen statt zurückzufallen.
+        var failedOnAuthentication = false
     }
 
     private struct LLMRichPageResult: Sendable {
@@ -5565,24 +5748,33 @@ enum MenuImportService {
             guard let error = result.errorMessage else { return nil }
             return "Seite \(result.pageIndex + 1): \(error)"
         }
-        guard failures.isEmpty else {
+        let authenticationFailed = !orderedResults.isEmpty
+            && orderedResults.allSatisfy { result in
+                guard let error = result.errorMessage else { return false }
+                return error.localizedCaseInsensitiveContains("http 401")
+                    || error.localizedCaseInsensitiveContains("api-key ungültig")
+                    || error.localizedCaseInsensitiveContains("incorrect api key")
+            }
+
+        let extractions = orderedResults.compactMap(\.extraction)
+        // Seiten einzeln retten (Nutzerentscheidung, 29. Juli 2026): früher
+        // verwarf EINE gescheiterte Seite die semantische Erfassung der ganzen
+        // Karte. Gemessen hat das über vier Karten hinweg in einem Lauf zwei,
+        // im kostenlosen Pfad alle vier gekostet. Was erfasst wurde, bleibt
+        // jetzt erhalten; die Lücken füllt `importMenu` sichtbar markiert aus
+        // den lokalen Regeln.
+        guard !extractions.isEmpty else {
             return LLMDraftParseOutcome(
                 draft: nil,
                 message: "Verlustfreier KI-Vertrag unvollständig: \(failures.joined(separator: " | "))",
                 pageOutcomes: pageOutcomes,
-                usage: usage
+                usage: usage,
+                failedOnAuthentication: authenticationFailed
             )
         }
-
-        let extractions = orderedResults.compactMap(\.extraction)
-        guard extractions.count == sourceDocument.pageCount else {
-            return LLMDraftParseOutcome(
-                draft: nil,
-                message: "Verlustfreier KI-Vertrag lieferte nicht für jede Seite ein Ergebnis.",
-                pageOutcomes: pageOutcomes,
-                usage: usage
-            )
-        }
+        let extractedPages = Set(extractions.map(\.pageIndex))
+        let unextractedPages = Set(0..<sourceDocument.pageCount)
+            .subtracting(extractedPages)
 
         let processing = MenuImportProcessingMetadata(
             pipelineVersion: "menu-import/phase-1",
@@ -5616,12 +5808,17 @@ enum MenuImportService {
 
         let entryCount = draftEntryCount(draft.sections)
         let emptyPageCount = pageOutcomes.filter { $0.status == .empty }.count
+        let extractedPageCount = sourceImages.count - unextractedPages.count
         return LLMDraftParseOutcome(
             draft: draft,
-            message: "Verlustfreier KI-Draft: \(entryCount) Einträge aus \(sourceImages.count) vollständigen Seiten"
-                + (emptyPageCount > 0 ? " (\(emptyPageCount) leere/Deckseite(n))." : "."),
+            message: "Verlustfreier KI-Draft: \(entryCount) Einträge aus \(extractedPageCount) von \(sourceImages.count) Seiten"
+                + (emptyPageCount > 0 ? " (\(emptyPageCount) leere/Deckseite(n))" : "")
+                + (unextractedPages.isEmpty
+                   ? "."
+                   : ". Ohne KI-Erfassung: \(failures.joined(separator: " | "))"),
             pageOutcomes: pageOutcomes,
-            usage: usage
+            usage: usage,
+            unextractedPages: unextractedPages
         )
     }
 
@@ -5658,16 +5855,49 @@ enum MenuImportService {
         }
 
         let lineDump = evidenceIndex.promptDump(pageIndex: pageIndex)
-        let userPrompt = """
-        Source page_index (zero-based): \(pageIndex)
-        Visible page number: \(pageIndex + 1) of \(totalPages)
+        // Optionale Layoutstufe (siehe MenuImportLayoutPass): löst Spalten,
+        // Preisspalten und zweisprachige Paare auf, bevor der Vertrag gefüllt
+        // wird. Scheitert sie, läuft der Seitenlauf unverändert weiter — sie ist
+        // Lesehilfe, keine Voraussetzung.
+        let layout = await runLayoutPass(pageIndex: pageIndex, image: image)
+        let layoutBlock = layout.map { "\n\n\(MenuImportLayoutPass.promptBlock(for: $0.text))" } ?? ""
+        let userPrompt = extractionUserPrompt(
+            pageIndex: pageIndex,
+            totalPages: totalPages,
+            lineDump: lineDump,
+            layoutBlock: layoutBlock
+        )
 
-        Supplied OCR evidence lines:
-        \(lineDump.isEmpty ? "(no OCR lines available)" : lineDump)
-
-        Extract exactly this page. The image is primary; OCR lines are the only
-        valid evidence IDs. Return contract_version 1.0.0 and page_index \(pageIndex).
-        """
+        // Aufgezeichnete Antwort abspielen, falls vorhanden: umgeht den
+        // Netzaufruf, aber ausdrücklich NICHT den Dekodier- und Diagnosepfad.
+        // Eine Aufzeichnung, die der Vertrag ablehnt, muss genauso auffallen wie
+        // eine Live-Antwort, die er ablehnt.
+        if let replay = MenuImportProviderTranscript.replayText(pageIndex: pageIndex) {
+            let outcome = decodeExtraction(from: replay)
+            if let extraction = outcome.extraction {
+                let isEmpty = extraction.recursiveEntryCount == 0
+                return LLMRichPageResult(
+                    pageIndex: pageIndex,
+                    extraction: extraction,
+                    outcome: MenuImportPageOutcome(
+                        pageIndex: pageIndex,
+                        status: isEmpty ? .empty : .processed,
+                        attempts: 1,
+                        latencyMilliseconds: 0,
+                        detail: "Replayed recorded provider response for this page."
+                    ),
+                    usage: nil,
+                    errorMessage: nil
+                )
+            }
+            return failedDraftPage(
+                pageIndex: pageIndex,
+                attempts: 1,
+                startedAt: startedAt,
+                message: outcome.errorMessage ?? "Aufzeichnung nicht abbildbar",
+                usage: nil
+            )
+        }
 
         var attempts = 1
         var call = await runLLMExtractionCallWithTimeout(
@@ -5699,7 +5929,6 @@ enum MenuImportService {
                 || error.localizedCaseInsensitiveContains("parsebares json")
 
             if retryOnTimeout || retryOnBadJSON {
-                attempts += 1
                 let retryParts: [OpenAIChatRequest.Message.Part]
                 if retryOnTimeout {
                     let slimParts = makeLLMImageParts(
@@ -5714,14 +5943,25 @@ enum MenuImportService {
                 } else {
                     retryParts = imageParts
                 }
-                let retry = await runLLMExtractionCallWithTimeout(
-                    apiKey: apiKey,
-                    userPrompt: userPrompt,
-                    imageParts: retryParts,
-                    timeoutSeconds: llmRetryTimeoutSeconds
-                )
-                aggregateUsage = mergeTokenUsage(aggregateUsage, retry.usage)
-                call = retry
+                // A page that fails to map costs the WHOLE card its semantic
+                // extraction (`parseDraftWithLLM` accepts no partial draft), so
+                // the page is worth more than one extra call. Measured over
+                // three full gate runs, unparseable JSON hit the same dense page
+                // twice in a row while the identical request succeeded in the
+                // other run — retrying once was demonstrably not enough.
+                let maximumRetries = retryOnBadJSON ? 2 : 1
+                for _ in 0..<maximumRetries {
+                    attempts += 1
+                    let retry = await runLLMExtractionCallWithTimeout(
+                        apiKey: apiKey,
+                        userPrompt: userPrompt,
+                        imageParts: retryParts,
+                        timeoutSeconds: llmRetryTimeoutSeconds
+                    )
+                    aggregateUsage = mergeTokenUsage(aggregateUsage, retry.usage)
+                    call = retry
+                    if retry.extraction != nil { break }
+                }
             }
         }
 
@@ -5772,9 +6012,19 @@ enum MenuImportService {
                 status: isEmpty ? .empty : .processed,
                 attempts: attempts,
                 latencyMilliseconds: latency,
-                detail: isEmpty
-                    ? "Provider classified the page as \(extraction.pageKind) with no menu entries."
-                    : "Lossless extraction contract decoded successfully."
+                detail: [
+                    isEmpty
+                        ? "Provider classified the page as \(extraction.pageKind) with no menu entries."
+                        : "Lossless extraction contract decoded successfully.",
+                    layout.map {
+                        "Layout pass \($0.model) supplied a resolved transcript (\($0.latencyMilliseconds) ms)."
+                    },
+                    layout == nil ? MenuImportLayoutPass.isConfigured
+                        ? "Layout pass was configured but produced nothing."
+                        : nil : nil
+                ]
+                .compactMap { $0 }
+                .joined(separator: " ")
             ),
             usage: aggregateUsage,
             errorMessage: nil
@@ -5861,7 +6111,15 @@ enum MenuImportService {
         userPrompt: String,
         imageParts: [OpenAIChatRequest.Message.Part]
     ) async throws -> LLMRawCallResult {
-        let maximumOutputTokens = 10_000
+        // Bei Reasoning-Modellen zählt das Nachdenken gegen dasselbe Budget wie
+        // die Antwort. Gemessen am kostenlosen Standardmodell `big-pickle`:
+        // schon "Antworte nur mit OK" verbraucht 82 Reasoning-Token, und eine
+        // dichte Speisekartenseite hat 10 000 restlos im Nachdenken verbraucht
+        // — der Anbieter lieferte dann `content: ""` mit `finish_reason: length`
+        // und die ganze Karte fiel auf die lokalen Regeln zurück. Das Gateway
+        // akzeptiert deutlich grössere Budgets; bezahlt wird ohnehin nur, was
+        // tatsächlich erzeugt wird.
+        let maximumOutputTokens = 32_000
         let endpoint: URL?
         let httpBody: Data
 
@@ -5889,7 +6147,7 @@ enum MenuImportService {
                     model: resolvedLLMModel,
                     temperature: 0,
                     reasoningEffort: llmReasoningEffort,
-                    responseFormat: .init(type: "json_object"),
+                    responseFormat: llmExtractionResponseFormat,
                     messages: [
                         .init(
                             role: "system",
@@ -5975,11 +6233,133 @@ enum MenuImportService {
             outputTokens: chat.usage?.completionTokens,
             totalTokens: chat.usage?.totalTokens
         )
-        let message = chat.choices.first?.message
-        let text = [message?.content, message?.reasoning]
+        let choice = chat.choices.first
+        let message = choice?.message
+        let text = [message?.content, message?.reasoning, message?.reasoningContent]
             .compactMap { $0 }
             .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        // Ein Reasoning-Modell, das sein ganzes Ausgabebudget im Nachdenken
+        // verbraucht, liefert `content: ""` mit `finish_reason: length`. Ohne
+        // diese Meldung sah das aus wie "Anbieter antwortet nicht".
+        if text == nil, let finishReason = choice?.finishReason {
+            return LLMRawCallResult(
+                text: nil,
+                usage: usage,
+                errorMessage: "Anbieter beendet ohne Text (finish_reason=\(finishReason))"
+                    + (finishReason.lowercased() == "length"
+                       ? " — Ausgabebudget im Nachdenken verbraucht"
+                       : "")
+            )
+        }
         return LLMRawCallResult(text: text, usage: usage, errorMessage: nil)
+    }
+
+    /// Die Nutzeranweisung einer Seite.
+    ///
+    /// Als eigene Funktion, weil der Prompt-Export exakt denselben Text
+    /// erzeugen muss wie der Live-Aufruf. Wird er von Hand in ein Chatfenster
+    /// gegeben, soll das Ergebnis mit dem eines Gateway-Aufrufs vergleichbar
+    /// sein — eine abweichende Formulierung würde die Messung entwerten.
+    static func extractionUserPrompt(
+        pageIndex: Int,
+        totalPages: Int,
+        lineDump: String,
+        layoutBlock: String
+    ) -> String {
+        """
+        Source page_index (zero-based): \(pageIndex)
+        Visible page number: \(pageIndex + 1) of \(totalPages)
+
+        Supplied OCR evidence lines:
+        \(lineDump.isEmpty ? "(no OCR lines available)" : lineDump)\(layoutBlock)
+
+        Extract exactly this page. The image is primary; OCR lines are the only
+        valid evidence IDs. Return contract_version 1.0.0 and page_index \(pageIndex).
+        """
+    }
+
+    /// Erzeugt die vollständigen Prompt-Pakete für eine Karte, ohne einen
+    /// Anbieter aufzurufen.
+    ///
+    /// Damit lässt sich eine Antwort aus jeder beliebigen Quelle einsammeln —
+    /// auch aus einem Chatfenster — und über `KITCHENLINK_LLM_REPLAY_DIR`
+    /// beliebig oft kostenlos auswerten. Die optionale Layoutstufe wird
+    /// mitgenommen, wenn sie konfiguriert ist.
+    static func exportExtractionPrompts(
+        from images: [UIImage]
+    ) async throws -> [(pageIndex: Int, systemPrompt: String, userPrompt: String)] {
+        var allLines: [OCRLineToken] = []
+        for (pageIndex, image) in images.enumerated() {
+            allLines.append(contentsOf: try await recognizeLines(in: image, pageIndex: pageIndex))
+        }
+        let evidenceIndex = MenuImportEvidenceLineIndex(lines: allLines.map(snapshot))
+
+        var packages: [(pageIndex: Int, systemPrompt: String, userPrompt: String)] = []
+        for (pageIndex, image) in images.enumerated() {
+            let layout = await runLayoutPass(pageIndex: pageIndex, image: image)
+            let layoutBlock = layout.map {
+                "\n\n\(MenuImportLayoutPass.promptBlock(for: $0.text))"
+            } ?? ""
+            packages.append((
+                pageIndex: pageIndex,
+                systemPrompt: MenuImportExtractionPrompt.systemPrompt,
+                userPrompt: extractionUserPrompt(
+                    pageIndex: pageIndex,
+                    totalPages: images.count,
+                    lineDump: evidenceIndex.promptDump(pageIndex: pageIndex),
+                    layoutBlock: layoutBlock
+                )
+            ))
+        }
+        return packages
+    }
+
+    /// Bildet Anbietertext auf den Vertrag ab.
+    ///
+    /// Bewusst als eigene Funktion: der Abspielpfad
+    /// (`MenuImportProviderTranscript`) muss durch genau dieselbe Prüfung und
+    /// dieselbe Diagnose laufen wie ein Live-Aufruf. Eine Aufzeichnung, die der
+    /// Vertrag ablehnt, soll denselben Befund erzeugen wie eine Live-Antwort,
+    /// die er ablehnt — sonst prüft der Abspielpfad etwas anderes als die App.
+    static func decodeExtraction(
+        from rawText: String?
+    ) -> (extraction: MenuImportPageExtraction?, errorMessage: String?) {
+        guard let rawText,
+              let jsonText = extractJSONObject(from: rawText) else {
+            return (nil, MenuLLMDiagnostics.describeUnparseableResponse(rawText))
+        }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        // The decode error is the only thing that says *why* a provider
+        // response missed the contract. Swallowing it with `try?` made a
+        // real ten-page regression undiagnosable without paying for
+        // another run, so the last failure is kept and reported.
+        var lastDecodeFailure: Error?
+        for candidate in [jsonText, repairJSONStringQuotes(jsonText)] {
+            guard let jsonData = candidate.data(using: .utf8) else { continue }
+            do {
+                let extraction = try decoder.decode(
+                    MenuImportPageExtraction.self,
+                    from: jsonData
+                )
+                MenuImportProviderTranscript.record(
+                    pageIndex: extraction.pageIndex,
+                    jsonText: candidate
+                )
+                return (extraction, nil)
+            } catch {
+                lastDecodeFailure = error
+            }
+        }
+        return (
+            nil,
+            MenuLLMDiagnostics.describeContractMappingFailure(
+                lastDecodeFailure,
+                jsonText: jsonText,
+                rawText: rawText
+            )
+        )
     }
 
     private static func runLLMExtractionCall(
@@ -6002,45 +6382,10 @@ enum MenuImportService {
                 )
             }
 
-            guard let rawText = call.text,
-                  let jsonText = extractJSONObject(from: rawText) else {
-                return LLMExtractionCallOutcome(
-                    extraction: nil,
-                    errorMessage: "Antwort ohne parsebares JSON",
-                    usage: usage
-                )
-            }
-
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            // The decode error is the only thing that says *why* a provider
-            // response missed the contract. Swallowing it with `try?` made a
-            // real ten-page regression undiagnosable without paying for
-            // another run, so the last failure is kept and reported.
-            var lastDecodeFailure: Error?
-            for candidate in [jsonText, repairJSONStringQuotes(jsonText)] {
-                guard let jsonData = candidate.data(using: .utf8) else { continue }
-                do {
-                    let extraction = try decoder.decode(
-                        MenuImportPageExtraction.self,
-                        from: jsonData
-                    )
-                    return LLMExtractionCallOutcome(
-                        extraction: extraction,
-                        errorMessage: nil,
-                        usage: usage
-                    )
-                } catch {
-                    lastDecodeFailure = error
-                }
-            }
+            let decoded = decodeExtraction(from: call.text)
             return LLMExtractionCallOutcome(
-                extraction: nil,
-                errorMessage: MenuLLMDiagnostics.describeContractMappingFailure(
-                    lastDecodeFailure,
-                    jsonText: jsonText,
-                    rawText: rawText
-                ),
+                extraction: decoded.extraction,
+                errorMessage: decoded.errorMessage,
                 usage: usage
             )
         } catch {
@@ -6574,6 +6919,75 @@ enum MenuImportService {
             return LLMCallOutcome(root: nil, errorMessage: error.localizedDescription)
         }
     }
+
+    /// Führt die optionale Layoutstufe für eine Seite aus.
+    ///
+    /// Bewusst fehlertolerant: jeder Fehlschlag liefert `nil` und der Seitenlauf
+    /// geht ohne Layoutkontext weiter. Diese Stufe darf einen Import nie
+    /// verhindern — sie kann ihn nur verbessern.
+    private static func runLayoutPass(
+        pageIndex: Int,
+        image: UIImage
+    ) async -> MenuImportLayoutPass.Result? {
+        guard MenuImportLayoutPass.isConfigured,
+              let baseURL = MenuImportLayoutPass.configuredBaseURL,
+              let model = MenuImportLayoutPass.configuredModel
+        else { return nil }
+
+        // Das Dokumentmodell braucht die Seite in guter Auflösung: es soll
+        // Spalten und Punktführung erkennen, nicht raten.
+        let parts = makeLLMImageParts(
+            from: [image],
+            maxPages: 1,
+            maxDimension: 1600,
+            maxRawBytes: 1_600_000,
+            perImageMaxBytes: 1_600_000,
+            detail: "high"
+        )
+        guard let dataURL = parts.first?.imageURL?.url else { return nil }
+
+        let trimmedBase = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        guard let endpoint = URL(string: "\(trimmedBase)/chat/completions") else { return nil }
+
+        let startedAt = Date()
+        do {
+            var request = URLRequest(url: endpoint)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            if let key = MenuImportLayoutPass.configuredAPIKey {
+                request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            }
+            request.timeoutInterval = MenuImportLayoutPass.timeoutSeconds
+            request.httpBody = try MenuImportLayoutPass.requestBody(
+                model: model,
+                instruction: MenuImportLayoutPass.instruction,
+                imageDataURL: dataURL
+            )
+
+            let (data, response) = try await llmSession.data(for: request)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                lastLayoutPassDiagnostics = "Layoutstufe HTTP \(http.statusCode) auf Seite \(pageIndex + 1)"
+                return nil
+            }
+            guard let text = MenuImportLayoutPass.text(fromResponse: data) else {
+                lastLayoutPassDiagnostics = "Layoutstufe ohne Text auf Seite \(pageIndex + 1)"
+                return nil
+            }
+            return MenuImportLayoutPass.Result(
+                text: text,
+                latencyMilliseconds: max(0, Int(Date().timeIntervalSince(startedAt) * 1_000)),
+                model: model
+            )
+        } catch {
+            lastLayoutPassDiagnostics =
+                "Layoutstufe fehlgeschlagen auf Seite \(pageIndex + 1): \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    /// Letzter Layoutstufen-Hinweis, damit ein stiller Ausfall im Report
+    /// sichtbar wird statt als "kein Unterschied" zu erscheinen.
+    nonisolated(unsafe) static var lastLayoutPassDiagnostics: String?
 
     private static func makeLLMImageParts(
         from images: [UIImage],

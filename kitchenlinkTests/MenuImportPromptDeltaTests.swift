@@ -233,7 +233,7 @@ struct MenuImportMappingDiagnosticsTests {
     /// missing field instead of only stating that something went wrong.
     @Test("Fehlendes Feld wird mit Coding-Pfad benannt")
     func namesTheMissingField() throws {
-        let incomplete = #"{"contract_version": "1.0.0", "page_index": 0}"#
+        let incomplete = #"{"contract_version": "1.0.0", "page_kind": "menu"}"#
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         var captured: Error?
@@ -251,6 +251,56 @@ struct MenuImportMappingDiagnosticsTests {
             rawText: incomplete
         )
         #expect(message.contains("Feld fehlt"))
-        #expect(message.contains("pageKind") || message.contains("page_kind"))
+        #expect(message.contains("pageIndex") || message.contains("page_index"))
+    }
+
+    /// Gemessen: ein einziges ausgelassenes `basis` hat die komplette
+    /// semantische Erfassung einer Karte verworfen. Offene Klassifikatoren
+    /// dürfen fehlen — der Vertrag kennt `unknown` als gültige Antwort.
+    @Test("Fehlende offene Klassifikatoren werden zu unknown")
+    func absentOpenVocabularyFieldsDecodeAsUnknown() throws {
+        let payload = """
+        {
+          "contract_version": "1.0.0",
+          "page_index": 0,
+          "sections": [{
+            "title": {"value": "Vorspeisen"},
+            "order": 0,
+            "entries": [{
+              "name": {"value": "Salat"},
+              "order": 0,
+              "offers": [{"price_kind": "fixed", "amount_cents": 890}]
+            }]
+          }]
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let extraction = try decoder.decode(
+            MenuImportPageExtraction.self,
+            from: Data(payload.utf8)
+        )
+        let entry = try #require(extraction.sections.first?.entries.first)
+        #expect(extraction.pageKind == "unknown")
+        #expect(entry.kind == "unknown")
+        #expect(entry.offers.first?.basis == "unknown")
+        #expect(entry.offers.first?.priceKind == "fixed")
+    }
+
+    /// Die Toleranz gilt nur der Abwesenheit. Ein vorhandenes Feld mit falschem
+    /// Typ bleibt ein Vertragsbruch und wird gemeldet.
+    @Test("Falscher Typ bei offenem Klassifikator wirft weiterhin")
+    func presentButWrongTypedClassifierStillThrows() throws {
+        let payload = #"""
+        {"contract_version": "1.0.0", "page_index": 0, "page_kind": 7}
+        """#
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        #expect(throws: (any Error).self) {
+            _ = try decoder.decode(
+                MenuImportPageExtraction.self,
+                from: Data(payload.utf8)
+            )
+        }
     }
 }

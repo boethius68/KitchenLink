@@ -882,6 +882,462 @@ final class MenuImportExtractionContractTests: XCTestCase {
         XCTAssertTrue(draft.validate().errors.isEmpty)
     }
 
+    /// Der Provider entscheidet, wo er die erfundene Legende anhängt. Hängt sie
+    /// an der Sektion oder am Eintrag statt am Dokument, muss sie genauso
+    /// verworfen werden — sonst steht dieselbe Fälschung eine Ebene tiefer im
+    /// Entwurf und der Betreiber sieht sie trotzdem.
+    func testFabricatedLegendIsRejectedOnSectionAndEntryLevelToo() throws {
+        let lines = [
+            line("Antipasti-Vorspeisen", page: 0, x: 0.1, y: 0.9),
+            line("Carpaccio Di Manzo", page: 0, x: 0.1, y: 0.8),
+            line("A Glutenhaltiges Getreide", page: 0, x: 0.1, y: 0.1)
+        ]
+        func declaration(_ code: String, _ raw: String) -> MenuImportExtractedDeclaration {
+            MenuImportExtractedDeclaration(
+                kind: "source_declaration",
+                rawText: raw,
+                alternatives: [],
+                localCode: code,
+                canonicalId: nil,
+                claim: "unknown",
+                scope: "document",
+                evidenceLineIds: ["p1-l3"]
+            )
+        }
+        let extraction = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 0,
+            pageKind: "menu",
+            languages: ["de"],
+            sections: [
+                MenuImportExtractedSection(
+                    title: text("Antipasti-Vorspeisen", language: "de", evidence: ["p1-l1"]),
+                    order: 0,
+                    entries: [
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            name: text("Carpaccio Di Manzo", language: "de", evidence: ["p1-l2"]),
+                            description: nil,
+                            itemNumber: nil,
+                            order: 0,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [],
+                            bundleComponents: [],
+                            declarations: [
+                                declaration("c", "c arpaccio Di Manzo"),
+                                declaration("g", "A Glutenhaltiges Getreide")
+                            ],
+                            reviewReasons: []
+                        )
+                    ],
+                    subsections: [],
+                    declarations: [declaration("a", "a ntipasti-Vorspeisen")],
+                    reviewReasons: []
+                )
+            ],
+            declarations: [],
+            reviewReasons: []
+        )
+
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: source(),
+            pageExtractions: [extraction],
+            ocrLines: lines,
+            processing: processing()
+        )
+
+        let section = try XCTUnwrap(draft.sections.first)
+        XCTAssertTrue(
+            section.declarations.isEmpty,
+            "Die aus dem Sektionstitel erfundene Legende muss verschwinden."
+        )
+        let entry = try XCTUnwrap(section.entries.first)
+        XCTAssertEqual(
+            entry.declarations.compactMap(\.localCode),
+            ["g"],
+            "Am Eintrag darf nur die echte Legendenzeile bleiben."
+        )
+        let findings = draft.reviewFindings?.filter {
+            $0.code == "rejected_name_derived_legend_entry"
+        } ?? []
+        XCTAssertEqual(findings.count, 2)
+        XCTAssertTrue(
+            findings.contains { $0.path.contains("sections[0].declarations") },
+            "Der Befund muss die Fundstelle benennen, damit sie im Report auffindbar ist."
+        )
+        XCTAssertTrue(
+            findings.contains { $0.path.contains("entries[0].declarations") }
+        )
+        XCTAssertTrue(draft.validate().errors.isEmpty)
+    }
+
+    /// Die Karte druckt "Hüftsteak(250gr)". Zerlegt der Anbieter das in Namen
+    /// und Menge, sieht der Betreiber im Review ein umbenanntes Gericht — die
+    /// Prüfung zählt es als fehlenden UND erfundenen Eintrag. Der gedruckte
+    /// Name steht im OCR-Beleg und wird daraus wiederhergestellt.
+    func testPrintedNameSurvivesWhenTheProviderSplitsOffAQuantity() throws {
+        let lines = [
+            line("Vom Grill", page: 0, x: 0.1, y: 0.9),
+            line("Hüftsteak(250gr)", page: 0, x: 0.1, y: 0.8),
+            line("Tagessuppe", page: 0, x: 0.1, y: 0.7)
+        ]
+        func entry(
+            name: String,
+            evidenceID: String,
+            quantity: String?
+        ) -> MenuImportExtractedEntry {
+            MenuImportExtractedEntry(
+                kind: "food",
+                name: text(name, language: "de", evidence: [evidenceID]),
+                description: nil,
+                itemNumber: nil,
+                order: 0,
+                offers: [],
+                quantities: quantity.map {
+                    [
+                        MenuImportExtractedQuantity(
+                            rawText: $0,
+                            value: 250,
+                            unit: "g",
+                            kind: "weight",
+                            evidenceLineIds: [evidenceID]
+                        )
+                    ]
+                } ?? [],
+                optionGroups: [],
+                bundleComponents: [],
+                declarations: [],
+                reviewReasons: []
+            )
+        }
+        let extraction = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 0,
+            pageKind: "menu",
+            languages: ["de"],
+            sections: [
+                MenuImportExtractedSection(
+                    title: text("Vom Grill", language: "de", evidence: ["p1-l1"]),
+                    order: 0,
+                    entries: [
+                        entry(name: "Hüftsteak", evidenceID: "p1-l2", quantity: "250gr"),
+                        // Ohne abgetrennte Menge bleibt alles unverändert.
+                        entry(name: "Tagessuppe", evidenceID: "p1-l3", quantity: nil)
+                    ],
+                    subsections: [],
+                    declarations: [],
+                    reviewReasons: []
+                )
+            ],
+            declarations: [],
+            reviewReasons: []
+        )
+
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: source(),
+            pageExtractions: [extraction],
+            ocrLines: lines,
+            processing: processing()
+        )
+
+        let entries = try XCTUnwrap(draft.sections.first?.entries)
+        XCTAssertEqual(entries.first?.name.value, "Hüftsteak(250gr)")
+        XCTAssertEqual(
+            entries.first?.quantities.map(\.rawText),
+            ["250gr"],
+            "Die Menge bleibt zusätzlich strukturiert erfasst."
+        )
+        XCTAssertEqual(entries.last?.name.value, "Tagessuppe")
+        XCTAssertTrue(draft.validate().errors.isEmpty)
+    }
+
+    /// Ein leerer sichtbarer Text macht den Entwurf ungültig — und ein
+    /// ungültiger Entwurf kostet den Betreiber die GANZE Karte. Gemessen am
+    /// kostenlosen Standardmodell hat genau ein leerer Bereichstitel das
+    /// ausgelöst. Der Text wird aus seiner eigenen Belegzeile geholt; gibt es
+    /// keine, bleibt die Lücke sichtbar statt erfunden.
+    func testEmptyVisibleTextIsRecoveredFromEvidenceInsteadOfInvalidatingTheDraft() throws {
+        let lines = [
+            line("Vorspeisen", page: 0, x: 0.1, y: 0.9),
+            line("Tomatensuppe", page: 0, x: 0.1, y: 0.8)
+        ]
+        let extraction = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 0,
+            pageKind: "menu",
+            languages: ["de"],
+            sections: [
+                MenuImportExtractedSection(
+                    // Titel leer, aber die Belegzeile trägt ihn.
+                    title: text("", language: "de", evidence: ["p1-l1"]),
+                    order: 0,
+                    entries: [
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            name: text("Tomatensuppe", language: "de", evidence: ["p1-l2"]),
+                            description: nil,
+                            itemNumber: nil,
+                            order: 0,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [],
+                            bundleComponents: [],
+                            declarations: [],
+                            reviewReasons: []
+                        ),
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            // Weder Text noch Beleg: die Lücke bleibt sichtbar.
+                            name: text("", language: "de", evidence: []),
+                            description: nil,
+                            itemNumber: nil,
+                            order: 1,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [],
+                            bundleComponents: [],
+                            declarations: [],
+                            reviewReasons: []
+                        )
+                    ],
+                    subsections: [],
+                    declarations: [],
+                    reviewReasons: []
+                )
+            ],
+            declarations: [],
+            reviewReasons: []
+        )
+
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: source(),
+            pageExtractions: [extraction],
+            ocrLines: lines,
+            processing: processing()
+        )
+
+        let section = try XCTUnwrap(draft.sections.first)
+        XCTAssertEqual(section.title.value, "Vorspeisen")
+        XCTAssertEqual(section.entries.last?.name.value, "—")
+        let codes = Set((draft.reviewFindings ?? []).map(\.code))
+        XCTAssertTrue(codes.contains("visible_text_recovered_from_evidence"))
+        XCTAssertTrue(codes.contains("empty_visible_text"))
+        XCTAssertTrue(
+            draft.validate().errors.isEmpty,
+            "Der Entwurf muss gültig bleiben — sonst verliert der Betreiber die ganze Karte."
+        )
+    }
+
+    /// Der Anbieter nennt Prüfgründe unzuverlässig — auf einer Karte meldet er
+    /// die unklare Auswahlregel, auf der nächsten schweigt er bei derselben
+    /// Lage. Was strukturell im Entwurf steht, meldet der Assembler selbst.
+    /// Eine im Preis enthaltene Wahl kommt als `fixed`/0 Cent zurück; ohne
+    /// gedruckten Preis heißt das "inklusive", nicht "kostet 0,00 €".
+    func testStructuralReviewCodesAndIncludedChoicesAreDerivedFromTheDraft() throws {
+        let lines = [line("Menü", page: 0, x: 0.1, y: 0.9)]
+        let choice = MenuImportExtractedChoice(
+            name: text("Pommes", language: "de", evidence: []),
+            description: nil,
+            kind: "food",
+            order: 0,
+            offers: [
+                MenuImportExtractedOffer(
+                    label: nil,
+                    priceKind: "fixed",
+                    amountCents: 0,
+                    deltaCents: nil,
+                    minimumAmountCents: nil,
+                    maximumAmountCents: nil,
+                    currencyCode: "EUR",
+                    rawPrice: nil,
+                    basis: "per_item",
+                    appliesToQuantityOrder: nil,
+                    evidenceLineIds: []
+                )
+            ],
+            quantity: nil,
+            declarations: [],
+            reviewReasons: []
+        )
+        let group = MenuImportExtractedOptionGroup(
+            title: text("Beilage wählen", language: "de", evidence: []),
+            order: 0,
+            selectionRule: MenuImportExtractedSelectionRule(
+                minimum: nil,
+                maximum: nil,
+                freeSelectionCount: nil,
+                mode: "unknown",
+                allowsRepeats: nil
+            ),
+            choices: [choice],
+            reviewReasons: []
+        )
+        let extraction = MenuImportPageExtraction(
+            contractVersion: MenuImportPageExtraction.currentContractVersion,
+            pageIndex: 0,
+            pageKind: "menu",
+            languages: ["de"],
+            sections: [
+                MenuImportExtractedSection(
+                    title: text("Menü", language: "de", evidence: ["p1-l1"]),
+                    order: 0,
+                    entries: [
+                        MenuImportExtractedEntry(
+                            kind: "food",
+                            name: text("Schnitzel", language: "de", evidence: []),
+                            description: nil,
+                            itemNumber: nil,
+                            order: 0,
+                            offers: [],
+                            quantities: [],
+                            optionGroups: [group],
+                            bundleComponents: [],
+                            declarations: [],
+                            reviewReasons: []
+                        )
+                    ],
+                    subsections: [],
+                    declarations: [],
+                    reviewReasons: []
+                )
+            ],
+            declarations: [
+                MenuImportExtractedDeclaration(
+                    kind: "source_declaration",
+                    rawText: "A Glutenhaltiges Getreide",
+                    alternatives: [],
+                    localCode: "A",
+                    canonicalId: nil,
+                    claim: "unknown",
+                    scope: "document",
+                    evidenceLineIds: []
+                )
+            ],
+            reviewReasons: []
+        )
+
+        let draft = MenuImportDraftAssembler().assemble(
+            sourceDocument: source(),
+            pageExtractions: [extraction],
+            ocrLines: lines,
+            processing: processing()
+        )
+
+        let codes = Set((draft.reviewFindings ?? []).map(\.code))
+        XCTAssertTrue(codes.contains("selection_rule_unknown"))
+        XCTAssertTrue(codes.contains("source_declaration_meaning_unknown"))
+        let offer = try XCTUnwrap(
+            draft.sections.first?.entries.first?.optionGroups.first?.choices.first?.offers.first
+        )
+        XCTAssertEqual(offer.priceKind, .included)
+        XCTAssertNil(offer.amountCents)
+        XCTAssertEqual(
+            (draft.reviewFindings ?? []).filter { $0.code == "selection_rule_unknown" }.count,
+            1,
+            "Ein Hinweis pro Dokument und Code, kein Wiederholen je Gruppe."
+        )
+        XCTAssertTrue(draft.validate().errors.isEmpty)
+    }
+
+    /// Der Anbieter lässt `currency_code` seitenweise weg. Weist das Dokument
+    /// selbst genau eine Währung aus, wird sie ergänzt — weist es zwei aus,
+    /// bleibt das Feld leer, statt zu raten.
+    func testMissingCurrencyIsCompletedOnlyFromUnambiguousDocumentEvidence() throws {
+        func draft(
+            statedCurrencies: [String?],
+            ocrTexts: [String]
+        ) -> MenuImportDraft {
+            let entries = statedCurrencies.enumerated().map { index, currency in
+                MenuImportExtractedEntry(
+                    kind: "food",
+                    name: text("Gericht \(index)", language: "de", evidence: []),
+                    description: nil,
+                    itemNumber: nil,
+                    order: index,
+                    offers: [
+                        MenuImportExtractedOffer(
+                            label: nil,
+                            priceKind: "fixed",
+                            amountCents: 890,
+                            deltaCents: nil,
+                            minimumAmountCents: nil,
+                            maximumAmountCents: nil,
+                            currencyCode: currency,
+                            rawPrice: "8,90",
+                            basis: "per_item",
+                            appliesToQuantityOrder: nil,
+                            evidenceLineIds: []
+                        )
+                    ],
+                    quantities: [],
+                    optionGroups: [],
+                    bundleComponents: [],
+                    declarations: [],
+                    reviewReasons: []
+                )
+            }
+            let extraction = MenuImportPageExtraction(
+                contractVersion: MenuImportPageExtraction.currentContractVersion,
+                pageIndex: 0,
+                pageKind: "menu",
+                languages: ["de"],
+                sections: [
+                    MenuImportExtractedSection(
+                        title: text("Hauptgerichte", language: "de", evidence: []),
+                        order: 0,
+                        entries: entries,
+                        subsections: [],
+                        declarations: [],
+                        reviewReasons: []
+                    )
+                ],
+                declarations: [],
+                reviewReasons: []
+            )
+            return MenuImportDraftAssembler().assemble(
+                sourceDocument: source(),
+                pageExtractions: [extraction],
+                ocrLines: ocrTexts.enumerated().map { index, value in
+                    line(value, page: 0, x: 0.1, y: 0.9 - Double(index) / 20)
+                },
+                processing: processing()
+            )
+        }
+        func currencies(_ draft: MenuImportDraft) -> [String?] {
+            draft.sections.flatMap { $0.entries.flatMap { $0.offers.map(\.currencyCode) } }
+        }
+
+        let stated = draft(statedCurrencies: ["EUR", nil, nil], ocrTexts: ["8,90"])
+        XCTAssertEqual(currencies(stated), ["EUR", "EUR", "EUR"])
+        XCTAssertTrue(
+            (stated.reviewFindings ?? []).contains {
+                $0.code == "currency_completed_from_document"
+            },
+            "Die Ergänzung wird einmal pro Dokument im Review sichtbar gemacht."
+        )
+
+        let printed = draft(
+            statedCurrencies: [nil, nil],
+            ocrTexts: ["Hauptgerichte", "Aufpreis 1,90 €"]
+        )
+        XCTAssertEqual(currencies(printed), ["EUR", "EUR"])
+
+        let ambiguous = draft(statedCurrencies: ["EUR", "CHF", nil], ocrTexts: ["8,90"])
+        XCTAssertEqual(
+            currencies(ambiguous),
+            ["EUR", "CHF", nil],
+            "Bei zwei Währungen im Dokument wird nichts ergänzt."
+        )
+
+        let unknown = draft(statedCurrencies: [nil], ocrTexts: ["8,90"])
+        XCTAssertEqual(
+            currencies(unknown),
+            [nil],
+            "Ohne jeden Beleg bleibt die Währung offen."
+        )
+    }
+
     private func text(
         _ value: String,
         language: String?,
