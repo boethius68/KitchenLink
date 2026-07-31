@@ -32,6 +32,25 @@ enum KitchenLinkV2ShiftDateText {
 struct KitchenLinkV2ShiftView: View {
     @StateObject private var model = KitchenLinkShiftModel.make()
     @State private var showsCloseSheet = false
+    /// KL-ROLE-002: welcher Handgriff gerade eine Freigabe braucht.
+    @State private var pinRequest: PinRequest?
+
+    /// Die drei rechtepflichtigen Handgriffe der Kasse. Als eigener Typ, damit
+    /// `sheet(item:)` weiß, welches Blatt es öffnet — und damit die Aktion
+    /// danach eindeutig ist.
+    private enum PinRequest: String, Identifiable {
+        case open, movement, close
+
+        var id: String { rawValue }
+
+        var permission: KitchenLinkVenuePermission {
+            switch self {
+            case .open: .shiftOpen
+            case .movement: .cashMovement
+            case .close: .shiftClose
+            }
+        }
+    }
 
     var body: some View {
         KitchenLinkV2Surface {
@@ -76,8 +95,26 @@ struct KitchenLinkV2ShiftView: View {
         .tint(KitchenLinkV2Palette.Content.primary)
         .task { await model.load() }
         .sheet(isPresented: $showsCloseSheet) { closeSheet }
+        .sheet(item: $pinRequest) { request in
+            KitchenLinkV2ManagerPinSheet(
+                permission: request.permission,
+                note: request.permission.label
+            ) { override in
+                Task { await perform(request, with: override) }
+            }
+        }
         .sheet(item: closeResultBinding) { result in
             KitchenLinkV2ZReportSheet(result: result) { model.dismissClose() }
+        }
+    }
+
+    /// Führt den freigegebenen Handgriff sofort aus: der Token gilt nur
+    /// wenige Minuten und genau einmal.
+    private func perform(_ request: PinRequest, with override: KitchenLinkManagerOverride) async {
+        switch request {
+        case .open: await model.openShift(overrideToken: override.token)
+        case .movement: await model.bookMovement(overrideToken: override.token)
+        case .close: await model.closeShift(overrideToken: override.token)
         }
     }
 
@@ -137,19 +174,32 @@ struct KitchenLinkV2ShiftView: View {
                         .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if let note = model.missingPermissionNote(for: .shiftOpen) {
+                    switch model.gate(for: .shiftOpen) {
+                    case .blocked(let note):
                         warning(note, identifier: "shift.openDenied")
-                    } else {
+                    case .allowed, .needsAuthorization:
+                        // Bei fehlendem Recht bleibt das Feld sichtbar: der
+                        // Anfangsbestand wird eingetragen und die Freigabe
+                        // danach geholt. Umgekehrt liefe der kurzlebige Token
+                        // ab, während jemand die Schublade zählt.
                         euroField(
                             "Anfangsbestand",
                             text: $model.openingCashText,
                             identifier: "shift.openingCash"
                         )
 
-                        Button("Schicht öffnen") { Task { await model.openShift() } }
-                            .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
-                            .disabled(model.phase == .working || !model.canOpenShift)
-                            .accessibilityIdentifier("shift.open")
+                        if case .needsAuthorization(let note) = model.gate(for: .shiftOpen) {
+                            warning(note, identifier: "shift.openDenied")
+                            Button("Freigabe holen und öffnen") { pinRequest = .open }
+                                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                                .disabled(model.phase == .working)
+                                .accessibilityIdentifier("shift.openWithPin")
+                        } else {
+                            Button("Schicht öffnen") { Task { await model.openShift() } }
+                                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                                .disabled(model.phase == .working || !model.canOpenShift)
+                                .accessibilityIdentifier("shift.open")
+                        }
                     }
                 }
             }
@@ -166,7 +216,7 @@ struct KitchenLinkV2ShiftView: View {
             // Bargeld bewegen und abschließen sind rechtepflichtig. Wer sie
             // nicht hat, sieht die Kasse weiterhin — sie zu lesen ist Alltag,
             // sie anzufassen nicht.
-            if let note = model.missingPermissionNote(for: .cashMovement) {
+            if case .blocked(let note) = model.gate(for: .cashMovement) {
                 KitchenLinkV2Card {
                     warning(note, identifier: "shift.movementDenied")
                 }
@@ -174,7 +224,7 @@ struct KitchenLinkV2ShiftView: View {
                 movementCard
             }
 
-            if let note = model.missingPermissionNote(for: .shiftClose) {
+            if case .blocked(let note) = model.gate(for: .shiftClose) {
                 KitchenLinkV2Card {
                     warning(note, identifier: "shift.closeDenied")
                 }
@@ -316,12 +366,20 @@ struct KitchenLinkV2ShiftView: View {
                     )
                     .accessibilityIdentifier("shift.movementReason")
 
-                Button("\(model.movementKind.label) buchen") {
-                    Task { await model.bookMovement() }
+                if case .needsAuthorization(let note) = model.gate(for: .cashMovement) {
+                    warning(note, identifier: "shift.movementDenied")
+                    Button("Freigabe holen und buchen") { pinRequest = .movement }
+                        .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                        .disabled(!model.isReadyToBookMovement)
+                        .accessibilityIdentifier("shift.bookMovementWithPin")
+                } else {
+                    Button("\(model.movementKind.label) buchen") {
+                        Task { await model.bookMovement() }
+                    }
+                    .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                    .disabled(!model.canBookMovement)
+                    .accessibilityIdentifier("shift.bookMovement")
                 }
-                .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
-                .disabled(!model.canBookMovement)
-                .accessibilityIdentifier("shift.bookMovement")
             }
         }
     }
@@ -382,13 +440,29 @@ struct KitchenLinkV2ShiftView: View {
                             }
                         }
 
-                        Button("Schicht abschließen") {
-                            showsCloseSheet = false
-                            Task { await model.closeShift() }
+                        // Erst zählen, dann freigeben lassen: der Token gilt
+                        // nur wenige Minuten, und eine Schublade zählt sich
+                        // nicht in Sekunden.
+                        if case .needsAuthorization(let note) = model.gate(for: .shiftClose) {
+                            KitchenLinkV2Card {
+                                warning(note, identifier: "shift.closeDenied")
+                            }
+                            Button("Freigabe holen und abschließen") {
+                                showsCloseSheet = false
+                                pinRequest = .close
+                            }
+                            .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                            .disabled(!model.isReadyToClose)
+                            .accessibilityIdentifier("shift.confirmCloseWithPin")
+                        } else {
+                            Button("Schicht abschließen") {
+                                showsCloseSheet = false
+                                Task { await model.closeShift() }
+                            }
+                            .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                            .disabled(!model.canClose)
+                            .accessibilityIdentifier("shift.confirmClose")
                         }
-                        .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
-                        .disabled(!model.canClose)
-                        .accessibilityIdentifier("shift.confirmClose")
                     }
                     .frame(maxWidth: 680)
                     .padding(KitchenLinkV2Spacing.large)

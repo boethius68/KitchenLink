@@ -26,6 +26,33 @@ enum KitchenLinkVenuePermission: String, CaseIterable, Sendable {
         case .staffManage: "Personal verwalten"
         }
     }
+
+    /// Derselbe Handgriff als verneinter Satzteil hinter „Als Service darfst
+    /// du …". Fertig verneint, weil das „nicht" im Deutschen je nach Objekt an
+    /// eine andere Stelle gehört — aus `label.lowercased()` wurde sonst „Als
+    /// Service darfst du schicht öffnen nicht".
+    var deniedClause: String {
+        switch self {
+        case .shiftOpen: "die Schicht nicht öffnen"
+        case .shiftClose: "die Kasse nicht abschließen"
+        case .cashMovement: "kein Bargeld bewegen"
+        case .paymentsRefund: "eine Zahlung nicht stornieren"
+        case .staffManage: "kein Personal verwalten"
+        }
+    }
+
+    /// KL-ROLE-002: was eine Führungskraft per PIN vor Ort freigeben kann.
+    ///
+    /// `staff.manage` fehlt hier absichtlich. Wer per geliehener PIN Personal
+    /// verwalten dürfte, könnte sich in derselben Minute selbst zum Inhaber
+    /// machen — das wäre keine Freigabe für eine Aktion mehr, sondern eine
+    /// dauerhafte Rechteerhöhung. Die Datenbank sieht das genauso
+    /// (`kitchenlink_pin_overridable`); diese Liste ist die Spiegelung.
+    static let pinOverridable: Set<KitchenLinkVenuePermission> = [
+        .shiftOpen, .shiftClose, .cashMovement, .paymentsRefund
+    ]
+
+    var isPinOverridable: Bool { Self.pinOverridable.contains(self) }
 }
 
 /// Was der angemeldete Zugang in dieser Venue ist und darf.
@@ -41,6 +68,14 @@ struct KitchenLinkMyRole: Equatable, Sendable {
 
     func can(_ permission: KitchenLinkVenuePermission) -> Bool {
         permissions.contains(permission.rawValue)
+    }
+
+    /// KL-ROLE-002: Eine PIN, die nichts freigeben könnte, wäre ein stilles
+    /// Versprechen. Der Team-Bildschirm bietet sie deshalb nur an, wo sie
+    /// etwas bewirkt — und die Datenbank weist alles andere ab
+    /// (`pin_no_authority`).
+    var canHoldManagerPin: Bool {
+        KitchenLinkVenuePermission.pinOverridable.contains { can($0) }
     }
 
     static func decode(_ data: Data) throws -> KitchenLinkMyRole {

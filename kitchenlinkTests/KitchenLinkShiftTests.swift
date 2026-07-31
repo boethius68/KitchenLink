@@ -41,15 +41,74 @@ private actor RoleSpy: KitchenLinkPermissionTransport {
     ) async throws -> KitchenLinkMyRole { role }
 }
 
+/// KL-ROLE-002: der PIN-Zustand des Lokals. Standardmäßig hat jemand eine PIN
+/// hinterlegt — sonst gäbe es den Weg über die Freigabe gar nicht.
+private actor PinSpy: KitchenLinkManagerPinTransport {
+    private let status: KitchenLinkManagerPinStatus
+    private let result: KitchenLinkManagerPinAuthorization
+
+    init(
+        authorizers: Int = 1,
+        result: KitchenLinkManagerPinAuthorization = .granted(
+            KitchenLinkManagerOverride(
+                token: "tok-1", permission: "shift.close",
+                expiresAt: nil, grantedByEmail: "chefin@restaurant.de"
+            )
+        )
+    ) {
+        self.status = KitchenLinkManagerPinStatus(
+            hasPin: false, updatedAt: nil, authorizers: authorizers
+        )
+        self.result = result
+    }
+
+    func pinStatus(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String
+    ) async throws -> KitchenLinkManagerPinStatus { status }
+
+    func setPin(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        pin: String
+    ) async throws {}
+
+    func clearPin(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        userID: String?
+    ) async throws {}
+
+    func authorize(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        permission: KitchenLinkVenuePermission,
+        pin: String,
+        note: String?,
+        context: [String: String]
+    ) async throws -> KitchenLinkManagerPinAuthorization { result }
+
+    func recentOverrides(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        limit: Int
+    ) async throws -> [KitchenLinkManagerOverrideRecord] { [] }
+}
+
 private actor ShiftSpy: KitchenLinkShiftTransport {
     var report: KitchenLinkShiftReport
     var history: [KitchenLinkShift] = []
     var closeResult: KitchenLinkShiftClose?
     var openError: Error?
 
-    private(set) var openCalls: [(cents: Int, key: String)] = []
-    private(set) var movementCalls: [(kind: KitchenLinkCashMovementKind, cents: Int, reason: String, key: String)] = []
-    private(set) var closeCalls: [(cents: Int, note: String)] = []
+    private(set) var openCalls: [(cents: Int, key: String, token: String?)] = []
+    private(set) var movementCalls: [(kind: KitchenLinkCashMovementKind, cents: Int, reason: String, key: String, token: String?)] = []
+    private(set) var closeCalls: [(cents: Int, note: String, token: String?)] = []
 
     init(report: KitchenLinkShiftReport = .none) {
         self.report = report
@@ -64,9 +123,10 @@ private actor ShiftSpy: KitchenLinkShiftTransport {
         session: KitchenLinkCloudSession,
         venueSlug: String,
         openingCashCents: Int,
-        idempotencyKey: String
+        idempotencyKey: String,
+        overrideToken: String?
     ) async throws {
-        openCalls.append((openingCashCents, idempotencyKey))
+        openCalls.append((openingCashCents, idempotencyKey, overrideToken))
         if let openError { throw openError }
     }
 
@@ -84,9 +144,10 @@ private actor ShiftSpy: KitchenLinkShiftTransport {
         kind: KitchenLinkCashMovementKind,
         amountCents: Int,
         reason: String,
-        idempotencyKey: String
+        idempotencyKey: String,
+        overrideToken: String?
     ) async throws {
-        movementCalls.append((kind, amountCents, reason, idempotencyKey))
+        movementCalls.append((kind, amountCents, reason, idempotencyKey, overrideToken))
     }
 
     func closeShift(
@@ -94,9 +155,10 @@ private actor ShiftSpy: KitchenLinkShiftTransport {
         session: KitchenLinkCloudSession,
         venueSlug: String,
         countedCashCents: Int,
-        note: String
+        note: String,
+        overrideToken: String?
     ) async throws -> KitchenLinkShiftClose {
-        closeCalls.append((countedCashCents, note))
+        closeCalls.append((countedCashCents, note, overrideToken))
         guard let closeResult else { throw KitchenLinkCloudServiceError.invalidResponse }
         return closeResult
     }
@@ -115,12 +177,14 @@ private func makeModel(
     store: KitchenLinkCloudCredentialStore? = nil,
     permissions: Set<String> = [
         "shift.open", "shift.close", "cash.movement", "payments.refund", "staff.manage"
-    ]
+    ],
+    pin: KitchenLinkManagerPinTransport = PinSpy()
 ) -> KitchenLinkShiftModel {
     KitchenLinkShiftModel(
         config: .sandboxDefault,
         transport: spy,
         permissions: RoleSpy(permissions),
+        pin: pin,
         store: store ?? makeStore()
     )
 }
@@ -392,6 +456,7 @@ private func openReport(
         config: .sandboxDefault,
         transport: spy,
         permissions: ServiceRoleSpy(),
+        pin: PinSpy(),
         store: makeStore()
     )
     await model.load()
@@ -412,10 +477,14 @@ private func openReport(
 @MainActor
 @Test func dieFehlendeBefugnisWirdErklaertStattNurGesperrt() async {
     let spy = ShiftSpy(report: openReport())
+    // Ohne hinterlegte PIN gibt es keinen Weg vorbei — dann nennt der Satz,
+    // wer weiterhelfen kann. Mit PIN nennt er stattdessen die Freigabe; das
+    // prueft `ohneRechtAberMitPinImLokalBietetDieKasseEineFreigabeAn`.
     let model = KitchenLinkShiftModel(
         config: .sandboxDefault,
         transport: spy,
         permissions: ServiceRoleSpy(),
+        pin: PinSpy(authorizers: 0),
         store: makeStore()
     )
     await model.load()
@@ -445,6 +514,7 @@ private func openReport(
         config: .sandboxDefault,
         transport: spy,
         permissions: NoRoleSpy(),
+        pin: PinSpy(),
         store: makeStore()
     )
     await model.load()
@@ -553,14 +623,14 @@ private actor NoRoleSpy: KitchenLinkPermissionTransport {
 
     try await demo.openShift(
         config: config, session: cloudSession, venueSlug: "demo",
-        openingCashCents: 10_000, idempotencyKey: "k1"
+        openingCashCents: 10_000, idempotencyKey: "k1", overrideToken: nil
     )
 
     // Zweites Öffnen wird abgewiesen — wie der Unique-Index.
     await #expect(throws: (any Error).self) {
         try await demo.openShift(
             config: config, session: cloudSession, venueSlug: "demo",
-            openingCashCents: 0, idempotencyKey: "k2"
+            openingCashCents: 0, idempotencyKey: "k2", overrideToken: nil
         )
     }
 
@@ -572,12 +642,14 @@ private actor NoRoleSpy: KitchenLinkPermissionTransport {
 
     try await demo.recordCashMovement(
         config: config, session: cloudSession, venueSlug: "demo",
-        kind: .payout, amountCents: 500, reason: "Tresor", idempotencyKey: "m1"
+        kind: .payout, amountCents: 500, reason: "Tresor", idempotencyKey: "m1",
+        overrideToken: nil
     )
     // Wiederholung bucht nicht doppelt.
     try await demo.recordCashMovement(
         config: config, session: cloudSession, venueSlug: "demo",
-        kind: .payout, amountCents: 500, reason: "Tresor", idempotencyKey: "m1"
+        kind: .payout, amountCents: 500, reason: "Tresor", idempotencyKey: "m1",
+        overrideToken: nil
     )
 
     report = try await demo.loadReport(
@@ -587,7 +659,7 @@ private actor NoRoleSpy: KitchenLinkPermissionTransport {
 
     let close = try await demo.closeShift(
         config: config, session: cloudSession, venueSlug: "demo",
-        countedCashCents: 9_950, note: ""
+        countedCashCents: 9_950, note: "", overrideToken: nil
     )
     #expect(close.zNumber == 1)
     #expect(close.varianceCents == -50)
@@ -597,4 +669,175 @@ private actor NoRoleSpy: KitchenLinkPermissionTransport {
     )
     #expect(history.count == 1)
     #expect(history.first?.zNumber == 1)
+}
+
+// MARK: - Freigabe an der Kasse (KL-ROLE-002)
+
+@MainActor
+@Test func ohneRechtAberMitPinImLokalBietetDieKasseEineFreigabeAn() async {
+    let spy = ShiftSpy(report: openReport())
+    let model = KitchenLinkShiftModel(
+        config: .sandboxDefault,
+        transport: spy,
+        permissions: ServiceRoleSpy(),
+        pin: PinSpy(authorizers: 1),
+        store: makeStore()
+    )
+    await model.load()
+
+    #expect(model.gate(for: .shiftClose).allowsAuthorization)
+    #expect(model.gate(for: .cashMovement).allowsAuthorization)
+
+    // Die Eingaben stehen; nur die Befugnis fehlt und wird gleich geholt.
+    model.countedCashText = "110,50"
+    #expect(model.isReadyToClose)
+    #expect(model.canClose == false)
+}
+
+@MainActor
+@Test func hatNiemandEinePinBleibtEsBeiDerSperreAusKlRole001() async {
+    let spy = ShiftSpy(report: openReport())
+    let model = KitchenLinkShiftModel(
+        config: .sandboxDefault,
+        transport: spy,
+        permissions: ServiceRoleSpy(),
+        pin: PinSpy(authorizers: 0),
+        store: makeStore()
+    )
+    await model.load()
+
+    #expect(model.gate(for: .shiftClose).allowsAuthorization == false)
+    #expect(model.missingPermissionNote(for: .shiftClose)?.contains("Frag Inhaber") == true)
+}
+
+@MainActor
+@Test func mitFreigabeErreichtDerAbschlussDieDatenbankMitToken() async {
+    let spy = ShiftSpy(report: openReport())
+    await spy.setCloseResult(
+        KitchenLinkShiftClose(
+            shiftID: "shift-1", zNumber: 1, countedCashCents: 11_050,
+            expectedCashCents: 11_050, varianceCents: 0, totals: .empty
+        )
+    )
+    let model = KitchenLinkShiftModel(
+        config: .sandboxDefault,
+        transport: spy,
+        permissions: ServiceRoleSpy(),
+        pin: PinSpy(),
+        store: makeStore()
+    )
+    await model.load()
+    model.countedCashText = "110,50"
+
+    // Ohne Token passiert nichts …
+    await model.closeShift()
+    #expect(await spy.closeCalls.isEmpty)
+
+    // … mit Token schon, und er geht mit.
+    await model.closeShift(overrideToken: "tok-1")
+    #expect(await spy.closeCalls.count == 1)
+    #expect(await spy.closeCalls.first?.token == "tok-1")
+}
+
+@MainActor
+@Test func eineEntnahmeGehtEbensoMitFreigabe() async {
+    let spy = ShiftSpy(report: openReport())
+    let model = KitchenLinkShiftModel(
+        config: .sandboxDefault,
+        transport: spy,
+        permissions: ServiceRoleSpy(),
+        pin: PinSpy(),
+        store: makeStore()
+    )
+    await model.load()
+    model.movementAmountText = "12,50"
+
+    await model.bookMovement()
+    #expect(await spy.movementCalls.isEmpty)
+
+    await model.bookMovement(overrideToken: "tok-2")
+    #expect(await spy.movementCalls.first?.token == "tok-2")
+}
+
+@MainActor
+@Test func auchDasOeffnenGehtMitFreigabe() async {
+    let spy = ShiftSpy(report: .none)
+    let model = KitchenLinkShiftModel(
+        config: .sandboxDefault,
+        transport: spy,
+        permissions: ServiceRoleSpy(),
+        pin: PinSpy(),
+        store: makeStore()
+    )
+    await model.load()
+    model.openingCashText = "150"
+
+    await model.openShift()
+    #expect(await spy.openCalls.isEmpty)
+
+    await model.openShift(overrideToken: "tok-3")
+    #expect(await spy.openCalls.first?.token == "tok-3")
+    #expect(await spy.openCalls.first?.cents == 15_000)
+}
+
+@MainActor
+@Test func eineInstanzOhnePinMigrationSperrtDieKasseNichtAus() async {
+    // Dieselbe Lehre wie beim Bestell-Lesepfad in KL-STATION-001: eine
+    // fehlende Funktion darf nicht den ganzen Bildschirm kosten.
+    let spy = ShiftSpy(report: openReport())
+    let model = KitchenLinkShiftModel(
+        config: .sandboxDefault,
+        transport: spy,
+        permissions: RoleSpy(),
+        pin: FailingPinSpy(),
+        store: makeStore()
+    )
+    await model.load()
+
+    #expect(model.phase == .ready)
+    #expect(model.isOpen)
+    #expect(model.canOpenShift)
+}
+
+private actor FailingPinSpy: KitchenLinkManagerPinTransport {
+    func pinStatus(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String
+    ) async throws -> KitchenLinkManagerPinStatus {
+        throw KitchenLinkCloudServiceError.server(
+            status: 404, message: "function operator_manager_pin_status does not exist"
+        )
+    }
+
+    func setPin(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        pin: String
+    ) async throws {}
+
+    func clearPin(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        userID: String?
+    ) async throws {}
+
+    func authorize(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        permission: KitchenLinkVenuePermission,
+        pin: String,
+        note: String?,
+        context: [String: String]
+    ) async throws -> KitchenLinkManagerPinAuthorization { .refused(.notNeeded) }
+
+    func recentOverrides(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        limit: Int
+    ) async throws -> [KitchenLinkManagerOverrideRecord] { [] }
 }

@@ -24,6 +24,10 @@ final class KitchenLinkShiftModel: ObservableObject {
     /// KL-ROLE-001: was dieser Zugang an der Kasse darf. Die Sperre hier ist
     /// Höflichkeit — durchgesetzt wird sie in der Datenbank.
     @Published private(set) var myRole: KitchenLinkMyRole = .none
+    /// KL-ROLE-002: ob in diesem Lokal überhaupt jemand per PIN freigeben
+    /// könnte. Ohne das böte der Bildschirm eine Freigabe an, die niemand
+    /// erteilen kann.
+    @Published private(set) var pinStatus: KitchenLinkManagerPinStatus = .unknown
     @Published var notice: String?
 
     /// Eingaben in Euro als Text: der Betreiber tippt „100" oder „100,50",
@@ -39,6 +43,7 @@ final class KitchenLinkShiftModel: ObservableObject {
     private let auth: KitchenLinkCloudAuthenticating
     private let transport: KitchenLinkShiftTransport
     private let permissions: KitchenLinkPermissionTransport
+    private let pin: KitchenLinkManagerPinTransport
     private let store: KitchenLinkCloudCredentialStore
     private let requiresSession: Bool
 
@@ -52,6 +57,7 @@ final class KitchenLinkShiftModel: ObservableObject {
         auth: KitchenLinkCloudAuthenticating = URLSessionKitchenLinkCloudTransport(),
         transport: KitchenLinkShiftTransport = URLSessionKitchenLinkCloudTransport(),
         permissions: KitchenLinkPermissionTransport = URLSessionKitchenLinkCloudTransport(),
+        pin: KitchenLinkManagerPinTransport = URLSessionKitchenLinkCloudTransport(),
         store: KitchenLinkCloudCredentialStore = KitchenLinkCloudCredentialStore(),
         requiresSession: Bool = true
     ) {
@@ -59,6 +65,7 @@ final class KitchenLinkShiftModel: ObservableObject {
         self.auth = auth
         self.transport = transport
         self.permissions = permissions
+        self.pin = pin
         self.store = store
         self.requiresSession = requiresSession
     }
@@ -71,6 +78,7 @@ final class KitchenLinkShiftModel: ObservableObject {
         return KitchenLinkShiftModel(
             transport: KitchenLinkDemoShiftTransport(),
             permissions: KitchenLinkDemoTeamTransport(),
+            pin: KitchenLinkDemoManagerPinTransport.shared,
             requiresSession: false
         )
         // `auth` bleibt der echte Transport: im Demo-Modus wird nie angemeldet.
@@ -103,24 +111,37 @@ final class KitchenLinkShiftModel: ObservableObject {
 
     var canOpenShift: Bool { myRole.can(.shiftOpen) }
 
-    var canClose: Bool {
-        phase != .working && isOpen && countedCashCents != nil && myRole.can(.shiftClose)
+    /// Die Eingaben stimmen — ohne die Rechtefrage. Der Weg mit Freigabe
+    /// braucht genau das: die Zählung ist vollständig, nur die Befugnis fehlt
+    /// noch und wird gleich geholt.
+    var isReadyToClose: Bool {
+        phase != .working && isOpen && countedCashCents != nil
     }
 
-    var canBookMovement: Bool {
+    var isReadyToBookMovement: Bool {
         guard let amount = movementAmountCents else { return false }
-        return phase != .working && isOpen && amount > 0 && myRole.can(.cashMovement)
+        return phase != .working && isOpen && amount > 0
     }
+
+    var canClose: Bool { isReadyToClose && myRole.can(.shiftClose) }
+
+    var canBookMovement: Bool { isReadyToBookMovement && myRole.can(.cashMovement) }
 
     /// Was diesem Zugang an der Kasse fehlt — als Satz, den ein Betrieb
     /// versteht, statt einer Fehlerkennung aus der Datenbank.
     func missingPermissionNote(for permission: KitchenLinkVenuePermission) -> String? {
-        guard !myRole.can(permission) else { return nil }
-        guard myRole.isStaff else {
-            return "Dieser Zugang gehört nicht zum Personal dieses Restaurants."
+        switch gate(for: permission) {
+        case .allowed: nil
+        case .needsAuthorization(let note), .blocked(let note): note
         }
-        return "Als \(myRole.roleName ?? "Personal") darfst du \(permission.label.lowercased()) "
-            + "nicht. Frag Inhaber, Manager oder Schichtleitung."
+    }
+
+    /// KL-ROLE-002: dasselbe, aber mit der Antwort auf die Frage, ob es hier
+    /// einen Weg vorbei gibt.
+    func gate(for permission: KitchenLinkVenuePermission) -> KitchenLinkPermissionGate {
+        KitchenLinkPermissionGate.evaluate(
+            permission: permission, role: myRole, pinStatus: pinStatus
+        )
     }
 
     /// Ein Abschluss bei noch offenen Rechnungen ist erlaubt, aber fast immer
@@ -139,6 +160,7 @@ final class KitchenLinkShiftModel: ObservableObject {
             myRole = try await permissions.loadMyRole(
                 config: config, session: session, venueSlug: config.venueSlug
             )
+            pinStatus = await loadPinStatus(session: session)
             report = try await transport.loadReport(
                 config: config, session: session, venueSlug: config.venueSlug, shiftID: nil
             )
@@ -170,9 +192,27 @@ final class KitchenLinkShiftModel: ObservableObject {
         }
     }
 
+    /// Bewusst fehlertolerant: eine Instanz, auf der die PIN-Migration noch
+    /// nicht liegt, soll ihre Kasse weiter benutzen können. Dann gibt es eben
+    /// keine Freigabe vor Ort — aber keinen roten Bildschirm. (Dieselbe Lehre
+    /// wie beim Bestell-Lesepfad in KL-STATION-001.)
+    private func loadPinStatus(session: KitchenLinkCloudSession) async
+        -> KitchenLinkManagerPinStatus {
+        do {
+            return try await pin.pinStatus(
+                config: config, session: session, venueSlug: config.venueSlug
+            )
+        } catch {
+            return .unknown
+        }
+    }
+
     // MARK: - Öffnen
 
-    func openShift() async {
+    /// `overrideToken` ist die einmalige Freigabe einer Führungskraft. Liegt
+    /// sie vor, entscheidet die Datenbank — die Sperre hier gilt nur für den
+    /// Weg ohne Freigabe.
+    func openShift(overrideToken: String? = nil) async {
         guard let session = currentSession else {
             phase = .needsSignIn
             return
@@ -181,7 +221,7 @@ final class KitchenLinkShiftModel: ObservableObject {
             notice = "Es ist bereits eine Schicht offen."
             return
         }
-        if let denied = missingPermissionNote(for: .shiftOpen) {
+        if overrideToken == nil, let denied = missingPermissionNote(for: .shiftOpen) {
             notice = denied
             return
         }
@@ -195,7 +235,8 @@ final class KitchenLinkShiftModel: ObservableObject {
                 session: session,
                 venueSlug: config.venueSlug,
                 openingCashCents: openingCashCents,
-                idempotencyKey: key
+                idempotencyKey: key,
+                overrideToken: overrideToken
             )
             openAttemptKey = nil
             openingCashText = ""
@@ -208,7 +249,7 @@ final class KitchenLinkShiftModel: ObservableObject {
 
     // MARK: - Bewegung
 
-    func bookMovement() async {
+    func bookMovement(overrideToken: String? = nil) async {
         guard let session = currentSession else {
             phase = .needsSignIn
             return
@@ -217,7 +258,7 @@ final class KitchenLinkShiftModel: ObservableObject {
             notice = "Bitte einen Betrag größer als null eingeben."
             return
         }
-        if let denied = missingPermissionNote(for: .cashMovement) {
+        if overrideToken == nil, let denied = missingPermissionNote(for: .cashMovement) {
             notice = denied
             return
         }
@@ -233,7 +274,8 @@ final class KitchenLinkShiftModel: ObservableObject {
                 kind: movementKind,
                 amountCents: amount,
                 reason: movementReason.trimmingCharacters(in: .whitespacesAndNewlines),
-                idempotencyKey: key
+                idempotencyKey: key,
+                overrideToken: overrideToken
             )
             movementAttemptKey = nil
             notice = "\(movementKind.label) über "
@@ -248,7 +290,7 @@ final class KitchenLinkShiftModel: ObservableObject {
 
     // MARK: - Abschluss
 
-    func closeShift() async {
+    func closeShift(overrideToken: String? = nil) async {
         guard let session = currentSession else {
             phase = .needsSignIn
             return
@@ -259,7 +301,7 @@ final class KitchenLinkShiftModel: ObservableObject {
         }
         // Die Datenbank würde ohnehin abweisen; der Weg dorthin wäre nur ein
         // Umweg über einen Fehler, den niemand versteht.
-        if let denied = missingPermissionNote(for: .shiftClose) {
+        if overrideToken == nil, let denied = missingPermissionNote(for: .shiftClose) {
             notice = denied
             return
         }
@@ -271,7 +313,8 @@ final class KitchenLinkShiftModel: ObservableObject {
                 session: session,
                 venueSlug: config.venueSlug,
                 countedCashCents: counted,
-                note: closeNote.trimmingCharacters(in: .whitespacesAndNewlines)
+                note: closeNote.trimmingCharacters(in: .whitespacesAndNewlines),
+                overrideToken: overrideToken
             )
             lastClose = result
             countedCashText = ""

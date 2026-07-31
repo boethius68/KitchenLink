@@ -21,14 +21,21 @@ final class KitchenLinkTeamModel: ObservableObject {
     @Published private(set) var members: [KitchenLinkTeamMember] = []
     @Published private(set) var roles: [KitchenLinkVenueRole] = []
     @Published private(set) var myRole: KitchenLinkMyRole = .none
+    /// KL-ROLE-002: die eigene PIN und wie viele es im Lokal gibt.
+    @Published private(set) var pinStatus: KitchenLinkManagerPinStatus = .unknown
+    /// Das Freigabeprotokoll. Ohne es wäre die Nachvollziehbarkeit aus
+    /// Blueprint §8.2 nur eine Zusage in einem Migrationskommentar.
+    @Published private(set) var overrides: [KitchenLinkManagerOverrideRecord] = []
     @Published var notice: String?
 
     @Published var inviteEmail: String = ""
     @Published var inviteRoleKey: String = "service"
+    @Published var pinInput: String = ""
 
     private let config: KitchenLinkCloudConfig
     private let auth: KitchenLinkCloudAuthenticating
     private let transport: KitchenLinkTeamTransport
+    private let pin: KitchenLinkManagerPinTransport
     private let store: KitchenLinkCloudCredentialStore
     private let requiresSession: Bool
 
@@ -36,12 +43,14 @@ final class KitchenLinkTeamModel: ObservableObject {
         config: KitchenLinkCloudConfig = .sandboxDefault,
         auth: KitchenLinkCloudAuthenticating = URLSessionKitchenLinkCloudTransport(),
         transport: KitchenLinkTeamTransport = URLSessionKitchenLinkCloudTransport(),
+        pin: KitchenLinkManagerPinTransport = URLSessionKitchenLinkCloudTransport(),
         store: KitchenLinkCloudCredentialStore = KitchenLinkCloudCredentialStore(),
         requiresSession: Bool = true
     ) {
         self.config = config
         self.auth = auth
         self.transport = transport
+        self.pin = pin
         self.store = store
         self.requiresSession = requiresSession
     }
@@ -52,6 +61,7 @@ final class KitchenLinkTeamModel: ObservableObject {
         }
         return KitchenLinkTeamModel(
             transport: KitchenLinkDemoTeamTransport(),
+            pin: KitchenLinkDemoManagerPinTransport.shared,
             requiresSession: false
         )
     }
@@ -65,6 +75,14 @@ final class KitchenLinkTeamModel: ObservableObject {
     }
 
     var canManage: Bool { myRole.can(.staffManage) }
+
+    /// Eine PIN, die nichts freigeben könnte, wäre ein stilles Versprechen —
+    /// deshalb bietet der Bildschirm sie nur an, wo sie etwas bewirkt.
+    var canHoldPin: Bool { myRole.canHoldManagerPin }
+
+    var canSavePin: Bool {
+        phase != .working && canHoldPin && KitchenLinkManagerPinRules.isValid(pinInput)
+    }
 
     var canInvite: Bool {
         phase != .working && canManage
@@ -91,6 +109,13 @@ final class KitchenLinkTeamModel: ObservableObject {
                 config: config, session: session, venueSlug: config.venueSlug
             )
 
+            // Vor der Rechtefrage: die eigene PIN darf auch eine
+            // Schichtleitung hinterlegen, die diesen Bildschirm sonst nur
+            // lesen kann.
+            pinStatus = (try? await pin.pinStatus(
+                config: config, session: session, venueSlug: config.venueSlug
+            )) ?? .unknown
+
             guard myRole.can(.staffManage) else {
                 members = []
                 phase = .notAllowed(
@@ -105,6 +130,9 @@ final class KitchenLinkTeamModel: ObservableObject {
             members = try await transport.loadTeam(
                 config: config, session: session, venueSlug: config.venueSlug
             )
+            overrides = (try? await pin.recentOverrides(
+                config: config, session: session, venueSlug: config.venueSlug, limit: 20
+            )) ?? []
             phase = .ready
         } catch KitchenLinkCloudServiceError.unauthorized {
             store.clearSession()
@@ -205,6 +233,55 @@ final class KitchenLinkTeamModel: ObservableObject {
         }
     }
 
+    // MARK: - Eigene PIN (KL-ROLE-002)
+
+    /// Die PIN gehört der Person, nicht dem Lokal: nur sie selbst setzt sie.
+    /// Eine gemeinsame Haus-PIN könnte die Frage „wer hat das freigegeben?"
+    /// prinzipiell nicht beantworten (Blueprint §8.2).
+    func saveOwnPin() async {
+        guard let session = currentSession else {
+            phase = .needsSignIn
+            return
+        }
+        if let rejection = KitchenLinkManagerPinRules.rejection(for: pinInput) {
+            notice = rejection
+            return
+        }
+
+        phase = .working
+        do {
+            try await pin.setPin(
+                config: config, session: session,
+                venueSlug: config.venueSlug, pin: pinInput
+            )
+            pinInput = ""
+            notice = "PIN hinterlegt. Damit gibst du am Tisch einzelne Aktionen frei."
+            await load()
+        } catch {
+            notice = Self.explain(Self.message(for: error))
+            phase = .ready
+        }
+    }
+
+    func clearOwnPin() async {
+        guard let session = currentSession else {
+            phase = .needsSignIn
+            return
+        }
+        phase = .working
+        do {
+            try await pin.clearPin(
+                config: config, session: session,
+                venueSlug: config.venueSlug, userID: nil
+            )
+            notice = "PIN gelöscht. Du kannst am Tisch nichts mehr freigeben."
+            await load()
+        } catch {
+            notice = Self.explain(Self.message(for: error))
+            phase = .ready
+        }
+    }
+
     /// Die Sperren der Datenbank in einem Satz, der im Betrieb weiterhilft.
     /// `nonisolated`, weil hier nur ein String umgeschrieben wird.
     nonisolated static func explain(_ message: String) -> String {
@@ -220,6 +297,17 @@ final class KitchenLinkTeamModel: ObservableObject {
         }
         if message.contains("permission_denied") {
             return "Dafür fehlt diesem Zugang das Recht."
+        }
+        if message.contains("pin_no_authority") {
+            return "Eine PIN ergibt nur Sinn, wo sie etwas freigeben kann — "
+                + "diese Rolle trägt keines der vier Rechte."
+        }
+        if message.contains("pin_too_simple") {
+            return "Zu einfach. Keine durchgehend gleiche Ziffer und keine "
+                + "fortlaufende Zahlenreihe."
+        }
+        if message.contains("pin_invalid_format") {
+            return "Vier bis acht Ziffern."
         }
         return message
     }

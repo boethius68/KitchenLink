@@ -1323,10 +1323,24 @@ Nebenbefund und Fix: E-Mail-Platzhalter wurden blau statt grau gezeichnet, weil
 und die Adresse verlinkt. Betraf **fuenf** Stellen (Team, Restaurant, Tische,
 Service, Publish-Sheet); jetzt ueberall `Text(verbatim:)`.
 
-**Noch nicht enthalten:** Manager-PIN fuer eine einmalige Freigabe am Tisch
-(§9.1 nennt „besonderes Recht **oder** Manager-PIN"; das Recht allein erfuellt
-die Anforderung), eigene Rollen, Qualifikationen, Mitarbeiterprofile,
-Standortzuordnung ueber mehrere Venues.
+**Noch nicht enthalten:** eigene Rollen, Qualifikationen, Mitarbeiterprofile,
+Standortzuordnung ueber mehrere Venues. Der Manager-PIN kam mit KL-ROLE-002
+nach (31. Juli 2026): §9.1 verlangt „besonderes Recht **oder** Manager-PIN",
+und damit ist beides umgesetzt.
+
+## KL-ROLE-002 — Manager-PIN (Claude Code, 31. Juli 2026, erledigt)
+
+Zweite Haelfte von Blueprint §9.1. Eine Fuehrungskraft gibt am Tisch **eine**
+Aktion frei, ohne dass sich jemand ab- und anmeldet: PIN je Person (nicht je
+Lokal — sonst waere §8.2 „wer hat freigegeben?" nicht beantwortbar), bcrypt
+gehasht, einmaliger Token mit fuenf Minuten Gueltigkeit, Sperre nach fuenf
+Fehlversuchen, jede Freigabe protokolliert. Ueberbrueckbar sind `shift.open`,
+`shift.close`, `cash.movement` und `payments.refund`; `staff.manage`
+ausdruecklich nicht.
+
+Migration `20260731230000_manager_pin.sql`, SQL-Test
+`scripts/tests/manager-pin.sql`, App: Freigabe-Blatt in Kasse und Rechnung,
+eigene PIN und Freigabeprotokoll im Team-Bildschirm.
 
 ## Integrationsreihenfolge
 

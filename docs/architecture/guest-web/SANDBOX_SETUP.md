@@ -570,10 +570,79 @@ der letzte Inhaber bleibt Inhaber.
 alles") wird zu `owner`. Der Spaltendefault für neue Zeilen steht dagegen auf
 `service` — die geringste Befugnis.
 
-**Noch nicht enthalten:** Manager-PIN für eine einmalige Freigabe am Tisch
-(Blueprint §9.1 nennt „besonderes Recht **oder** Manager-PIN"; das Recht allein
-erfüllt die Anforderung, die PIN ist die nächste Scheibe), eigene Rollen,
-Qualifikationen, Mitarbeiterprofile und Rechte über mehrere Standorte.
+**Noch nicht enthalten:** eigene Rollen, Qualifikationen, Mitarbeiterprofile
+und Rechte über mehrere Standorte. Der Manager-PIN aus §9.1 kam mit KL-ROLE-002
+nach — siehe 6.10.
+
+## 6.10 Manager-PIN (KL-ROLE-002)
+
+Blueprint §9.1 verlangt „sensible Aktionen per besonderem Recht **oder**
+Manager-PIN". KL-ROLE-001 hat nur das Recht gebaut. Damit musste eine
+Servicekraft, die am Tisch eine Zahlung stornieren soll, den Manager physisch
+holen — die PIN ist genau für diesen Fall: eine Führungskraft gibt **eine**
+Aktion vor Ort frei, ohne dass sich jemand ab- und wieder anmeldet.
+
+1. Migration `20260731230000_manager_pin.sql` anwenden (Abschnitt 2).
+2. **Team** öffnen und unter *Deine PIN* vier bis acht Ziffern hinterlegen. Das
+   kann jeder, der eines der vier überbrückbaren Rechte trägt — also Inhaber,
+   Manager und Schichtleitung.
+3. Mit einem zweiten Konto in der Rolle *Service* anmelden und am Tisch eine
+   Zahlung stornieren wollen. Statt einer Sackgasse steht dort **Freigabe
+   holen**.
+4. Die Führungskraft tippt am selben Gerät ihre PIN ein — keinen Namen, keine
+   Anmeldung. Der Storno geht durch, das Gerät bleibt bei der Servicekraft
+   angemeldet.
+5. Im **Team**-Bildschirm steht die Freigabe danach unter *Freigaben*: wer, für
+   wen, wofür, wann erteilt und wann verbraucht.
+
+**Die PIN gehört einer Person, nicht dem Lokal.** Das folgt aus Blueprint §8.2
+(jeder Zahlungsvorgang ist auditiert): eine gemeinsame Haus-PIN könnte die Frage
+„wer hat das freigegeben?" prinzipiell nicht beantworten. Daraus folgt auch, was
+eine PIN darf — genau das, was ihr Inhaber selbst dürfte. Wird eine
+Führungskraft herabgestuft, gibt ihre PIN sofort nichts mehr frei, ohne dass
+jemand sie löschen müsste.
+
+**Vier der fünf Rechte sind überbrückbar, `staff.manage` nicht.** Wer per
+geliehener PIN Personal verwalten dürfte, könnte sich in derselben Minute selbst
+zum Inhaber machen; das wäre keine Freigabe für eine Aktion mehr, sondern eine
+dauerhafte Rechteerhöhung.
+
+| Aktion | Recht | Per PIN freigebbar |
+|---|---|---|
+| Schicht öffnen | `shift.open` | ja |
+| Kasse abschließen | `shift.close` | ja |
+| Bargeld bewegen | `cash.movement` | ja |
+| Zahlung stornieren | `payments.refund` | ja |
+| Personal verwalten | `staff.manage` | **nein** |
+
+**Eine Freigabe gilt einmal**, fünf Minuten lang, für diese Aktion, dieses
+Lokal und diesen Zugang — sie ist nicht weiterreichbar. Der Token wird beim
+Verbrauchen in derselben Anweisung als benutzt markiert, die ihn prüft; zwei
+gleichzeitige Versuche können also nicht beide gewinnen.
+
+**Gegen Ausprobieren:** die PIN liegt als bcrypt-Hash (`extensions.crypt`), nie
+im Klartext, und nach fünf Fehlversuchen ist das **anfragende Gerät** fünf
+Minuten gesperrt — nicht das Lokal, denn eine falsche PIN gehört zu niemandem.
+Führen zwei Personen dieselbe PIN, wird nichts freigegeben (`pin_ambiguous`):
+eine Freigabe, die sich niemandem zuordnen lässt, ist für §8.2 wertlos.
+Durchgehend gleiche Ziffern (`0000`) und fortlaufende Reihen (`1234`) werden
+abgelehnt.
+
+`manager_pins`, `manager_pin_attempts` und `manager_overrides` haben Row Level
+Security **ohne Policy** und ohne Grants für `anon`/`authenticated`: kein Client
+liest dort je eine Zeile. Gelesen wird nur über `operator_recent_overrides`,
+das sein eigenes Recht prüft und den Token-Hash nicht herausgibt.
+
+**Vorführbar ohne zweites Konto:** das Launch-Argument
+`--kitchenlink-demo-service-role` lässt die Demo-Pfade die Rolle `service`
+melden (der Demo-Zugang ist sonst Inhaber und darf alles). Zusammen mit
+`--kitchenlink-demo-tables` sind Sperre und Freigabe damit im Simulator
+durchspielbar; die Demo-Schichtleitung hat die PIN `4711`, sie steht auch auf
+dem Blatt.
+
+**Noch nicht enthalten:** eine Freigabe an ein bestimmtes Objekt zu binden (der
+Bezug wird protokolliert, aber nicht erzwungen), PIN-Rotationsfristen, und eine
+Freigabe aus der Ferne (das Gerät der Führungskraft bestätigt statt ihrer PIN).
 
 ---
 
@@ -598,4 +667,6 @@ Qualifikationen, Mitarbeiterprofile und Rechte über mehrere Standorte.
 | `permission denied` auf RPC | Migration 20260717… nicht angewendet (grants fehlen) |
 | Gastkarte meldet „Tisch nicht erkannt" | Migration `20260730120000` nicht angewendet, Token rotiert oder Tisch stillgelegt |
 | App meldet `column tables.area does not exist` | Migration `20260730120000` fehlt auf der Instanz |
+| „Freigabe holen" fehlt trotz fehlendem Recht | Niemand hat eine PIN hinterlegt (Abschnitt 6.10), oder Migration `20260731230000` fehlt |
+| `permission_override_invalid` beim Stornieren | Freigabe abgelaufen (5 Minuten), schon verbraucht, oder sie gehört zu einer anderen Aktion bzw. einem anderen Zugang |
 | Bestellung klappt lokal, nicht auf Hostinger | Env-Variablen im Hostinger-Projekt fehlen oder die URL endet fälschlich auf `.supabase.com` statt `.supabase.co` (Abschnitt 5) |

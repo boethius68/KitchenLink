@@ -752,10 +752,50 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   13 UI tests, a simulator run with a role change. Migration applied and
   verified on the instance.
   **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.9).
+- **Manager PIN (KL-ROLE-002, 31 July):** the other half of Blueprint §9.1,
+  which asks for sensitive actions "by special permission **or** manager PIN".
+  KL-ROLE-001 built only the permission — so a service hand who had to refund a
+  payment at the table had to go and fetch the manager. Now a lead authorises
+  **one** action on the spot, and nobody signs out and back in.
+  **The PIN belongs to a person, not to the venue.** That is the load-bearing
+  decision and it follows from §8.2: a shared house PIN cannot answer "who
+  authorised this?" — it only proves someone in the building knew it. So every
+  lead sets their own, and the grant carries their name. What a PIN may
+  authorise follows from the same rule: exactly what its holder could do
+  themselves. Demote a lead and their PIN stops working the same second,
+  without anyone deleting it.
+  **Four of the five permissions are overridable, `staff.manage` is not.**
+  Someone who could manage staff on a borrowed PIN would make themselves an
+  owner in the same minute — that is not an authorisation for one action but a
+  permanent escalation.
+  A grant is single-use, five minutes, one venue, one permission, one requester,
+  and it is claimed in the same statement that checks it, so two devices cannot
+  both win. The PIN is stored as a bcrypt hash (`extensions.crypt`), five wrong
+  attempts lock the **requesting device** (not the venue — a wrong PIN belongs
+  to nobody), and two people sharing a PIN authorise nothing rather than
+  producing an unattributable grant. `manager_pins`,
+  `manager_pin_attempts` and `manager_overrides` carry RLS with **no policy**
+  and no grants: no client ever reads a row; the audit is read through
+  `operator_recent_overrides`, which never hands out the token hash.
+  In the app: a shared authorisation sheet used by both the till and the check,
+  own-PIN management and the grant log under `Team`. The four money RPCs each
+  gained one defaulted `p_override_token` parameter (drop + create in the same
+  transaction, as with `guest_web_submit_order_v2`); callers without a grant are
+  unchanged.
+  New launch argument `--kitchenlink-demo-service-role`: the demo account owns
+  its venue and may do everything, so the *locked* state from KL-ROLE-001 — and
+  with it the PIN — could not be shown at all. It can now, in the simulator and
+  in a UI test.
+  Verified against real PostgreSQL in its own test venue (17 checked sections incl.
+  single use, wrong action, wrong requester, expiry, demoted grantor, lockout,
+  ambiguity, `staff.manage` refused, RLS), 512 iOS unit tests, 10 UI tests, and
+  a simulator run through both flows. Migration applied and verified on the
+  instance.
+  **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.10).
 - **Milestone 2 remainder:** shift planning and time tracking (§9.2/§9.3). The
   workforce domain for it exists and is tested (`Features/Workforce/`, 38 tests)
   but has **zero references** from the app — a foundation waiting for
-  persistence and a screen. Also open from §9.1: manager PIN for a one-off
-  authorisation at the table, custom roles, staff profiles.
+  persistence and a screen. Also open from §9.1: custom roles, qualifications,
+  staff profiles and permissions across several locations.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.
