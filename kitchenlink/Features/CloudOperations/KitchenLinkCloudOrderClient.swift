@@ -45,11 +45,54 @@ struct KitchenLinkCloudConfig: Codable, Equatable {
     /// Verbindungsdaten eintippt; die Venue ist in der Sandbox `alte-muehle`.
     /// Für eine spätere Multi-Venue-/Produktionsphase ersetzt eine echte
     /// Konfigurationsquelle diese Konstante.
-    static let sandboxDefault = KitchenLinkCloudConfig(
-        supabaseURLString: "https://rjxlzqtaxqstctrrlqre.supabase.co",
-        anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqeGx6cXRheHFzdGN0cnJscXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTc5NTksImV4cCI6MjA5OTg5Mzk1OX0.lxml_3ka6lNeXlodO3JH5ExbWRtdbAInC1wpceC0uoQ",
-        venueSlug: "alte-muehle"
-    )
+    /// Instanz und Anon-Key bleiben eingebacken (die Sandbox hat genau eine
+    /// Instanz), **die Venue nicht mehr**: seit KL-ONBOARD-001 legt ein
+    /// Betreiber sein eigenes Restaurant an, und ab dann arbeitet die App mit
+    /// dessen Slug. Ohne eigenes Restaurant bleibt es beim Demo-Lokal.
+    static var sandboxDefault: KitchenLinkCloudConfig {
+        KitchenLinkCloudConfig(
+            supabaseURLString: sandboxURLString,
+            anonKey: sandboxAnonKey,
+            venueSlug: KitchenLinkActiveVenue.shared.slug
+        )
+    }
+
+    static let sandboxURLString = "https://rjxlzqtaxqstctrrlqre.supabase.co"
+    static let sandboxAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqeGx6cXRheHFzdGN0cnJscXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTc5NTksImV4cCI6MjA5OTg5Mzk1OX0.lxml_3ka6lNeXlodO3JH5ExbWRtdbAInC1wpceC0uoQ"
+    static let demoVenueSlug = "alte-muehle"
+}
+
+/// Welches Restaurant dieses Gerät gerade bedient (KL-ONBOARD-001).
+///
+/// Bewusst kein Geheimnis und deshalb in `UserDefaults`: der Slug steht ohnehin
+/// in der öffentlichen Gast-URL. Er wird beim Anlegen eines Restaurants und bei
+/// der Anmeldung gesetzt — nie von Hand eingetippt (Usability-Leitplanke).
+final class KitchenLinkActiveVenue: @unchecked Sendable {
+    static let shared = KitchenLinkActiveVenue()
+
+    private static let key = "kitchenlink.activeVenueSlug.v1"
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    var slug: String {
+        defaults.string(forKey: Self.key) ?? KitchenLinkCloudConfig.demoVenueSlug
+    }
+
+    /// True, solange der Betreiber noch beim mitgelieferten Demo-Lokal ist.
+    var isDemoVenue: Bool { slug == KitchenLinkCloudConfig.demoVenueSlug }
+
+    func set(slug newSlug: String) {
+        let trimmed = newSlug.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        defaults.set(trimmed, forKey: Self.key)
+    }
+
+    func reset() {
+        defaults.removeObject(forKey: Self.key)
+    }
 }
 
 struct KitchenLinkCloudSession: Codable, Equatable {
@@ -70,6 +113,8 @@ struct KitchenLinkCloudWireOrderItem: Codable, Equatable {
     let quantity: Int
     let unitPriceCents: Int
     let kind: String
+    /// KL-STATION-001: gesetzt, sobald die zuständige Station freigegeben hat.
+    let readyAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -77,6 +122,7 @@ struct KitchenLinkCloudWireOrderItem: Codable, Equatable {
         case quantity
         case unitPriceCents = "unit_price_cents"
         case kind
+        case readyAt = "ready_at"
     }
 }
 
@@ -138,7 +184,8 @@ struct KitchenLinkCloudWireOrder: Codable, Equatable {
                     name: item.name,
                     quantity: item.quantity,
                     unitPriceCents: item.unitPriceCents,
-                    kind: MenuItemKind(rawValue: item.kind) ?? .food
+                    kind: MenuItemKind(rawValue: item.kind) ?? .food,
+                    readyAt: item.readyAt.flatMap(KitchenLinkCloudTimestamp.parse)
                 )
             },
             totalCents: totalCents,
@@ -386,10 +433,45 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
         // (20260730120000). Ein Betrieb, der die App aktualisiert hat, aber die
         // Migration noch nicht, soll seine Bestellungen weiter sehen — die
         // Bestellliste braucht den Bereich nicht.
+        // `ready_at` je Position kommt erst mit der Stationsmigration
+        // (20260731140000). Ein Betrieb, der die App aktualisiert hat, aber die
+        // Migration noch nicht, soll seine Bestellungen weiter sehen — deshalb
+        // ein Versuch mit, ein Rückfall ohne. Sobald die Migration steht,
+        // greift wieder der erste Weg.
+        do {
+            return try await loadOrders(
+                config: config,
+                session: session,
+                venueID: venueID,
+                includeStationReadiness: true
+            )
+        } catch let error as KitchenLinkCloudServiceError {
+            guard case .server(_, let message) = error,
+                  message.contains("ready_at") else {
+                throw error
+            }
+            return try await loadOrders(
+                config: config,
+                session: session,
+                venueID: venueID,
+                includeStationReadiness: false
+            )
+        }
+    }
+
+    private func loadOrders(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueID: String,
+        includeStationReadiness: Bool
+    ) async throws -> [KitchenLinkCloudWireOrder] {
+        let itemColumns = includeStationReadiness
+            ? "id,name,quantity,unit_price_cents,kind,ready_at"
+            : "id,name,quantity,unit_price_cents,kind"
         let select = "id,created_at,status,total_cents,currency,service_mode,"
             + "customer_note,source_device,table_id,"
             + "tables(label),"
-            + "order_items(id,name,quantity,unit_price_cents,kind)"
+            + "order_items(\(itemColumns))"
         let data = try await get(
             config: config,
             bearer: session.accessToken,

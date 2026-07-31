@@ -17,6 +17,39 @@ enum KitchenLinkTableLabel {
     }
 }
 
+/// KL-STATION-001: Produktionsstation einer Position (Blueprint §7).
+///
+/// Zwei Stationen decken den Betrieb ab, für den KitchenLink startet: Küche und
+/// Bar. Die Zuordnung folgt der Artikelart, weil sie überall vorhanden ist —
+/// im Menü, in der Bestellung und in der Datenbank. Ein Betrieb mit eigenen
+/// Stationen (Pass, Grill, Dessert) bekommt später eine Zuordnung je Artikel;
+/// die Datenbank trägt die Station schon als eigenen Wert, damit das keine
+/// Umstellung wird.
+enum KitchenLinkStation: String, CaseIterable, Identifiable, Codable, Hashable {
+    case kitchen
+    case bar
+
+    var id: String { rawValue }
+
+    init(kind: MenuItemKind) {
+        self = kind == .drink ? .bar : .kitchen
+    }
+
+    var title: String {
+        switch self {
+        case .kitchen: return "Küche"
+        case .bar: return "Bar"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .kitchen: return "flame"
+        case .bar: return "wineglass"
+        }
+    }
+}
+
 enum ServiceMode: String, CaseIterable, Codable, Identifiable, Hashable {
     case dineIn = "dine_in"
     case bar

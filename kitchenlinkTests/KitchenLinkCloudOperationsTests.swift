@@ -186,7 +186,8 @@ struct KitchenLinkCloudOperationsTests {
                     name: "Kürbissuppe",
                     quantity: 2,
                     unitPriceCents: 690,
-                    kind: kind
+                    kind: kind,
+                    readyAt: nil
                 )
             ]
         )

@@ -653,5 +653,49 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   and receipt printing.
   **Pending:** applying `20260731100000` on the real instance and one real
   split payment (`SANDBOX_SETUP.md` §6.5).
+- **Stations and acceptance rule (KL-STATION-001 / KL-ORDER-001, 31 July):**
+  the last two open points of Milestone 1. `Service` now has `Küche | Bar |
+  Kellner`: each station sees only its own lines and releases only its own, and
+  an order becomes `ready` only when no station is still open — decided by
+  `operator_mark_station_ready` in the database, not by the app. The card names
+  the station that is still working (Blueprint §7). The station follows
+  `kind` (food → kitchen, drink → bar) but is stored as its own column, so a
+  later per-item assignment changes nothing structural.
+  `venues.order_confirmation_channels` carries the channels that need
+  confirmation; empty stays the documented default "automatically accepted".
+  Affected orders reach the station only after `accepted` and wait in their own
+  list with accept/reject. `rejected` was missing from the database status model
+  although Blueprint §6.4 lists it — it exists now, with reason and timestamp,
+  and only before acceptance (afterwards cancelling is the right move).
+  Deliberate boundary: station state lives in the cloud; purely local orders
+  (offline, one device) keep the whole-order bump, because station separation
+  solves a multi-device problem. The order read path falls back to the old
+  column list when `order_items.ready_at` is missing, so a venue that updated
+  the app but not yet the database still sees its orders.
+  **Pending:** applying `20260731140000` and `20260731160000` and one real run
+  across two stations (`SANDBOX_SETUP.md` §6.6).
+- **Own restaurant, and with it Milestone 1 (KL-ONBOARD-001, 31 July):** the
+  core pitch used to end where it should start — every scan went into the one
+  bundled demo venue, and a second restaurant needed hand-written SQL. An
+  operator can now create an account and their own restaurant in the app
+  (`operator_create_venue` makes the creator staff of it and seeds an empty
+  active menu; an anonymous guest explicitly cannot). The name comes from the
+  operator, the guest address follows from it — nobody invents a URL, and a
+  taken slug moves to a free variant instead of failing.
+  The load-bearing change is small and reaches everywhere:
+  `KitchenLinkCloudConfig.sandboxDefault` is no longer a constant but follows
+  the **active venue**. Instance and anon key stay baked in (the sandbox has one
+  instance), the venue does not. Scan-publish, tables, orders, stations and the
+  bill therefore work on the operator's own restaurant without further change —
+  every one of those RPCs already gates on `is_venue_staff`.
+  Verified against real PostgreSQL as a whole path in a fresh venue: create,
+  publish a menu, add a table, guest orders through the table QR, operator reads
+  the bill. Sandbox limit of five restaurants per account, against accidental
+  mass creation.
+  **Pending:** applying `20260731180000` and creating one real restaurant
+  (`SANDBOX_SETUP.md` §6.7).
+  **With this, Milestone 1 (`Scan bis Bezahlung`) is complete**: scan → review →
+  live guest menu → table QR → guest and waiter orders → acceptance rule →
+  kitchen and bar stations → served → split bill, tip and simulated payment.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

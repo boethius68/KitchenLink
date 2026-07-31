@@ -184,6 +184,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2VenueOnboardingView()
+            } label: {
+                operationsRow(
+                    title: "Restaurant",
+                    subtitle: "Konto, eigenes Lokal und Gast-Adresse",
+                    systemImage: "storefront"
+                )
+            }
+            .accessibilityIdentifier("business.openVenue")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 KitchenLinkV2TablesView()
             } label: {
                 operationsRow(

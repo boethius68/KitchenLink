@@ -56,7 +56,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **acht** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **17** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -68,6 +68,15 @@ Es gibt **acht** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260719200000_operator_publish_menu.sql` | Betreiber-RPC zum Veröffentlichen einer gescannten Karte (KL-MENU-005) |
 | `supabase/migrations/20260721120000_operator_publish_menu_legend_variants.sql` | Publish-V1 um Kennzeichnungslegenden und Legacy-Varianten erweitert |
 | `supabase/migrations/20260722120000_guest_menu_configurations.sql` | Rich-Optionsvertrag, Publish-/Order-V2 und Auswahl-Snapshot (KL-MENU-008) |
+| `supabase/migrations/20260723120000_operator_additive_menu_edit.sql` | Einzelne Artikel anlegen/ändern/löschen ohne Vollersatz (KL-MENU-009) |
+| `supabase/migrations/20260723150000_operator_item_availability.sql` | Verfügbarkeit und Zeitfenster je Artikel (KL-MENU-010) |
+| `supabase/migrations/20260724000000_operator_create_order.sql` | Cloud-Weg für lokal aufgenommene Bestellungen |
+| `supabase/migrations/20260730120000_table_context.sql` | Tische, QR-Tokens, Tisch-Session; RLS auf der Tischschicht (KL-TABLE-001) |
+| `supabase/migrations/20260730160000_operator_create_order_table.sql` | Kellnerbestellung mit Tisch, Idempotenz-Fix (KL-TABLE-002) |
+| `supabase/migrations/20260731100000_sandbox_payments.sql` | Rechnung, Trinkgeld, simulierte Zahlung, Storno (KL-PAY-001) |
+| `supabase/migrations/20260731140000_station_routing.sql` | Küche/Bar je Position, Stationsfreigabe (KL-STATION-001) |
+| `supabase/migrations/20260731160000_order_confirmation_rule.sql` | Bestätigungspflicht je Kanal, Status `rejected` (KL-ORDER-001) |
+| `supabase/migrations/20260731180000_operator_create_venue.sql` | Eigenes Restaurant anlegen, Slug-Vorschlag, eigene Venues (KL-ONBOARD-001) |
 
 ### Weg A — über die CLI (empfohlen)
 
@@ -87,7 +96,7 @@ supabase db push
 
 ### Weg B — über den SQL-Editor
 
-Dashboard → **SQL Editor** → nacheinander die acht Dateien aus
+Dashboard → **SQL Editor** → nacheinander die Dateien aus
 `supabase/migrations/` einfügen und **Run**. Reihenfolge einhalten.
 
 ### Verifikation des Schemas
@@ -388,6 +397,63 @@ Idempotenz-Schlüssel: ein wiederholter Versuch bucht nicht erneut.
 (§8.3), Onlinezahlung im Gast-Web, Gutschein-/Guthabenkonten, Zahlung bei
 Lieferung, Fiskalisierung und Belegdruck (§8.2 `FiscalizationProvider`,
 `ReceiptProvider`).
+
+## 6.6 Stationen und Annahmeregel (KL-STATION-001 / KL-ORDER-001)
+
+Blueprint §7 und §6.3 — die letzten beiden Punkte von Meilenstein 1.
+
+1. Migrationen `20260731140000_station_routing.sql` und
+   `20260731160000_order_confirmation_rule.sql` anwenden (Abschnitt 2).
+2. **Service** hat jetzt drei Modi: `Küche | Bar | Kellner`.
+   - Die Küche sieht nur Speisen, die Bar nur Getränke.
+   - Jede Station schaltet mit „Speisen fertig" bzw. „Getränke fertig" **nur
+     ihre eigenen** Positionen frei.
+   - Solange die andere Station arbeitet, steht das auf der Karte („Küche
+     arbeitet noch"). Erst wenn keine Station mehr offen ist, erscheint die
+     Bestellung beim Kellner.
+3. **Bestätigungspflicht** (optional): Standard ist automatische Annahme. Zum
+   Einschalten für einen Kanal, z. B. Abholung:
+
+   ```sql
+   select operator_set_confirmation_channels('alte-muehle', array['pickup']);
+   ```
+
+   Danach erscheinen Abholbestellungen zuerst unter **„Zu bestätigen"** mit
+   Annehmen und Ablehnen; die Station sieht sie erst nach dem Annehmen.
+   Zurück auf den Standard: `array[]::text[]`.
+
+**Semantik:** Die Station folgt der Artikelart (Speise → Küche, Getränk → Bar)
+und steht als eigene Spalte, damit eine spätere Zuordnung je Artikel nichts
+umbaut. Ablehnen ist nur vor der Annahme möglich — was schon läuft, wird
+storniert, nicht abgelehnt; das sind fachlich zwei verschiedene Dinge und sie
+sehen in den Daten auch verschieden aus.
+
+**Grenze, bewusst so:** Der Stationsstatus wird in der Cloud geführt. Rein
+lokale Bestellungen (Offline-Fall) behalten den Bump über die ganze Bestellung
+— die Stationstrennung löst ein Mehrgeräteproblem, und offline ist per
+Definition ein Gerät im Spiel.
+
+## 6.7 Eigenes Restaurant anlegen (KL-ONBOARD-001)
+
+Blueprint §5, Meilenstein 1.3 — ab hier braucht niemand mehr SQL, um ein
+Restaurant einzurichten.
+
+1. Migration `20260731180000_operator_create_venue.sql` anwenden (Abschnitt 2).
+2. In der App **Restaurant** öffnen (Startseite). Die Karte oben zeigt, welches
+   Lokal dieses iPhone gerade bedient — anfangs das mitgelieferte Demo-Lokal.
+3. Anmelden oder **Konto anlegen**. Verlangt die Instanz eine E-Mail-Bestätigung
+   (Supabase-Standard), sagt die App das und wartet auf die Anmeldung.
+4. Namen des Restaurants eingeben. Die Gast-Adresse wird darunter live
+   angezeigt; ein bereits vergebener Name weicht automatisch aus
+   (`…-2`). **Restaurant anlegen**.
+5. Ab sofort arbeiten Scan-Veröffentlichung, Tische, Bestellungen, Stationen
+   und Rechnung auf diesem Lokal. Über **Demo-Lokal verwenden** geht es für eine
+   Vorführung zurück.
+
+**Semantik:** Wer anlegt, wird automatisch Personal seiner Venue — der manuelle
+`venue_staff`-Eintrag aus §6.1 entfällt für neue Restaurants. Instanz und
+Anon-Key bleiben eingebacken; nur die Venue wechselt. In der Sandbox sind fünf
+Restaurants je Konto möglich.
 
 ---
 

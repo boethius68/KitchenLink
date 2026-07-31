@@ -1102,6 +1102,109 @@ der Ablauf im Simulator: eine Position gewaehlt, 10 % Trinkgeld, Karte ueber den
 simulierten Anbieter, Beleg mit Restbetrag, danach Storno mit wieder offener
 Position.
 
+### KL-STATION-001 / KL-ORDER-001 - Stationen und Annahmeregel
+
+**Status:** Implementiert auf `main` (31. Juli 2026); offen ist die reale
+Abnahme (Migrationen anwenden, einmal ueber zwei Stationen abarbeiten,
+`SANDBOX_SETUP.md` §6.6)
+**Abhaengigkeit:** KL-CLOUD-001, KL-TABLE-001/002
+**Schreibbereich:** `supabase/migrations/20260731140000_station_routing.sql`
+und `20260731160000_order_confirmation_rule.sql` (neu),
+`scripts/tests/stations-and-confirmation.sql` (neu),
+`kitchenlink/OrderingDomain.swift` (Station), `OrderRelayService.swift`
+(`LiveOrderLine.readyAt`), `Features/CloudOperations/` (Wire-Modell,
+Stations-Transport, schmale Modell-Zugriffe),
+`Features/LocalOperations/KitchenLinkV2LocalOperationsView.swift`,
+`kitchenlinkTests/KitchenLinkStationTests.swift` (neu), `SANDBOX_SETUP.md`,
+dieser Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+Schliesst die letzten beiden offenen Punkte von Meilenstein 1 (Blueprint §7
+und §6.3).
+
+- **Stationen (§7, Meilenstein 1.9):** `Service` hat jetzt `Küche | Bar |
+  Kellner`. Jede Station sieht **nur ihre** Positionen und gibt **nur ihre**
+  frei; der Barkeeper bekommt keine Schnitzelliste mehr. Die Zuordnung folgt
+  `kind` (Speise → Küche, Getränk → Bar) und steht als eigene Spalte
+  `order_items.station`, damit eine spätere Zuordnung je Artikel nichts
+  umbaut. Die Bestellung wird erst `ready`, wenn **keine** Station mehr offen
+  ist — das entscheidet `operator_mark_station_ready` in der Datenbank, nicht
+  die App. Die Karte nennt die noch arbeitende Station („Küche arbeitet
+  noch", §7).
+- **Annahmeregel (§6.3, Meilenstein 1.8):** `venues.order_confirmation_channels`
+  haelt die Kanaele mit Bestaetigungspflicht; leer bleibt der Standard
+  „automatisch angenommen". Betroffene Bestellungen erreichen die Station erst
+  nach `accepted` und stehen bis dahin in einer eigenen Liste mit Annehmen und
+  Ablehnen. `rejected` fehlte im Statusmodell der Datenbank, obwohl Blueprint
+  §6.4 es fuehrt — es ist jetzt da, mit Grund und Zeitstempel. Ablehnen ist nur
+  vor der Annahme moeglich; danach ist Stornieren der richtige Weg.
+
+**Grenze, bewusst so:** Der Stationsstatus wird in der Cloud gefuehrt. Rein
+lokale Bestellungen (Offline-Fall, ein Geraet) behalten den Bump ueber die
+ganze Bestellung — Stationstrennung loest ein Mehrgeraeteproblem, und offline
+ist per Definition ein Geraet im Spiel.
+
+**Vertraeglichkeit:** Der Bestell-Lesepfad faellt automatisch auf die alte
+Spaltenliste zurueck, wenn `order_items.ready_at` noch fehlt. Ein Betrieb, der
+die App aktualisiert hat, aber die Migration noch nicht, sieht seine
+Bestellungen weiter.
+
+Verifikation: SQL gegen echtes PostgreSQL (Station aus `kind` abgeleitet, erst
+beide Stationen machen `ready`, zweiter Tap ohne Wirkung, reine
+Getraenkebestellung braucht nur die Bar, unbekannte Station und fremde
+Identitaet abgewiesen, Regel nur fuer ihren Kanal, unbekannter Kanal abgelehnt,
+Ablehnen nur vor der Annahme, Replay), iOS 438 Testfaelle bestanden (weiterhin
+ein vorbestehender Fehlschlag in `MenuManualEditorUITests`), und der
+Simulator-Durchlauf: Bar zeigt nur Getraenke, meldet „Küche arbeitet noch" und
+schaltet mit „Getränke fertig".
+
+### KL-ONBOARD-001 - Konto und eigenes Restaurant (Meilenstein 1 abgeschlossen)
+
+**Status:** Implementiert auf `main` (31. Juli 2026); offen ist die reale
+Abnahme (Migration anwenden, eigenes Restaurant anlegen, `SANDBOX_SETUP.md` §6.7)
+**Abhaengigkeit:** KL-CLOUD-001 (Betreiberkonto), alle vorherigen Betreiber-RPCs
+**Schreibbereich:** `supabase/migrations/20260731180000_operator_create_venue.sql`
+(neu), `scripts/tests/venue-onboarding.sql` (neu),
+`kitchenlink/Features/Onboarding/` (neu),
+`Features/CloudOperations/KitchenLinkCloudOrderClient.swift` (aktive Venue),
+`App/KitchenLinkV2BusinessHomeView.swift`,
+`kitchenlinkTests/KitchenLinkVenueOnboardingTests.swift` (neu),
+`SANDBOX_SETUP.md`, dieser Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+Schliesst den letzten offenen Punkt von Meilenstein 1 (Blueprint §5,
+Meilenstein 1.3) — und damit **Meilenstein 1 insgesamt**.
+
+Der Kern-Pitch endete bisher genau dort, wo er anfangen sollte: gescannt wurde
+immer in die eine mitgelieferte Demo-Venue, und wer ein zweites Lokal sehen
+wollte, musste `venue_staff` von Hand per SQL anlegen (`SANDBOX_SETUP.md` §6.1).
+
+- **`operator_create_venue`** legt Venue an, macht den Anleger zum Personal und
+  erzeugt eine leere aktive Karte, damit die Gastseite sofort eine gueltige
+  Venue vorfindet. Ein anonymer Gast darf das ausdruecklich nicht.
+- **`operator_suggest_venue_slug`** weicht auf eine freie Variante aus, statt
+  den Betreiber raten zu lassen. Der Name kommt vom Betreiber, die Adresse
+  ergibt sich (Usability-Leitplanke: keine URL erfinden).
+- **`operator_my_venues`** ist die eine Quelle fuer „welche Venue gehoert mir".
+- **App:** neuer Bereich `Restaurant` (Konto anlegen oder anmelden, Restaurant
+  anlegen, zwischen eigenen Lokalen wechseln, zurueck ins Demo-Lokal).
+
+**Die tragende Aenderung ist klein und wirkt ueberall:**
+`KitchenLinkCloudConfig.sandboxDefault` ist keine Konstante mehr, sondern folgt
+der aktiven Venue. Instanz und Anon-Key bleiben eingebacken (die Sandbox hat
+genau eine Instanz), die Venue nicht. Damit arbeiten Scan-Publish, Tische,
+Bestellungen, Stationen und Rechnung ohne weitere Aenderung auf dem eigenen
+Lokal — jede dieser RPCs prueft ohnehin ueber `is_venue_staff`.
+
+Sandbox-Grenze: fuenf Restaurants je Konto, gegen versehentliche Massenanlage.
+Kein Produktlimit.
+
+Verifikation: SQL gegen echtes PostgreSQL — und zwar der **ganze Weg** im neuen
+Lokal: Venue anlegen, Karte veroeffentlichen, Tisch anlegen, Gast bestellt ueber
+den Tisch-QR, Betreiber liest die Rechnung. Dazu: fremdes Konto wird abgewiesen,
+anonymer Gast darf nichts anlegen, Name/Slug werden geprueft statt
+zurechtgebogen, Slug-Vorschlag weicht aus, Obergrenze greift. iOS-Unit-Tests
+gruen; Simulator-Durchlauf mit Anlegen, Aktivwerden, Liste und Rueckweg ins
+Demo-Lokal.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

@@ -61,11 +61,22 @@ struct KitchenLinkV2LocalOperationsView: View {
 }
 
 private struct KitchenLinkV2LocalOperationsContentView: View {
+    /// KL-STATION-001: Küche und Bar sind eigene Stationen (Blueprint §7) —
+    /// jede sieht nur ihre Positionen und gibt nur ihre frei.
     enum Mode: String, CaseIterable, Identifiable {
         case kitchen = "Küche"
+        case bar = "Bar"
         case waiter = "Kellner"
 
         var id: String { rawValue }
+
+        var station: KitchenLinkStation? {
+            switch self {
+            case .kitchen: return .kitchen
+            case .bar: return .bar
+            case .waiter: return nil
+            }
+        }
     }
 
     @Environment(\.scenePhase) private var scenePhase
@@ -84,6 +95,11 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
     @State private var isCloudSigningIn = false
     /// Vom Kellner auf diesem Gerät aufgenommene Bestellungen (KL-TABLE-002).
     @State private var waiterOrders: [LiveOrderMessage] = []
+    /// Kanäle mit Bestätigungspflicht (KL-ORDER-001). Leer = alles läuft
+    /// automatisch durch, das ist der Standardfall aus Blueprint §6.3.
+    @State private var confirmationChannels: [ServiceMode] = []
+    private let stationTransport: any KitchenLinkStationTransport =
+        URLSessionKitchenLinkCloudTransport()
 
     var body: some View {
         ZStack {
@@ -102,6 +118,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                     }
                     takeOrderLink
                     checkLink
+                    confirmationSection
                     orderSection
                     if cloud.connectionState != .signedOut {
                         cloudCard
@@ -125,6 +142,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
             cloud.connectIfPossible()
             hubDiscovery.start()
             reloadWaiterOrders()
+            await loadConfirmationChannels()
             await startVenueHub()
         }
         .task(id: venueHub.endpoint?.guestURL) {
@@ -172,18 +190,49 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
     }
 
     private var visibleOrders: [LiveOrderMessage] {
-        switch mode {
-        case .kitchen:
-            return KitchenLinkServiceOrderMerge.kitchenOrders(
-                local: localOrders,
-                online: cloud.orders
-            )
-        case .waiter:
+        guard let station = mode.station else {
             return KitchenLinkServiceOrderMerge.waiterOrders(
                 local: localOrders,
                 online: cloud.orders
             )
         }
+        let inProduction = KitchenLinkServiceOrderMerge.kitchenOrders(
+            local: localOrders,
+            online: cloud.orders
+        )
+        // Erst die Annahmeregel (§6.3): was auf Bestätigung wartet, geht die
+        // Station nichts an. Dann die Station selbst — eine Bestellung ohne
+        // offene Position dieser Station steht hier nicht.
+        return KitchenLinkOrderAcceptance
+            .stationVisible(orders: inProduction, confirmationChannels: confirmationChannels)
+            .filter { order in
+                order.items.contains { $0.station == station && !$0.isReady }
+            }
+    }
+
+    /// Bestellungen, die der Betrieb erst bestätigen muss.
+    private var ordersAwaitingConfirmation: [LiveOrderMessage] {
+        guard !confirmationChannels.isEmpty else { return [] }
+        return KitchenLinkOrderAcceptance.awaitingConfirmation(
+            orders: KitchenLinkServiceOrderMerge.kitchenOrders(
+                local: localOrders,
+                online: cloud.orders
+            ),
+            confirmationChannels: confirmationChannels
+        )
+    }
+
+    /// Positionen, die diese Station an einer Bestellung zu tun hat.
+    private func stationLines(_ order: LiveOrderMessage) -> [LiveOrderLine] {
+        guard let station = mode.station else { return order.items }
+        return order.items.filter { $0.station == station }
+    }
+
+    /// Stationen, die an dieser Bestellung noch arbeiten — ohne die eigene.
+    private func otherOpenStations(_ order: LiveOrderMessage) -> [KitchenLinkStation] {
+        let own = mode.station
+        let open = Set(order.items.filter { !$0.isReady }.map(\.station))
+        return KitchenLinkStation.allCases.filter { open.contains($0) && $0 != own }
     }
 
     private var header: some View {
@@ -192,9 +241,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                 Text(mode.rawValue)
                     .font(KitchenLinkV2Typography.display)
                     .foregroundStyle(KitchenLinkV2Palette.Content.primary)
-                Text(mode == .kitchen
-                     ? "Neue Bestellungen zubereiten – online und lokal."
-                     : "Fertige Bestellungen am Pass übernehmen.")
+                Text(headerDetail)
                     .font(KitchenLinkV2Typography.secondaryLine)
                     .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
             }
@@ -202,6 +249,17 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
             Spacer()
 
             connectionBadge
+        }
+    }
+
+    private var headerDetail: String {
+        switch mode {
+        case .kitchen:
+            return "Speisen zubereiten – online und lokal."
+        case .bar:
+            return "Getränke zubereiten – online und lokal."
+        case .waiter:
+            return "Fertige Bestellungen am Pass übernehmen."
         }
     }
 
@@ -748,7 +806,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
             .accessibilityIdentifier("localOperations.empty")
         } else {
             VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
-                Text(mode == .kitchen ? "IN ZUBEREITUNG" : "BEREIT AM PASS")
+                Text(mode.station != nil ? "IN ZUBEREITUNG" : "BEREIT AM PASS")
                     .font(KitchenLinkV2Typography.meta)
                     .tracking(1.25)
                     .foregroundStyle(KitchenLinkV2Palette.Content.muted)
@@ -764,19 +822,23 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
         if !cloud.isConnected && !model.isConnected {
             return "Keine Bestellungen."
         }
-        return mode == .kitchen ? "Keine neue Bestellung." : "Nichts zur Abholung bereit."
+        switch mode {
+        case .kitchen: return "Keine neue Speise."
+        case .bar: return "Kein neues Getränk."
+        case .waiter: return "Nichts zur Abholung bereit."
+        }
     }
 
     private var emptyDetail: String {
         if !cloud.isConnected && !model.isConnected {
             return "Bestellungen werden lokal auf diesem iPhone gespeichert – auch ohne Verbindung zu Cloud oder Hub."
         }
-        if mode == .kitchen {
+        if mode.station != nil {
             return cloud.isConnected
                 ? "Online- und lokale Bestellungen erscheinen hier automatisch."
                 : "Der Online-Service ist nicht verbunden. Lokale Bestellungen erscheinen hier automatisch."
         }
-        return "Sobald die Küche eine Bestellung als zubereitet markiert, erscheint sie hier."
+        return "Sobald Küche und Bar ihre Positionen freigegeben haben, erscheint die Bestellung hier."
     }
 
     private func orderCard(_ order: LiveOrderMessage) -> some View {
@@ -802,12 +864,25 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                     .kitchenLinkV2TabularNumbers()
             }
 
+            // KL-STATION-001: Eine Station sieht nur, was sie selbst zu tun
+            // hat. Der Barkeeper bekommt keine Schnitzelliste.
             VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
-                ForEach(order.items) { line in
+                ForEach(stationLines(order)) { line in
                     Text("\(line.quantity)× \(line.name)")
                         .font(KitchenLinkV2Typography.primaryLine)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                        .foregroundStyle(line.isReady
+                            ? KitchenLinkV2Palette.Content.muted
+                            : KitchenLinkV2Palette.Content.primary)
                 }
+            }
+
+            // „Service sieht, welche Station noch arbeitet" (Blueprint §7).
+            if !otherOpenStations(order).isEmpty {
+                Text(otherOpenStations(order).map(\.title).joined(separator: " und ")
+                     + " arbeitet noch")
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                    .accessibilityIdentifier("localOperations.openStations")
             }
 
             if !order.customerNote.isEmpty {
@@ -820,7 +895,9 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
             Button(actionTitle) {
                 advance(order)
             }
-            .buttonStyle(mode == .kitchen
+            // Der Stations-Bump behält seinen hellen, nassen-Händen-tauglichen
+            // Stil; der Kellner bekommt die normale Primäraktion.
+            .buttonStyle(mode.station != nil
                          ? AnyKitchenLinkV2ButtonStyle(KitchenLinkV2KitchenBumpButtonStyle())
                          : AnyKitchenLinkV2ButtonStyle(KitchenLinkV2PrimaryButtonStyle()))
             .disabled(model.isUpdatingOrder || cloud.isUpdatingOrder)
@@ -836,7 +913,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                 topLeadingRadius: KitchenLinkV2Radius.card,
                 topTrailingRadius: KitchenLinkV2Radius.card
             )
-            .fill(mode == .kitchen
+            .fill(mode.station != nil
                   ? KitchenLinkV2Palette.Urgency.neutralSymbol
                   : KitchenLinkV2Palette.Urgency.freshSymbol)
             .frame(height: 3)
@@ -846,7 +923,99 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
     }
 
     private var actionTitle: String {
-        mode == .kitchen ? "Bestellung zubereitet" : "Bestellung serviert"
+        switch mode {
+        case .kitchen: return "Speisen fertig"
+        case .bar: return "Getränke fertig"
+        case .waiter: return "Bestellung serviert"
+        }
+    }
+
+    /// KL-ORDER-001: Bestellungen, die der Betrieb erst annehmen muss. Sie
+    /// stehen über der Stationsliste — solange hier etwas liegt, wartet ein
+    /// Gast auf eine Antwort.
+    @ViewBuilder
+    private var confirmationSection: some View {
+        if !ordersAwaitingConfirmation.isEmpty {
+            VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+                Text("ZU BESTÄTIGEN")
+                    .font(KitchenLinkV2Typography.meta)
+                    .tracking(1.25)
+                    .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+
+                ForEach(ordersAwaitingConfirmation) { order in
+                    VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(orderTitle(order))
+                                    .font(KitchenLinkV2Typography.primaryLine)
+                                Text(orderSubtitle(order))
+                                    .font(KitchenLinkV2Typography.meta)
+                                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                            }
+                            Spacer()
+                            Text(KitchenLinkV2AmountText.euro(cents: order.totalCents))
+                                .font(KitchenLinkV2Typography.primaryLine)
+                                .kitchenLinkV2TabularNumbers()
+                        }
+
+                        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.xSmall) {
+                            ForEach(order.items) { line in
+                                Text("\(line.quantity)× \(line.name)")
+                                    .font(KitchenLinkV2Typography.primaryLine)
+                            }
+                        }
+
+                        HStack(spacing: KitchenLinkV2Spacing.medium) {
+                            Button("Ablehnen") { reject(order) }
+                                .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                                .accessibilityIdentifier("localOperations.reject")
+                            Button("Annehmen") { accept(order) }
+                                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                                .accessibilityIdentifier("localOperations.accept")
+                        }
+                    }
+                    .padding(KitchenLinkV2Spacing.large)
+                    .background(
+                        KitchenLinkV2Palette.Surface.raised,
+                        in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                            .stroke(KitchenLinkV2Palette.Urgency.waitingSymbol, lineWidth: 1)
+                    }
+                }
+            }
+            .accessibilityIdentifier("localOperations.confirmationSection")
+        }
+    }
+
+    private func accept(_ order: LiveOrderMessage) {
+        Task {
+            if await cloud.update(order: order, to: .accepted) {
+                successFeedback += 1
+            }
+        }
+    }
+
+    private func reject(_ order: LiveOrderMessage) {
+        Task {
+            guard let session = cloud.currentSession else { return }
+            try? await stationTransport.rejectOrder(
+                config: cloud.currentConfig,
+                session: session,
+                venueSlug: cloud.currentConfig.venueSlug,
+                orderID: order.id,
+                reason: "Vom Betrieb abgelehnt"
+            )
+            await cloud.refreshOrders()
+        }
+    }
+
+    private func loadConfirmationChannels() async {
+        confirmationChannels = (try? await stationTransport.loadConfirmationChannels(
+            config: cloud.currentConfig,
+            venueSlug: cloud.currentConfig.venueSlug
+        )) ?? []
     }
 
     private func orderTitle(_ order: LiveOrderMessage) -> String {
@@ -872,7 +1041,15 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
     }
 
     private func advance(_ order: LiveOrderMessage) {
-        let target: OrderLifecycleStatus = mode == .kitchen ? .ready : .served
+        // In einem Stationsmodus gibt der Tap **nur diese Station** frei; die
+        // Bestellung wird erst bereit, wenn keine Station mehr offen ist. Das
+        // entscheidet die Datenbank, nicht die App.
+        if let station = mode.station, cloud.containsOrder(id: order.id) {
+            releaseStation(order, station: station)
+            return
+        }
+
+        let target: OrderLifecycleStatus = mode.station != nil ? .ready : .served
         Task {
             let success: Bool
             if cloud.containsOrder(id: order.id) {
@@ -890,6 +1067,27 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
             }
             if success {
                 successFeedback += 1
+            }
+        }
+    }
+
+    private func releaseStation(_ order: LiveOrderMessage, station: KitchenLinkStation) {
+        Task {
+            guard let session = cloud.currentSession else { return }
+            do {
+                _ = try await stationTransport.markStationReady(
+                    config: cloud.currentConfig,
+                    session: session,
+                    venueSlug: cloud.currentConfig.venueSlug,
+                    orderID: order.id,
+                    station: station
+                )
+                successFeedback += 1
+                await cloud.refreshOrders()
+            } catch {
+                // Der Fehler steht im Verbindungsbereich; die Bestellung bleibt
+                // sichtbar, damit niemand glaubt, sie sei durch.
+                await cloud.refreshOrders()
             }
         }
     }

@@ -1,6 +1,8 @@
 # Claude Code Handoff
 
-**Updated:** 31 July 2026 (Session-Teil 32: KL-PAY-001, Rechnung und Zahlung)
+**Updated:** 31 July 2026 (Session-Teil 34: Meilenstein 1 abgeschlossen)
+**Zuvor:** 31 July 2026 (Session-Teil 33: Stationen und Annahmeregel)
+**Zuvor:** 31 July 2026 (Session-Teil 32: KL-PAY-001, Rechnung und Zahlung)
 **Zuvor:** 31 July 2026 (Session-Teil 31: KL-TABLE-002, Kellnerbestellung)
 **Zuvor:** 30 July 2026 (Session-Teil 30: KL-TABLE-001, Tischkontext)
 **Zuvor:** 30 July 2026 (Session-Teil 29: Staffelregel belegt, drei Fehlerklassen geschlossen)
@@ -8,6 +10,141 @@
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 34: Eigenes Restaurant — Meilenstein 1 abgeschlossen (31. Juli 2026)
+
+### Anlass
+
+Der letzte offene Punkt von Meilenstein 1: „Konto und Restaurant aus dem
+Scan-Ergebnis anlegen" (1.3). Bis hierher gab es genau eine Venue,
+`alte-muehle`, im Seed angelegt und in der App fest verdrahtet. Wer das Produkt
+für ein zweites Lokal sehen wollte, musste `venue_staff` von Hand per SQL
+setzen — der Kern-Pitch endete an der Stelle, an der er anfangen sollte.
+
+### Umgesetzt
+
+- **Migration `20260731180000`:** `operator_create_venue` (legt Venue an, macht
+  den Anleger zum Personal, erzeugt eine leere aktive Karte),
+  `operator_suggest_venue_slug` (weicht auf eine freie Variante aus) und
+  `operator_my_venues`. Ein anonymer Gast darf ausdrücklich kein Restaurant
+  eröffnen; Sandbox-Grenze fünf Lokale je Konto.
+- **App:** neuer Bereich `Restaurant` — Konto anlegen oder anmelden, Name
+  eingeben, fertig. Die Gast-Adresse steht live unter dem Namensfeld, damit
+  sichtbar ist, was der Name bewirkt.
+
+### Die eigentliche Änderung ist eine Zeile
+
+`KitchenLinkCloudConfig.sandboxDefault` war eine Konstante mit
+`venueSlug: "alte-muehle"` und ist der Standardwert **jedes** Cloud-Modells
+(19 Stellen). Jetzt ist es eine berechnete Eigenschaft, die der aktiven Venue
+folgt. Damit arbeiten Scan-Publish, Tische, Bestellungen, Stationen und
+Rechnung ohne weitere Änderung auf dem eigenen Lokal — jede dieser RPCs prüft
+ohnehin über `is_venue_staff`. Instanz und Anon-Key bleiben eingebacken; die
+Sandbox hat genau eine Instanz, aber nicht mehr genau ein Restaurant.
+
+Ein Test sichert genau das ab (`dieGeteilteKonfigurationFolgtDerAktivenVenue`):
+folgt der Standardwert nicht, arbeitet die halbe App weiter im Demo-Lokal, ohne
+dass es jemand merkt.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL, und zwar der ganze Weg im neuen Lokal:** Venue
+  anlegen → Karte veröffentlichen → Tisch anlegen → Gast bestellt über den
+  Tisch-QR → Betreiber liest die Rechnung (20,70 €). Dazu: fremdes Konto
+  abgewiesen, anonymer Gast darf nichts anlegen, Name und Slug werden geprüft
+  statt zurechtgebogen, Slug-Vorschlag weicht aus, Obergrenze greift.
+- **iOS-Unit-Tests grün**, darunter die Umlautbehandlung
+  („Gasthaus Zur Mühle" → `gasthaus-zur-muehle`) und der bewusste Verzicht auf
+  einen Notnagel-Slug: ein unbrauchbarer Name legt nichts an, statt ein Lokal
+  namens `artikel` zu erzeugen.
+- **Simulator:** Restaurant angelegt, es wurde sofort das aktive, erscheint in
+  „Meine Restaurants", Rückweg ins Demo-Lokal funktioniert.
+
+### Damit ist Meilenstein 1 abgeschlossen
+
+Scan → Prüfung → Live-Gastkarte → Tisch-QR → Gast- **und** Kellnerbestellung →
+Annahmeregel → Küche und Bar als getrennte Stationen → serviert → getrennte
+Rechnung, Trinkgeld und simulierte Zahlung. Und seit dieser Scheibe für ein
+Lokal, das der Betreiber selbst anlegt.
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme** der vier Migrationen dieser Sitzung
+   (`20260731100000`, `140000`, `160000`, `180000`), Anleitung in
+   `SANDBOX_SETUP.md` §6.5 bis §6.7.
+2. **Meilenstein 2:** Betriebsschicht und Tagesabschluss (§8.3), Rollen und
+   Rechte (§9.1), die getestete Schichtplanungs-Domäne sichtbar machen.
+3. Aus dieser Scheibe offen: der Scan legt noch kein Restaurant *automatisch*
+   an — der Betreiber macht es einmal unter `Restaurant`. Eine Verknüpfung
+   direkt aus dem Import-Review wäre der nächste Schliff.
+
+## Session-Teil 33: Stationen und Annahmeregel (31. Juli 2026)
+
+### Anlass
+
+Auf die Frage nach dem weiteren Vorgehen habe ich zuerst eine eigene Aussage
+korrigiert: Meilenstein 1 war nach der Zahlung **nicht** geschlossen. Offen
+waren Punkt 8 (Annahmeregel), Punkt 9 (Küchen-/Bar-Routing) und Punkt 3
+(Restaurant aus dem Scan). Der Nutzer hat 8 und 9 gewählt.
+
+### Umgesetzt
+
+- **Stationen (§7):** `order_items.station` (aus `kind` per Trigger) und
+  `ready_at`, dazu `operator_mark_station_ready`. `Service` hat jetzt
+  `Küche | Bar | Kellner`; jede Station sieht nur ihre Positionen und gibt nur
+  ihre frei. **Die Bestellung wird erst `ready`, wenn keine Station mehr offen
+  ist** — das entscheidet die Datenbank. Die Karte nennt die noch arbeitende
+  Station.
+- **Annahmeregel (§6.3):** `venues.order_confirmation_channels`, dazu
+  `operator_set_confirmation_channels` und `operator_reject_order`. Leer bleibt
+  der dokumentierte Standard „automatisch angenommen". Betroffene Bestellungen
+  stehen in einer eigenen Liste über der Stationsliste.
+- **`rejected` fehlte in der Datenbank**, obwohl Blueprint §6.4 es führt. Ohne
+  den Wert hätte eine abgelehnte Bestellung als `canceled` verbucht werden
+  müssen — das ist etwas anderes: storniert wird, was schon lief. Jetzt mit
+  Grund und Zeitstempel, und nur vor der Annahme möglich.
+
+### Eine Lehre aus der vorigen Scheibe angewandt
+
+Bei KL-TABLE-001 hatte ich `tables(area)` in den Bestell-Lesepfad genommen und
+damit die Bestellliste auf einer Instanz ohne Migration lahmgelegt (im
+Simulator aufgefallen). Diesmal habe ich das vorweggenommen: `loadOrders`
+versucht die Abfrage mit `ready_at` und fällt bei „Spalte gibt es nicht"
+einmalig auf die alte Spaltenliste zurück. Ein Betrieb, der die App
+aktualisiert hat, aber die Migration noch nicht, sieht seine Bestellungen
+weiter — und sobald die Migration steht, greift wieder der erste Weg.
+
+### Bewusste Grenze
+
+Der Stationsstatus wird in der Cloud geführt. Rein lokale Bestellungen
+behalten den Bump über die ganze Bestellung. Begründung: Stationstrennung löst
+ein Mehrgeräteproblem (Küche am iPhone, Bar am iPad), und der reine
+Offline-Fall ist per Definition ein Gerät. Sobald eine lokal aufgenommene
+Bestellung synchronisiert ist, gilt für sie der Stationsweg.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL:** Station aus `kind` abgeleitet, erst beide
+  Stationen machen `ready`, zweiter Tap ohne Wirkung, reine Getränkebestellung
+  braucht nur die Bar, unbekannte Station und fremde Identität abgewiesen,
+  Regel nur für ihren Kanal, unbekannter Kanal abgelehnt ohne etwas zu
+  überschreiben, Ablehnen nur vor der Annahme, Storno-Replay.
+- **iOS: 438 Testfälle bestanden, 1 Fehlschlag** — weiterhin der vorbestehende
+  `MenuManualEditorUITests`.
+- **Simulator:** Bar zeigt nur Getränke, meldet „Küche arbeitet noch" und
+  schaltet mit „Getränke fertig". Dabei drei Reste der alten Zwei-Modi-Logik
+  gefunden und behoben (Abschnittstitel, Knopftext, Kartenfarbe hatten `Bar`
+  wie den Kellner behandelt).
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme:** beide Migrationen anwenden, einmal über zwei Stationen
+   abarbeiten (`SANDBOX_SETUP.md` §6.6).
+2. **Meilenstein 1 hat noch Punkt 3:** Konto und Restaurant aus dem
+   Scan-Ergebnis anlegen. Es gibt weiterhin genau eine fest verdrahtete
+   Sandbox-Venue.
+3. Danach Meilenstein 2: §8.3 Betriebsschicht und Tagesabschluss, Rollen und
+   Rechte, die Schichtplanung sichtbar machen.
 
 ## Session-Teil 32: KL-PAY-001 — Rechnung und Zahlung (31. Juli 2026)
 
