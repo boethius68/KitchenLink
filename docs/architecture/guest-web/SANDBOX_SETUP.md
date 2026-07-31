@@ -61,7 +61,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **18** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **19** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -83,8 +83,9 @@ Es gibt **18** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260731160000_order_confirmation_rule.sql` | Bestätigungspflicht je Kanal, Status `rejected` (KL-ORDER-001) |
 | `supabase/migrations/20260731180000_operator_create_venue.sql` | Eigenes Restaurant anlegen, Slug-Vorschlag, eigene Venues (KL-ONBOARD-001) |
 | `supabase/migrations/20260731200000_business_shift.sql` | Betriebsschicht, Bargeldbewegungen, Kassenabschluss und Z-Bericht (KL-SHIFT-001) |
+| `supabase/migrations/20260731220000_roles_and_permissions.sql` | Standardrollen je Venue, fünf Rechte, Personalverwaltung (KL-ROLE-001) |
 
-> **Stand der Sandbox-Instanz (31. Juli 2026):** alle 18 sind angewendet,
+> **Stand der Sandbox-Instanz (31. Juli 2026):** alle 19 sind angewendet,
 > `supabase migration list` ist deckungsgleich. Geprüft nach dem Push: keine
 > Tabelle im Schema `public` ohne RLS, sechs aktive Tische, die RPCs
 > `operator_table_check`, `operator_record_payment`,
@@ -519,10 +520,60 @@ verlangt eine offene Kasse. Und die Abweichung wird festgehalten, nicht
 verhindert — offene Rechnungen werden vor dem Abschluss gewarnt, aber nicht
 erzwungen.
 
-**Noch nicht enthalten** (eigene Scheiben): Rollen und Rechte (§9.1),
-Schichtplanung und Zeiterfassung (§9.2/§9.3 — die Domäne dafür liegt getestet
-unter `Features/Workforce/`, ist aber noch nirgends sichtbar), Kassenbuch und
-Ausgabenbelege (§20 Meilenstein 6), Fiskalisierung und Belegdruck.
+**Noch nicht enthalten** (eigene Scheiben): Schichtplanung und Zeiterfassung
+(§9.2/§9.3 — die Domäne dafür liegt getestet unter `Features/Workforce/`, ist
+aber noch nirgends sichtbar), Kassenbuch und Ausgabenbelege (§20 Meilenstein 6),
+Fiskalisierung und Belegdruck.
+
+## 6.9 Rollen und Rechte (KL-ROLE-001)
+
+Blueprint §9.1, Meilenstein 2 — bis hierher galt: **wer angemeldet ist, darf
+alles.** Jede Servicekraft konnte die Kasse abschließen und Zahlungen
+stornieren.
+
+1. Migration `20260731220000_roles_and_permissions.sql` anwenden (Abschnitt 2).
+2. **Team** öffnen (Startseite). Der Bildschirm ist selbst rechtepflichtig: ohne
+   `staff.manage` zeigt er die Rollenübersicht, aber kein Personal.
+3. Rolle einer Person über das Menü rechts in ihrer Zeile ändern.
+4. Jemanden hinzufügen: die Person **registriert sich zuerst selbst** in der App
+   (Bereich `Restaurant` → Konto anlegen), danach ordnest du ihre E-Mail zu.
+   KitchenLink legt keine fremden Konten an.
+
+**Der Zuschnitt ist bewusst eng.** Es gibt genau fünf Rechte, und alle fünf
+werden auch geprüft — kein Recht steht in der Liste, das nirgends wirkt:
+
+| Recht | Wirkt auf |
+|---|---|
+| `shift.open` | `operator_open_shift` |
+| `shift.close` | `operator_close_shift` |
+| `cash.movement` | `operator_record_cash_movement` |
+| `payments.refund` | `operator_refund_payment` |
+| `staff.manage` | `operator_venue_team`, `operator_add_staff`, `operator_set_staff_role`, `operator_remove_staff` |
+
+Alles andere — bestellen, Status ändern, Station freigeben, kassieren, Rechnung
+und Kassenstand lesen — bleibt jedem Personal offen. Das ist keine Lücke,
+sondern der Betrieb: Küche, Bar und Service brauchen genau diese Handgriffe.
+Die Konfigurationsrechte (Karte veröffentlichen, Tische ändern) sind eine eigene
+Scheibe und kommen zusammen mit ihrer Durchsetzung, nicht davor.
+
+**Standardrollen** (§9.1): Inhaber und Manager tragen alle fünf Rechte,
+Schichtleitung alle außer `staff.manage`, Service, Küche, Bar, Fahrer, Lager und
+Buchhaltung keines. Sie liegen **je Venue** in `venue_roles` statt als
+Aufzählung im Code — „eigene Rollen mit granularen Rechten" (§9.1) ist damit
+später ein Datensatz mehr, kein Umbau.
+
+**Drei Sperren** verhindern, dass eine Venue führungslos wird: niemand ändert
+oder entfernt den eigenen Zugang, nur ein Inhaber kann einen Inhaber ändern, und
+der letzte Inhaber bleibt Inhaber.
+
+**Bestandspersonal verliert nichts:** die Rolle `operator` (faktisch „darf
+alles") wird zu `owner`. Der Spaltendefault für neue Zeilen steht dagegen auf
+`service` — die geringste Befugnis.
+
+**Noch nicht enthalten:** Manager-PIN für eine einmalige Freigabe am Tisch
+(Blueprint §9.1 nennt „besonderes Recht **oder** Manager-PIN"; das Recht allein
+erfüllt die Anforderung, die PIN ist die nächste Scheibe), eigene Rollen,
+Qualifikationen, Mitarbeiterprofile und Rechte über mehrere Standorte.
 
 ---
 

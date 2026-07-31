@@ -53,8 +53,8 @@ end;
 $$;
 
 -- Personal und zwei anonyme Gaeste.
-insert into public.venue_staff (user_id, venue_id)
-select '00000000-0000-0000-0000-0000000000aa', id
+insert into public.venue_staff (user_id, venue_id, role)
+select '00000000-0000-0000-0000-0000000000aa', id, 'owner'
 from public.venues where slug = 'alte-muehle'
 on conflict do nothing;
 

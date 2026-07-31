@@ -227,7 +227,7 @@ struct KitchenLinkTablesSignInCard: View {
                     .font(KitchenLinkV2Typography.secondaryLine)
                     .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
 
-                TextField("E-Mail", text: $email, prompt: Text("betreiber@restaurant.de"))
+                TextField("E-Mail", text: $email, prompt: Text(verbatim: "betreiber@restaurant.de"))
                     .textContentType(.emailAddress)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)

@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 31 July 2026 (Session-Teil 36: Betriebsschicht und Kassenabschluss)
+**Updated:** 31 July 2026 (Session-Teil 37: Rollen und Rechte)
+**Zuvor:** 31 July 2026 (Session-Teil 36: Betriebsschicht und Kassenabschluss)
 **Zuvor:** 31 July 2026 (Session-Teil 35: Migrationen selbst angewendet)
 **Zuvor:** 31 July 2026 (Session-Teil 34: Meilenstein 1 abgeschlossen)
 **Zuvor:** 31 July 2026 (Session-Teil 33: Stationen und Annahmeregel)
@@ -12,6 +13,104 @@
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 37: Rollen und Rechte (31. Juli 2026)
+
+### Anlass
+
+Zweiter Punkt von Meilenstein 2 (Blueprint §9.1). Bis hierher galt: **wer
+angemeldet ist, darf alles.** `is_venue_staff` prueft die Mitgliedschaft, nicht
+die Befugnis — jede Servicekraft konnte die Kasse abschliessen, stornieren und
+Geld entnehmen. Also genau die drei Handgriffe, die Session-Teil 36 gerade
+gebaut hatte.
+
+### Die eigentliche Entscheidung war der Zuschnitt
+
+Es gibt 25 `operator_`-RPCs. Sie alle mit einer Rechtepruefung zu versehen haette
+bedeutet, 25 Funktionsrumpfe zu kopieren — ein Wartungsalbtraum und eine
+Drift-Quelle. Ausserdem *sollen* die meisten jedem Personal offenstehen: die
+Kueche braucht `operator_mark_station_ready`, der Service
+`operator_record_payment`.
+
+Deshalb: **fuenf Rechte, alle fuenf erzwungen.** `shift.open`, `shift.close`,
+`cash.movement`, `payments.refund`, `staff.manage`. Kein Recht steht in der
+Liste, das nirgends geprueft wird — sonst zeigte der Team-Bildschirm Rollen mit
+Rechten an, die niemanden an irgendetwas hindern. Eine Rolle mit leerer
+Rechteliste heisst „darf alles Alltaegliche, nichts Sensibles"; das steht auch
+so auf dem Bildschirm.
+
+Verworfene Alternative: die Originalfunktionen per `alter function ... rename to`
+umbenennen und Wrapper davorsetzen. Kuerzer, aber ein Footgun — eine spaetere
+Migration mit `create or replace` auf den Originalnamen wuerde die Pruefung
+still entfernen.
+
+### Umgesetzt
+
+- `venue_roles` je Venue (nicht als Aufzaehlung im Code) mit den neun
+  Standardrollen aus §9.1; ein Trigger auf `venues` legt sie an. „Eigene Rollen
+  mit granularen Rechten" ist damit spaeter ein Datensatz, kein Umbau.
+- `venue_staff.role`: CHECK auf `'operator'` raus, Fremdschluessel auf
+  `venue_roles(venue_id, key)` rein.
+- `kitchenlink_require_permission` — ein Aufruf statt vier Zeilen je RPC.
+- Die vier Geldfunktionen ersetzt (nur die Gate-Zeile getauscht),
+  `operator_create_venue` vergibt `owner` statt `operator`.
+- `operator_my_permissions`, `operator_venue_team`, `operator_venue_roles`,
+  `operator_add_staff`, `operator_set_staff_role`, `operator_remove_staff`.
+- App: Bereich `Team`; die Kasse sperrt und **erklaert**.
+
+### Zwei Dinge, bei denen Sorgfalt noetig war
+
+- **Bestandspersonal:** `operator` wird zu `owner`, nicht zu `service`. Diese
+  Zeilen durften bis heute alles; ihnen per Migration Rechte zu nehmen waere
+  eine stille Entrechtung. Der Spaltendefault fuer *neue* Zeilen steht dagegen
+  auf `service`.
+- **`operator_create_venue` musste ersetzt werden** (wegen des
+  Fremdschluessels). Ich hatte den Rumpf zuerst aus dem Gedaechtnis nachgebaut
+  und dabei an fuenf Stellen abweichend geschrieben — unter anderem fehlte die
+  Slug-Obergrenze von 60 Zeichen, und drei Fehlerkennungen lauteten anders, auf
+  die `venue-onboarding.sql` prueft. Jetzt ist der Rumpf wortgleich mit dem
+  Original; geaendert ist genau ein Wort.
+
+### Verifikation
+
+- SQL gegen echtes PostgreSQL in einer **eigenen Testvenue**: Service wird bei
+  allen fuenf Aktionen abgewiesen und darf den Alltag weiterhin; Schichtleitung
+  darf die Kasse, aber kein Personal; alle drei Sperren belegt (Selbstaenderung,
+  Inhaberschutz, letzter Inhaber); Bestandspersonal behaelt seine Rechte; RLS
+  mit `set role`. Dazu ein `auth.users`-Stub (zwei Spalten, ohne Grants).
+- 483 iOS-Unit-Tests gruen, 13 UI-Tests gruen.
+- Simulator: Team-Bildschirm, Rollenwechsel, Liste sortiert sich neu.
+- Migration angewendet und auf der Instanz geprueft: neun Rollen, **null**
+  Zeilen auf der abgeschafften Rolle, das Bestandskonto ist Inhaber, weiterhin
+  keine Tabelle in `public` ohne RLS.
+
+### Zwei Fehler unterwegs
+
+- Das Modell prueft das Recht in den `can…`-Eigenschaften fuer die Knoepfe,
+  feuerte die Anfrage aber trotzdem — ein Test hat es aufgedeckt. Jetzt brechen
+  `openShift`, `bookMovement` und `closeShift` selbst ab.
+- E-Mail-Platzhalter wurden blau statt grau gezeichnet: `Text("…@…")` laeuft als
+  `LocalizedStringKey` durch die Markdown-Verarbeitung und verlinkt die
+  Adresse. Betraf **fuenf** Stellen (Team, Restaurant, Tische, Service,
+  Publish-Sheet); jetzt ueberall `Text(verbatim:)`.
+
+### Offen
+
+Ein realer Durchlauf mit einem zweiten Konto (`SANDBOX_SETUP.md` §6.9). Der
+gesperrte Zustand ist im Simulator nicht vorfuehrbar, weil der Demo-Zugang
+Inhaber ist — er ist durch vier Unit-Tests und den SQL-Test belegt.
+
+Weiterhin offen und unabhaengig: `MenuManualEditorUITests.testManualMenuEditorCoreFlow`
+schlaegt vorbestehend fehl.
+
+### Empfohlener naechster Schritt
+
+Meilenstein 2 hat noch §9.2 und §9.3 offen: Schichtplanung, Zeiterfassung,
+Soll-/Ist. Dafuer liegt seit KL-WORKFORCE-001 eine vollstaendige, getestete
+Domaene unter `Features/Workforce/` mit **null Referenzen** aus der App; ihr
+fehlen Persistenz und Oberflaeche. Kleinere Alternative davor: der Manager-PIN
+aus §9.1, damit eine Servicekraft am Tisch eine Freigabe holen kann, statt den
+Manager zu suchen.
 
 ## Session-Teil 36: Betriebsschicht und Kassenabschluss (31. Juli 2026)
 

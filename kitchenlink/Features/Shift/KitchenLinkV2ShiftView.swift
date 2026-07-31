@@ -137,16 +137,20 @@ struct KitchenLinkV2ShiftView: View {
                         .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    euroField(
-                        "Anfangsbestand",
-                        text: $model.openingCashText,
-                        identifier: "shift.openingCash"
-                    )
+                    if let note = model.missingPermissionNote(for: .shiftOpen) {
+                        warning(note, identifier: "shift.openDenied")
+                    } else {
+                        euroField(
+                            "Anfangsbestand",
+                            text: $model.openingCashText,
+                            identifier: "shift.openingCash"
+                        )
 
-                    Button("Schicht öffnen") { Task { await model.openShift() } }
-                        .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
-                        .disabled(model.phase == .working)
-                        .accessibilityIdentifier("shift.open")
+                        Button("Schicht öffnen") { Task { await model.openShift() } }
+                            .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                            .disabled(model.phase == .working || !model.canOpenShift)
+                            .accessibilityIdentifier("shift.open")
+                    }
                 }
             }
         }
@@ -158,12 +162,28 @@ struct KitchenLinkV2ShiftView: View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.large) {
             expectedCashCard
             revenueCard
-            movementCard
 
-            Button("Kasse zählen und abschließen") { showsCloseSheet = true }
-                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
-                .disabled(model.phase == .working)
-                .accessibilityIdentifier("shift.startClose")
+            // Bargeld bewegen und abschließen sind rechtepflichtig. Wer sie
+            // nicht hat, sieht die Kasse weiterhin — sie zu lesen ist Alltag,
+            // sie anzufassen nicht.
+            if let note = model.missingPermissionNote(for: .cashMovement) {
+                KitchenLinkV2Card {
+                    warning(note, identifier: "shift.movementDenied")
+                }
+            } else {
+                movementCard
+            }
+
+            if let note = model.missingPermissionNote(for: .shiftClose) {
+                KitchenLinkV2Card {
+                    warning(note, identifier: "shift.closeDenied")
+                }
+            } else {
+                Button("Kasse zählen und abschließen") { showsCloseSheet = true }
+                    .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                    .disabled(model.phase == .working)
+                    .accessibilityIdentifier("shift.startClose")
+            }
         }
     }
 

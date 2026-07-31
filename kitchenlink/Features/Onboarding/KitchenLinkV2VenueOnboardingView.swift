@@ -101,7 +101,7 @@ struct KitchenLinkV2VenueOnboardingView: View {
                 Text(isRegistering ? "Konto anlegen" : "Anmelden")
                     .font(KitchenLinkV2Typography.primaryLine)
 
-                TextField("E-Mail", text: $email, prompt: Text("betreiber@restaurant.de"))
+                TextField("E-Mail", text: $email, prompt: Text(verbatim: "betreiber@restaurant.de"))
                     .textContentType(.emailAddress)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)

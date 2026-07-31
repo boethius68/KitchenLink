@@ -21,6 +21,9 @@ final class KitchenLinkShiftModel: ObservableObject {
     @Published private(set) var report: KitchenLinkShiftReport = .none
     @Published private(set) var history: [KitchenLinkShift] = []
     @Published private(set) var lastClose: KitchenLinkShiftClose?
+    /// KL-ROLE-001: was dieser Zugang an der Kasse darf. Die Sperre hier ist
+    /// Höflichkeit — durchgesetzt wird sie in der Datenbank.
+    @Published private(set) var myRole: KitchenLinkMyRole = .none
     @Published var notice: String?
 
     /// Eingaben in Euro als Text: der Betreiber tippt „100" oder „100,50",
@@ -35,6 +38,7 @@ final class KitchenLinkShiftModel: ObservableObject {
     private let config: KitchenLinkCloudConfig
     private let auth: KitchenLinkCloudAuthenticating
     private let transport: KitchenLinkShiftTransport
+    private let permissions: KitchenLinkPermissionTransport
     private let store: KitchenLinkCloudCredentialStore
     private let requiresSession: Bool
 
@@ -47,12 +51,14 @@ final class KitchenLinkShiftModel: ObservableObject {
         config: KitchenLinkCloudConfig = .sandboxDefault,
         auth: KitchenLinkCloudAuthenticating = URLSessionKitchenLinkCloudTransport(),
         transport: KitchenLinkShiftTransport = URLSessionKitchenLinkCloudTransport(),
+        permissions: KitchenLinkPermissionTransport = URLSessionKitchenLinkCloudTransport(),
         store: KitchenLinkCloudCredentialStore = KitchenLinkCloudCredentialStore(),
         requiresSession: Bool = true
     ) {
         self.config = config
         self.auth = auth
         self.transport = transport
+        self.permissions = permissions
         self.store = store
         self.requiresSession = requiresSession
     }
@@ -64,6 +70,7 @@ final class KitchenLinkShiftModel: ObservableObject {
         }
         return KitchenLinkShiftModel(
             transport: KitchenLinkDemoShiftTransport(),
+            permissions: KitchenLinkDemoTeamTransport(),
             requiresSession: false
         )
         // `auth` bleibt der echte Transport: im Demo-Modus wird nie angemeldet.
@@ -94,13 +101,26 @@ final class KitchenLinkShiftModel: ObservableObject {
         return counted - totals.expectedCashCents
     }
 
+    var canOpenShift: Bool { myRole.can(.shiftOpen) }
+
     var canClose: Bool {
-        phase != .working && isOpen && countedCashCents != nil
+        phase != .working && isOpen && countedCashCents != nil && myRole.can(.shiftClose)
     }
 
     var canBookMovement: Bool {
         guard let amount = movementAmountCents else { return false }
-        return phase != .working && isOpen && amount > 0
+        return phase != .working && isOpen && amount > 0 && myRole.can(.cashMovement)
+    }
+
+    /// Was diesem Zugang an der Kasse fehlt — als Satz, den ein Betrieb
+    /// versteht, statt einer Fehlerkennung aus der Datenbank.
+    func missingPermissionNote(for permission: KitchenLinkVenuePermission) -> String? {
+        guard !myRole.can(permission) else { return nil }
+        guard myRole.isStaff else {
+            return "Dieser Zugang gehört nicht zum Personal dieses Restaurants."
+        }
+        return "Als \(myRole.roleName ?? "Personal") darfst du \(permission.label.lowercased()) "
+            + "nicht. Frag Inhaber, Manager oder Schichtleitung."
     }
 
     /// Ein Abschluss bei noch offenen Rechnungen ist erlaubt, aber fast immer
@@ -116,6 +136,9 @@ final class KitchenLinkShiftModel: ObservableObject {
         }
         if phase != .working { phase = .loading }
         do {
+            myRole = try await permissions.loadMyRole(
+                config: config, session: session, venueSlug: config.venueSlug
+            )
             report = try await transport.loadReport(
                 config: config, session: session, venueSlug: config.venueSlug, shiftID: nil
             )
@@ -158,6 +181,10 @@ final class KitchenLinkShiftModel: ObservableObject {
             notice = "Es ist bereits eine Schicht offen."
             return
         }
+        if let denied = missingPermissionNote(for: .shiftOpen) {
+            notice = denied
+            return
+        }
         let key = openAttemptKey ?? UUID().uuidString
         openAttemptKey = key
 
@@ -188,6 +215,10 @@ final class KitchenLinkShiftModel: ObservableObject {
         }
         guard let amount = movementAmountCents, amount > 0 else {
             notice = "Bitte einen Betrag größer als null eingeben."
+            return
+        }
+        if let denied = missingPermissionNote(for: .cashMovement) {
+            notice = denied
             return
         }
         let key = movementAttemptKey ?? UUID().uuidString
@@ -224,6 +255,12 @@ final class KitchenLinkShiftModel: ObservableObject {
         }
         guard let counted = countedCashCents else {
             notice = "Bitte das gezählte Bargeld eingeben."
+            return
+        }
+        // Die Datenbank würde ohnehin abweisen; der Weg dorthin wäre nur ein
+        // Umweg über einen Fehler, den niemand versteht.
+        if let denied = missingPermissionNote(for: .shiftClose) {
+            notice = denied
             return
         }
 

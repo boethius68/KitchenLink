@@ -21,6 +21,26 @@ private func makeStore(withSession: Bool = true) -> KitchenLinkCloudCredentialSt
     return store
 }
 
+/// Rechte des Testzugangs. Standardmäßig Inhaber — die Schicht-Tests prüfen
+/// die Kasse, nicht die Rollen; das tut `KitchenLinkTeamTests`.
+private actor RoleSpy: KitchenLinkPermissionTransport {
+    private let role: KitchenLinkMyRole
+
+    init(_ permissions: Set<String> = [
+        "shift.open", "shift.close", "cash.movement", "payments.refund", "staff.manage"
+    ]) {
+        self.role = KitchenLinkMyRole(
+            roleKey: "owner", roleName: "Inhaber", permissions: permissions
+        )
+    }
+
+    func loadMyRole(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String
+    ) async throws -> KitchenLinkMyRole { role }
+}
+
 private actor ShiftSpy: KitchenLinkShiftTransport {
     var report: KitchenLinkShiftReport
     var history: [KitchenLinkShift] = []
@@ -92,11 +112,15 @@ private actor ShiftSpy: KitchenLinkShiftTransport {
 @MainActor
 private func makeModel(
     spy: ShiftSpy,
-    store: KitchenLinkCloudCredentialStore? = nil
+    store: KitchenLinkCloudCredentialStore? = nil,
+    permissions: Set<String> = [
+        "shift.open", "shift.close", "cash.movement", "payments.refund", "staff.manage"
+    ]
 ) -> KitchenLinkShiftModel {
     KitchenLinkShiftModel(
         config: .sandboxDefault,
         transport: spy,
+        permissions: RoleSpy(permissions),
         store: store ?? makeStore()
     )
 }
@@ -356,6 +380,95 @@ private func openReport(
 }
 
 // MARK: - Bericht
+
+// MARK: - Rechte an der Kasse (KL-ROLE-001)
+
+@MainActor
+@Test func ohneRechtBleibtDieKasseLesbarAberUnantastbar() async {
+    // Service darf die Kasse sehen — das ist Alltag —, aber nicht abschliessen
+    // und kein Bargeld bewegen.
+    let spy = ShiftSpy(report: openReport())
+    let model = KitchenLinkShiftModel(
+        config: .sandboxDefault,
+        transport: spy,
+        permissions: ServiceRoleSpy(),
+        store: makeStore()
+    )
+    await model.load()
+
+    #expect(model.isOpen)
+    #expect(model.totals.expectedCashCents == 11_050)
+
+    model.countedCashText = "110,50"
+    #expect(model.canClose == false)
+    model.movementAmountText = "5"
+    #expect(model.canBookMovement == false)
+    #expect(model.canOpenShift == false)
+
+    await model.closeShift()
+    #expect(await spy.closeCalls.isEmpty)
+}
+
+@MainActor
+@Test func dieFehlendeBefugnisWirdErklaertStattNurGesperrt() async {
+    let spy = ShiftSpy(report: openReport())
+    let model = KitchenLinkShiftModel(
+        config: .sandboxDefault,
+        transport: spy,
+        permissions: ServiceRoleSpy(),
+        store: makeStore()
+    )
+    await model.load()
+
+    let note = model.missingPermissionNote(for: .shiftClose)
+    // Der Satz nennt die eigene Rolle und wer weiterhelfen kann.
+    #expect(note?.contains("Service") == true)
+    #expect(note?.contains("Schichtleitung") == true)
+    #expect(model.missingPermissionNote(for: .paymentsRefund) != nil)
+}
+
+@MainActor
+@Test func werDarfBekommtKeinenHinweis() async {
+    let spy = ShiftSpy(report: openReport())
+    let model = makeModel(spy: spy)
+    await model.load()
+
+    #expect(model.missingPermissionNote(for: .shiftClose) == nil)
+    #expect(model.missingPermissionNote(for: .cashMovement) == nil)
+    #expect(model.canOpenShift)
+}
+
+@MainActor
+@Test func einZugangOhnePersonalWirdAlsSolcherBenannt() async {
+    let spy = ShiftSpy(report: .none)
+    let model = KitchenLinkShiftModel(
+        config: .sandboxDefault,
+        transport: spy,
+        permissions: NoRoleSpy(),
+        store: makeStore()
+    )
+    await model.load()
+
+    #expect(model.missingPermissionNote(for: .shiftOpen)?.contains("nicht zum Personal") == true)
+}
+
+private actor ServiceRoleSpy: KitchenLinkPermissionTransport {
+    func loadMyRole(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String
+    ) async throws -> KitchenLinkMyRole {
+        KitchenLinkMyRole(roleKey: "service", roleName: "Service", permissions: [])
+    }
+}
+
+private actor NoRoleSpy: KitchenLinkPermissionTransport {
+    func loadMyRole(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String
+    ) async throws -> KitchenLinkMyRole { .none }
+}
 
 @MainActor
 @Test func geldOhneSchichtWirdGenanntStattGeschluckt() async {

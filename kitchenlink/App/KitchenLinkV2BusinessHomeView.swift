@@ -212,6 +212,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2TeamView()
+            } label: {
+                operationsRow(
+                    title: "Team",
+                    subtitle: "Personal, Rollen und Rechte",
+                    systemImage: "person.2"
+                )
+            }
+            .accessibilityIdentifier("business.openTeam")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 KitchenLinkV2TablesView()
             } label: {
                 operationsRow(

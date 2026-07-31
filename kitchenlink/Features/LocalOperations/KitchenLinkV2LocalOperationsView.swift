@@ -502,7 +502,7 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
 
     private var cloudSetupControls: some View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
-            TextField("E-Mail", text: $cloudEmailField, prompt: Text("betreiber@restaurant.de"))
+            TextField("E-Mail", text: $cloudEmailField, prompt: Text(verbatim: "betreiber@restaurant.de"))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .keyboardType(.emailAddress)

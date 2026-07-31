@@ -1262,6 +1262,72 @@ Nebenbefund und Fix: die Ansicht war die einzige Stelle im Projekt mit
 17:11" in einer durchgehend deutschen App. Jetzt fest auf `de_DE`, wie ueberall
 sonst.
 
+### KL-ROLE-001 - Rollen und Rechte
+
+**Status:** Implementiert auf `main` (31. Juli 2026), Migration angewendet und
+auf der Instanz verifiziert; offen ist ein realer Durchlauf mit einem zweiten
+Konto (`SANDBOX_SETUP.md` §6.9)
+**Abhaengigkeit:** KL-SHIFT-001 (die zu schuetzenden Geldaktionen)
+**Schreibbereich:** `supabase/migrations/20260731220000_roles_and_permissions.sql`
+(neu), `scripts/tests/roles-and-permissions.sql` (neu),
+`scripts/tests/supabase-stubs.sql` (`auth.users`),
+`kitchenlink/Features/Team/` (neu), `Features/Shift/` (Rechte in der Kasse),
+`App/KitchenLinkV2BusinessHomeView.swift`,
+`kitchenlinkTests/KitchenLinkTeamTests.swift` (neu), `KitchenLinkShiftTests.swift`,
+vier bestehende SQL-Tests (explizite Rolle), `SANDBOX_SETUP.md`, dieser Eintrag
+und `docs/collaboration/handoffs/CLAUDE.md`
+
+Blueprint §9.1. Bis hierher galt: **wer angemeldet ist, darf alles.**
+`is_venue_staff` prueft die Mitgliedschaft, nicht die Befugnis — also konnte
+jede Servicekraft die Kasse abschliessen, eine Zahlung stornieren und Geld aus
+der Schublade nehmen.
+
+**Der Zuschnitt ist die eigentliche Entscheidung.** Es gibt 25 `operator_`-RPCs;
+sie alle zu ersetzen waere ein Wartungsalbtraum gewesen, und die meisten
+*sollen* jedem Personal offenstehen (die Kueche braucht
+`operator_mark_station_ready`, der Service `operator_record_payment`). Diese
+Migration fuehrt deshalb genau **fuenf** Rechte ein und erzwingt **alle fuenf**:
+`shift.open`, `shift.close`, `cash.movement`, `payments.refund`,
+`staff.manage`. Kein Recht steht in der Liste, das nirgends geprueft wird — eine
+Rolle mit leerer Rechteliste heisst „darf alles Alltaegliche, aber nichts
+Sensibles". Die Konfigurationsrechte (Karte, Tische) sind eine eigene Scheibe
+und kommen zusammen mit ihrer Durchsetzung.
+
+- **`venue_roles` je Venue** statt einer Aufzaehlung im Code, mit den neun
+  Standardrollen aus §9.1. „Eigene Rollen mit granularen Rechten" ist damit
+  spaeter ein Datensatz mehr, kein Umbau. Ein Trigger auf `venues` legt sie an.
+- **`venue_staff.role`** hatte einen CHECK auf den einen Wert `'operator'`;
+  jetzt ein Fremdschluessel auf `venue_roles(venue_id, key)`.
+- **`kitchenlink_require_permission`** loest Venue auf, prueft Mitgliedschaft
+  und Recht und bricht sprechend ab — ein Aufruf statt vier Zeilen je RPC.
+- **App:** neuer Bereich `Team`; die Kasse sperrt Abschluss und Bargeldbewegung
+  und **erklaert**, warum („Als Service darfst du … nicht. Frag Inhaber,
+  Manager oder Schichtleitung.") statt in einen Serverfehler zu laufen.
+
+**Bestandspersonal verliert nichts:** `operator` wird zu `owner`. Alles andere
+waere eine stille Entrechtung durch eine Migration. Der Spaltendefault fuer
+*neue* Zeilen steht dagegen auf `service` — geringste Befugnis.
+
+**Drei Sperren gegen Fuehrungslosigkeit:** niemand aendert oder entfernt den
+eigenen Zugang, nur ein Inhaber kann einen Inhaber anfassen, der letzte Inhaber
+bleibt Inhaber.
+
+Verifikation: SQL gegen echtes PostgreSQL in einer eigenen Testvenue (Service
+wird bei allen fuenf Aktionen abgewiesen und darf den Alltag weiterhin;
+Schichtleitung darf die Kasse, aber kein Personal; alle drei Sperren belegt;
+Bestandspersonal behaelt seine Rechte; RLS mit `set role`). 483 iOS-Unit-Tests
+gruen, 13 UI-Tests gruen; Simulator-Durchlauf mit Rollenwechsel.
+
+Nebenbefund und Fix: E-Mail-Platzhalter wurden blau statt grau gezeichnet, weil
+`Text("…@…")` als `LocalizedStringKey` durch die Markdown-Verarbeitung laeuft
+und die Adresse verlinkt. Betraf **fuenf** Stellen (Team, Restaurant, Tische,
+Service, Publish-Sheet); jetzt ueberall `Text(verbatim:)`.
+
+**Noch nicht enthalten:** Manager-PIN fuer eine einmalige Freigabe am Tisch
+(§9.1 nennt „besonderes Recht **oder** Manager-PIN"; das Recht allein erfuellt
+die Anforderung), eigene Rollen, Qualifikationen, Mitarbeiterprofile,
+Standortzuordnung ueber mehrere Venues.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

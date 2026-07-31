@@ -722,9 +722,40 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   tests green, and a simulator run through open, book an expense, close both
   with and without a variance. Migration applied to the instance and verified.
   **Open:** one real trading day on a device (`SANDBOX_SETUP.md` §6.8).
-- **Milestone 2 remainder:** roles and permissions (§9.1), shift planning and
-  time tracking (§9.2/§9.3). The workforce domain for the latter exists and is
-  tested (`Features/Workforce/`, 38 tests) but has **zero references** from the
-  app — it is a foundation waiting for persistence and a screen.
+- **Roles and permissions (KL-ROLE-001, 31 July):** Blueprint §9.1. Until now
+  **whoever was signed in could do everything** — `is_venue_staff` checks
+  membership, not authority, so any service hand could close the till, refund a
+  payment and take cash out of the drawer.
+  The scoping was the real decision. There are 25 `operator_` RPCs; replacing
+  them all would have been a maintenance nightmare, and most of them *should*
+  stay open to every staff member (the kitchen needs `mark_station_ready`, the
+  service needs `record_payment`). So this slice introduces exactly **five**
+  permissions and enforces **all five**: `shift.open`, `shift.close`,
+  `cash.movement`, `payments.refund`, `staff.manage`. No permission is listed
+  that isn't checked somewhere — a role with an empty permission set means "may
+  do everything ordinary, nothing sensitive". Configuration rights (publish a
+  menu, change tables) are their own slice and will arrive together with their
+  enforcement, not before it.
+  Roles live **per venue** in `venue_roles` with the nine standard roles from
+  §9.1, so "custom roles with granular rights" later is one more row, not a
+  rebuild. `venue_staff.role` had a CHECK pinned to the single value
+  `'operator'`; it is now a foreign key.
+  Existing staff lose nothing — `operator` becomes `owner`. Anything else would
+  be a silent disenfranchisement by migration. The column default for *new* rows
+  is `service`: least privilege.
+  Three locks keep a venue from becoming leaderless: nobody changes or removes
+  their own access, only an owner may touch an owner, and the last owner stays
+  owner.
+  In the app: a new **Team** area, and the till now locks close and cash
+  movement and **explains** why instead of running into a server error.
+  Verified against real PostgreSQL in its own test venue, 483 iOS unit tests,
+  13 UI tests, a simulator run with a role change. Migration applied and
+  verified on the instance.
+  **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.9).
+- **Milestone 2 remainder:** shift planning and time tracking (§9.2/§9.3). The
+  workforce domain for it exists and is tested (`Features/Workforce/`, 38 tests)
+  but has **zero references** from the app — a foundation waiting for
+  persistence and a screen. Also open from §9.1: manager PIN for a one-off
+  authorisation at the table, custom roles, staff profiles.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

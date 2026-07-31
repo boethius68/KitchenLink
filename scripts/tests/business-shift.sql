@@ -57,8 +57,8 @@ begin
 end;
 $$;
 
-insert into public.venue_staff (user_id, venue_id)
-select '00000000-0000-0000-0000-0000000000aa', id
+insert into public.venue_staff (user_id, venue_id, role)
+select '00000000-0000-0000-0000-0000000000aa', id, 'owner'
 from public.venues where slug = 'alte-muehle'
 on conflict do nothing;
 
@@ -193,13 +193,15 @@ begin
 end;
 $$;
 
--- Fremdes Personal oeffnet und liest nichts.
+-- Fremdes Personal oeffnet und liest nichts. Oeffnen und Abschliessen laufen
+-- seit KL-ROLE-001 ueber die Rechtepruefung und melden deshalb
+-- `permission_forbidden`; der Bericht prueft weiterhin nur die Mitgliedschaft.
 do $$
 begin
   perform pg_temp.act_as('00000000-0000-0000-0000-0000000000bb', false);
   perform pg_temp.expect_error(
     $q$select public.operator_open_shift('alte-muehle', 5000, 'fremd')$q$,
-    'shift_forbidden'
+    'permission_forbidden'
   );
   perform pg_temp.expect_error(
     $q$select public.operator_shift_report('alte-muehle')$q$,
@@ -207,7 +209,7 @@ begin
   );
   perform pg_temp.expect_error(
     $q$select public.operator_close_shift('alte-muehle', 10000)$q$,
-    'shift_forbidden'
+    'permission_forbidden'
   );
 end;
 $$;

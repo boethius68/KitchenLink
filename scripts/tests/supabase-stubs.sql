@@ -21,6 +21,15 @@ grant usage on schema extensions to anon, authenticated, service_role;
 create schema if not exists auth;
 grant usage on schema auth to anon, authenticated, service_role;
 
+-- Nur die zwei Spalten, die eine Migration tatsaechlich anfasst: KL-ROLE-001
+-- sucht Personal per E-Mail. Bewusst **ohne** Grants an anon/authenticated —
+-- in Supabase ist `auth.users` fuer Clients nicht lesbar, und ein Test soll
+-- nicht beweisen koennen, was nur der Stub erlaubt.
+create table if not exists auth.users (
+  id uuid primary key,
+  email text unique
+);
+
 create or replace function auth.jwt()
 returns jsonb
 language sql

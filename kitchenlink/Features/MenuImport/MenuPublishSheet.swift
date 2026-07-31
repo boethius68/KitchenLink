@@ -108,7 +108,7 @@ struct MenuPublishSheet: View {
                 .font(KitchenLinkV2Typography.section)
                 .foregroundStyle(KitchenLinkV2Palette.Content.primary)
 
-            TextField("E-Mail", text: $email, prompt: Text("betreiber@restaurant.de"))
+            TextField("E-Mail", text: $email, prompt: Text(verbatim: "betreiber@restaurant.de"))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .keyboardType(.emailAddress)
