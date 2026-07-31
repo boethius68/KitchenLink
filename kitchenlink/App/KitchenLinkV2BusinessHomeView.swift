@@ -156,6 +156,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2ShiftView()
+            } label: {
+                operationsRow(
+                    title: "Kasse",
+                    subtitle: "Betriebsschicht, Bargeld und Tagesabschluss",
+                    systemImage: "eurosign.circle"
+                )
+            }
+            .accessibilityIdentifier("business.openShift")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 KitchenLinkV2TodayView()
             } label: {
                 operationsRow(

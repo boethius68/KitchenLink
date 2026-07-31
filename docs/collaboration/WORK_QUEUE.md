@@ -1205,6 +1205,63 @@ zurechtgebogen, Slug-Vorschlag weicht aus, Obergrenze greift. iOS-Unit-Tests
 gruen; Simulator-Durchlauf mit Anlegen, Aktivwerden, Liste und Rueckweg ins
 Demo-Lokal.
 
+### KL-SHIFT-001 - Betriebsschicht und Kassenabschluss (Meilenstein 2 begonnen)
+
+**Status:** Implementiert auf `main` (31. Juli 2026), Migration angewendet und
+auf der Instanz verifiziert; offen ist nur ein realer Tagesdurchlauf am Geraet
+(`SANDBOX_SETUP.md` §6.8)
+**Abhaengigkeit:** KL-PAY-001 (Zahlungen), KL-TABLE-001 (Tisch-Sessions)
+**Schreibbereich:** `supabase/migrations/20260731200000_business_shift.sql`
+(neu), `scripts/tests/business-shift.sql` (neu),
+`kitchenlink/Features/Shift/` (neu),
+`App/KitchenLinkV2BusinessHomeView.swift`,
+`kitchenlinkTests/KitchenLinkShiftTests.swift` (neu),
+`scripts/verify-supabase-migrations.sh` (Wiederholbarkeitslauf),
+`SANDBOX_SETUP.md`, dieser Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+Erster Punkt von Meilenstein 2 (Blueprint §8.3). Meilenstein 1 hat den
+Geldkreis geoeffnet, aber nicht geschlossen: es wurde kassiert, storniert und
+Trinkgeld genommen — und am Ende des Tages gab es nichts, wogegen jemand
+zaehlen konnte.
+
+- **`business_shifts`** mit Anfangsbestand, gezaehltem Bargeld, erwartetem
+  Bestand, Abweichung und Z-Nummer. Die tragende Zusage steht als partieller
+  Unique-Index: **je Venue ist hoechstens eine Schicht offen.** Sonst kassieren
+  zwei Geraete in zwei Kassen und keine Zaehlung stimmt je wieder.
+- **`cash_movements`** fuer Entnahme, Ausgabe und Einlage.
+- **`kitchenlink_shift_totals`** ist die *eine* Quelle fuer Bericht, Abschluss
+  und Live-Anzeige. Waere das dreimal getrennt gerechnet, driftet der erwartete
+  Bestand irgendwann von dem ab, was der Abschluss festhaelt.
+- **Zuordnung per Trigger statt per RPC-Aenderung:** `payments.shift_id` setzt
+  ein `before insert`-Trigger aus der offenen Schicht der Venue. Damit greift
+  die Zuordnung auch fuer jeden spaeteren Zahlungsweg (Onlinezahlung im
+  Gast-Web, Theke, Lieferung), ohne dass ihn jemand daran erinnern muss.
+- **App:** neuer Bereich `Kasse` (oeffnen mit Anfangsbestand, laufende Summen,
+  Bargeld bewegen, zaehlen und abschliessen, Z-Bericht, Rueckblick).
+
+**Zwei bewusste Entscheidungen:**
+
+1. Eine **Zahlung** ohne offene Schicht wird *nicht* blockiert — Geld
+   anzunehmen darf nie an einem vergessenen Knopfdruck scheitern. Sie bleibt
+   ohne `shift_id` und taucht im Bericht als „ausserhalb der Schicht" auf,
+   statt still zu verschwinden. Eine **Entnahme** dagegen verlangt eine offene
+   Kasse: sie ist die Buchung *auf* die Schicht und waere ohne sie nirgends
+   zugeordnet.
+2. Die Abweichung wird **festgehalten, nicht verhindert**. Ein Abschluss, der
+   eine Differenz verschweigt, ist wertlos. Offene Rechnungen werden vor dem
+   Abschluss gewarnt, aber nicht erzwungen.
+
+Verifikation: SQL gegen echtes PostgreSQL (zweite offene Schicht abgewiesen,
+Karte zaehlt nicht in die Schublade, Bar-Trinkgeld schon, Storno senkt den
+Bestand wieder, geschlossene Schicht bleibt eingefroren, Z-Nummern lueckenlos,
+RLS mit `set role` belegt). 462 iOS-Unit-Tests gruen; Simulator-Durchlauf ueber
+oeffnen, Ausgabe buchen, mit Abweichung und ohne abschliessen.
+
+Nebenbefund und Fix: die Ansicht war die einzige Stelle im Projekt mit
+`.dateTime` und zeigte auf einem englisch eingestellten Geraet „Jul 31 at
+17:11" in einer durchgehend deutschen App. Jetzt fest auf `de_DE`, wie ueberall
+sonst.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

@@ -14,6 +14,14 @@
 #
 # Es braucht ein lokales PostgreSQL 16+ (z. B. `brew install postgresql@16`).
 # Es fasst weder die echte Supabase-Instanz noch Secrets an.
+#
+# Zusaetzlich wird jede Migration ein zweites Mal eingespielt. Grund: die
+# Instanz wird auf zwei Wegen gepflegt (CLI `supabase db push` und der
+# SQL-Editor im Dashboard). Wird eine Migration von Hand im Editor ausgefuehrt,
+# erfaehrt die Ledger-Tabelle `supabase_migrations.schema_migrations` davon
+# nichts — ein spaeteres `db push` spielt sie dann erneut ein. Das darf nicht
+# scheitern und nichts doppelt anlegen. Nur ein wiederholbares Migrationsset
+# macht die beiden Wege vertraeglich.
 
 set -euo pipefail
 
@@ -93,6 +101,27 @@ for migration in "$MIGRATIONS_DIR"/*.sql; do
   echo "  $(basename "$migration")"
   run_sql "$migration" >/dev/null
 done
+
+# Zweiter Durchlauf: jede Migration muss sich auf einem Stand, auf dem sie schon
+# angewendet wurde, wiederholen lassen (siehe Kopf dieser Datei).
+echo "Migrationen erneut (Wiederholbarkeit):"
+reapply_failed=0
+for migration in "$MIGRATIONS_DIR"/*.sql; do
+  name="$(basename "$migration")"
+  if run_sql "$migration" >/dev/null 2>"$WORK_DIR/reapply.err"; then
+    echo "  $name: wiederholbar"
+  else
+    echo "  $name: NICHT WIEDERHOLBAR" >&2
+    sed 's/^/    /' "$WORK_DIR/reapply.err" >&2
+    reapply_failed=1
+  fi
+done
+
+if [[ "$reapply_failed" != "0" ]]; then
+  echo "Migrationen sind nicht wiederholbar — ein 'db push' nach einer" >&2
+  echo "Anwendung im SQL-Editor wuerde scheitern." >&2
+  exit 1
+fi
 
 selected=("$@")
 if [[ ${#selected[@]} -eq 0 ]]; then

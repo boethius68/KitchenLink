@@ -610,8 +610,8 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   SQL assertions against a throwaway local PostgreSQL — the first time this
   project's RPC SQL was executed before the user applied it to the real
   instance. It immediately found two real defects.
-  **Pending:** applying `20260730120000` on the real instance and one order
-  through a table QR (`SANDBOX_SETUP.md` §6.3).
+  **Applied** on the real instance (31 July). Open: one order through a table
+  QR on a real device (`SANDBOX_SETUP.md` §6.3).
 - **Waiter-entered orders (KL-TABLE-002, 31 July):** the Local-First decision
   of 23 July made "guests order verbally, the waiter enters it on the service
   iPhone" the offline path of the sandbox beta — and the product had no such
@@ -630,8 +630,8 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   was invisible), and the merge did not deduplicate by id (after cloud sync the
   same order would have sat on the pass twice). Order cards now lead with the
   table.
-  **Pending:** applying `20260730120000` + `20260730160000` on the real
-  instance and one real waiter order (`SANDBOX_SETUP.md` §6.3/§6.4).
+  **Applied** on the real instance (31 July). Open: one real waiter order
+  (`SANDBOX_SETUP.md` §6.3/§6.4).
 - **Bill, tip and simulated payment (KL-PAY-001, 31 July):** Milestone 1 is
   closed — the shared table session now has a bill. Multiple payments, multiple
   methods (cash, card, Tap to Pay, voucher), splitting **by items** (which is
@@ -651,8 +651,8 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   Deliberately not included: operating shift and day close (§8.3), guest-web
   online payment, voucher/balance accounts, payment on delivery, fiscalization
   and receipt printing.
-  **Pending:** applying `20260731100000` on the real instance and one real
-  split payment (`SANDBOX_SETUP.md` §6.5).
+  **Applied** on the real instance (31 July). Open: one real split payment
+  (`SANDBOX_SETUP.md` §6.5).
 - **Stations and acceptance rule (KL-STATION-001 / KL-ORDER-001, 31 July):**
   the last two open points of Milestone 1. `Service` now has `Küche | Bar |
   Kellner`: each station sees only its own lines and releases only its own, and
@@ -672,8 +672,8 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   solves a multi-device problem. The order read path falls back to the old
   column list when `order_items.ready_at` is missing, so a venue that updated
   the app but not yet the database still sees its orders.
-  **Pending:** applying `20260731140000` and `20260731160000` and one real run
-  across two stations (`SANDBOX_SETUP.md` §6.6).
+  **Applied** on the real instance (31 July). Open: one real run across two
+  stations (`SANDBOX_SETUP.md` §6.6).
 - **Own restaurant, and with it Milestone 1 (KL-ONBOARD-001, 31 July):** the
   core pitch used to end where it should start — every scan went into the one
   bundled demo venue, and a second restaurant needed hand-written SQL. An
@@ -692,10 +692,39 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   publish a menu, add a table, guest orders through the table QR, operator reads
   the bill. Sandbox limit of five restaurants per account, against accidental
   mass creation.
-  **Pending:** applying `20260731180000` and creating one real restaurant
-  (`SANDBOX_SETUP.md` §6.7).
+  **Applied** on the real instance (31 July). Open: creating one real
+  restaurant (`SANDBOX_SETUP.md` §6.7).
   **With this, Milestone 1 (`Scan bis Bezahlung`) is complete**: scan → review →
   live guest menu → table QR → guest and waiter orders → acceptance rule →
   kitchen and bar stations → served → split bill, tip and simulated payment.
+- **Operating shift and cash close (KL-SHIFT-001, 31 July):** the first slice of
+  Milestone 2 (Blueprint §8.3). Milestone 1 opened the money loop but never
+  closed it — money was taken, refunded and tipped, and at the end of the day
+  there was nothing to count against. A venue now opens one shared shift that
+  every device works on, with an optional opening float, collected movements
+  (payouts, expenses, deposits) and a close that records a counted amount, the
+  expected amount and the difference between them.
+  The load-bearing invariant is again an index, not a rule in the app: **at most
+  one open shift per venue.** Two open tills cannot be counted.
+  Two deliberate choices. A **payment** without an open shift is not blocked —
+  taking money must never fail on a forgotten button — it just carries no
+  shift and shows up in the report as "outside the shift" instead of vanishing
+  silently. A **cash movement** does require an open till, because it is the
+  booking *onto* the shift. And the variance is recorded, never prevented: a
+  close that hides a difference is worthless.
+  `payments.shift_id` is set by a `before insert` trigger rather than by
+  changing `operator_record_payment`, so the assignment also covers every later
+  payment path (guest-web online payment, counter, delivery) without anyone
+  having to remember it.
+  Verified against real PostgreSQL (second open shift rejected, card does not
+  count into the drawer, cash tips do, a refund lowers it again, a closed shift
+  stays frozen, Z numbers gapless, RLS proven with `set role`), 462 iOS unit
+  tests green, and a simulator run through open, book an expense, close both
+  with and without a variance. Migration applied to the instance and verified.
+  **Open:** one real trading day on a device (`SANDBOX_SETUP.md` §6.8).
+- **Milestone 2 remainder:** roles and permissions (§9.1), shift planning and
+  time tracking (§9.2/§9.3). The workforce domain for the latter exists and is
+  tested (`Features/Workforce/`, 38 tests) but has **zero references** from the
+  app — it is a foundation waiting for persistence and a screen.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

@@ -1,6 +1,8 @@
 # Claude Code Handoff
 
-**Updated:** 31 July 2026 (Session-Teil 34: Meilenstein 1 abgeschlossen)
+**Updated:** 31 July 2026 (Session-Teil 36: Betriebsschicht und Kassenabschluss)
+**Zuvor:** 31 July 2026 (Session-Teil 35: Migrationen selbst angewendet)
+**Zuvor:** 31 July 2026 (Session-Teil 34: Meilenstein 1 abgeschlossen)
 **Zuvor:** 31 July 2026 (Session-Teil 33: Stationen und Annahmeregel)
 **Zuvor:** 31 July 2026 (Session-Teil 32: KL-PAY-001, Rechnung und Zahlung)
 **Zuvor:** 31 July 2026 (Session-Teil 31: KL-TABLE-002, Kellnerbestellung)
@@ -10,6 +12,153 @@
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 36: Betriebsschicht und Kassenabschluss (31. Juli 2026)
+
+### Anlass
+
+Start von Meilenstein 2. Der Blueprint listet fuenf Teile (§8.3 Betriebsschicht,
+§9.1 Rollen, §9.2 Planung, §9.3 Zeit, Soll-/Ist). Gewaehlt wurde §8.3 zuerst,
+weil Meilenstein 1 den Geldkreis geoeffnet, aber nicht geschlossen hat: es wurde
+kassiert, storniert und Trinkgeld genommen — und am Abend gab es nichts, wogegen
+jemand haette zaehlen koennen.
+
+### Befund vorab
+
+`Features/Workforce/` (1200 Zeilen Domaene, 650 Zeilen Tests, 38 Tests gruen aus
+KL-WORKFORCE-001) hat **null Referenzen** aus der App. Getestet und komplett
+tot. Das ist Meilenstein 2, Teil 3 bis 5 — eine Grundlage, der Persistenz und
+Oberflaeche fehlen.
+
+### Umgesetzt (KL-SHIFT-001)
+
+- `business_shifts` (Anfangsbestand, gezaehlt, erwartet, Abweichung, Z-Nummer)
+  mit partiellem Unique-Index: je Venue hoechstens **eine** offene Schicht.
+- `cash_movements` fuer Entnahme, Ausgabe, Einlage.
+- `kitchenlink_shift_totals` als *eine* Quelle fuer Bericht, Abschluss und
+  Live-Anzeige — dreifach getrennt gerechnet wuerde der erwartete Bestand
+  irgendwann von dem abdriften, was der Abschluss festhaelt.
+- `payments.shift_id` per `before insert`-Trigger statt per Aenderung an
+  `operator_record_payment`: so greift die Zuordnung auch fuer jeden spaeteren
+  Zahlungsweg, ohne dass ihn jemand daran erinnern muss.
+- RPCs: `operator_open_shift`, `operator_record_cash_movement`,
+  `operator_shift_report`, `operator_recent_shifts`, `operator_close_shift`.
+- App: neuer Bereich `Kasse`.
+
+**Zwei Produktentscheidungen**, beide bewusst und im Code begruendet:
+
+1. Eine **Zahlung** ohne offene Schicht wird nicht blockiert (Geld annehmen darf
+   nie an einem vergessenen Knopfdruck scheitern); sie bleibt ohne `shift_id`
+   und erscheint im Bericht als „ausserhalb der Schicht". Eine **Entnahme**
+   verlangt dagegen eine offene Kasse.
+2. Die Abweichung wird festgehalten, nicht verhindert. Offene Rechnungen werden
+   vor dem Abschluss gewarnt, nicht erzwungen.
+
+### Verifikation
+
+- SQL gegen echtes PostgreSQL: zweite offene Schicht abgewiesen, Karte zaehlt
+  nicht in die Schublade, Bar-Trinkgeld schon, Storno senkt den Bestand wieder,
+  geschlossene Schicht bleibt eingefroren, Z-Nummern lueckenlos, RLS mit
+  `set role` belegt (als Eigentuemer waere der Abschnitt gruen gewesen, ohne
+  irgendetwas zu belegen).
+- 462 iOS-Unit-Tests gruen, 13 UI-Tests gruen.
+- Simulator: oeffnen mit 150,50, Ausgabe 12,50 buchen, mit Fehlbetrag -0,50
+  abschliessen (Z-Bericht 1), danach erneut oeffnen und ohne Abweichung
+  abschliessen.
+- `supabase db push` angewendet und auf der Instanz geprueft: beide Tabellen,
+  alle RPCs, der Trigger und `payments.shift_id` vorhanden, weiterhin keine
+  Tabelle in `public` ohne RLS.
+
+### Zwei Fehler unterwegs
+
+- Der SQL-Test legte einen eigenen Tisch an und brach damit `table-context`,
+  das genau sechs aktive Tische und sechs aktive Tokens erwartet. Der Test
+  raeumt jetzt beides auf (der Token wird nicht mit dem Tisch stillgelegt).
+- Die Ansicht war die einzige Stelle im Projekt mit `.dateTime` und zeigte auf
+  einem englisch eingestellten Geraet „Jul 31 at 17:11" in einer durchgehend
+  deutschen App. Jetzt fest auf `de_DE`, wie ueberall sonst im Projekt.
+
+### Offen
+
+Ein realer Tagesdurchlauf am Geraet (`SANDBOX_SETUP.md` §6.8) — sowie die
+Abnahmen aus Session-Teil 35, die alle keine Datenbankarbeit mehr brauchen.
+
+Weiterhin offen und unabhaengig: `MenuManualEditorUITests.testManualMenuEditorCoreFlow`
+schlaegt vorbestehend fehl.
+
+### Empfohlener naechster Schritt
+
+Meilenstein 2 weiter: **Rollen und Rechte (§9.1)**. `venue_staff.role` existiert
+schon als Spalte, wird aber nirgends ausgewertet — jedes angemeldete Personal
+darf derzeit alles, auch abschliessen und stornieren. Blueprint §9.1 verlangt
+Standardrollen und „sensible Aktionen per besonderem Recht oder Manager-PIN";
+Kassenabschluss und Storno sind die ersten beiden Kandidaten. Danach die tote
+Workforce-Domaene sichtbar machen (§9.2/§9.3).
+
+## Session-Teil 35: Migrationen selbst angewendet, Ledger-Drift geschlossen (31. Juli 2026)
+
+### Anlass
+
+Rückfrage des Nutzers: „Was meinst du eigentlich genau mit Abnahme? Warum soll
+ich die durchführen? Du solltest in Supabase eigentlich alles selbst
+erledigen." Er hatte recht. Ich hatte zwei Dinge unter einem Wort vermischt:
+
+- das **Anwenden** der Migrationen — mechanisch, und über die lokal
+  eingeloggte, verknüpfte Supabase-CLI von hier aus machbar. Das ist Agentenarbeit.
+- die **Abnahme** im eigentlichen Sinn — sein Produkturteil, ob sich eine
+  Funktion auf einem echten Gerät richtig anfühlt. Das bleibt bei ihm.
+
+Alle bisherigen Handoffs haben das erste als „Nutzerabnahme steht aus" an ihn
+zurückgegeben. `SANDBOX_SETUP.md` §0 hat das mit „die Agenten legen keine
+Cloud-Ressourcen an" sogar als Regel festgeschrieben — die Regel meinte
+Projekte, Keys und Auth-Einstellungen, nicht Migrationen.
+
+### Befund: Ledger-Drift zwischen SQL-Editor und CLI
+
+`supabase migration list` zeigte **sieben** offene Migrationen, nicht die vier
+dieser Sitzung — auch `20260724000000` und die beiden Tischmigrationen, für die
+der Nutzer „Abnahme ist durch" gemeldet hatte. Ursache: der SQL-Editor im
+Dashboard trägt nichts in `supabase_migrations.schema_migrations` ein. Die
+`NOTICE`-Zeilen des Pushs (`policy … does not exist, skipping`) haben dann
+gezeigt, dass die Tischmigration tatsächlich noch gar nicht auf der Instanz war.
+
+Damit der Drift folgenlos bleibt, muss **jede** Migration wiederholbar sein.
+`scripts/verify-supabase-migrations.sh` spielt jetzt jede Migration ein zweites
+Mal ein und lässt den Lauf scheitern, sobald eine sich nicht wiederholen lässt.
+Ergebnis: alle 17 sind bereits wiederholbar (`drop … if exists` vor
+`create policy`/`create trigger`, `if not exists`, `on conflict` in den Seeds).
+Erst dieser Beweis hat den Push gegen die Instanz mit echten Daten vertretbar
+gemacht.
+
+### Durchgeführt
+
+- `supabase db push` gegen `rjxlzqtaxqstctrrlqre`: sieben Migrationen
+  angewendet, `migration list` danach deckungsgleich über alle 17.
+- Verifikation auf der Instanz: keine Tabelle in `public` ohne RLS, sechs aktive
+  Tische, die RPCs `operator_table_check`, `operator_record_payment`,
+  `operator_mark_station_ready`, `operator_reject_order`,
+  `operator_create_venue` vorhanden.
+- Vorher mit dem Nutzer geklärt: der Seed setzt Bereich und Sortierung der
+  Demo-Tische 1–5 und „Theke" auf die Seed-Werte zurück (Labels, QR-Tokens,
+  Sessions und Bestellungen bleiben unberührt). Er hat zugestimmt.
+
+### Dateien
+
+- `scripts/verify-supabase-migrations.sh` — zweiter Durchlauf (Wiederholbarkeit).
+- `docs/architecture/guest-web/SANDBOX_SETUP.md` — §0 korrigiert, §2 um
+  `migration list`, den Ledger-Drift-Hinweis und den Stand der Instanz ergänzt.
+- `docs/collaboration/CURRENT.md` — fünf „Pending: applying …" auf „Applied"
+  gezogen; offen bleibt jeweils nur der reale Gerätedurchlauf.
+
+### Offen
+
+Nur noch echte Abnahmen am Gerät, keine Datenbankarbeit: eine Bestellung über
+den Tisch-QR (§6.3), eine Kellnerbestellung (§6.4), eine getrennte Zahlung
+(§6.5), ein Durchlauf über zwei Stationen (§6.6), ein selbst angelegtes
+Restaurant (§6.7).
+
+Weiterhin offen und unabhängig: `MenuManualEditorUITests.testManualMenuEditorCoreFlow`
+schlägt vorbestehend fehl.
 
 ## Session-Teil 34: Eigenes Restaurant — Meilenstein 1 abgeschlossen (31. Juli 2026)
 

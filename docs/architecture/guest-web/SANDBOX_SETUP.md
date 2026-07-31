@@ -8,8 +8,13 @@ DECISIONS.md). Keine echten Zahlungen.
 Dieser Leitfaden führt Schritt für Schritt durch das In-Betrieb-nehmen der
 Gast-Web-Sandbox gegen eine echte Supabase-Instanz und ein Git-basiertes
 PaaS-Deployment. Der aktuelle Deploy läuft auf Hostinger PaaS.
-Er ist für den Nutzer (Account-Inhaber) geschrieben; die Agenten legen keine
-Cloud-Ressourcen an und committen keine Secrets.
+Er ist für den Nutzer (Account-Inhaber) geschrieben. Die Agenten committen keine
+Secrets und legen keine Cloud-Ressourcen an — kein Projekt, keine Keys, keine
+Auth-Einstellungen. **Migrationen sind davon ausgenommen:** ist die
+Supabase-CLI lokal eingeloggt und verknüpft, wendet ein Agent sie über
+`supabase db push` selbst an und prüft danach den Zustand (Abschnitt 2). Sie
+gegen den Nutzer zurückzuhalten war ein Missverständnis — sein Urteil wird für
+das Produkt gebraucht, nicht für ein `db push`.
 
 > **Vorgaben:** [`ADR-001_GUEST_WEB_STACK.md`](./ADR-001_GUEST_WEB_STACK.md)
 > (§6 Bestellgrenze, §6.3 Anonymous Sign-in). ADR-001 §8 ist für die Sandbox
@@ -56,7 +61,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **17** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **18** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -77,6 +82,15 @@ Es gibt **17** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260731140000_station_routing.sql` | Küche/Bar je Position, Stationsfreigabe (KL-STATION-001) |
 | `supabase/migrations/20260731160000_order_confirmation_rule.sql` | Bestätigungspflicht je Kanal, Status `rejected` (KL-ORDER-001) |
 | `supabase/migrations/20260731180000_operator_create_venue.sql` | Eigenes Restaurant anlegen, Slug-Vorschlag, eigene Venues (KL-ONBOARD-001) |
+| `supabase/migrations/20260731200000_business_shift.sql` | Betriebsschicht, Bargeldbewegungen, Kassenabschluss und Z-Bericht (KL-SHIFT-001) |
+
+> **Stand der Sandbox-Instanz (31. Juli 2026):** alle 18 sind angewendet,
+> `supabase migration list` ist deckungsgleich. Geprüft nach dem Push: keine
+> Tabelle im Schema `public` ohne RLS, sechs aktive Tische, die RPCs
+> `operator_table_check`, `operator_record_payment`,
+> `operator_mark_station_ready`, `operator_reject_order` und
+> `operator_create_venue` vorhanden. Die Schrittlisten in Abschnitt 6 bleiben
+> für eine frische Instanz gültig.
 
 ### Weg A — über die CLI (empfohlen)
 
@@ -87,17 +101,35 @@ supabase login
 # Repo mit dem Projekt verknüpfen (im Repo-Wurzel-Verzeichnis)
 supabase link --project-ref <DEINE_PROJECT_REF>
 
-# Alle Migrationen anwenden
+# Zeigt an, was lokal vorliegt und was die Instanz kennt
+supabase migration list
+
+# Alle offenen Migrationen anwenden
 supabase db push
 ```
 
 `<DEINE_PROJECT_REF>` steht im Dashboard unter Project Settings → API. Die
 `supabase/config.toml` im Repo ist dafür vorbereitet; sie enthält keine Secrets.
 
+**Ist die CLI verknüpft, wendet ein Agent die Migrationen selbst an.** Das ist
+kein Nutzerschritt (siehe Abschnitt 0). Zu erledigen bleibt für den
+Account-Inhaber nur, was ein Dashboard-Recht braucht: Projektanlage, Anonymous
+Sign-in, Auth-Einstellungen.
+
 ### Weg B — über den SQL-Editor
 
 Dashboard → **SQL Editor** → nacheinander die Dateien aus
 `supabase/migrations/` einfügen und **Run**. Reihenfolge einhalten.
+
+> **Achtung, Ledger-Drift:** Weg B trägt **nichts** in die Ledger-Tabelle
+> `supabase_migrations.schema_migrations` ein. `supabase migration list` zeigt
+> eine von Hand angewendete Migration danach weiterhin als offen, und ein
+> späteres `db push` spielt sie erneut ein. Deshalb muss **jede** Migration
+> dieses Repos wiederholbar sein: `create policy` und `create trigger` bekommen
+> ihr `drop … if exists` davor, `create table`/`create index` ihr
+> `if not exists`, Seeds ein `on conflict`. Der zweite Durchlauf in
+> `scripts/verify-supabase-migrations.sh` erzwingt genau das und lässt den Lauf
+> scheitern, sobald eine Migration sich nicht wiederholen lässt.
 
 ### Verifikation des Schemas
 
@@ -454,6 +486,43 @@ Restaurant einzurichten.
 `venue_staff`-Eintrag aus §6.1 entfällt für neue Restaurants. Instanz und
 Anon-Key bleiben eingebacken; nur die Venue wechselt. In der Sandbox sind fünf
 Restaurants je Konto möglich.
+
+## 6.8 Betriebsschicht und Kassenabschluss (KL-SHIFT-001)
+
+Blueprint §8.3, Meilenstein 2 — die Klammer um alles, was Geld bewegt.
+**Kein Sandbox-Abschluss ist ein steuerlich gültiger Z-Bericht.**
+
+1. Migration `20260731200000_business_shift.sql` anwenden (Abschnitt 2).
+2. **Kasse** öffnen (Startseite). Ist keine Schicht offen, gibt es genau einen
+   Knopf: Anfangsbestand eintragen (darf leer bleiben) und **Schicht öffnen**.
+3. Während des Betriebs zeigt die Karte oben, was in der Schublade liegen muss,
+   und darunter, wie diese Zahl zustande kommt. Alle Geräte der Venue arbeiten
+   auf derselben Schicht.
+4. **Bargeld bewegen** für alles, was keine Zahlung ist: *Entnahme* in den
+   Tresor, *Ausgabe* an einen bar bezahlten Lieferanten, *Einlage* für
+   nachgelegtes Wechselgeld.
+5. **Kasse zählen und abschließen:** eintragen, was tatsächlich in der
+   Schublade liegt. Die Abweichung wird vor dem Buchen als Vorschau gezeigt und
+   danach mit dem Z-Bericht festgehalten.
+
+**Semantik:** Der erwartete Bestand kommt nie vom Gerät — er wird bei jedem
+Bericht in der Datenbank gerechnet, weil ein zweites Gerät jederzeit kassiert
+haben kann. Nur Bargeld zählt hinein, und zwar **inklusive Trinkgeld** (der
+Gast legt beides auf den Tisch); Karte, Tap to Pay, Gutschein und Onlinezahlung
+nicht. Eine stornierte Barzahlung senkt den Bestand wieder. Je Venue ist
+höchstens eine Schicht offen — das erzwingt ein Index, nicht die App.
+
+Zwei bewusste Entscheidungen: eine **Zahlung** ohne offene Schicht wird nicht
+blockiert (Geld anzunehmen darf nie an einem vergessenen Knopfdruck scheitern),
+erscheint aber im Bericht als „außerhalb der Schicht"; eine **Entnahme**
+verlangt eine offene Kasse. Und die Abweichung wird festgehalten, nicht
+verhindert — offene Rechnungen werden vor dem Abschluss gewarnt, aber nicht
+erzwungen.
+
+**Noch nicht enthalten** (eigene Scheiben): Rollen und Rechte (§9.1),
+Schichtplanung und Zeiterfassung (§9.2/§9.3 — die Domäne dafür liegt getestet
+unter `Features/Workforce/`, ist aber noch nirgends sichtbar), Kassenbuch und
+Ausgabenbelege (§20 Meilenstein 6), Fiskalisierung und Belegdruck.
 
 ---
 
