@@ -100,6 +100,15 @@ wiederholbar, 526 iOS-Unit-Tests gruen. Migration angewendet und geprueft:
 `migration list` deckungsgleich, nichts offen, weiterhin keine Tabelle in
 `public` ohne RLS.
 
+**Zwei UI-Tests im vollen Lauf rot, beide kein Inhaltsfehler:**
+`MenuManualEditorUITests.testManualMenuEditorCoreFlow` schlaegt weiterhin
+vorbestehend fehl. Neu dazu kommt
+`testGuestPreviewUsesCountersAndCompactQuantityControl`, das im vollen
+Parallellauf zweimal rot war und **isoliert beide Male bestand** — mit der
+PIN-Arbeit sind zehn UI-Tests dazugekommen, und die Klone konkurrieren
+sichtbar um den Simulator. Das ist ein Flake der Testumgebung, kein Befund am
+Produkt, sollte aber behoben werden, bevor jemand ihn fuer echt haelt.
+
 ### Empfohlener naechster Schritt
 
 Nach dem Push: **§9.2 Schichtplanung** — Verfuegbarkeiten, Wochenplanung,
