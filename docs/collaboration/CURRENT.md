@@ -823,12 +823,40 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   a simulator run through both flows. Migration applied and verified on the
   instance.
   **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.10).
-- **Milestone 2 remainder:** shift planning — availability, templates,
-  publication, swaps, leave (§9.2) — plus target/actual comparison and overtime
-  (§9.3), both of which need the planning layer to compare against. The
-  workforce domain for the planning half exists and is tested
-  (`Features/Workforce/`) but is still unreferenced from the app; KL-TIME-001
-  connected only its time-tracking part. Also open from §9.1: custom roles,
+- **Shift schedule (KL-PLAN-001, 1 August):** Blueprint §9.2, the counterpart to
+  the clock. KL-TIME-001 recorded who **actually** worked; this records who is
+  **supposed to**. Without it the target/actual comparison of §9.3 has nothing
+  to compare against.
+  The lifecycle is not reinvented — it follows the domain tested since
+  KL-WORKFORCE-001 (`WorkforceShiftLifecycle.swift`): draft → published →
+  accepted or declined. `swap_requested` is deliberately absent: swaps are their
+  own slice, and a status nothing can reach is ballast.
+  The load-bearing promise is an **exclusion constraint** (`btree_gist`): nobody
+  is scheduled twice at once. A declined shift stops blocking — it is no longer
+  an assignment, only its history. A **draft is invisible to the person
+  assigned**, which is the whole point of the split: planning must be able to
+  reshuffle the week without someone thinking they are rostered at every
+  intermediate state. Moving an already **accepted** shift drops it back to
+  published, because otherwise "accepted" would sit on a time nobody ever saw.
+  A sixth permission, `schedule.manage`, checked on every planning RPC and held
+  by owner, manager and shift lead — planning is a different responsibility from
+  staff administration. Deliberately **not** PIN-overridable: the PIN is for the
+  handover at the table. Answering your own shift needs no permission at all.
+  Verified against real PostgreSQL in its own test venue, 550 iOS unit tests, 14
+  UI tests, a simulator run through publishing and a rejected double booking.
+  Migration applied and verified on the instance.
+  Three findings on the way: a **count** of permissions broke in both the SQL and
+  the Swift test as soon as a sixth arrived — both now assert what a role
+  **excludes** instead of how many rights it carries. The demo team transport
+  did not know the new permission and silently hid the week view although it is
+  supposed to mirror the database. And the overlap rejection was **invisible**:
+  the notice sat on the screen behind the editor sheet.
+  **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.12).
+- **Milestone 2 remainder:** availability and absences, shift templates and
+  recurrence, target headcount and understaffing warnings, notification, swap
+  requests, holiday and sick leave (§9.2) — the domain models them, persistence
+  does not. Plus target/actual comparison and overtime (§9.3), which now have a
+  planning layer to compare against. Also open from §9.1: custom roles,
   qualifications, staff profiles and permissions across several locations.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

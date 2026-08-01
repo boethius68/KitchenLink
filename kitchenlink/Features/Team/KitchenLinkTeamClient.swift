@@ -16,6 +16,9 @@ enum KitchenLinkVenuePermission: String, CaseIterable, Sendable {
     case cashMovement = "cash.movement"
     case paymentsRefund = "payments.refund"
     case staffManage = "staff.manage"
+    /// KL-PLAN-001: den Dienstplan schreiben. Eine eigene Verantwortung —
+    /// eine Schichtleitung plant die Woche, stellt aber niemanden ein.
+    case scheduleManage = "schedule.manage"
 
     var label: String {
         switch self {
@@ -24,6 +27,7 @@ enum KitchenLinkVenuePermission: String, CaseIterable, Sendable {
         case .cashMovement: "Bargeld bewegen"
         case .paymentsRefund: "Zahlung stornieren"
         case .staffManage: "Personal verwalten"
+        case .scheduleManage: "Dienstplan schreiben"
         }
     }
 
@@ -38,6 +42,7 @@ enum KitchenLinkVenuePermission: String, CaseIterable, Sendable {
         case .cashMovement: "kein Bargeld bewegen"
         case .paymentsRefund: "eine Zahlung nicht stornieren"
         case .staffManage: "kein Personal verwalten"
+        case .scheduleManage: "den Dienstplan nicht schreiben"
         }
     }
 
@@ -48,6 +53,10 @@ enum KitchenLinkVenuePermission: String, CaseIterable, Sendable {
     /// machen — das wäre keine Freigabe für eine Aktion mehr, sondern eine
     /// dauerhafte Rechteerhöhung. Die Datenbank sieht das genauso
     /// (`kitchenlink_pin_overridable`); diese Liste ist die Spiegelung.
+    ///
+    /// `schedule.manage` (KL-PLAN-001) fehlt aus einem anderen Grund: die PIN
+    /// ist für den Handgriff am Tisch gedacht. Einen Wochenplan schreibt
+    /// niemand unter Zeitdruck mit geliehener Befugnis.
     static let pinOverridable: Set<KitchenLinkVenuePermission> = [
         .shiftOpen, .shiftClose, .cashMovement, .paymentsRefund
     ]

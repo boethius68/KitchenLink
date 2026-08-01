@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 1 August 2026 (Session-Teil 39: Zeiterfassung)
+**Updated:** 1 August 2026 (Session-Teil 40: Dienstplan)
+**Zuvor:** 1 August 2026 (Session-Teil 39: Zeiterfassung)
 **Zuvor:** 31 July 2026 (Session-Teil 38: Manager-PIN)
 **Zuvor:** 31 July 2026 (Session-Teil 37: Rollen und Rechte)
 **Zuvor:** 31 July 2026 (Session-Teil 36: Betriebsschicht und Kassenabschluss)
@@ -15,6 +16,64 @@
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 40: Dienstplan (1. August 2026)
+
+### Anlass
+
+Blueprint §9.2 — das Gegenstueck zu Session-Teil 39. Dort steht, wer
+**tatsaechlich** gearbeitet hat; hier, wer arbeiten **soll**. Ohne diese Scheibe
+hat der Soll-/Ist-Vergleich aus §9.3 nichts, wogegen er vergleichen koennte.
+
+### Umgesetzt (KL-PLAN-001)
+
+- `planned_shifts` mit dem Lebenszyklus der seit KL-WORKFORCE-001 getesteten
+  Domaene (`WorkforceShiftLifecycle.swift`): Entwurf → veroeffentlicht →
+  angenommen oder abgelehnt. `swap_requested` fehlt bewusst — ein Status, den
+  nichts erreichen kann, ist Ballast.
+- Tragende Zusage als **Ausschluss-Constraint** (`btree_gist`): niemand ist
+  zweimal gleichzeitig verplant. Eine abgelehnte Schicht blockiert nicht mehr.
+- **Ein Entwurf ist fuer den Betroffenen unsichtbar** (RLS) — der ganze Sinn
+  der Trennung.
+- Sechstes Recht `schedule.manage`; nicht per Manager-PIN freigebbar. Die
+  eigene Schicht zu beantworten braucht kein Recht.
+- App: Bereich `Dienstplan`.
+
+### Drei Befunde unterwegs
+
+- Eine **Zaehlung** der Rechte brach im SQL- wie im Swift-Test, sobald ein
+  sechstes dazukam. Beide pruefen jetzt inhaltlich, was eine Rolle
+  **abgrenzt** — das ist ohnehin die Aussage, um die es geht.
+- Der Demo-Team-Transport kannte das neue Recht nicht und liess die
+  Wochenansicht im Simulator stillschweigend verschwinden, obwohl er die
+  Datenbank spiegeln soll. Genau die Drift, die diese Transporte verhindern
+  sollen.
+- Die Absage bei einer Ueberlappung war **unsichtbar**: der Hinweis lag auf dem
+  Bildschirm hinter dem Bearbeitungsbogen, wer speicherte sah nichts geschehen.
+  `plan(...)` gibt den Grund jetzt zurueck, der Bogen zeigt ihn selbst.
+
+### Verifikation
+
+9 SQL-Tests gruen, 22 Migrationen wiederholbar, 550 iOS-Unit-Tests, 14 UI-Tests
+(weiterhin nur der vorbestehende `MenuManualEditorUITests`-Fehlschlag).
+Simulator-Durchlauf ueber Veroeffentlichen und eine abgewiesene Doppelbelegung.
+Migration angewendet und geprueft: Ausschluss-Constraint vorhanden, drei Rollen
+tragen das Recht, per PIN **nicht** freigebbar, keine Tabelle in `public` ohne
+RLS.
+
+### Offen
+
+Ein realer Durchlauf mit einem zweiten Konto (`SANDBOX_SETUP.md` §6.12).
+
+### Empfohlener naechster Schritt
+
+§9.2 ist damit im Kern da, aber nicht vollstaendig: Verfuegbarkeiten und
+Abwesenheiten, Schichtvorlagen und Wiederholungen, Sollbesetzung und
+Unterbesetzungswarnung, Benachrichtigung, Tauschanfragen, Urlaub und Krankheit.
+Die Domaene modelliert das alles bereits in `WorkforceTimeModels.swift`;
+persistiert ist es nicht. Die naechste sinnvolle Scheibe ist **Verfuegbarkeit
+und Abwesenheit**, weil sie die Planung erst schuetzt: heute laesst sich jemand
+einteilen, der Urlaub hat.
 
 ## Session-Teil 39: Zeiterfassung (1. August 2026)
 

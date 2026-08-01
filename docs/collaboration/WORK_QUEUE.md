@@ -1409,6 +1409,68 @@ Beim Zusammenfuehren kam ein echter Befund heraus: `manager-pin.sql` und
 fallen. `time-clock` hat jetzt einen eigenen Block; die belegten Bereiche stehen
 im Kopf von `scripts/verify-supabase-migrations.sh`.
 
+### KL-PLAN-001 - Dienstplan
+
+**Status:** Implementiert auf `main` (1. August 2026), Migration angewendet und
+auf der Instanz verifiziert; offen ist ein realer Durchlauf mit einem zweiten
+Konto (`SANDBOX_SETUP.md` §6.12)
+**Abhaengigkeit:** KL-ROLE-001 (Rechtemodell), KL-TIME-001 (das Gegenstueck)
+**Schreibbereich:** `supabase/migrations/20260801140000_shift_schedule.sql`
+(neu), `scripts/tests/shift-schedule.sql` (neu),
+`kitchenlink/Features/Schedule/` (neu),
+`Features/Team/KitchenLinkTeamClient.swift` (sechstes Recht),
+`Features/Team/KitchenLinkDemoTeamTransport.swift`,
+`App/KitchenLinkV2BusinessHomeView.swift`,
+`kitchenlinkTests/KitchenLinkScheduleTests.swift` (neu),
+`KitchenLinkTeamTests.swift`, `scripts/tests/roles-and-permissions.sql`,
+`scripts/verify-supabase-migrations.sh`, `SANDBOX_SETUP.md`, dieser Eintrag und
+`docs/collaboration/handoffs/CLAUDE.md`
+
+Blueprint §9.2 — das Gegenstueck zu KL-TIME-001. Dort steht, wer
+**tatsaechlich** gearbeitet hat; hier, wer arbeiten **soll**. Ohne diese Scheibe
+hat der Soll-/Ist-Vergleich aus §9.3 nichts, wogegen er vergleichen koennte.
+
+**Der Lebenszyklus ist nicht neu erfunden:** er folgt der seit
+KL-WORKFORCE-001 getesteten Domaene in `WorkforceShiftLifecycle.swift` —
+Entwurf → veroeffentlicht → angenommen oder abgelehnt. `swap_requested` fehlt
+bewusst: Tauschanfragen sind eine eigene Scheibe, und ein Status, den nichts
+erreichen kann, ist Ballast.
+
+- `planned_shifts` mit der tragenden Zusage als **Ausschluss-Constraint**
+  (`btree_gist`): niemand ist zweimal gleichzeitig verplant. Eine abgelehnte
+  Schicht blockiert nicht mehr — sie ist keine Zuordnung mehr, sondern nur noch
+  ihre Geschichte.
+- **Ein Entwurf ist fuer den Betroffenen unsichtbar** (RLS). Das ist der ganze
+  Sinn der Trennung: die Planung soll die Woche umstellen koennen, ohne dass bei
+  jedem Zwischenstand jemand denkt, er sei eingeteilt.
+- Eine bereits **angenommene** Schicht zu verschieben, setzt sie auf
+  `published` zurueck — sonst stuende „angenommen" an einer Zeit, die niemand
+  gesehen hat.
+- Sechstes Recht `schedule.manage`, an jeder Planungs-RPC geprueft, bei Inhaber,
+  Manager und Schichtleitung. Planen ist eine andere Verantwortung als Personal
+  verwalten. **Nicht** per Manager-PIN freigebbar (KL-ROLE-002): die PIN ist
+  fuer den Handgriff am Tisch. Die eigene Schicht zu **beantworten** braucht
+  dagegen kein Recht — es ist die eigene Zeit.
+- App: neuer Bereich `Dienstplan` — oben, was von einem will; darunter die
+  eigenen Schichten; ganz unten die Woche des Lokals mit Anlegen und
+  Veroeffentlichen.
+
+Verifikation: SQL gegen echtes PostgreSQL in einer eigenen Testvenue
+(Ueberlappung abgewiesen, anschliessende Schicht erlaubt, Entwurf unsichtbar,
+Antwort nur vom Eingeteilten und nur einmal, Ablehnung gibt den Zeitraum frei,
+Verschieben hebt die Zusage auf, RLS mit `set role`). 550 iOS-Unit-Tests gruen,
+14 UI-Tests gruen; Simulator-Durchlauf ueber Veroeffentlichen und eine
+abgewiesene Doppelbelegung.
+
+Drei Befunde unterwegs: eine **Zaehlung** der Rechte brach im SQL- wie im
+Swift-Test, sobald ein sechstes dazukam — beide pruefen jetzt inhaltlich, was
+eine Rolle **abgrenzt**, statt wie viele Rechte sie traegt. Der
+Demo-Team-Transport kannte das neue Recht nicht und liess die Wochenansicht
+verschwinden, obwohl er die Datenbank spiegeln soll. Und die Absage bei einer
+Ueberlappung war **unsichtbar**: der Hinweis lag auf dem Bildschirm hinter dem
+Bearbeitungsbogen. `plan(...)` gibt den Grund jetzt zurueck, der Bogen zeigt ihn
+selbst.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

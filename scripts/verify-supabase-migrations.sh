@@ -26,6 +26,7 @@
 #   …0000000000d1-d3   Gaeste (business-shift)
 #   …0000000000e1-e9   Konten (roles-and-permissions)
 #   …0000000000f1-f9   Konten (manager-pin)
+#   …000000009801-9809 Konten (shift-schedule)
 #   …000000009901-9909 Konten (time-clock)
 #
 # Kollidieren zwei Tests auf einer Kennung, laesst `on conflict (id) do

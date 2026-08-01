@@ -36,11 +36,21 @@ private func makeModel(
 
 // MARK: - Rechtemodell
 
-@Test func dieFuenfRechteSindVollstaendigBenannt() {
-    // Der Zuschnitt ist bewusst eng: was hier steht, wird auch geprüft.
-    #expect(KitchenLinkVenuePermission.allCases.count == 5)
+@Test func jedesRechtIstBenanntUndNichtsDarueberHinaus() {
+    // Der Zuschnitt bleibt eng: was hier steht, wird auch geprüft — und was
+    // nirgends geprüft wird, steht nicht hier. Bewusst **keine** Zählung: die
+    // brach beim sechsten Recht (KL-PLAN-001), ohne dass sich am Sinn etwas
+    // geändert hätte.
     #expect(KitchenLinkVenuePermission(rawValue: "shift.close")?.label == "Kasse abschließen")
+    #expect(KitchenLinkVenuePermission(rawValue: "schedule.manage") != nil)
     #expect(KitchenLinkVenuePermission(rawValue: "menu.publish") == nil)
+    #expect(KitchenLinkVenuePermission(rawValue: "tables.manage") == nil)
+
+    // Jedes Recht trägt eine Bezeichnung und einen verneinten Satzteil.
+    for permission in KitchenLinkVenuePermission.allCases {
+        #expect(!permission.label.isEmpty)
+        #expect(permission.deniedClause.contains("nicht") || permission.deniedClause.contains("kein"))
+    }
 }
 
 @Test func eineRolleOhneSensibleRechteIstEineAussageKeinMangel() {

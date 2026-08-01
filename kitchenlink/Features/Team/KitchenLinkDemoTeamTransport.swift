@@ -13,18 +13,19 @@ actor KitchenLinkDemoTeamTransport: KitchenLinkTeamTransport {
         KitchenLinkVenueRole(
             key: "owner", name: "Inhaber",
             permissions: ["shift.open", "shift.close", "cash.movement",
-                          "payments.refund", "staff.manage"],
+                          "payments.refund", "staff.manage", "schedule.manage"],
             isBuiltin: true, sortOrder: 10
         ),
         KitchenLinkVenueRole(
             key: "manager", name: "Manager",
             permissions: ["shift.open", "shift.close", "cash.movement",
-                          "payments.refund", "staff.manage"],
+                          "payments.refund", "staff.manage", "schedule.manage"],
             isBuiltin: true, sortOrder: 20
         ),
         KitchenLinkVenueRole(
             key: "shift_lead", name: "Schichtleitung",
-            permissions: ["shift.open", "shift.close", "cash.movement", "payments.refund"],
+            permissions: ["shift.open", "shift.close", "cash.movement", "payments.refund",
+                          "schedule.manage"],
             isBuiltin: true, sortOrder: 30
         ),
         KitchenLinkVenueRole(key: "service", name: "Service", permissions: [],

@@ -226,6 +226,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2ScheduleView()
+            } label: {
+                operationsRow(
+                    title: "Dienstplan",
+                    subtitle: "Wer kommt wann · annehmen und ablehnen",
+                    systemImage: "calendar"
+                )
+            }
+            .accessibilityIdentifier("business.openSchedule")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 KitchenLinkV2TimeClockView()
             } label: {
                 operationsRow(

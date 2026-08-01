@@ -61,7 +61,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **21** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **22** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -86,14 +86,17 @@ Es gibt **21** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260731220000_roles_and_permissions.sql` | Standardrollen je Venue, fünf Rechte, Personalverwaltung (KL-ROLE-001) |
 | `supabase/migrations/20260731230000_manager_pin.sql` | Persönliche Manager-PIN, einmalige Freigabe je Aktion, Audit (KL-ROLE-002) |
 | `supabase/migrations/20260801120000_time_clock.sql` | Zeiterfassung: stempeln, Pausen, Korrektur mit Audit (KL-TIME-001) |
+| `supabase/migrations/20260801140000_shift_schedule.sql` | Dienstplan: planen, veröffentlichen, annehmen und ablehnen (KL-PLAN-001) |
 
-> **Stand der Sandbox-Instanz (1. August 2026):** alle 21 sind angewendet,
+> **Stand der Sandbox-Instanz (1. August 2026):** alle 22 sind angewendet,
 > `supabase migration list` ist deckungsgleich (nichts offen). Geprüft nach dem
 > Push: keine Tabelle im Schema `public` ohne RLS, `time_entries`,
 > `time_breaks` und `manager_pins` vorhanden, dazu die RPCs
-> `operator_clock_in`, `operator_break_start`, `operator_team_time` und
-> `operator_correct_time_entry`. Die Schrittlisten in Abschnitt 6 bleiben für
-> eine frische Instanz gültig.
+> `operator_clock_in`, `operator_break_start`, `operator_team_time`,
+> `operator_correct_time_entry`, `operator_plan_shift`,
+> `operator_publish_schedule` und `operator_respond_to_shift`, dazu der
+> Ausschluss-Constraint `planned_shifts_no_overlap`. Die Schrittlisten in
+> Abschnitt 6 bleiben für eine frische Instanz gültig.
 >
 > **Zwei Arbeitslinien gleichzeitig?** Dann muss die eine die Migration der
 > anderen im Verzeichnis haben, bevor sie pusht — sonst bricht
@@ -690,9 +693,52 @@ Korrektur überschreibt den echten Originalwert nicht. Ohne diesen Weg bliebe ei
 vergessener Ausstempel für immer offen — und die Person käme wegen des Index nie
 wieder auf die Uhr.
 
-**Noch nicht enthalten:** Schichtplanung, Verfügbarkeiten, Urlaub und Krankheit
-(§9.2), Soll-/Ist-Vergleich und Überstunden (§9.3 — beides setzt die Planung
-voraus, gegen die verglichen wird), Lohnbuchhaltungsexporte.
+**Noch nicht enthalten:** Verfügbarkeiten, Urlaub und Krankheit (§9.2),
+Soll-/Ist-Vergleich und Überstunden (§9.3 — beides vergleicht gegen die
+Planung), Lohnbuchhaltungsexporte. Die Planung selbst steht seit §6.12.
+
+## 6.12 Dienstplan (KL-PLAN-001)
+
+Blueprint §9.2 — das Gegenstück zur Zeiterfassung. §6.11 hält fest, wer
+*tatsächlich* gearbeitet hat; hier steht, wer arbeiten *soll*.
+
+1. Migration `20260801140000_shift_schedule.sql` anwenden (Abschnitt 2).
+2. **Dienstplan** öffnen (Startseite). Ganz oben steht, was von dir eine Antwort
+   will; darunter die eigenen bestätigten Schichten.
+3. Wer `schedule.manage` trägt, sieht darunter die **Woche des Lokals** und kann
+   mit `+` an einem Tag eine Schicht anlegen. Neue Schichten sind **Entwürfe**.
+4. **Entwürfe veröffentlichen** macht die Woche für das Personal sichtbar. Vorher
+   weiß niemand von ihr — das ist der Sinn der Trennung: die Planung soll
+   umstellen können, ohne dass bei jedem Zwischenstand jemand denkt, er sei
+   eingeteilt.
+5. Das Personal nimmt an oder lehnt mit Grund ab. Eine Ablehnung gibt den
+   Zeitraum wieder frei.
+
+**Semantik:** Der Lebenszyklus ist **nicht neu erfunden** — er folgt der seit
+KL-WORKFORCE-001 getesteten Domäne in
+`kitchenlink/Features/Workforce/WorkforceShiftLifecycle.swift`:
+Entwurf → veröffentlicht → angenommen oder abgelehnt.
+
+Die tragende Zusage steht als Ausschluss-Constraint in der Datenbank:
+**niemand ist zweimal gleichzeitig verplant** (`planned_shifts_no_overlap`, über
+`btree_gist`). Eine abgelehnte Schicht blockiert nicht mehr — sie ist keine
+Zuordnung mehr, sondern nur noch ihre Geschichte. Eine bereits **angenommene**
+Schicht zu verschieben, setzt sie auf „veröffentlicht" zurück: sonst stünde
+„angenommen" an einer Zeit, die niemand gesehen hat.
+
+**Das sechste Recht:** `schedule.manage`, an jeder Planungs-RPC geprüft und bei
+Inhaber, Manager und Schichtleitung. Planen ist eine andere Verantwortung als
+Personal verwalten — eine Schichtleitung schreibt die Woche, stellt aber
+niemanden ein. Bewusst **nicht** per Manager-PIN freigebbar (§6.10): die PIN ist
+für den Handgriff am Tisch, einen Wochenplan schreibt niemand unter Zeitdruck
+mit geliehener Befugnis. Die eigene Schicht zu **beantworten** braucht dagegen
+kein Recht — es ist die eigene Zeit.
+
+**Noch nicht enthalten** (eigene Scheiben): Verfügbarkeiten und Abwesenheiten,
+Schichtvorlagen und Wiederholungen, Sollbesetzung und Unterbesetzungswarnung,
+Benachrichtigung, Tauschanfragen, Urlaubs- und Krankmeldungen. Die Domäne
+modelliert sie bereits (`WorkforceTimeModels.swift`), persistiert sind sie noch
+nicht.
 
 ---
 

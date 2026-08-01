@@ -209,9 +209,18 @@ begin
   perform pg_temp.act_as('00000000-0000-0000-0000-0000000000e3', false);
 
   v_mine := public.operator_my_permissions('rollenprobe');
+  -- Inhaltlich statt gezaehlt: eine Zahl haette bei jedem neuen Recht
+  -- gebrochen, ohne dass sich am Sinn etwas aendert (KL-PLAN-001 hat genau
+  -- das ausgeloest). Entscheidend ist, was die Rolle **abgrenzt**.
   perform pg_temp.assert(
-    jsonb_array_length(v_mine -> 'permissions') = 4,
-    'Schichtleitung traegt vier Rechte, waren ' || jsonb_array_length(v_mine -> 'permissions')
+    v_mine -> 'permissions' ? 'shift.close', 'Schichtleitung schliesst die Kasse ab');
+  perform pg_temp.assert(
+    v_mine -> 'permissions' ? 'payments.refund', 'Schichtleitung storniert');
+  perform pg_temp.assert(
+    v_mine -> 'permissions' ? 'schedule.manage', 'Schichtleitung schreibt den Plan');
+  perform pg_temp.assert(
+    not (v_mine -> 'permissions' ? 'staff.manage'),
+    'Schichtleitung stellt niemanden ein — das ist ihre Grenze'
   );
 
   v_shift := public.operator_open_shift('rollenprobe', 5000, 'sl-oeffnet');
