@@ -15,6 +15,23 @@
 # Es braucht ein lokales PostgreSQL 16+ (z. B. `brew install postgresql@16`).
 # Es fasst weder die echte Supabase-Instanz noch Secrets an.
 #
+# ACHTUNG, geteilte Datenbank: alle Tests aus `scripts/tests/` laufen
+# nacheinander auf **einem** Cluster, in alphabetischer Reihenfolge. Ein Test
+# muss deshalb (a) aufraeumen, was er anlegt, und (b) einen **eigenen
+# UUID-Block** fuer seine Testkonten benutzen. Belegt sind:
+#
+#   …0000000000aa/bb   Personal und Fremde (payments, table-context, stations,
+#                      business-shift)
+#   …0000000000c1/c2   Gaeste (payments)
+#   …0000000000d1-d3   Gaeste (business-shift)
+#   …0000000000e1-e9   Konten (roles-and-permissions)
+#   …0000000000f1-f9   Konten (manager-pin)
+#   …000000009901-9909 Konten (time-clock)
+#
+# Kollidieren zwei Tests auf einer Kennung, laesst `on conflict (id) do
+# nothing` die Konten des spaeteren Tests still fallen — und der Fehler taucht
+# weit entfernt als „kein Konto" auf.
+#
 # Zusaetzlich wird jede Migration ein zweites Mal eingespielt. Grund: die
 # Instanz wird auf zwei Wegen gepflegt (CLI `supabase db push` und der
 # SQL-Editor im Dashboard). Wird eine Migration von Hand im Editor ausgefuehrt,

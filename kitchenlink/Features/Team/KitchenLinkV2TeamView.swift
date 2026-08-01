@@ -30,6 +30,11 @@ struct KitchenLinkV2TeamView: View {
                         }
                     case .notAllowed(let message):
                         notAllowedCard(message)
+                        // Die eigene PIN darf auch hinterlegen, wer diesen
+                        // Bildschirm sonst nur lesen kann — eine
+                        // Schichtleitung gibt am Tisch frei, ohne Personal zu
+                        // verwalten.
+                        if model.canHoldPin { pinCard }
                         roleReference
                     case .failed(let message):
                         KitchenLinkV2Card {
@@ -46,6 +51,8 @@ struct KitchenLinkV2TeamView: View {
                         explainer
                         teamSection
                         inviteCard
+                        if model.canHoldPin { pinCard }
+                        overrideSection
                         roleReference
                     }
 
@@ -267,6 +274,133 @@ struct KitchenLinkV2TeamView: View {
                     .accessibilityIdentifier("team.invite")
             }
         }
+    }
+
+    // MARK: - Manager-PIN (KL-ROLE-002)
+
+    private var pinCard: some View {
+        KitchenLinkV2Card {
+            VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+                Text(model.pinStatus.hasPin ? "Deine PIN ist hinterlegt" : "Deine PIN")
+                    .font(KitchenLinkV2Typography.primaryLine)
+                Text("Damit gibst du am Tisch eine einzelne Aktion frei — einen "
+                     + "Storno etwa —, ohne dass sich jemand ab- und wieder "
+                     + "anmeldet. Die PIN gehört dir, nicht dem Lokal: jede "
+                     + "Freigabe wird auf deinen Namen protokolliert.")
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                SecureField("PIN", text: $model.pinInput, prompt: Text(verbatim: "••••"))
+                    .keyboardType(.numberPad)
+                    .textContentType(.oneTimeCode)
+                    .kitchenLinkV2TabularNumbers()
+                    .onChange(of: model.pinInput) { _, value in
+                        let digits = String(value.filter(\.isNumber)
+                            .prefix(KitchenLinkManagerPinRules.maximumLength))
+                        if digits != value { model.pinInput = digits }
+                    }
+                    .padding(KitchenLinkV2Spacing.medium)
+                    .background(
+                        KitchenLinkV2Palette.Surface.recessed,
+                        in: RoundedRectangle(
+                            cornerRadius: KitchenLinkV2Radius.control, style: .continuous
+                        )
+                    )
+                    .accessibilityIdentifier("team.pinField")
+
+                Text("Vier bis acht Ziffern. Keine gleiche Ziffer, keine "
+                     + "fortlaufende Reihe — bei vier Stellen gibt es nur "
+                     + "10.000 Möglichkeiten.")
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button(model.pinStatus.hasPin ? "PIN ändern" : "PIN hinterlegen") {
+                    Task { await model.saveOwnPin() }
+                }
+                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                .disabled(!model.canSavePin)
+                .accessibilityIdentifier("team.savePin")
+
+                if model.pinStatus.hasPin {
+                    Button("PIN löschen") { Task { await model.clearOwnPin() } }
+                        .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                        .accessibilityIdentifier("team.clearPin")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var overrideSection: some View {
+        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
+            Text("FREIGABEN")
+                .font(KitchenLinkV2Typography.meta)
+                .tracking(1.25)
+                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+
+            KitchenLinkV2Card(
+                padding: model.overrides.isEmpty ? KitchenLinkV2Spacing.large : 0
+            ) {
+                if model.overrides.isEmpty {
+                    Text("Noch keine. Hier steht später, wer wem was freigegeben "
+                         + "hat — jede Freigabe überbrückt ein fehlendes Recht "
+                         + "für genau eine Aktion.")
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("team.overrides.empty")
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(Array(model.overrides.enumerated()), id: \.element.id) {
+                            index, record in
+                            if index > 0 {
+                                Divider().overlay(KitchenLinkV2Palette.Border.subtle)
+                            }
+                            overrideRow(record)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func overrideRow(_ record: KitchenLinkManagerOverrideRecord) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(record.permissionLabel)
+                .font(KitchenLinkV2Typography.secondaryLine)
+                .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+            Text(verbatim: "\(record.grantedByEmail ?? "?") → \(record.requestedByEmail ?? "?")")
+                .font(KitchenLinkV2Typography.meta)
+                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                .lineLimit(1)
+            HStack(spacing: KitchenLinkV2Spacing.xSmall) {
+                if let grantedAt = record.grantedAt {
+                    Text(KitchenLinkV2ShiftDateText.dayClock(grantedAt))
+                        .font(KitchenLinkV2Typography.meta)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                }
+                // Eine erteilte, aber nie verbrauchte Freigabe ist kein Fehler
+                // — die Aktion wurde abgebrochen. Sichtbar bleibt sie trotzdem.
+                Text(record.wasUsed ? "verbraucht" : "nicht verwendet")
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(
+                        record.wasUsed
+                            ? KitchenLinkV2Palette.Content.muted
+                            : KitchenLinkV2Palette.Urgency.waitingText
+                    )
+            }
+            if let note = record.note {
+                Text(note)
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, KitchenLinkV2Spacing.large)
+        .padding(.vertical, KitchenLinkV2Spacing.small)
     }
 
     private var roleReference: some View {

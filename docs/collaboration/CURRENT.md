@@ -776,14 +776,53 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   The screen therefore flags entries open for over twelve hours.
   Verified against real PostgreSQL in its own test venue, 498 iOS unit tests, a
   simulator run through clock-in, break and correcting a forgotten clock-out.
-  **Open:** the migration is **not pushed**. The instance already carries
-  `20260731230000_manager_pin.sql` from a parallel line of work whose file still
-  lives in its own worktree; `supabase db push` requires a gapless local history
-  and refuses. The two migrations were verified together locally — all seven SQL
-  tests pass. Once the PIN work is on `main`, the push is a single call.
+  **Open:** one real trading day on a device (`SANDBOX_SETUP.md` §6.11).
+- **Manager PIN (KL-ROLE-002, 31 July):** the other half of Blueprint §9.1,
+  which asks for sensitive actions "by special permission **or** manager PIN".
+  KL-ROLE-001 built only the permission — so a service hand who had to refund a
+  payment at the table had to go and fetch the manager. Now a lead authorises
+  **one** action on the spot, and nobody signs out and back in.
+  **The PIN belongs to a person, not to the venue.** That is the load-bearing
+  decision and it follows from §8.2: a shared house PIN cannot answer "who
+  authorised this?" — it only proves someone in the building knew it. So every
+  lead sets their own, and the grant carries their name. What a PIN may
+  authorise follows from the same rule: exactly what its holder could do
+  themselves. Demote a lead and their PIN stops working the same second,
+  without anyone deleting it.
+  **Four of the five permissions are overridable, `staff.manage` is not.**
+  Someone who could manage staff on a borrowed PIN would make themselves an
+  owner in the same minute — that is not an authorisation for one action but a
+  permanent escalation.
+  A grant is single-use, five minutes, one venue, one permission, one requester,
+  and it is claimed in the same statement that checks it, so two devices cannot
+  both win. The PIN is stored as a bcrypt hash (`extensions.crypt`), five wrong
+  attempts lock the **requesting device** (not the venue — a wrong PIN belongs
+  to nobody), and two people sharing a PIN authorise nothing rather than
+  producing an unattributable grant. `manager_pins`,
+  `manager_pin_attempts` and `manager_overrides` carry RLS with **no policy**
+  and no grants: no client ever reads a row; the audit is read through
+  `operator_recent_overrides`, which never hands out the token hash.
+  In the app: a shared authorisation sheet used by both the till and the check,
+  own-PIN management and the grant log under `Team`. The four money RPCs each
+  gained one defaulted `p_override_token` parameter (drop + create in the same
+  transaction, as with `guest_web_submit_order_v2`); callers without a grant are
+  unchanged.
+  New launch argument `--kitchenlink-demo-service-role`: the demo account owns
+  its venue and may do everything, so the *locked* state from KL-ROLE-001 — and
+  with it the PIN — could not be shown at all. It can now, in the simulator and
+  in a UI test.
+  Verified against real PostgreSQL in its own test venue (17 checked sections incl.
+  single use, wrong action, wrong requester, expiry, demoted grantor, lockout,
+  ambiguity, `staff.manage` refused, RLS), 512 iOS unit tests, 10 UI tests, and
+  a simulator run through both flows. Migration applied and verified on the
+  instance.
+  **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.10).
 - **Milestone 2 remainder:** shift planning — availability, templates,
   publication, swaps, leave (§9.2) — plus target/actual comparison and overtime
-  (§9.3), both of which need the planning layer to compare against. Also open
-  from §9.1: custom roles, qualifications, staff profiles.
+  (§9.3), both of which need the planning layer to compare against. The
+  workforce domain for the planning half exists and is tested
+  (`Features/Workforce/`) but is still unreferenced from the app; KL-TIME-001
+  connected only its time-tracking part. Also open from §9.1: custom roles,
+  qualifications, staff profiles and permissions across several locations.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

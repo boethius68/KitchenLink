@@ -11,7 +11,12 @@
 -- werden: Ein- und Ausstempeln liegen im Test sonst Mikrosekunden auseinander.
 --
 -- Der Test legt eine eigene Venue an und raeumt sie am Ende weg; alle Tests
--- dieses Verzeichnisses laufen nacheinander auf derselben Datenbank.
+-- dieses Verzeichnisses laufen nacheinander auf **derselben** Datenbank.
+-- Aus demselben Grund hat er einen eigenen UUID-Block (`…9901` ff.): mit
+-- `…f1` ff. kollidierte er mit `manager-pin.sql`, das dieselben Kennungen fuer
+-- andere E-Mails belegt — und `on conflict (id) do nothing` liess die Konten
+-- dieses Tests dann still fallen. Siehe den Kopf von
+-- `scripts/verify-supabase-migrations.sh`.
 
 \set ON_ERROR_STOP on
 
@@ -59,9 +64,9 @@ end;
 $$;
 
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-0000000000f1', 'chefin@zeit.test'),
-  ('00000000-0000-0000-0000-0000000000f2', 'koechin@zeit.test'),
-  ('00000000-0000-0000-0000-0000000000f9', 'fremde@zeit.test')
+  ('00000000-0000-0000-0000-000000009901', 'chefin@zeit.test'),
+  ('00000000-0000-0000-0000-000000009902', 'koechin@zeit.test'),
+  ('00000000-0000-0000-0000-000000009909', 'fremde@zeit.test')
 on conflict (id) do nothing;
 
 -- ============================================================================
@@ -70,7 +75,7 @@ on conflict (id) do nothing;
 
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f1', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009901', false);
   perform public.operator_create_venue('Zeitprobe', 'zeitprobe');
   perform public.operator_add_staff('zeitprobe', 'koechin@zeit.test', 'kitchen');
 end;
@@ -87,7 +92,7 @@ declare
   v_in jsonb;
   v_status jsonb;
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
 
   v_in := public.operator_clock_in('zeitprobe');
   perform pg_temp.assert(v_in ->> 'entry_id' is not null, 'Eintrag erwartet');
@@ -101,7 +106,7 @@ $$;
 -- Zweimal einstempeln geht nicht — das ist die tragende Zusage.
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
   perform pg_temp.expect_error(
     $q$select public.operator_clock_in('zeitprobe')$q$,
     'time_already_clocked_in'
@@ -125,7 +130,7 @@ $$;
 
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
   perform public.operator_break_start('zeitprobe', 'meal_break');
 
   perform pg_temp.expect_error(
@@ -150,7 +155,7 @@ declare
   v_net bigint;
   v_break bigint;
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
 
   v_status := public.operator_my_time_status('zeitprobe');
   perform pg_temp.assert((v_status ->> 'on_break')::boolean, 'Pause laeuft');
@@ -175,7 +180,7 @@ do $$
 declare
   v_end jsonb;
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
   v_end := public.operator_break_end('zeitprobe');
   perform pg_temp.assert(v_end ->> 'break_id' is not null, 'Pause beendet erwartet');
 
@@ -194,7 +199,7 @@ do $$
 declare
   v_out jsonb;
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
 
   -- Neue Pause, die beim Feierabend noch laeuft.
   perform public.operator_break_start('zeitprobe');
@@ -214,7 +219,7 @@ $$;
 -- Nach dem Ausstempeln geht kein zweites.
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
   perform pg_temp.expect_error(
     $q$select public.operator_clock_out('zeitprobe')$q$,
     'time_not_clocked_in'
@@ -229,7 +234,7 @@ $$;
 -- Und jetzt wieder ein neuer Eintrag: die Sperre galt nur dem offenen.
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
   perform public.operator_clock_in('zeitprobe');
 end;
 $$;
@@ -249,12 +254,12 @@ declare
 begin
   -- Ein abgeschlossener Eintrag von gestern.
   insert into public.time_entries (venue_id, user_id, started_at, ended_at, status)
-  select v.id, '00000000-0000-0000-0000-0000000000f2',
+  select v.id, '00000000-0000-0000-0000-000000009902',
          now() - interval '26 hours', now() - interval '20 hours', 'closed'
   from public.venues v where v.slug = 'zeitprobe'
   returning id into v_gestern;
 
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
   v_status := public.operator_my_time_status('zeitprobe');
   v_heute := jsonb_array_length(v_status -> 'today');
 
@@ -277,7 +282,7 @@ begin
   perform pg_temp.assert(
     (select count(*) from public.time_entries e join public.venues v on v.id = e.venue_id
      where v.slug = 'zeitprobe'
-       and e.user_id = '00000000-0000-0000-0000-0000000000f2') > v_heute,
+       and e.user_id = '00000000-0000-0000-0000-000000009902') > v_heute,
     'Es gibt mehr Eintraege als heutige — sonst prueft der Test nichts'
   );
 
@@ -291,7 +296,7 @@ $$;
 
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f9', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009909', false);
   perform pg_temp.expect_error(
     $q$select public.operator_clock_in('zeitprobe')$q$,
     'time_forbidden'
@@ -310,7 +315,7 @@ $$;
 do $$
 begin
   -- Die Koechin sieht ihre eigene Zeit, aber nicht die des Teams.
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
   perform pg_temp.expect_error(
     $q$select public.operator_team_time('zeitprobe')$q$,
     'permission_denied'
@@ -323,7 +328,7 @@ declare
   v_team jsonb;
   v_row jsonb;
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f1', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009901', false);
   -- Einen Tag zurueck: der erste Eintrag ist zwei Stunden zurueckdatiert und
   -- faellt bei einem Lauf kurz nach Mitternacht sonst aus dem Fenster. Das
   -- prueft nebenbei `p_days_back`.
@@ -358,7 +363,7 @@ begin
   where v.id = e.venue_id and v.slug = 'zeitprobe' and e.status = 'open'
   returning e.id into v_entry_id;
 
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
   -- Die Betroffene selbst darf nicht korrigieren.
   perform pg_temp.expect_error(
     format(
@@ -379,7 +384,7 @@ begin
   from public.time_entries e join public.venues v on v.id = e.venue_id
   where v.slug = 'zeitprobe' and e.status = 'open';
 
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f1', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009901', false);
   perform pg_temp.expect_error(
     format(
       $q$select public.operator_correct_time_entry('zeitprobe', %L, '  ')$q$, v_entry_id
@@ -407,7 +412,7 @@ begin
   from public.time_entries e join public.venues v on v.id = e.venue_id
   where v.slug = 'zeitprobe' and e.status = 'open';
 
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f1', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009901', false);
   v_fix := public.operator_correct_time_entry(
     'zeitprobe', v_entry_id, 'Ausstempeln vergessen',
     null, v_original + interval '8 hours'
@@ -435,11 +440,11 @@ begin
   perform pg_temp.assert(
     v_entry.correction_reason = 'Ausstempeln vergessen', 'Grund erwartet');
   perform pg_temp.assert(
-    v_entry.corrected_by = '00000000-0000-0000-0000-0000000000f1', 'Urheber erwartet');
+    v_entry.corrected_by = '00000000-0000-0000-0000-000000009901', 'Urheber erwartet');
   perform pg_temp.assert(v_entry.corrected_at is not null, 'Zeitpunkt erwartet');
 
   -- Zweite Korrektur: `original_started_at` darf sich nicht mehr aendern.
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f1', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009901', false);
   perform public.operator_correct_time_entry(
     'zeitprobe', v_entry.id, 'Nochmal angepasst',
     v_entry.started_at + interval '1 hour', v_entry.ended_at
@@ -469,7 +474,7 @@ $$;
 -- Und die Koechin kann wieder einstempeln.
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
   perform public.operator_clock_in('zeitprobe');
   perform pg_temp.assert(
     (public.operator_my_time_status('zeitprobe') ->> 'clocked_in')::boolean,
@@ -485,14 +490,14 @@ $$;
 
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f1', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009901', false);
   perform public.operator_clock_in('zeitprobe');
 end;
 $$;
 
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f2', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009902', false);
 end;
 $$;
 
@@ -503,7 +508,7 @@ begin
   -- Die Koechin sieht nur ihre eigenen Eintraege, nicht die der Chefin.
   perform pg_temp.assert(
     (select count(*) from public.time_entries
-     where user_id <> '00000000-0000-0000-0000-0000000000f2') = 0,
+     where user_id <> '00000000-0000-0000-0000-000000009902') = 0,
     'Fremde Eintraege bleiben unsichtbar'
   );
   perform pg_temp.assert(
@@ -517,7 +522,7 @@ reset role;
 
 do $$
 begin
-  perform pg_temp.act_as('00000000-0000-0000-0000-0000000000f1', false);
+  perform pg_temp.act_as('00000000-0000-0000-0000-000000009901', false);
 end;
 $$;
 
@@ -528,7 +533,7 @@ begin
   -- Die Chefin hat staff.manage und sieht alles.
   perform pg_temp.assert(
     (select count(*) from public.time_entries
-     where user_id = '00000000-0000-0000-0000-0000000000f2') > 0,
+     where user_id = '00000000-0000-0000-0000-000000009902') > 0,
     'Mit staff.manage sind fremde Eintraege sichtbar'
   );
 end;

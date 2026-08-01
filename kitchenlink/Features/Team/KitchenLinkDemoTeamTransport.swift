@@ -46,10 +46,16 @@ actor KitchenLinkDemoTeamTransport: KitchenLinkTeamTransport {
     private let meID = "demo-me"
 
     init(members: [KitchenLinkTeamMember]? = nil) {
+        // KL-ROLE-002: der Demo-Zugang ist sonst Inhaber und darf alles — der
+        // gesperrte Zustand wäre damit nicht vorführbar, und die Freigabe per
+        // PIN erst recht nicht.
+        let mine = KitchenLinkDesignPreviewConfiguration.shouldUseDemoServiceRole()
+            ? ("service", "Service")
+            : ("owner", "Inhaber")
         self.members = members ?? [
             KitchenLinkTeamMember(
                 userID: "demo-me", email: "du@restaurant.de",
-                roleKey: "owner", roleName: "Inhaber", isMe: true
+                roleKey: mine.0, roleName: mine.1, isMe: true
             ),
             KitchenLinkTeamMember(
                 userID: "demo-2", email: "sarah@restaurant.de",

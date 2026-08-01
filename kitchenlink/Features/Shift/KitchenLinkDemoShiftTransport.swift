@@ -85,8 +85,10 @@ actor KitchenLinkDemoShiftTransport: KitchenLinkShiftTransport {
         session: KitchenLinkCloudSession,
         venueSlug: String,
         openingCashCents: Int,
-        idempotencyKey: String
+        idempotencyKey: String,
+        overrideToken: String?
     ) async throws {
+        try await Self.consume(overrideToken, for: .shiftOpen)
         if openKeys.contains(idempotencyKey) { return }
         guard open == nil else {
             throw KitchenLinkCloudServiceError.server(
@@ -145,8 +147,10 @@ actor KitchenLinkDemoShiftTransport: KitchenLinkShiftTransport {
         kind: KitchenLinkCashMovementKind,
         amountCents: Int,
         reason: String,
-        idempotencyKey: String
+        idempotencyKey: String,
+        overrideToken: String?
     ) async throws {
+        try await Self.consume(overrideToken, for: .cashMovement)
         guard var state = open else {
             throw KitchenLinkCloudServiceError.server(
                 status: 400, message: "cash_no_open_shift: es ist keine Schicht offen"
@@ -168,8 +172,10 @@ actor KitchenLinkDemoShiftTransport: KitchenLinkShiftTransport {
         session: KitchenLinkCloudSession,
         venueSlug: String,
         countedCashCents: Int,
-        note: String
+        note: String,
+        overrideToken: String?
     ) async throws -> KitchenLinkShiftClose {
+        try await Self.consume(overrideToken, for: .shiftClose)
         guard let state = open else {
             throw KitchenLinkCloudServiceError.server(
                 status: 400, message: "shift_none_open: es ist keine Schicht offen"
@@ -215,5 +221,18 @@ actor KitchenLinkDemoShiftTransport: KitchenLinkShiftTransport {
         limit: Int
     ) async throws -> [KitchenLinkShift] {
         Array(closed.prefix(limit))
+    }
+
+    /// KL-ROLE-002: Eine mitgeschickte Freigabe wird auch in der Demo genau
+    /// einmal verbraucht — sonst zeigte die Demo eine Zusage, die der echte
+    /// Weg nicht einhält.
+    private static func consume(
+        _ token: String?,
+        for permission: KitchenLinkVenuePermission
+    ) async throws {
+        guard let token, !token.isEmpty else { return }
+        try await KitchenLinkDemoManagerPinTransport.shared.consume(
+            token: token, permission: permission
+        )
     }
 }

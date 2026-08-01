@@ -114,8 +114,17 @@ actor KitchenLinkDemoCheckTransport: KitchenLinkCheckTransport {
         session: KitchenLinkCloudSession,
         venueSlug: String,
         paymentID: String,
-        reason: String
+        reason: String,
+        overrideToken: String?
     ) async throws {
+        // KL-ROLE-002: Eine mitgeschickte Freigabe gilt auch in der Demo genau
+        // einmal — sonst zeigte die Demo eine Zusage, die der echte Weg nicht
+        // einhält.
+        if let overrideToken, !overrideToken.isEmpty {
+            try await KitchenLinkDemoManagerPinTransport.shared.consume(
+                token: overrideToken, permission: .paymentsRefund
+            )
+        }
         guard let released = itemsByPayment.removeValue(forKey: paymentID) else { return }
         let amount = items
             .filter { released.contains($0.id) }

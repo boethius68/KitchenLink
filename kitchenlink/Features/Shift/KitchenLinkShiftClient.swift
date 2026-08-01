@@ -194,12 +194,16 @@ struct KitchenLinkShiftClose: Equatable, Sendable {
 }
 
 protocol KitchenLinkShiftTransport: Sendable {
+    /// KL-ROLE-002: `overrideToken` ist die einmalige Freigabe einer
+    /// Führungskraft. Ohne sie bleibt alles wie in KL-ROLE-001 — wer das Recht
+    /// hat, schickt keinen Token, und wer keines hat, kommt ohne nicht weiter.
     func openShift(
         config: KitchenLinkCloudConfig,
         session: KitchenLinkCloudSession,
         venueSlug: String,
         openingCashCents: Int,
-        idempotencyKey: String
+        idempotencyKey: String,
+        overrideToken: String?
     ) async throws
 
     func loadReport(
@@ -216,7 +220,8 @@ protocol KitchenLinkShiftTransport: Sendable {
         kind: KitchenLinkCashMovementKind,
         amountCents: Int,
         reason: String,
-        idempotencyKey: String
+        idempotencyKey: String,
+        overrideToken: String?
     ) async throws
 
     func closeShift(
@@ -224,7 +229,8 @@ protocol KitchenLinkShiftTransport: Sendable {
         session: KitchenLinkCloudSession,
         venueSlug: String,
         countedCashCents: Int,
-        note: String
+        note: String,
+        overrideToken: String?
     ) async throws -> KitchenLinkShiftClose
 
     func recentShifts(
@@ -241,12 +247,14 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkShiftTransport {
         session: KitchenLinkCloudSession,
         venueSlug: String,
         openingCashCents: Int,
-        idempotencyKey: String
+        idempotencyKey: String,
+        overrideToken: String?
     ) async throws {
         struct Body: Encodable {
             let p_venue_slug: String
             let p_opening_cash_cents: Int
             let p_idempotency_key: String
+            let p_override_token: String?
         }
         _ = try await rpcData(
             config: config,
@@ -256,7 +264,8 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkShiftTransport {
                 Body(
                     p_venue_slug: venueSlug,
                     p_opening_cash_cents: openingCashCents,
-                    p_idempotency_key: idempotencyKey
+                    p_idempotency_key: idempotencyKey,
+                    p_override_token: overrideToken
                 )
             )
         )
@@ -290,7 +299,8 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkShiftTransport {
         kind: KitchenLinkCashMovementKind,
         amountCents: Int,
         reason: String,
-        idempotencyKey: String
+        idempotencyKey: String,
+        overrideToken: String?
     ) async throws {
         struct Body: Encodable {
             let p_venue_slug: String
@@ -298,6 +308,7 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkShiftTransport {
             let p_amount_cents: Int
             let p_idempotency_key: String
             let p_reason: String?
+            let p_override_token: String?
         }
         _ = try await rpcData(
             config: config,
@@ -309,7 +320,8 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkShiftTransport {
                     p_kind: kind.rawValue,
                     p_amount_cents: amountCents,
                     p_idempotency_key: idempotencyKey,
-                    p_reason: reason.isEmpty ? nil : reason
+                    p_reason: reason.isEmpty ? nil : reason,
+                    p_override_token: overrideToken
                 )
             )
         )
@@ -320,12 +332,14 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkShiftTransport {
         session: KitchenLinkCloudSession,
         venueSlug: String,
         countedCashCents: Int,
-        note: String
+        note: String,
+        overrideToken: String?
     ) async throws -> KitchenLinkShiftClose {
         struct Body: Encodable {
             let p_venue_slug: String
             let p_counted_cash_cents: Int
             let p_note: String?
+            let p_override_token: String?
         }
         let data = try await rpcData(
             config: config,
@@ -335,7 +349,8 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkShiftTransport {
                 Body(
                     p_venue_slug: venueSlug,
                     p_counted_cash_cents: countedCashCents,
-                    p_note: note.isEmpty ? nil : note
+                    p_note: note.isEmpty ? nil : note,
+                    p_override_token: overrideToken
                 )
             )
         )

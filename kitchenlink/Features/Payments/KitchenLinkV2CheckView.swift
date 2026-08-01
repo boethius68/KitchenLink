@@ -112,6 +112,15 @@ struct KitchenLinkV2CheckOverviewView: View {
 struct KitchenLinkV2CheckView: View {
     @StateObject private var model: KitchenLinkCheckModel
     @State private var isRefundConfirmationVisible = false
+    /// KL-ROLE-002: der Storno, für den gerade eine Freigabe geholt wird.
+    /// `String` (die Zahlungs-ID) ist hier die ganze Absicht: die Freigabe
+    /// gehört zu **dieser** Zahlung, nicht zu „Storno" im Allgemeinen.
+    @State private var refundNeedingAuthorization: PendingRefund?
+
+    private struct PendingRefund: Identifiable {
+        let paymentID: String
+        var id: String { paymentID }
+    }
 
     init(table: KitchenLinkVenueTable) {
         _model = StateObject(wrappedValue: KitchenLinkCheckModel.make(for: table))
@@ -182,6 +191,21 @@ struct KitchenLinkV2CheckView: View {
         .navigationBarTitleDisplayMode(.inline)
         .tint(KitchenLinkV2Palette.Content.primary)
         .task { await model.load() }
+        .sheet(item: $refundNeedingAuthorization) { pending in
+            KitchenLinkV2ManagerPinSheet(
+                permission: .paymentsRefund,
+                note: "Storno am Tisch \(model.table.headline)",
+                context: ["payment_id": pending.paymentID, "table": model.table.label]
+            ) { override in
+                Task {
+                    await model.refund(
+                        paymentID: pending.paymentID,
+                        reason: "Storno am Tisch",
+                        overrideToken: override.token
+                    )
+                }
+            }
+        }
     }
 
     private var emptyCard: some View {
@@ -372,9 +396,23 @@ struct KitchenLinkV2CheckView: View {
                     .font(KitchenLinkV2Typography.meta)
                     .foregroundStyle(KitchenLinkV2Palette.Content.muted)
 
-                Button("Zahlung stornieren") { isRefundConfirmationVisible = true }
-                    .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
-                    .accessibilityIdentifier("check.refund")
+                switch model.refundGate {
+                case .allowed:
+                    Button("Zahlung stornieren") { isRefundConfirmationVisible = true }
+                        .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                        .accessibilityIdentifier("check.refund")
+                case .needsAuthorization, .blocked:
+                    // Genau der Fall aus Blueprint §9.1: die Servicekraft steht
+                    // am Tisch, der Manager sitzt nicht daneben.
+                    KitchenLinkV2PermissionGate(
+                        note: model.refundGate.note ?? "",
+                        permission: .paymentsRefund,
+                        canBeAuthorized: model.refundGate.allowsAuthorization,
+                        identifier: "check.refundDenied"
+                    ) {
+                        refundNeedingAuthorization = PendingRefund(paymentID: receipt.paymentID)
+                    }
+                }
             }
         }
         .accessibilityIdentifier("check.receipt")

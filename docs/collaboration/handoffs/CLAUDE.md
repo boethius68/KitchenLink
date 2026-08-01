@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 1 August 2026 (Session-Teil 38: Zeiterfassung)
+**Updated:** 1 August 2026 (Session-Teil 39: Zeiterfassung)
+**Zuvor:** 31 July 2026 (Session-Teil 38: Manager-PIN)
 **Zuvor:** 31 July 2026 (Session-Teil 37: Rollen und Rechte)
 **Zuvor:** 31 July 2026 (Session-Teil 36: Betriebsschicht und Kassenabschluss)
 **Zuvor:** 31 July 2026 (Session-Teil 35: Migrationen selbst angewendet)
@@ -15,7 +16,7 @@
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
 
-## Session-Teil 38: Zeiterfassung (1. August 2026)
+## Session-Teil 39: Zeiterfassung (1. August 2026)
 
 ### Anlass
 
@@ -95,6 +96,146 @@ fuer Soll-/Ist und Ueberstunden (§9.3), die ohne Planung nichts haben, wogegen
 sie vergleichen koennten. Die Domaene dafuer liegt in
 `Features/Workforce/WorkforceTimeModels.swift` und
 `WorkforceShiftLifecycle.swift` bereits vollstaendig und getestet vor.
+
+## Session-Teil 38: Manager-PIN (31. Juli 2026)
+
+### Anlass
+
+Die zweite Haelfte von Blueprint §9.1. Der Satz lautet „sensible Aktionen per
+besonderem Recht **oder** Manager-PIN"; Session-Teil 37 hat nur das Recht
+gebaut. Damit musste eine Servicekraft, die am Tisch eine Zahlung stornieren
+soll, den Manager physisch holen — oder der Betrieb vergibt `payments.refund`
+reihum an alle und macht die Rechte wertlos.
+
+### Die tragende Entscheidung: die PIN gehoert einer Person
+
+Naheliegend waere eine PIN je Venue gewesen — eine Zahl, die im Haus bekannt
+ist. Sie scheitert an Blueprint §8.2: jeder Zahlungsvorgang ist auditiert, und
+eine Haus-PIN kann die Frage „wer hat das freigegeben?" prinzipiell nicht
+beantworten. Sie beweist nur, dass irgendwer sie kannte.
+
+Also hinterlegt jede Fuehrungskraft ihre eigene PIN, und die Freigabe traegt
+ihren Namen. Zwei Dinge fallen daraus von selbst heraus:
+
+- **Was eine PIN darf, ist, was ihr Inhaber selbst duerfte.** Kein Recht wird
+  erfunden. Die PIN einer Schichtleitung gibt einen Storno frei, weil
+  Schichtleitung `payments.refund` traegt.
+- **Eine Herabstufung wirkt sofort.** Der Rechtecheck laeuft beim Freigeben
+  *und* beim Verbrauchen gegen die aktuelle Rolle; niemand muss daran denken,
+  eine PIN zu loeschen.
+
+**Vier der fuenf Rechte sind ueberbrueckbar, `staff.manage` nicht.** Wer per
+geliehener PIN Personal verwalten duerfte, koennte sich in derselben Minute
+selbst zum Inhaber machen — das waere keine Freigabe fuer eine Aktion mehr,
+sondern eine dauerhafte Rechteerhoehung.
+
+**Kein Namensauswahl-Schritt.** Die Fuehrungskraft tippt nur ihre PIN; das ist
+der Handgriff, den der Betrieb erwartet, und er verraet der Servicekraft nicht
+die Liste der Vorgesetzten. Der Preis: fuehren zwei Personen dieselbe PIN, wird
+**nichts** freigegeben (`pin_ambiguous`) statt geraten. Eine Freigabe, die
+niemandem zuzuordnen ist, waere fuer §8.2 wertlos. Doppelte PINs beim Setzen
+abzuweisen habe ich verworfen — das waere ein Orakel gewesen, mit dem jemand
+alle PINs der Venue haette durchprobieren koennen.
+
+### Umgesetzt
+
+- `manager_pins`, `manager_pin_attempts`, `manager_overrides` — alle drei mit
+  RLS **ohne Policy** und ohne Grants. Kein Client liest dort je eine Zeile;
+  der Hash einer vierstelligen PIN waere auf einem Geraet in Sekunden
+  zurueckgerechnet. Gelesen wird nur ueber `operator_recent_overrides`, das den
+  Token-Hash gar nicht erst herausgibt.
+- `operator_set_manager_pin` / `operator_clear_manager_pin` /
+  `operator_manager_pin_status` / `operator_authorize_with_pin` /
+  `operator_recent_overrides`.
+- `kitchenlink_require_permission_or_pin` — bewusst ein **eigener Name** statt
+  einer Ueberladung von `kitchenlink_require_permission`: stuenden `(text,text)`
+  und `(text,text,text default)` nebeneinander, waere jeder zweistellige Aufruf
+  mehrdeutig und PostgreSQL wuerde ihn abweisen.
+- Die vier Geldfunktionen bekommen **einen** vorbelegten Parameter am Ende
+  (Drop + Create in derselben Transaktion, wie bei `guest_web_submit_order_v2`
+  in `20260730120000`). Aufrufer ohne Freigabe aendern sich nicht.
+- App: ein geteiltes Freigabe-Blatt fuer Kasse und Rechnung, die eigene PIN und
+  das Freigabeprotokoll unter `Team`.
+
+**Warum die Freigabe ein Token ist und nicht einfach „gilt fuer die naechste
+Aktion":** eine schwebende Erlaubnis, die still auf irgendeine spaetere
+passende Aktion faellt, ist genau die Sorte Verhalten, aus der ein Vorfall wird
+(„ich habe abgeschlossen und es ging, ich weiss nicht warum"). Der Token bindet
+die Freigabe an den Aufruf.
+
+### Drei Details, bei denen Sorgfalt noetig war
+
+- **Eine falsche PIN wirft keinen Fehler**, sondern gibt `granted = false`
+  zurueck. Eine Exception rollt die Transaktion zurueck und mit ihr den
+  hochgezaehlten Fehlversuch — die Sperre haette nie gegriffen.
+- **Gezaehlt wird am anfragenden Zugang**, nicht am Manager: eine falsche PIN
+  gehoert zu niemandem. Am Geraet der Servicekraft gezaehlt, trifft die Sperre
+  den, der probiert, und legt nicht das Lokal lahm (ein Test belegt beides).
+- **`extensions.crypt`, schema-qualifiziert**, wie `digest()` seit KL-WEB-003.
+  Der Testharness legt pgcrypto in `extensions` an, die Migrationen laufen mit
+  `set search_path = public, pg_temp`. Auf der Instanz nachgeprueft: der Hash
+  beginnt mit `$2a$`.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL** (`scripts/tests/manager-pin.sql`, eigene
+  Testvenue, 17 gepruefte Abschnitte): Service darf keine PIN hinterlegen,
+  `0000`/`1234` werden abgewiesen, falsche PIN zaehlt hoch statt zu werfen,
+  Storno geht mit Freigabe durch und der Token ist danach verbraucht, er gilt
+  nicht fuer eine andere Aktion, nicht fuer einen anderen Zugang und nicht nach
+  Ablauf, `staff.manage` ist nicht ueberbrueckbar, eine herabgestufte
+  Fuehrungskraft gibt nichts mehr frei, fuenf Fehlversuche sperren nur diesen
+  Zugang, zwei gleiche PINs geben nichts frei, das Protokoll nennt beide Seiten
+  und keinen Token-Hash, RLS mit `set role`. Alle sieben SQL-Tests und die
+  Wiederholbarkeit aller 20 Migrationen gruen.
+- **512 iOS-Unit-Tests gruen** (29 neu), **10 UI-Tests gruen**, darunter ein
+  neuer, der die Sperre und das Freigabe-Blatt wirklich durchklickt.
+- **Simulator, beide Wege:** Kasse mit Anfangsbestand 150,50 per PIN geoeffnet;
+  am Tisch kassiert, dann storniert — „Zahlung storniert — freigegeben und
+  protokolliert", Rechnung wieder bei 44,60. Team-Bildschirm: PIN hinterlegt,
+  Karte wechselt auf „Deine PIN ist hinterlegt".
+- **Migration angewendet und auf der Instanz geprueft:** drei Tabellen, alle
+  mit RLS, **null** Policies und **null** Grants darauf, weiterhin keine
+  Tabelle in `public` ohne RLS, alle acht Funktionen vorhanden, die vier
+  Geldfunktionen mit je einem Argument mehr, bcrypt erreichbar.
+
+### Zwei Fehler unterwegs
+
+- Der Satz lautete „Als Service darfst du schicht oeffnen nicht" — `label`
+  kleingeschrieben in eine Schablone gesteckt. Das kam aus KL-ROLE-001 und fiel
+  erst im Simulator auf. Jetzt traegt jedes Recht seinen fertig verneinten
+  Satzteil (`deniedClause`), weil das „nicht" im Deutschen je nach Objekt an
+  eine andere Stelle gehoert.
+- Im UI-Test hing der Identifier auf einer `KitchenLinkV2Card`, die gar kein
+  Accessibility-Element ist. Jetzt sitzt er auf dem Text.
+
+### Offen
+
+Ein realer Durchlauf mit einem zweiten Konto (`SANDBOX_SETUP.md` §6.10) —
+zusammen mit dem noch offenen Durchlauf aus Session-Teil 37, es ist derselbe
+Handgriff. Im Simulator ist der gesperrte Zustand seit dieser Scheibe
+vorfuehrbar (`--kitchenlink-demo-service-role`), aber ein zweites echtes Konto
+ersetzt das nicht.
+
+Aus dieser Scheibe bewusst nicht enthalten: eine Freigabe an ein bestimmtes
+Objekt zu binden (der Bezug wird protokolliert, aber nicht erzwungen),
+PIN-Rotationsfristen, und die Freigabe aus der Ferne (das Geraet der
+Fuehrungskraft bestaetigt, statt dass sie ihre PIN fremd eintippt).
+
+Weiterhin offen und unabhaengig: `MenuManualEditorUITests.testManualMenuEditorCoreFlow`
+schlaegt vorbestehend fehl.
+
+### Empfohlener naechster Schritt
+
+Meilenstein 2 hat jetzt nur noch §9.2 und §9.3 offen: Schichtplanung,
+Zeiterfassung, Soll-/Ist. Dafuer liegt seit KL-WORKFORCE-001 eine
+vollstaendige, getestete Domaene unter `Features/Workforce/` mit **null
+Referenzen** aus der App; ihr fehlen Persistenz und Oberflaeche. Das ist die
+groesste noch offene Scheibe des Meilensteins und faengt sinnvoll bei der
+Persistenz an, nicht beim Bildschirm.
+
+> **Nachtrag bei der Integration (1. August):** die Zeiterfassung (§9.3) ist mit
+> Session-Teil 39 inzwischen umgesetzt; offen bleibt die **Planung** (§9.2).
 
 ## Session-Teil 37: Rollen und Rechte (31. Juli 2026)
 

@@ -84,7 +84,7 @@ private actor CheckSpy: KitchenLinkCheckTransport, KitchenLinkCloudAuthenticatin
     var paymentError: Error?
     var failFirstPaymentUnauthorized = false
     private(set) var paymentCalls: [PaymentCall] = []
-    private(set) var refundCalls: [(paymentID: String, reason: String)] = []
+    private(set) var refundCalls: [(paymentID: String, reason: String, token: String?)] = []
     private(set) var loadCalls = 0
     private(set) var refreshCalls = 0
 
@@ -160,11 +160,93 @@ private actor CheckSpy: KitchenLinkCheckTransport, KitchenLinkCloudAuthenticatin
         session: KitchenLinkCloudSession,
         venueSlug: String,
         paymentID: String,
-        reason: String
+        reason: String,
+        overrideToken: String?
     ) async throws {
-        refundCalls.append((paymentID, reason))
+        refundCalls.append((paymentID, reason, overrideToken))
     }
 }
+
+/// KL-ROLE-002: eine Rolle und ein PIN-Zustand nach Wunsch.
+private actor RoleAndPinSpy: KitchenLinkPermissionTransport, KitchenLinkManagerPinTransport {
+    let role: KitchenLinkMyRole
+    let status: KitchenLinkManagerPinStatus
+    let result: KitchenLinkManagerPinAuthorization
+    private(set) var authorizeCalls: [(permission: String, pin: String)] = []
+
+    init(
+        role: KitchenLinkMyRole,
+        status: KitchenLinkManagerPinStatus = KitchenLinkManagerPinStatus(
+            hasPin: false, updatedAt: nil, authorizers: 1
+        ),
+        result: KitchenLinkManagerPinAuthorization = .granted(
+            KitchenLinkManagerOverride(
+                token: "tok-1", permission: "payments.refund",
+                expiresAt: nil, grantedByEmail: "chefin@restaurant.de"
+            )
+        )
+    ) {
+        self.role = role
+        self.status = status
+        self.result = result
+    }
+
+    func loadMyRole(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String
+    ) async throws -> KitchenLinkMyRole { role }
+
+    func pinStatus(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String
+    ) async throws -> KitchenLinkManagerPinStatus { status }
+
+    func setPin(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        pin: String
+    ) async throws {}
+
+    func clearPin(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        userID: String?
+    ) async throws {}
+
+    func authorize(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        permission: KitchenLinkVenuePermission,
+        pin: String,
+        note: String?,
+        context: [String: String]
+    ) async throws -> KitchenLinkManagerPinAuthorization {
+        authorizeCalls.append((permission.rawValue, pin))
+        return result
+    }
+
+    func recentOverrides(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        limit: Int
+    ) async throws -> [KitchenLinkManagerOverrideRecord] { [] }
+}
+
+private let ownerRole = KitchenLinkMyRole(
+    roleKey: "owner", roleName: "Inhaber",
+    permissions: ["shift.open", "shift.close", "cash.movement",
+                  "payments.refund", "staff.manage"]
+)
+
+private let serviceRole = KitchenLinkMyRole(
+    roleKey: "service", roleName: "Service", permissions: []
+)
 
 private struct DecliningProvider: KitchenLinkPaymentProviding {
     func authorize(
@@ -188,13 +270,16 @@ private actor CountingProvider: KitchenLinkPaymentProviding {
 private func makeModel(
     spy: CheckSpy,
     provider: KitchenLinkPaymentProviding = KitchenLinkSandboxPaymentProvider(),
-    store: KitchenLinkCloudCredentialStore? = nil
+    store: KitchenLinkCloudCredentialStore? = nil,
+    roles: RoleAndPinSpy = RoleAndPinSpy(role: ownerRole)
 ) -> KitchenLinkCheckModel {
     KitchenLinkCheckModel(
         table: table(),
         config: .sandboxDefault,
         auth: spy,
         transport: spy,
+        permissions: roles,
+        pin: roles,
         provider: provider,
         store: store ?? makeStore()
     )
@@ -475,4 +560,129 @@ private func makeModel(
     #expect(KitchenLinkPaymentMethod.card.requiresProvider)
     #expect(KitchenLinkPaymentMethod.tapToPay.requiresProvider)
     #expect(KitchenLinkPaymentMethod.tapToPay.rawValue == "tap_to_pay")
+}
+
+// MARK: - Storno und Freigabe (KL-ROLE-002)
+
+@MainActor
+@Test func ohneRechtUndOhneFreigabeWirdDerStornoGarNichtErstVersucht() async {
+    let spy = CheckSpy(checkResult: check(items: [
+        item(id: "i1", name: "Suppe", unitPriceCents: 690)
+    ]))
+    let model = makeModel(spy: spy, roles: RoleAndPinSpy(role: serviceRole))
+    await model.load()
+
+    #expect(model.canRefund == false)
+    #expect(model.refundGate.allowsAuthorization)
+
+    await model.refund(paymentID: "payment-1", reason: "Falsch kassiert")
+
+    // Die Datenbank würde abweisen; der Weg dorthin wäre nur ein Umweg über
+    // einen Fehler, den niemand versteht.
+    #expect(await spy.refundCalls.isEmpty)
+    #expect(model.notice?.contains("Service") == true)
+}
+
+@MainActor
+@Test func mitFreigabeGehtDerStornoDurchUndDerTokenWirdMitgeschickt() async {
+    let spy = CheckSpy(checkResult: check(items: [
+        item(id: "i1", name: "Suppe", unitPriceCents: 690)
+    ]))
+    let model = makeModel(spy: spy, roles: RoleAndPinSpy(role: serviceRole))
+    await model.load()
+
+    await model.refund(
+        paymentID: "payment-1", reason: "Falsch kassiert", overrideToken: "tok-1"
+    )
+
+    let call = await spy.refundCalls.first
+    #expect(call?.token == "tok-1")
+    // Der Beleg sagt, dass es eine Ausnahme war — und dass sie festgehalten ist.
+    #expect(model.notice?.contains("protokolliert") == true)
+}
+
+@MainActor
+@Test func werStornierenDarfSchicktKeinenToken() async {
+    let spy = CheckSpy(checkResult: check(items: [
+        item(id: "i1", name: "Suppe", unitPriceCents: 690)
+    ]))
+    let model = makeModel(spy: spy)
+    await model.load()
+
+    #expect(model.canRefund)
+    await model.refund(paymentID: "payment-1", reason: "Falsch kassiert")
+
+    #expect(await spy.refundCalls.first?.token == nil)
+}
+
+@MainActor
+@Test func ohneLesbareRolleEntscheidetWieFrueherDieDatenbank() async {
+    // Eine Instanz ohne die Rechte-Migration darf nicht dazu führen, dass die
+    // App eine Sperre erfindet, die es dort gar nicht gibt.
+    let spy = CheckSpy(checkResult: check(items: [
+        item(id: "i1", name: "Suppe", unitPriceCents: 690)
+    ]))
+    let model = KitchenLinkCheckModel(
+        table: table(),
+        config: .sandboxDefault,
+        auth: spy,
+        transport: spy,
+        permissions: FailingRoleSpy(),
+        pin: FailingRoleSpy(),
+        store: makeStore()
+    )
+    await model.load()
+
+    #expect(model.canRefund)
+    await model.refund(paymentID: "payment-1", reason: "Falsch kassiert")
+    #expect(await spy.refundCalls.count == 1)
+}
+
+private actor FailingRoleSpy: KitchenLinkPermissionTransport, KitchenLinkManagerPinTransport {
+    func loadMyRole(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String
+    ) async throws -> KitchenLinkMyRole {
+        throw KitchenLinkCloudServiceError.server(status: 404, message: "does not exist")
+    }
+
+    func pinStatus(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String
+    ) async throws -> KitchenLinkManagerPinStatus {
+        throw KitchenLinkCloudServiceError.server(status: 404, message: "does not exist")
+    }
+
+    func setPin(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        pin: String
+    ) async throws {}
+
+    func clearPin(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        userID: String?
+    ) async throws {}
+
+    func authorize(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        permission: KitchenLinkVenuePermission,
+        pin: String,
+        note: String?,
+        context: [String: String]
+    ) async throws -> KitchenLinkManagerPinAuthorization { .refused(.notNeeded) }
+
+    func recentOverrides(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueSlug: String,
+        limit: Int
+    ) async throws -> [KitchenLinkManagerOverrideRecord] { [] }
 }

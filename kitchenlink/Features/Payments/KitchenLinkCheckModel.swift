@@ -24,6 +24,10 @@ final class KitchenLinkCheckModel: ObservableObject {
     @Published var selectedItemIDs: Set<String> = []
     @Published var method: KitchenLinkPaymentMethod = .cash
     @Published var tipCents: Int = 0
+    /// KL-ROLE-001/002: was dieser Zugang mit einer gebuchten Zahlung noch tun
+    /// darf — und ob eine Führungskraft es hier freigeben könnte.
+    @Published private(set) var myRole: KitchenLinkMyRole = .none
+    @Published private(set) var pinStatus: KitchenLinkManagerPinStatus = .unknown
     @Published var notice: String?
 
     let table: KitchenLinkVenueTable
@@ -31,6 +35,8 @@ final class KitchenLinkCheckModel: ObservableObject {
     private let config: KitchenLinkCloudConfig
     private let auth: KitchenLinkCloudAuthenticating
     private let transport: KitchenLinkCheckTransport
+    private let permissions: KitchenLinkPermissionTransport
+    private let pin: KitchenLinkManagerPinTransport
     private let provider: KitchenLinkPaymentProviding
     private let store: KitchenLinkCloudCredentialStore
     /// Hält den Idempotenz-Schlüssel über Netzwerk-Wiederholungen stabil und
@@ -41,11 +47,17 @@ final class KitchenLinkCheckModel: ObservableObject {
     /// keine Cloud, gegen die man sich anmelden könnte.
     private let requiresSession: Bool
 
+    /// Ob die Rolle überhaupt gelesen werden konnte. Wichtig für die
+    /// Unterscheidung „darf nicht" von „weiß nicht".
+    private var roleUnknown = true
+
     init(
         table: KitchenLinkVenueTable,
         config: KitchenLinkCloudConfig = .sandboxDefault,
         auth: KitchenLinkCloudAuthenticating = URLSessionKitchenLinkCloudTransport(),
         transport: KitchenLinkCheckTransport = URLSessionKitchenLinkCloudTransport(),
+        permissions: KitchenLinkPermissionTransport = URLSessionKitchenLinkCloudTransport(),
+        pin: KitchenLinkManagerPinTransport = URLSessionKitchenLinkCloudTransport(),
         provider: KitchenLinkPaymentProviding = KitchenLinkSandboxPaymentProvider(),
         store: KitchenLinkCloudCredentialStore = KitchenLinkCloudCredentialStore(),
         requiresSession: Bool = true
@@ -54,6 +66,8 @@ final class KitchenLinkCheckModel: ObservableObject {
         self.config = config
         self.auth = auth
         self.transport = transport
+        self.permissions = permissions
+        self.pin = pin
         self.provider = provider
         self.store = store
         self.requiresSession = requiresSession
@@ -67,6 +81,8 @@ final class KitchenLinkCheckModel: ObservableObject {
         return KitchenLinkCheckModel(
             table: table,
             transport: KitchenLinkDemoCheckTransport(),
+            permissions: KitchenLinkDemoTeamTransport(),
+            pin: KitchenLinkDemoManagerPinTransport.shared,
             requiresSession: false
         )
     }
@@ -100,6 +116,21 @@ final class KitchenLinkCheckModel: ObservableObject {
     var canPay: Bool {
         phase != .paying && check.tableSessionID != nil && selectionCents > 0
     }
+
+    /// Kassieren ist Alltag und braucht kein Recht. **Zurückdrehen** schon —
+    /// und genau dafür gibt es die Freigabe am Tisch (Blueprint §9.1).
+    var refundGate: KitchenLinkPermissionGate {
+        // Konnte die Rolle nicht gelesen werden — alte Instanz, Netz weg —,
+        // wird nicht vorgesperrt. Dann entscheidet die Datenbank, wie vor
+        // KL-ROLE-001. Eine erfundene Sperre wäre schlimmer als ein ehrlicher
+        // Serverfehler.
+        guard !roleUnknown else { return .allowed }
+        return KitchenLinkPermissionGate.evaluate(
+            permission: .paymentsRefund, role: myRole, pinStatus: pinStatus
+        )
+    }
+
+    var canRefund: Bool { refundGate == .allowed }
 
     func toggle(_ item: KitchenLinkCheckItem) {
         guard !item.paid else { return }
@@ -217,9 +248,17 @@ final class KitchenLinkCheckModel: ObservableObject {
         }
     }
 
-    func refund(paymentID: String, reason: String) async {
+    /// `overrideToken` ist die einmalige Freigabe einer Führungskraft. Ohne
+    /// Recht **und** ohne Freigabe wird gar nicht erst gefragt: die Datenbank
+    /// würde abweisen, und der Weg dorthin wäre nur ein Umweg über einen
+    /// Fehler, den niemand versteht.
+    func refund(paymentID: String, reason: String, overrideToken: String? = nil) async {
         guard let session = currentSession else {
             phase = .needsSignIn
+            return
+        }
+        if overrideToken == nil, let denied = refundGate.note {
+            notice = denied
             return
         }
         do {
@@ -228,10 +267,13 @@ final class KitchenLinkCheckModel: ObservableObject {
                 session: session,
                 venueSlug: config.venueSlug,
                 paymentID: paymentID,
-                reason: reason
+                reason: reason,
+                overrideToken: overrideToken
             )
             lastReceipt = nil
-            notice = "Zahlung storniert."
+            notice = overrideToken == nil
+                ? "Zahlung storniert."
+                : "Zahlung storniert — freigegeben und protokolliert."
             await load(with: session, allowRefresh: false)
         } catch {
             notice = Self.message(for: error)
@@ -259,6 +301,19 @@ final class KitchenLinkCheckModel: ObservableObject {
 
     private func load(with session: KitchenLinkCloudSession, allowRefresh: Bool) async {
         do {
+            // Beides fehlertolerant: eine Instanz ohne die Rechte- oder
+            // PIN-Migration soll ihre Rechnung weiter kassieren können. Dann
+            // fehlt eben der Weg zum Storno, nicht der ganze Bildschirm.
+            if let role = try? await permissions.loadMyRole(
+                config: config, session: session, venueSlug: config.venueSlug
+            ) {
+                myRole = role
+                roleUnknown = false
+            }
+            pinStatus = (try? await pin.pinStatus(
+                config: config, session: session, venueSlug: config.venueSlug
+            )) ?? .unknown
+
             check = try await transport.loadCheck(
                 config: config,
                 session: session,

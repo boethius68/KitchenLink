@@ -123,12 +123,15 @@ protocol KitchenLinkCheckTransport: Sendable {
         providerReference: String?
     ) async throws -> KitchenLinkPaymentReceipt
 
+    /// KL-ROLE-002: `overrideToken` ist die einmalige Freigabe einer
+    /// Führungskraft. Wer `payments.refund` selbst trägt, schickt keine.
     func refundPayment(
         config: KitchenLinkCloudConfig,
         session: KitchenLinkCloudSession,
         venueSlug: String,
         paymentID: String,
-        reason: String
+        reason: String,
+        overrideToken: String?
     ) async throws
 }
 
@@ -201,19 +204,26 @@ extension URLSessionKitchenLinkCloudTransport: KitchenLinkCheckTransport {
         session: KitchenLinkCloudSession,
         venueSlug: String,
         paymentID: String,
-        reason: String
+        reason: String,
+        overrideToken: String?
     ) async throws {
         struct Body: Encodable {
             let p_venue_slug: String
             let p_payment_id: String
             let p_reason: String
+            let p_override_token: String?
         }
         _ = try await rpcData(
             config: config,
             accessToken: session.accessToken,
             function: "operator_refund_payment",
             bodyData: try JSONEncoder().encode(
-                Body(p_venue_slug: venueSlug, p_payment_id: paymentID, p_reason: reason)
+                Body(
+                    p_venue_slug: venueSlug,
+                    p_payment_id: paymentID,
+                    p_reason: reason,
+                    p_override_token: overrideToken
+                )
             )
         )
     }
