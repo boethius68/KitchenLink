@@ -87,19 +87,21 @@ Es gibt **21** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260731230000_manager_pin.sql` | Persönliche Manager-PIN, einmalige Freigabe je Aktion, Audit (KL-ROLE-002) |
 | `supabase/migrations/20260801120000_time_clock.sql` | Zeiterfassung: stempeln, Pausen, Korrektur mit Audit (KL-TIME-001) |
 
-> **Stand der Sandbox-Instanz (1. August 2026):** angewendet sind die ersten 19
-> sowie eine Manager-PIN-Migration (`20260731230000`) aus einer parallelen
-> Arbeitslinie. **Offen ist `20260801120000_time_clock.sql`** — sie ist lokal
-> gegen echtes PostgreSQL geprüft, auch zusammen mit der PIN-Migration, aber
-> noch nicht gepusht: `supabase db push` verlangt eine lückenlose lokale
-> Historie, und die PIN-Datei liegt bis zu ihrer Integration in einem anderen
-> Arbeitsbaum. Sobald beide auf `main` sind, ist der Push ein einzelner Aufruf.
+> **Stand der Sandbox-Instanz (1. August 2026):** alle 21 sind angewendet,
+> `supabase migration list` ist deckungsgleich (nichts offen). Geprüft nach dem
+> Push: keine Tabelle im Schema `public` ohne RLS, `time_entries`,
+> `time_breaks` und `manager_pins` vorhanden, dazu die RPCs
+> `operator_clock_in`, `operator_break_start`, `operator_team_time` und
+> `operator_correct_time_entry`. Die Schrittlisten in Abschnitt 6 bleiben für
+> eine frische Instanz gültig.
 >
-> Zuletzt geprüft: keine Tabelle im Schema `public` ohne RLS, sechs aktive
-> Tische, die RPCs `operator_table_check`, `operator_record_payment`,
-> `operator_mark_station_ready`, `operator_reject_order` und
-> `operator_create_venue` vorhanden. Die Schrittlisten in Abschnitt 6 bleiben
-> für eine frische Instanz gültig.
+> **Zwei Arbeitslinien gleichzeitig?** Dann muss die eine die Migration der
+> anderen im Verzeichnis haben, bevor sie pusht — sonst bricht
+> `supabase db push` mit „Remote migration versions not found in local
+> migrations directory" ab. Der von der CLI vorgeschlagene
+> `migration repair --status reverted` wäre in diesem Fall **falsch**: er
+> markiert eine tatsächlich angewendete Migration als zurückgenommen. Richtig
+> ist, erst zu integrieren und dann zu pushen.
 
 ### Weg A — über die CLI (empfohlen)
 

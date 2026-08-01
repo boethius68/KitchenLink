@@ -774,8 +774,14 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   them. Without that path a forgotten clock-out would stay open forever — and
   the person could never get back on the clock, because the index forbids it.
   The screen therefore flags entries open for over twelve hours.
-  Verified against real PostgreSQL in its own test venue, 498 iOS unit tests, a
-  simulator run through clock-in, break and correcting a forgotten clock-out.
+  Verified against real PostgreSQL in its own test venue, 526 iOS unit tests on
+  the merged tree, a simulator run through clock-in, break and correcting a
+  forgotten clock-out. Migration applied and verified on the instance.
+  Integrating this with the parallel manager-PIN line surfaced a real defect:
+  both SQL tests claimed the same account UUIDs for different emails, and since
+  every test runs against **one** database in sequence, `on conflict do nothing`
+  silently dropped the later test's accounts. The taken UUID ranges are now
+  documented in the harness header.
   **Open:** one real trading day on a device (`SANDBOX_SETUP.md` §6.11).
 - **Manager PIN (KL-ROLE-002, 31 July):** the other half of Blueprint §9.1,
   which asks for sensitive actions "by special permission **or** manager PIN".

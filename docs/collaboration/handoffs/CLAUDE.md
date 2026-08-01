@@ -71,21 +71,34 @@ parallele PIN-Arbeitslinie fasst genau diese Stelle an.
 - Simulator: einstempeln, Pause (Arbeitszeit steht still, Pausenuhr laeuft),
   Korrektur eines seit 20 Stunden offenen Eintrags.
 
-### Offen — Migration ist NICHT gepusht
+### Nachtrag: Integration mit der PIN-Arbeitslinie (1. August)
 
-`supabase db push` verweigert: auf der Instanz liegt bereits
+`supabase db push` verweigerte zunaechst: auf der Instanz lag bereits
 `20260731230000_manager_pin.sql` aus der parallelen Sitzung, deren Datei noch
-in `.claude/worktrees/fervent-lederberg-e1a835` liegt und nicht auf `main` ist.
-Die CLI verlangt eine lueckenlose lokale Historie.
+nicht auf `main` war. Die CLI verlangt eine lueckenlose lokale Historie.
 
 Der von der CLI vorgeschlagene Weg (`migration repair --status reverted
-20260731230000`) waere **falsch**: er wuerde eine tatsaechlich angewendete
-Migration als zurueckgenommen markieren und den Stand der anderen Sitzung
-beschaedigen.
+20260731230000`) waere **falsch** gewesen: er markiert eine tatsaechlich
+angewendete Migration als zurueckgenommen.
 
-Richtiger Weg: warten, bis die PIN-Arbeit auf `main` ist — dann liegen beide
-Dateien im Baum und der Push ist ein einzelner Aufruf. Die Kombination ist
-lokal bereits belegt.
+Ich habe daraufhin zuerst **lokal gemergt** — und dabei uebersehen, dass fuer
+dieselbe Arbeit bereits **PR #37 offen** war. Auf Nachfrage des Nutzers wurde
+der lokale Merge verworfen, PR #37 ueber GitHub gemergt und der Stand von dort
+geholt. Lehre: vor einem Merge aus einem fremden Arbeitsbaum erst `gh pr list`.
+
+**Ein echter Befund beim Zusammenfuehren:** `manager-pin.sql` und
+`time-clock.sql` belegten dieselben Konto-UUIDs (`…f1` ff.) fuer verschiedene
+E-Mails. Alle SQL-Tests laufen nacheinander auf **derselben** Datenbank, also
+liess `on conflict (id) do nothing` die Konten des spaeter laufenden Tests
+still fallen — und der Fehler tauchte weit entfernt als „kein Konto" auf.
+`time-clock` hat jetzt einen eigenen Block (`…9901` ff.); der Kopf von
+`scripts/verify-supabase-migrations.sh` listet die belegten Bereiche, damit der
+naechste Test nicht in dieselbe Falle laeuft.
+
+Verifikation auf dem gemergten Stand: 8 SQL-Tests gruen, 21 Migrationen
+wiederholbar, 526 iOS-Unit-Tests gruen. Migration angewendet und geprueft:
+`migration list` deckungsgleich, nichts offen, weiterhin keine Tabelle in
+`public` ohne RLS.
 
 ### Empfohlener naechster Schritt
 

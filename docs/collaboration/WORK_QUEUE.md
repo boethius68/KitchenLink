@@ -1344,8 +1344,9 @@ eigene PIN und Freigabeprotokoll im Team-Bildschirm.
 
 ### KL-TIME-001 - Zeiterfassung
 
-**Status:** Implementiert auf `main` (1. August 2026), lokal gegen echtes
-PostgreSQL geprueft — **Migration noch nicht gepusht**, siehe „Offen" unten
+**Status:** Implementiert auf `main` (1. August 2026), Migration angewendet und
+auf der Instanz verifiziert; offen ist ein realer Tagesdurchlauf am Geraet
+(`SANDBOX_SETUP.md` §6.11)
 **Abhaengigkeit:** KL-ROLE-001 (`staff.manage` fuer den Team-Stand)
 **Schreibbereich:** `supabase/migrations/20260801120000_time_clock.sql` (neu),
 `scripts/tests/time-clock.sql` (neu), `kitchenlink/Features/TimeClock/` (neu),
@@ -1399,12 +1400,14 @@ vergreift und sofort wieder ausstempelt, erzeugt genau den. Jetzt `>=`, weil
 eine Null-Dauer ehrliche Datenlage ist — eine Korrektur von Hand verlangt
 weiterhin ein Ende nach dem Beginn.
 
-**Offen:** Die Migration ist **nicht gepusht**. Auf der Instanz liegt bereits
-`20260731230000_manager_pin.sql` aus einer parallelen Arbeitslinie, deren Datei
-noch in einem eigenen Arbeitsbaum liegt; `supabase db push` verlangt eine
-lueckenlose lokale Historie und verweigert deshalb. Die Kombination beider
-Migrationen ist lokal geprueft (alle sieben SQL-Tests bestehen). Sobald die
-PIN-Arbeit auf `main` ist, ist der Push ein einzelner Aufruf.
+**Nachtrag bei der Integration:** die Migration ist angewendet, nachdem PR #37
+(Manager-PIN) gemergt war — `supabase db push` verlangt eine lueckenlose lokale
+Historie und verweigerte, solange die PIN-Datei nur im fremden Arbeitsbaum lag.
+Beim Zusammenfuehren kam ein echter Befund heraus: `manager-pin.sql` und
+`time-clock.sql` belegten dieselben Konto-UUIDs fuer verschiedene E-Mails, und
+`on conflict (id) do nothing` liess die Konten des spaeter laufenden Tests still
+fallen. `time-clock` hat jetzt einen eigenen Block; die belegten Bereiche stehen
+im Kopf von `scripts/verify-supabase-migrations.sh`.
 
 ## Integrationsreihenfolge
 
