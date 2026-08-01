@@ -38,6 +38,12 @@ import {
   HUB_POLL_INTERVAL_MS,
   type HubAvailability,
 } from "@/lib/hub-presence";
+import {
+  fetchTable,
+  readTableToken,
+  tableContextLabel,
+  type TableContext,
+} from "@/lib/table-context";
 import { getSupabase } from "@/lib/supabase-client";
 import type { GuestAllergen, GuestMenuItem, GuestVenue } from "@/lib/venue-data";
 
@@ -113,6 +119,42 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
   const [hubAvailability, setHubAvailability] = useState<HubAvailability>({
     kind: "unknown",
   });
+  // Tisch aus dem QR-Code. Bewusst erst nach der Hydration aus der URL gelesen,
+  // damit die Karte prerendert bleibt (Begruendung in table-context.ts).
+  const [tableContext, setTableContext] = useState<TableContext>({
+    kind: "none",
+  });
+
+  useEffect(() => {
+    const token = readTableToken(window.location.search);
+    if (!token) {
+      return;
+    }
+    let cancelled = false;
+    const resolve = async () => {
+      const supabase = getSupabase();
+      if (!supabase) {
+        // Ohne Backend laesst sich der Tisch nicht pruefen — und die
+        // Bestellung ginge ohnehin nirgendwohin.
+        setTableContext({ kind: "unknown", token });
+        return;
+      }
+      setTableContext({ kind: "resolving", token });
+      const table = await fetchTable(venue.slug, token, supabase);
+      if (cancelled) {
+        return;
+      }
+      setTableContext(
+        table
+          ? { kind: "resolved", token, label: table.label, area: table.area }
+          : { kind: "unknown", token },
+      );
+    };
+    void resolve();
+    return () => {
+      cancelled = true;
+    };
+  }, [venue.slug]);
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -136,6 +178,14 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
 
   const localFallback =
     hubAvailability.kind === "local_fallback" ? hubAvailability : null;
+  // Ein QR-Code, den diese Venue nicht (mehr) kennt: die Bestellung wuerde
+  // serverseitig abgewiesen. Sie hier zu blockieren ist die ehrlichere
+  // Variante — eine Bestellung ohne zuordenbaren Tisch waere im Betrieb
+  // teurer als eine, die gar nicht erst abgeschickt wird.
+  const tableUnknown = tableContext.kind === "unknown";
+  const tableToken =
+    tableContext.kind === "resolved" ? tableContext.token : null;
+  const tableLabel = tableContextLabel(tableContext);
 
   const sections = useMemo(
     () =>
@@ -155,8 +205,8 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
   return (
     <>
       {/* Randloser Venue-Kopf: das Restaurant fuehrt, Traube ist der
-          sichere Fallback (§2, §9). Tisch-/Kanalkontext ist ein Platzhalter,
-          solange es noch keine echte QR-/Tisch-Session gibt. */}
+          sichere Fallback (§2, §9). Die Kontextzeile traegt den Tisch aus dem
+          QR-Code, sonst wie bisher „Speisekarte". */}
       <header className="kl-venue-header">
         <div className="kl-venue-header-top">
           <h1 className="kl-type-display">{venue.name}</h1>
@@ -164,10 +214,26 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
             {venue.isOpen ? "geöffnet" : "geschlossen"}
           </span>
         </div>
-        <p className="kl-venue-header-context kl-type-secondary">Speisekarte</p>
+        <p className="kl-venue-header-context kl-type-secondary">
+          {tableLabel ?? "Speisekarte"}
+        </p>
       </header>
 
       <main className="kl-page">
+        {tableUnknown && !localFallback && (
+          <aside className="kl-hub-notice" role="status">
+            <p className="kl-hub-notice-title kl-type-primary">
+              Dieser QR-Code gilt nicht mehr
+            </p>
+            <p className="kl-hub-notice-text kl-type-secondary">
+              Der Code auf dem Tisch ist abgelaufen oder gehört zu einem Tisch,
+              den es nicht mehr gibt. Bitte scanne den aktuellen Code oder sag
+              dem Personal Bescheid — sonst wüsste die Küche nicht, wohin die
+              Bestellung soll.
+            </p>
+          </aside>
+        )}
+
         {localFallback && (
           <aside className="kl-hub-notice" role="status">
             <p className="kl-hub-notice-title kl-type-primary">
@@ -232,6 +298,13 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
               →
             </span>
           </a>
+        ) : tableUnknown ? (
+          <button type="button" className="kl-order-bar-button" disabled>
+            <span className="kl-type-button">Tisch nicht erkannt</span>
+            <span className="kl-type-button" aria-hidden="true">
+              ⚠
+            </span>
+          </button>
         ) : (
           <button
             type="button"
@@ -252,6 +325,7 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
           venue={venue}
           cart={submitState.kind === "accepted" && confirmedCart ? confirmedCart : cart}
           totalCents={submitState.kind === "accepted" ? submitState.ack.totalCents : total}
+          tableLabel={tableContext.kind === "resolved" ? tableLabel : null}
           localFallbackUrl={localFallback?.localGuestUrl ?? null}
           submitState={submitState}
           onDecrementLine={(line) =>
@@ -292,6 +366,7 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
               venue,
               cart,
               attemptID: orderAttemptRef.current.id,
+              tableToken,
               backend: createSupabaseOrderBackend(),
             });
             if (result.ok) {
@@ -853,6 +928,8 @@ interface OrderSummarySheetProps {
   venue: GuestVenue;
   cart: Cart;
   totalCents: number;
+  /** Sichtbare Tischangabe, sofern die Karte ueber einen Tisch-QR kam. */
+  tableLabel: string | null;
   localFallbackUrl: string | null;
   submitState: SubmitUiState;
   onDecrementLine: (line: CartLine) => void;
@@ -865,6 +942,7 @@ function OrderSummarySheet({
   venue,
   cart,
   totalCents,
+  tableLabel,
   localFallbackUrl,
   submitState,
   onDecrementLine,
@@ -905,6 +983,9 @@ function OrderSummarySheet({
         <h2 id="kl-order-summary-title" className="kl-type-section">
           Deine Auswahl
         </h2>
+        {tableLabel && (
+          <p className="kl-sheet-table kl-type-meta">Für {tableLabel}</p>
+        )}
         <ul className="kl-sheet-lines">
           {lines.map(({ line, item }) => {
             const choices = selectedOptions(item, line.optionIDs);

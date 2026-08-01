@@ -55,6 +55,8 @@ export interface OrderBackend {
     items: SubmitItem[];
     serviceMode: ServiceMode;
     customerNote: string;
+    /** Tisch-Token aus dem QR-Code, `null` fuer eine Bestellung ohne Tisch. */
+    tableToken: string | null;
   }): Promise<OrderRpcRow>;
 }
 
@@ -75,6 +77,7 @@ export type SubmitErrorCode =
   | "invalid_selection"
   | "unavailable_item"
   | "unknown_venue"
+  | "unknown_table"
   | "unauthenticated"
   | "rpc_error"
   | "invalid_response";
@@ -94,6 +97,7 @@ export async function buildIdempotencyKey(parts: {
   items: SubmitItem[];
   serviceMode: ServiceMode;
   customerNote: string;
+  tableToken?: string | null;
 }): Promise<string> {
   const items = [...parts.items]
     .sort((a, b) => {
@@ -111,6 +115,10 @@ export async function buildIdempotencyKey(parts: {
     venueSlug: parts.venueSlug,
     serviceMode: parts.serviceMode,
     customerNote: parts.customerNote,
+    // Der Tisch gehoert zum Inhalt: derselbe Warenkorb an einem anderen Tisch
+    // ist eine andere Bestellung, kein Retry. Die RPC sieht das genauso und
+    // vergleicht den Tisch im Payload-Hash mit.
+    tableToken: parts.tableToken ?? null,
     items,
   });
   const digest = await globalThis.crypto.subtle.digest(
@@ -144,6 +152,7 @@ const ERROR_CODE_PATTERNS: ReadonlyArray<{ match: RegExp; code: SubmitErrorCode 
   { match: /unknown_option/i, code: "unknown_option" },
   { match: /invalid_selection|selection_required|selection_limit/i, code: "invalid_selection" },
   { match: /unavailable_item/i, code: "unavailable_item" },
+  { match: /unknown_table/i, code: "unknown_table" },
   { match: /unknown_venue/i, code: "unknown_venue" },
   { match: /unauthenticated/i, code: "unauthenticated" },
 ];
@@ -178,6 +187,8 @@ export interface SubmitOrderArgs {
   attemptID: string;
   serviceMode?: ServiceMode;
   customerNote?: string;
+  /** Tisch-Token aus dem QR-Code; ohne Tisch bleibt es `null`. */
+  tableToken?: string | null;
   backend: OrderBackend | null;
 }
 
@@ -193,6 +204,7 @@ export async function submitOrder(
   const { venue, cart, backend } = args;
   const serviceMode = args.serviceMode ?? "dine_in";
   const customerNote = args.customerNote ?? "";
+  const tableToken = args.tableToken ?? null;
 
   if (!backend) {
     return {
@@ -226,6 +238,7 @@ export async function submitOrder(
       items,
       serviceMode,
       customerNote,
+      tableToken,
     });
   } catch (error) {
     return { ok: false, code: "rpc_error", message: errorMessage(error) };
@@ -239,6 +252,7 @@ export async function submitOrder(
       items,
       serviceMode,
       customerNote,
+      tableToken,
     });
   } catch (error) {
     return backendErrorToResult(error);

@@ -156,6 +156,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2ShiftView()
+            } label: {
+                operationsRow(
+                    title: "Kasse",
+                    subtitle: "Betriebsschicht, Bargeld und Tagesabschluss",
+                    systemImage: "eurosign.circle"
+                )
+            }
+            .accessibilityIdentifier("business.openShift")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 KitchenLinkV2TodayView()
             } label: {
                 operationsRow(
@@ -179,6 +193,48 @@ struct KitchenLinkV2BusinessHomeView: View {
                 )
             }
             .accessibilityIdentifier("business.openKitchen")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
+                KitchenLinkV2VenueOnboardingView()
+            } label: {
+                operationsRow(
+                    title: "Restaurant",
+                    subtitle: "Konto, eigenes Lokal und Gast-Adresse",
+                    systemImage: "storefront"
+                )
+            }
+            .accessibilityIdentifier("business.openVenue")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
+                KitchenLinkV2TeamView()
+            } label: {
+                operationsRow(
+                    title: "Team",
+                    subtitle: "Personal, Rollen und Rechte",
+                    systemImage: "person.2"
+                )
+            }
+            .accessibilityIdentifier("business.openTeam")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
+                KitchenLinkV2TablesView()
+            } label: {
+                operationsRow(
+                    title: "Tische",
+                    subtitle: "Bereiche, Tische und ihre QR-Codes",
+                    systemImage: "qrcode"
+                )
+            }
+            .accessibilityIdentifier("business.openTables")
 
             Divider()
                 .overlay(KitchenLinkV2Palette.Border.subtle)

@@ -1,10 +1,831 @@
 # Claude Code Handoff
 
-**Updated:** 30 July 2026 (Session-Teil 29: Staffelregel belegt, drei Fehlerklassen geschlossen)
+**Updated:** 31 July 2026 (Session-Teil 38: Manager-PIN)
+**Zuvor:** 31 July 2026 (Session-Teil 37: Rollen und Rechte)
+**Zuvor:** 31 July 2026 (Session-Teil 36: Betriebsschicht und Kassenabschluss)
+**Zuvor:** 31 July 2026 (Session-Teil 35: Migrationen selbst angewendet)
+**Zuvor:** 31 July 2026 (Session-Teil 34: Meilenstein 1 abgeschlossen)
+**Zuvor:** 31 July 2026 (Session-Teil 33: Stationen und Annahmeregel)
+**Zuvor:** 31 July 2026 (Session-Teil 32: KL-PAY-001, Rechnung und Zahlung)
+**Zuvor:** 31 July 2026 (Session-Teil 31: KL-TABLE-002, Kellnerbestellung)
+**Zuvor:** 30 July 2026 (Session-Teil 30: KL-TABLE-001, Tischkontext)
+**Zuvor:** 30 July 2026 (Session-Teil 29: Staffelregel belegt, drei Fehlerklassen geschlossen)
 **Zuvor:** 30 July 2026 (Session-Teil 28: Layoutstufe an einem starken Modell belegt)
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 38: Manager-PIN (31. Juli 2026)
+
+### Anlass
+
+Die zweite Haelfte von Blueprint §9.1. Der Satz lautet „sensible Aktionen per
+besonderem Recht **oder** Manager-PIN"; Session-Teil 37 hat nur das Recht
+gebaut. Damit musste eine Servicekraft, die am Tisch eine Zahlung stornieren
+soll, den Manager physisch holen — oder der Betrieb vergibt `payments.refund`
+reihum an alle und macht die Rechte wertlos.
+
+### Die tragende Entscheidung: die PIN gehoert einer Person
+
+Naheliegend waere eine PIN je Venue gewesen — eine Zahl, die im Haus bekannt
+ist. Sie scheitert an Blueprint §8.2: jeder Zahlungsvorgang ist auditiert, und
+eine Haus-PIN kann die Frage „wer hat das freigegeben?" prinzipiell nicht
+beantworten. Sie beweist nur, dass irgendwer sie kannte.
+
+Also hinterlegt jede Fuehrungskraft ihre eigene PIN, und die Freigabe traegt
+ihren Namen. Zwei Dinge fallen daraus von selbst heraus:
+
+- **Was eine PIN darf, ist, was ihr Inhaber selbst duerfte.** Kein Recht wird
+  erfunden. Die PIN einer Schichtleitung gibt einen Storno frei, weil
+  Schichtleitung `payments.refund` traegt.
+- **Eine Herabstufung wirkt sofort.** Der Rechtecheck laeuft beim Freigeben
+  *und* beim Verbrauchen gegen die aktuelle Rolle; niemand muss daran denken,
+  eine PIN zu loeschen.
+
+**Vier der fuenf Rechte sind ueberbrueckbar, `staff.manage` nicht.** Wer per
+geliehener PIN Personal verwalten duerfte, koennte sich in derselben Minute
+selbst zum Inhaber machen — das waere keine Freigabe fuer eine Aktion mehr,
+sondern eine dauerhafte Rechteerhoehung.
+
+**Kein Namensauswahl-Schritt.** Die Fuehrungskraft tippt nur ihre PIN; das ist
+der Handgriff, den der Betrieb erwartet, und er verraet der Servicekraft nicht
+die Liste der Vorgesetzten. Der Preis: fuehren zwei Personen dieselbe PIN, wird
+**nichts** freigegeben (`pin_ambiguous`) statt geraten. Eine Freigabe, die
+niemandem zuzuordnen ist, waere fuer §8.2 wertlos. Doppelte PINs beim Setzen
+abzuweisen habe ich verworfen — das waere ein Orakel gewesen, mit dem jemand
+alle PINs der Venue haette durchprobieren koennen.
+
+### Umgesetzt
+
+- `manager_pins`, `manager_pin_attempts`, `manager_overrides` — alle drei mit
+  RLS **ohne Policy** und ohne Grants. Kein Client liest dort je eine Zeile;
+  der Hash einer vierstelligen PIN waere auf einem Geraet in Sekunden
+  zurueckgerechnet. Gelesen wird nur ueber `operator_recent_overrides`, das den
+  Token-Hash gar nicht erst herausgibt.
+- `operator_set_manager_pin` / `operator_clear_manager_pin` /
+  `operator_manager_pin_status` / `operator_authorize_with_pin` /
+  `operator_recent_overrides`.
+- `kitchenlink_require_permission_or_pin` — bewusst ein **eigener Name** statt
+  einer Ueberladung von `kitchenlink_require_permission`: stuenden `(text,text)`
+  und `(text,text,text default)` nebeneinander, waere jeder zweistellige Aufruf
+  mehrdeutig und PostgreSQL wuerde ihn abweisen.
+- Die vier Geldfunktionen bekommen **einen** vorbelegten Parameter am Ende
+  (Drop + Create in derselben Transaktion, wie bei `guest_web_submit_order_v2`
+  in `20260730120000`). Aufrufer ohne Freigabe aendern sich nicht.
+- App: ein geteiltes Freigabe-Blatt fuer Kasse und Rechnung, die eigene PIN und
+  das Freigabeprotokoll unter `Team`.
+
+**Warum die Freigabe ein Token ist und nicht einfach „gilt fuer die naechste
+Aktion":** eine schwebende Erlaubnis, die still auf irgendeine spaetere
+passende Aktion faellt, ist genau die Sorte Verhalten, aus der ein Vorfall wird
+(„ich habe abgeschlossen und es ging, ich weiss nicht warum"). Der Token bindet
+die Freigabe an den Aufruf.
+
+### Drei Details, bei denen Sorgfalt noetig war
+
+- **Eine falsche PIN wirft keinen Fehler**, sondern gibt `granted = false`
+  zurueck. Eine Exception rollt die Transaktion zurueck und mit ihr den
+  hochgezaehlten Fehlversuch — die Sperre haette nie gegriffen.
+- **Gezaehlt wird am anfragenden Zugang**, nicht am Manager: eine falsche PIN
+  gehoert zu niemandem. Am Geraet der Servicekraft gezaehlt, trifft die Sperre
+  den, der probiert, und legt nicht das Lokal lahm (ein Test belegt beides).
+- **`extensions.crypt`, schema-qualifiziert**, wie `digest()` seit KL-WEB-003.
+  Der Testharness legt pgcrypto in `extensions` an, die Migrationen laufen mit
+  `set search_path = public, pg_temp`. Auf der Instanz nachgeprueft: der Hash
+  beginnt mit `$2a$`.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL** (`scripts/tests/manager-pin.sql`, eigene
+  Testvenue, 17 gepruefte Abschnitte): Service darf keine PIN hinterlegen,
+  `0000`/`1234` werden abgewiesen, falsche PIN zaehlt hoch statt zu werfen,
+  Storno geht mit Freigabe durch und der Token ist danach verbraucht, er gilt
+  nicht fuer eine andere Aktion, nicht fuer einen anderen Zugang und nicht nach
+  Ablauf, `staff.manage` ist nicht ueberbrueckbar, eine herabgestufte
+  Fuehrungskraft gibt nichts mehr frei, fuenf Fehlversuche sperren nur diesen
+  Zugang, zwei gleiche PINs geben nichts frei, das Protokoll nennt beide Seiten
+  und keinen Token-Hash, RLS mit `set role`. Alle sieben SQL-Tests und die
+  Wiederholbarkeit aller 20 Migrationen gruen.
+- **512 iOS-Unit-Tests gruen** (29 neu), **10 UI-Tests gruen**, darunter ein
+  neuer, der die Sperre und das Freigabe-Blatt wirklich durchklickt.
+- **Simulator, beide Wege:** Kasse mit Anfangsbestand 150,50 per PIN geoeffnet;
+  am Tisch kassiert, dann storniert — „Zahlung storniert — freigegeben und
+  protokolliert", Rechnung wieder bei 44,60. Team-Bildschirm: PIN hinterlegt,
+  Karte wechselt auf „Deine PIN ist hinterlegt".
+- **Migration angewendet und auf der Instanz geprueft:** drei Tabellen, alle
+  mit RLS, **null** Policies und **null** Grants darauf, weiterhin keine
+  Tabelle in `public` ohne RLS, alle acht Funktionen vorhanden, die vier
+  Geldfunktionen mit je einem Argument mehr, bcrypt erreichbar.
+
+### Zwei Fehler unterwegs
+
+- Der Satz lautete „Als Service darfst du schicht oeffnen nicht" — `label`
+  kleingeschrieben in eine Schablone gesteckt. Das kam aus KL-ROLE-001 und fiel
+  erst im Simulator auf. Jetzt traegt jedes Recht seinen fertig verneinten
+  Satzteil (`deniedClause`), weil das „nicht" im Deutschen je nach Objekt an
+  eine andere Stelle gehoert.
+- Im UI-Test hing der Identifier auf einer `KitchenLinkV2Card`, die gar kein
+  Accessibility-Element ist. Jetzt sitzt er auf dem Text.
+
+### Offen
+
+Ein realer Durchlauf mit einem zweiten Konto (`SANDBOX_SETUP.md` §6.10) —
+zusammen mit dem noch offenen Durchlauf aus Session-Teil 37, es ist derselbe
+Handgriff. Im Simulator ist der gesperrte Zustand seit dieser Scheibe
+vorfuehrbar (`--kitchenlink-demo-service-role`), aber ein zweites echtes Konto
+ersetzt das nicht.
+
+Aus dieser Scheibe bewusst nicht enthalten: eine Freigabe an ein bestimmtes
+Objekt zu binden (der Bezug wird protokolliert, aber nicht erzwungen),
+PIN-Rotationsfristen, und die Freigabe aus der Ferne (das Geraet der
+Fuehrungskraft bestaetigt, statt dass sie ihre PIN fremd eintippt).
+
+Weiterhin offen und unabhaengig: `MenuManualEditorUITests.testManualMenuEditorCoreFlow`
+schlaegt vorbestehend fehl.
+
+### Empfohlener naechster Schritt
+
+Meilenstein 2 hat jetzt nur noch §9.2 und §9.3 offen: Schichtplanung,
+Zeiterfassung, Soll-/Ist. Dafuer liegt seit KL-WORKFORCE-001 eine
+vollstaendige, getestete Domaene unter `Features/Workforce/` mit **null
+Referenzen** aus der App; ihr fehlen Persistenz und Oberflaeche. Das ist die
+groesste noch offene Scheibe des Meilensteins und faengt sinnvoll bei der
+Persistenz an, nicht beim Bildschirm.
+
+## Session-Teil 37: Rollen und Rechte (31. Juli 2026)
+
+### Anlass
+
+Zweiter Punkt von Meilenstein 2 (Blueprint §9.1). Bis hierher galt: **wer
+angemeldet ist, darf alles.** `is_venue_staff` prueft die Mitgliedschaft, nicht
+die Befugnis — jede Servicekraft konnte die Kasse abschliessen, stornieren und
+Geld entnehmen. Also genau die drei Handgriffe, die Session-Teil 36 gerade
+gebaut hatte.
+
+### Die eigentliche Entscheidung war der Zuschnitt
+
+Es gibt 25 `operator_`-RPCs. Sie alle mit einer Rechtepruefung zu versehen haette
+bedeutet, 25 Funktionsrumpfe zu kopieren — ein Wartungsalbtraum und eine
+Drift-Quelle. Ausserdem *sollen* die meisten jedem Personal offenstehen: die
+Kueche braucht `operator_mark_station_ready`, der Service
+`operator_record_payment`.
+
+Deshalb: **fuenf Rechte, alle fuenf erzwungen.** `shift.open`, `shift.close`,
+`cash.movement`, `payments.refund`, `staff.manage`. Kein Recht steht in der
+Liste, das nirgends geprueft wird — sonst zeigte der Team-Bildschirm Rollen mit
+Rechten an, die niemanden an irgendetwas hindern. Eine Rolle mit leerer
+Rechteliste heisst „darf alles Alltaegliche, nichts Sensibles"; das steht auch
+so auf dem Bildschirm.
+
+Verworfene Alternative: die Originalfunktionen per `alter function ... rename to`
+umbenennen und Wrapper davorsetzen. Kuerzer, aber ein Footgun — eine spaetere
+Migration mit `create or replace` auf den Originalnamen wuerde die Pruefung
+still entfernen.
+
+### Umgesetzt
+
+- `venue_roles` je Venue (nicht als Aufzaehlung im Code) mit den neun
+  Standardrollen aus §9.1; ein Trigger auf `venues` legt sie an. „Eigene Rollen
+  mit granularen Rechten" ist damit spaeter ein Datensatz, kein Umbau.
+- `venue_staff.role`: CHECK auf `'operator'` raus, Fremdschluessel auf
+  `venue_roles(venue_id, key)` rein.
+- `kitchenlink_require_permission` — ein Aufruf statt vier Zeilen je RPC.
+- Die vier Geldfunktionen ersetzt (nur die Gate-Zeile getauscht),
+  `operator_create_venue` vergibt `owner` statt `operator`.
+- `operator_my_permissions`, `operator_venue_team`, `operator_venue_roles`,
+  `operator_add_staff`, `operator_set_staff_role`, `operator_remove_staff`.
+- App: Bereich `Team`; die Kasse sperrt und **erklaert**.
+
+### Zwei Dinge, bei denen Sorgfalt noetig war
+
+- **Bestandspersonal:** `operator` wird zu `owner`, nicht zu `service`. Diese
+  Zeilen durften bis heute alles; ihnen per Migration Rechte zu nehmen waere
+  eine stille Entrechtung. Der Spaltendefault fuer *neue* Zeilen steht dagegen
+  auf `service`.
+- **`operator_create_venue` musste ersetzt werden** (wegen des
+  Fremdschluessels). Ich hatte den Rumpf zuerst aus dem Gedaechtnis nachgebaut
+  und dabei an fuenf Stellen abweichend geschrieben — unter anderem fehlte die
+  Slug-Obergrenze von 60 Zeichen, und drei Fehlerkennungen lauteten anders, auf
+  die `venue-onboarding.sql` prueft. Jetzt ist der Rumpf wortgleich mit dem
+  Original; geaendert ist genau ein Wort.
+
+### Verifikation
+
+- SQL gegen echtes PostgreSQL in einer **eigenen Testvenue**: Service wird bei
+  allen fuenf Aktionen abgewiesen und darf den Alltag weiterhin; Schichtleitung
+  darf die Kasse, aber kein Personal; alle drei Sperren belegt (Selbstaenderung,
+  Inhaberschutz, letzter Inhaber); Bestandspersonal behaelt seine Rechte; RLS
+  mit `set role`. Dazu ein `auth.users`-Stub (zwei Spalten, ohne Grants).
+- 483 iOS-Unit-Tests gruen, 13 UI-Tests gruen.
+- Simulator: Team-Bildschirm, Rollenwechsel, Liste sortiert sich neu.
+- Migration angewendet und auf der Instanz geprueft: neun Rollen, **null**
+  Zeilen auf der abgeschafften Rolle, das Bestandskonto ist Inhaber, weiterhin
+  keine Tabelle in `public` ohne RLS.
+
+### Zwei Fehler unterwegs
+
+- Das Modell prueft das Recht in den `can…`-Eigenschaften fuer die Knoepfe,
+  feuerte die Anfrage aber trotzdem — ein Test hat es aufgedeckt. Jetzt brechen
+  `openShift`, `bookMovement` und `closeShift` selbst ab.
+- E-Mail-Platzhalter wurden blau statt grau gezeichnet: `Text("…@…")` laeuft als
+  `LocalizedStringKey` durch die Markdown-Verarbeitung und verlinkt die
+  Adresse. Betraf **fuenf** Stellen (Team, Restaurant, Tische, Service,
+  Publish-Sheet); jetzt ueberall `Text(verbatim:)`.
+
+### Offen
+
+Ein realer Durchlauf mit einem zweiten Konto (`SANDBOX_SETUP.md` §6.9). Der
+gesperrte Zustand ist im Simulator nicht vorfuehrbar, weil der Demo-Zugang
+Inhaber ist — er ist durch vier Unit-Tests und den SQL-Test belegt.
+
+Weiterhin offen und unabhaengig: `MenuManualEditorUITests.testManualMenuEditorCoreFlow`
+schlaegt vorbestehend fehl.
+
+### Empfohlener naechster Schritt
+
+Meilenstein 2 hat noch §9.2 und §9.3 offen: Schichtplanung, Zeiterfassung,
+Soll-/Ist. Dafuer liegt seit KL-WORKFORCE-001 eine vollstaendige, getestete
+Domaene unter `Features/Workforce/` mit **null Referenzen** aus der App; ihr
+fehlen Persistenz und Oberflaeche. Kleinere Alternative davor: der Manager-PIN
+aus §9.1, damit eine Servicekraft am Tisch eine Freigabe holen kann, statt den
+Manager zu suchen.
+
+## Session-Teil 36: Betriebsschicht und Kassenabschluss (31. Juli 2026)
+
+### Anlass
+
+Start von Meilenstein 2. Der Blueprint listet fuenf Teile (§8.3 Betriebsschicht,
+§9.1 Rollen, §9.2 Planung, §9.3 Zeit, Soll-/Ist). Gewaehlt wurde §8.3 zuerst,
+weil Meilenstein 1 den Geldkreis geoeffnet, aber nicht geschlossen hat: es wurde
+kassiert, storniert und Trinkgeld genommen — und am Abend gab es nichts, wogegen
+jemand haette zaehlen koennen.
+
+### Befund vorab
+
+`Features/Workforce/` (1200 Zeilen Domaene, 650 Zeilen Tests, 38 Tests gruen aus
+KL-WORKFORCE-001) hat **null Referenzen** aus der App. Getestet und komplett
+tot. Das ist Meilenstein 2, Teil 3 bis 5 — eine Grundlage, der Persistenz und
+Oberflaeche fehlen.
+
+### Umgesetzt (KL-SHIFT-001)
+
+- `business_shifts` (Anfangsbestand, gezaehlt, erwartet, Abweichung, Z-Nummer)
+  mit partiellem Unique-Index: je Venue hoechstens **eine** offene Schicht.
+- `cash_movements` fuer Entnahme, Ausgabe, Einlage.
+- `kitchenlink_shift_totals` als *eine* Quelle fuer Bericht, Abschluss und
+  Live-Anzeige — dreifach getrennt gerechnet wuerde der erwartete Bestand
+  irgendwann von dem abdriften, was der Abschluss festhaelt.
+- `payments.shift_id` per `before insert`-Trigger statt per Aenderung an
+  `operator_record_payment`: so greift die Zuordnung auch fuer jeden spaeteren
+  Zahlungsweg, ohne dass ihn jemand daran erinnern muss.
+- RPCs: `operator_open_shift`, `operator_record_cash_movement`,
+  `operator_shift_report`, `operator_recent_shifts`, `operator_close_shift`.
+- App: neuer Bereich `Kasse`.
+
+**Zwei Produktentscheidungen**, beide bewusst und im Code begruendet:
+
+1. Eine **Zahlung** ohne offene Schicht wird nicht blockiert (Geld annehmen darf
+   nie an einem vergessenen Knopfdruck scheitern); sie bleibt ohne `shift_id`
+   und erscheint im Bericht als „ausserhalb der Schicht". Eine **Entnahme**
+   verlangt dagegen eine offene Kasse.
+2. Die Abweichung wird festgehalten, nicht verhindert. Offene Rechnungen werden
+   vor dem Abschluss gewarnt, nicht erzwungen.
+
+### Verifikation
+
+- SQL gegen echtes PostgreSQL: zweite offene Schicht abgewiesen, Karte zaehlt
+  nicht in die Schublade, Bar-Trinkgeld schon, Storno senkt den Bestand wieder,
+  geschlossene Schicht bleibt eingefroren, Z-Nummern lueckenlos, RLS mit
+  `set role` belegt (als Eigentuemer waere der Abschnitt gruen gewesen, ohne
+  irgendetwas zu belegen).
+- 462 iOS-Unit-Tests gruen, 13 UI-Tests gruen.
+- Simulator: oeffnen mit 150,50, Ausgabe 12,50 buchen, mit Fehlbetrag -0,50
+  abschliessen (Z-Bericht 1), danach erneut oeffnen und ohne Abweichung
+  abschliessen.
+- `supabase db push` angewendet und auf der Instanz geprueft: beide Tabellen,
+  alle RPCs, der Trigger und `payments.shift_id` vorhanden, weiterhin keine
+  Tabelle in `public` ohne RLS.
+
+### Zwei Fehler unterwegs
+
+- Der SQL-Test legte einen eigenen Tisch an und brach damit `table-context`,
+  das genau sechs aktive Tische und sechs aktive Tokens erwartet. Der Test
+  raeumt jetzt beides auf (der Token wird nicht mit dem Tisch stillgelegt).
+- Die Ansicht war die einzige Stelle im Projekt mit `.dateTime` und zeigte auf
+  einem englisch eingestellten Geraet „Jul 31 at 17:11" in einer durchgehend
+  deutschen App. Jetzt fest auf `de_DE`, wie ueberall sonst im Projekt.
+
+### Offen
+
+Ein realer Tagesdurchlauf am Geraet (`SANDBOX_SETUP.md` §6.8) — sowie die
+Abnahmen aus Session-Teil 35, die alle keine Datenbankarbeit mehr brauchen.
+
+Weiterhin offen und unabhaengig: `MenuManualEditorUITests.testManualMenuEditorCoreFlow`
+schlaegt vorbestehend fehl.
+
+### Empfohlener naechster Schritt
+
+Meilenstein 2 weiter: **Rollen und Rechte (§9.1)**. `venue_staff.role` existiert
+schon als Spalte, wird aber nirgends ausgewertet — jedes angemeldete Personal
+darf derzeit alles, auch abschliessen und stornieren. Blueprint §9.1 verlangt
+Standardrollen und „sensible Aktionen per besonderem Recht oder Manager-PIN";
+Kassenabschluss und Storno sind die ersten beiden Kandidaten. Danach die tote
+Workforce-Domaene sichtbar machen (§9.2/§9.3).
+
+## Session-Teil 35: Migrationen selbst angewendet, Ledger-Drift geschlossen (31. Juli 2026)
+
+### Anlass
+
+Rückfrage des Nutzers: „Was meinst du eigentlich genau mit Abnahme? Warum soll
+ich die durchführen? Du solltest in Supabase eigentlich alles selbst
+erledigen." Er hatte recht. Ich hatte zwei Dinge unter einem Wort vermischt:
+
+- das **Anwenden** der Migrationen — mechanisch, und über die lokal
+  eingeloggte, verknüpfte Supabase-CLI von hier aus machbar. Das ist Agentenarbeit.
+- die **Abnahme** im eigentlichen Sinn — sein Produkturteil, ob sich eine
+  Funktion auf einem echten Gerät richtig anfühlt. Das bleibt bei ihm.
+
+Alle bisherigen Handoffs haben das erste als „Nutzerabnahme steht aus" an ihn
+zurückgegeben. `SANDBOX_SETUP.md` §0 hat das mit „die Agenten legen keine
+Cloud-Ressourcen an" sogar als Regel festgeschrieben — die Regel meinte
+Projekte, Keys und Auth-Einstellungen, nicht Migrationen.
+
+### Befund: Ledger-Drift zwischen SQL-Editor und CLI
+
+`supabase migration list` zeigte **sieben** offene Migrationen, nicht die vier
+dieser Sitzung — auch `20260724000000` und die beiden Tischmigrationen, für die
+der Nutzer „Abnahme ist durch" gemeldet hatte. Ursache: der SQL-Editor im
+Dashboard trägt nichts in `supabase_migrations.schema_migrations` ein. Die
+`NOTICE`-Zeilen des Pushs (`policy … does not exist, skipping`) haben dann
+gezeigt, dass die Tischmigration tatsächlich noch gar nicht auf der Instanz war.
+
+Damit der Drift folgenlos bleibt, muss **jede** Migration wiederholbar sein.
+`scripts/verify-supabase-migrations.sh` spielt jetzt jede Migration ein zweites
+Mal ein und lässt den Lauf scheitern, sobald eine sich nicht wiederholen lässt.
+Ergebnis: alle 17 sind bereits wiederholbar (`drop … if exists` vor
+`create policy`/`create trigger`, `if not exists`, `on conflict` in den Seeds).
+Erst dieser Beweis hat den Push gegen die Instanz mit echten Daten vertretbar
+gemacht.
+
+### Durchgeführt
+
+- `supabase db push` gegen `rjxlzqtaxqstctrrlqre`: sieben Migrationen
+  angewendet, `migration list` danach deckungsgleich über alle 17.
+- Verifikation auf der Instanz: keine Tabelle in `public` ohne RLS, sechs aktive
+  Tische, die RPCs `operator_table_check`, `operator_record_payment`,
+  `operator_mark_station_ready`, `operator_reject_order`,
+  `operator_create_venue` vorhanden.
+- Vorher mit dem Nutzer geklärt: der Seed setzt Bereich und Sortierung der
+  Demo-Tische 1–5 und „Theke" auf die Seed-Werte zurück (Labels, QR-Tokens,
+  Sessions und Bestellungen bleiben unberührt). Er hat zugestimmt.
+
+### Dateien
+
+- `scripts/verify-supabase-migrations.sh` — zweiter Durchlauf (Wiederholbarkeit).
+- `docs/architecture/guest-web/SANDBOX_SETUP.md` — §0 korrigiert, §2 um
+  `migration list`, den Ledger-Drift-Hinweis und den Stand der Instanz ergänzt.
+- `docs/collaboration/CURRENT.md` — fünf „Pending: applying …" auf „Applied"
+  gezogen; offen bleibt jeweils nur der reale Gerätedurchlauf.
+
+### Offen
+
+Nur noch echte Abnahmen am Gerät, keine Datenbankarbeit: eine Bestellung über
+den Tisch-QR (§6.3), eine Kellnerbestellung (§6.4), eine getrennte Zahlung
+(§6.5), ein Durchlauf über zwei Stationen (§6.6), ein selbst angelegtes
+Restaurant (§6.7).
+
+Weiterhin offen und unabhängig: `MenuManualEditorUITests.testManualMenuEditorCoreFlow`
+schlägt vorbestehend fehl.
+
+## Session-Teil 34: Eigenes Restaurant — Meilenstein 1 abgeschlossen (31. Juli 2026)
+
+### Anlass
+
+Der letzte offene Punkt von Meilenstein 1: „Konto und Restaurant aus dem
+Scan-Ergebnis anlegen" (1.3). Bis hierher gab es genau eine Venue,
+`alte-muehle`, im Seed angelegt und in der App fest verdrahtet. Wer das Produkt
+für ein zweites Lokal sehen wollte, musste `venue_staff` von Hand per SQL
+setzen — der Kern-Pitch endete an der Stelle, an der er anfangen sollte.
+
+### Umgesetzt
+
+- **Migration `20260731180000`:** `operator_create_venue` (legt Venue an, macht
+  den Anleger zum Personal, erzeugt eine leere aktive Karte),
+  `operator_suggest_venue_slug` (weicht auf eine freie Variante aus) und
+  `operator_my_venues`. Ein anonymer Gast darf ausdrücklich kein Restaurant
+  eröffnen; Sandbox-Grenze fünf Lokale je Konto.
+- **App:** neuer Bereich `Restaurant` — Konto anlegen oder anmelden, Name
+  eingeben, fertig. Die Gast-Adresse steht live unter dem Namensfeld, damit
+  sichtbar ist, was der Name bewirkt.
+
+### Die eigentliche Änderung ist eine Zeile
+
+`KitchenLinkCloudConfig.sandboxDefault` war eine Konstante mit
+`venueSlug: "alte-muehle"` und ist der Standardwert **jedes** Cloud-Modells
+(19 Stellen). Jetzt ist es eine berechnete Eigenschaft, die der aktiven Venue
+folgt. Damit arbeiten Scan-Publish, Tische, Bestellungen, Stationen und
+Rechnung ohne weitere Änderung auf dem eigenen Lokal — jede dieser RPCs prüft
+ohnehin über `is_venue_staff`. Instanz und Anon-Key bleiben eingebacken; die
+Sandbox hat genau eine Instanz, aber nicht mehr genau ein Restaurant.
+
+Ein Test sichert genau das ab (`dieGeteilteKonfigurationFolgtDerAktivenVenue`):
+folgt der Standardwert nicht, arbeitet die halbe App weiter im Demo-Lokal, ohne
+dass es jemand merkt.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL, und zwar der ganze Weg im neuen Lokal:** Venue
+  anlegen → Karte veröffentlichen → Tisch anlegen → Gast bestellt über den
+  Tisch-QR → Betreiber liest die Rechnung (20,70 €). Dazu: fremdes Konto
+  abgewiesen, anonymer Gast darf nichts anlegen, Name und Slug werden geprüft
+  statt zurechtgebogen, Slug-Vorschlag weicht aus, Obergrenze greift.
+- **iOS-Unit-Tests grün**, darunter die Umlautbehandlung
+  („Gasthaus Zur Mühle" → `gasthaus-zur-muehle`) und der bewusste Verzicht auf
+  einen Notnagel-Slug: ein unbrauchbarer Name legt nichts an, statt ein Lokal
+  namens `artikel` zu erzeugen.
+- **Simulator:** Restaurant angelegt, es wurde sofort das aktive, erscheint in
+  „Meine Restaurants", Rückweg ins Demo-Lokal funktioniert.
+
+### Damit ist Meilenstein 1 abgeschlossen
+
+Scan → Prüfung → Live-Gastkarte → Tisch-QR → Gast- **und** Kellnerbestellung →
+Annahmeregel → Küche und Bar als getrennte Stationen → serviert → getrennte
+Rechnung, Trinkgeld und simulierte Zahlung. Und seit dieser Scheibe für ein
+Lokal, das der Betreiber selbst anlegt.
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme** der vier Migrationen dieser Sitzung
+   (`20260731100000`, `140000`, `160000`, `180000`), Anleitung in
+   `SANDBOX_SETUP.md` §6.5 bis §6.7.
+2. **Meilenstein 2:** Betriebsschicht und Tagesabschluss (§8.3), Rollen und
+   Rechte (§9.1), die getestete Schichtplanungs-Domäne sichtbar machen.
+3. Aus dieser Scheibe offen: der Scan legt noch kein Restaurant *automatisch*
+   an — der Betreiber macht es einmal unter `Restaurant`. Eine Verknüpfung
+   direkt aus dem Import-Review wäre der nächste Schliff.
+
+## Session-Teil 33: Stationen und Annahmeregel (31. Juli 2026)
+
+### Anlass
+
+Auf die Frage nach dem weiteren Vorgehen habe ich zuerst eine eigene Aussage
+korrigiert: Meilenstein 1 war nach der Zahlung **nicht** geschlossen. Offen
+waren Punkt 8 (Annahmeregel), Punkt 9 (Küchen-/Bar-Routing) und Punkt 3
+(Restaurant aus dem Scan). Der Nutzer hat 8 und 9 gewählt.
+
+### Umgesetzt
+
+- **Stationen (§7):** `order_items.station` (aus `kind` per Trigger) und
+  `ready_at`, dazu `operator_mark_station_ready`. `Service` hat jetzt
+  `Küche | Bar | Kellner`; jede Station sieht nur ihre Positionen und gibt nur
+  ihre frei. **Die Bestellung wird erst `ready`, wenn keine Station mehr offen
+  ist** — das entscheidet die Datenbank. Die Karte nennt die noch arbeitende
+  Station.
+- **Annahmeregel (§6.3):** `venues.order_confirmation_channels`, dazu
+  `operator_set_confirmation_channels` und `operator_reject_order`. Leer bleibt
+  der dokumentierte Standard „automatisch angenommen". Betroffene Bestellungen
+  stehen in einer eigenen Liste über der Stationsliste.
+- **`rejected` fehlte in der Datenbank**, obwohl Blueprint §6.4 es führt. Ohne
+  den Wert hätte eine abgelehnte Bestellung als `canceled` verbucht werden
+  müssen — das ist etwas anderes: storniert wird, was schon lief. Jetzt mit
+  Grund und Zeitstempel, und nur vor der Annahme möglich.
+
+### Eine Lehre aus der vorigen Scheibe angewandt
+
+Bei KL-TABLE-001 hatte ich `tables(area)` in den Bestell-Lesepfad genommen und
+damit die Bestellliste auf einer Instanz ohne Migration lahmgelegt (im
+Simulator aufgefallen). Diesmal habe ich das vorweggenommen: `loadOrders`
+versucht die Abfrage mit `ready_at` und fällt bei „Spalte gibt es nicht"
+einmalig auf die alte Spaltenliste zurück. Ein Betrieb, der die App
+aktualisiert hat, aber die Migration noch nicht, sieht seine Bestellungen
+weiter — und sobald die Migration steht, greift wieder der erste Weg.
+
+### Bewusste Grenze
+
+Der Stationsstatus wird in der Cloud geführt. Rein lokale Bestellungen
+behalten den Bump über die ganze Bestellung. Begründung: Stationstrennung löst
+ein Mehrgeräteproblem (Küche am iPhone, Bar am iPad), und der reine
+Offline-Fall ist per Definition ein Gerät. Sobald eine lokal aufgenommene
+Bestellung synchronisiert ist, gilt für sie der Stationsweg.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL:** Station aus `kind` abgeleitet, erst beide
+  Stationen machen `ready`, zweiter Tap ohne Wirkung, reine Getränkebestellung
+  braucht nur die Bar, unbekannte Station und fremde Identität abgewiesen,
+  Regel nur für ihren Kanal, unbekannter Kanal abgelehnt ohne etwas zu
+  überschreiben, Ablehnen nur vor der Annahme, Storno-Replay.
+- **iOS: 438 Testfälle bestanden, 1 Fehlschlag** — weiterhin der vorbestehende
+  `MenuManualEditorUITests`.
+- **Simulator:** Bar zeigt nur Getränke, meldet „Küche arbeitet noch" und
+  schaltet mit „Getränke fertig". Dabei drei Reste der alten Zwei-Modi-Logik
+  gefunden und behoben (Abschnittstitel, Knopftext, Kartenfarbe hatten `Bar`
+  wie den Kellner behandelt).
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme:** beide Migrationen anwenden, einmal über zwei Stationen
+   abarbeiten (`SANDBOX_SETUP.md` §6.6).
+2. **Meilenstein 1 hat noch Punkt 3:** Konto und Restaurant aus dem
+   Scan-Ergebnis anlegen. Es gibt weiterhin genau eine fest verdrahtete
+   Sandbox-Venue.
+3. Danach Meilenstein 2: §8.3 Betriebsschicht und Tagesabschluss, Rollen und
+   Rechte, die Schichtplanung sichtbar machen.
+
+## Session-Teil 32: KL-PAY-001 — Rechnung und Zahlung (31. Juli 2026)
+
+### Anlass
+
+Der Nutzer hat die Abnahme der beiden Tisch-Migrationen bestätigt und
+Blueprint §8 als nächstes gesetzt. Geschnitten auf Meilenstein 1.11
+(„Split-Rechnung, Trinkgeld und Sandbox-Zahlung") — damit ist Meilenstein 1
+geschlossen. §8.3 (Betriebsschicht, Tagesabschluss) bleibt eine eigene Scheibe.
+
+### Umgesetzt
+
+- **Migration `20260731100000`:** `payments` und `payment_items` mit RLS
+  (Lesen nur für Personal, kein Schreibweg für Clients), dazu
+  `operator_table_check`, `operator_record_payment` und
+  `operator_refund_payment`.
+- **Der Betrag kommt nie vom Gerät.** Bei ausgewählten Positionen rechnet die
+  Datenbank ihn aus den Zeilensummen; ein mitgeschickter Betrag wird nur
+  gegengeprüft (`payment_amount_mismatch`). Dieselbe Regel wie bei der
+  Gastbestellung.
+- **Die tragende Zusage steht als Index, nicht als App-Logik:**
+  `payment_items_one_open_payment_per_item`. Zwei gleichzeitig kassierende
+  Geräte können denselben Gang nicht zweimal abrechnen; der Verlierer bekommt
+  `payment_item_unavailable` statt eines rohen Datenbankfehlers.
+- **Storno** lässt die Zahlung als `refunded` stehen (auditiert, §8.2), setzt
+  ihre Positionszuordnung inaktiv und öffnet die Rechnung wieder — aber nur,
+  wenn am Tisch nicht längst eine neue Session offen ist. Sonst bliebe der
+  Storno an der Index-Invariante „eine offene Session je Tisch" hängen; die
+  Ansicht meldet den Fall über `session_reopened`.
+- **Provider-Naht (§8.2):** `KitchenLinkPaymentProviding` +
+  `KitchenLinkSandboxPaymentProvider`. Karte und Tap to Pay laufen darüber,
+  Bar und Gutschein nicht. Eine abgelehnte Autorisierung erzeugt **keine**
+  Buchung — dafür gibt es einen eigenen Test. Die Referenz des Anbieters wandert
+  in die Zahlung; ein echter PSP schreibt später seine Autorisierung an dieselbe
+  Stelle.
+- **Oberfläche:** `Service → Rechnung kassieren`. Positionen antippen ist
+  „getrennt zahlen", ohne Auswahl wird der offene Betrag kassiert. Trinkgeld
+  liegt neben der Zahlart statt in einem eigenen Schritt; der Beleg nennt
+  Betrag, Trinkgeld, Restbetrag und Sandbox-Referenz.
+- **Demo-Transport** hinter dem bestehenden Launch-Argument
+  `--kitchenlink-demo-tables`, damit der Ablauf ohne Cloud vorführ- und
+  prüfbar bleibt. Er rechnet bewusst wie die Datenbank (Auswahl bestimmt den
+  Betrag, bezahlte Position gesperrt, Storno gibt frei), damit die Demo nichts
+  anderes zeigt als der echte Weg.
+
+### Zwei Dinge, die ich beim Schreiben korrigiert habe
+
+1. **Endlosschleife im Fehlerfall.** Der 401-Pfad rief `pay()` rekursiv auf.
+   Erneuert sich die Sitzung erfolgreich, während die RPC weiter 401 liefert,
+   hätte das ohne Ende gedreht. Jetzt genau ein Refresh (`allowRefresh`).
+2. **Idempotenz-Schlüssel aus `hashValue`.** Swifts Hashing ist pro Prozess
+   zufällig; als Bestandteil eines Schlüssels, der einen Zahlungsvorgang
+   identifiziert, ist das eine schlechte Idee. Der Schlüssel ist jetzt eine
+   UUID, die über Wiederholungen desselben Vorgangs gehalten und bei geänderter
+   Auswahl verworfen wird.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL** (`scripts/tests/payments.sql`): Rechnung über
+  zwei Gastbestellungen desselben Tisches, serverseitig gerechneter Betrag,
+  behaupteter Falschbetrag abgewiesen, doppelte Position abgewiesen, Replay
+  ohne zweite Buchung, Teilbetrag über dem offenen Betrag abgewiesen, Rechnung
+  schließt sich, geschlossene Rechnung nimmt nichts mehr an, Storno gibt die
+  Position frei und sie ist erneut kassierbar, `anon` sieht nichts.
+- **iOS: 427 Testfälle bestanden, 1 Fehlschlag** — weiterhin der vorbestehende
+  `MenuManualEditorUITests`.
+- **Simulator:** eine Position gewählt (13,80 €), 10 % Trinkgeld (1,38 €),
+  Zahlart Karte über den simulierten Anbieter, Beleg mit Restbetrag 30,80 €,
+  bezahlte Position gesperrt, danach Storno — Position wieder offen, Rechnung
+  zurück auf 44,60 €.
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme:** Migration anwenden und einmal echt getrennt kassieren
+   (`SANDBOX_SETUP.md` §6.5).
+2. **§8.3 Betriebsschicht und Tagesabschluss:** gemeinsame Schicht, Bargeld-
+   Anfangsbestand, Einnahmen/Trinkgeld/Stornos gesammelt, Bargeldzählung,
+   Tagesbericht und Sandbox-Z-Bericht. Die Zahlungen dafür liegen jetzt vor.
+3. Offen aus dieser Scheibe: Onlinezahlung im Gast-Web (der Gast zahlt selbst),
+   Gutschein-/Guthabenkonten (die Zahlart existiert, das Konto dahinter nicht),
+   Beleg als Dokument (`ReceiptProvider`).
+
+## Session-Teil 31: KL-TABLE-002 — Kellnerbestellung (31. Juli 2026)
+
+### Anlass
+
+Die zweite tragende Lücke aus Teil 30. `DECISIONS.md` (Local-First, 23. Juli)
+macht „Gäste bestellen verbal, der Kellner erfasst auf dem Service-iPhone" zum
+Offline-Pfad der Sandbox-Beta — und genau diesen Weg gab es im Produkt nicht.
+
+### Umgesetzt
+
+- **Reihenfolge ist die Aussage** (`KitchenLinkWaiterOrderModel`): erst der
+  dauerhafte Commit im lokalen Ereignisprotokoll, dann die Bestätigung, dann
+  die Cloud. Schlägt der lokale Schreibvorgang fehl, gibt es **keine**
+  Bestätigung und die aufgenommenen Positionen bleiben stehen; die Cloud wird
+  in dem Fall gar nicht erst gefragt (ein Test sichert genau das ab).
+  Der Kellner sieht ausdrücklich, ob die Cloud die Bestellung schon kennt.
+- **Migration `20260730160000`:** `operator_create_order` bekommt `p_table_id`,
+  öffnet bzw. verwendet die gemeinsame Tisch-Session (neue Funktion
+  `kitchenlink_open_table_session`) und weist stillgelegte Tische ab.
+- **Echter Idempotenzfehler behoben.** Die bisherige Fassung hielt die
+  Bestellung per `on conflict (id) do nothing` einmalig, fügte die
+  **Positionen** bei einer Wiederholung aber erneut ein. Der Outbox-Versand
+  wiederholt nach jedem Zustellfehler — die Bestellung hätte doppelte
+  Positionen und einen falschen Betrag gehabt. Jetzt bekommt nur die wirklich
+  neu eingefügte Bestellung Positionen; die Antwort meldet `replayed`.
+- **Oberfläche:** `Service → Bestellung aufnehmen` mit Kanal, Tischraster,
+  der eigenen Karte (nur verfügbare Artikel) und Küchenhinweis.
+
+### Drei Fehler, die erst das Durchspielen im Simulator zeigte
+
+1. **Die Bestätigung war unsichtbar.** Sie stand am Ende des Scrollbereichs —
+   hinter über hundert Artikeln der echten Karte. Der Kellner hätte nach dem
+   Tippen nur einen leeren Warenkorb gesehen. Jetzt steht sie direkt über der
+   Aktion.
+2. **Die Kellnerbestellung tauchte in keiner Liste auf.** Die lokale Liste
+   filterte auf `preparing` (so startet der Hub), eine Kellnerbestellung
+   startet aber `pending` (Blueprint §6.3: automatische Annahme). Beide Quellen
+   werden jetzt gleich behandelt.
+3. **Der Merge entdoppelte nicht.** Nach der Cloud-Synchronisation kennt die
+   App dieselbe Bestellung aus zwei Quellen — sie hätte zweimal auf dem Pass
+   gelegen. Jetzt gewinnt die Online-Fassung (für sie funktioniert der
+   Status-Schreibweg).
+
+Dazu ein Nebenbefund aus Teil 30, ebenfalls im Simulator sichtbar geworden:
+die Bestell-Abfrage holte `tables(label,area)`. `area` kommt erst mit der
+Tisch-Migration — ein Betrieb mit neuer App und noch nicht angewendeter
+Migration hätte seine **komplette Bestellliste** verloren (im Screenshot:
+`column tables_1.area does not exist`). Die Abfrage holt jetzt nur `label`,
+das seit dem Kernschema existiert.
+
+### Architektur-Notiz für die nächste Scheibe
+
+Es gibt zwei lokale Ereignisprotokolle: `KitchenLinkOrders/orders.sqlite`
+(App-Repository, an der Cloud-Outbox) und `KitchenLinkVenueHub/events.sqlite`
+(Foreground-Hub, Quelle der lokalen Gastbestellungen). Die Service-Liste liest
+jetzt beide. Das ist ehrlich, aber kein Zielzustand — der autoritative lokale
+Knoten sollte einer sein. Nicht in dieser Scheibe zusammengelegt, weil das den
+Hub-Pfad (KL-OFFLINE-004 bis 007, auf echten Geräten abgenommen) anfassen
+würde. Nebenwirkung heute: die Outbox des Hubs wird von niemandem geleert,
+lokale **Gast**bestellungen erreichen die Cloud also nicht — vorbestehend und
+konsistent damit, dass lokale Gastbestellung laut Entscheidung vom 23. Juli
+keine Pflichtfähigkeit ist.
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL:** Kellnerbestellung hängt am Tisch und teilt
+  die offene Session der Gäste, Wiederholung erzeugt keine zweiten Positionen
+  (`replayed = true`), Bestellung ohne Tisch bleibt möglich, stillgelegter
+  Tisch und fehlende Personalrolle werden abgewiesen.
+- **iOS:** Unit- und Standard-UI-Suite grün, **410 Testfälle bestanden, 1
+  Fehlschlag** — weiterhin der vorbestehende `MenuManualEditorUITests`
+  (separater Task).
+- **Vollständiger Ablauf im Simulator:** aufnehmen → „Angenommen · dauerhaft
+  gespeichert" → Küchenliste zeigt `Tisch 1` → „Bestellung zubereitet" →
+  Kellner-Modus zeigt sie am Pass mit „Bestellung serviert".
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme** beider Tisch-Migrationen auf der echten Instanz
+   (`SANDBOX_SETUP.md` §6.3 und §6.4). Erst dort lässt sich prüfen, ob die
+   Kellnerbestellung tatsächlich in der Cloud ankommt — im Simulator meldet die
+   App korrekt „noch nicht in der Cloud", weil die RPC dort fehlt.
+2. **Rechnung und Zahlung** (Blueprint §8) — die Tisch-Session, auf der ein
+   Splitten aufsetzt, existiert jetzt.
+3. Offen aus dieser Scheibe: Zusammenführung der zwei lokalen Ereignis-
+   protokolle, Tisch-Token im lokalen Hub-Gastpfad, Bestellung im Nachhinein
+   korrigieren/stornieren.
+
+## Session-Teil 30: KL-TABLE-001 — Tischkontext (30. Juli 2026)
+
+### Anlass
+
+Der Menü-Import ist weit ausgebaut; der Nutzer fragte, womit es weitergeht. Aus
+Blueprint-Abgleich und Codebefund ergaben sich vier Lücken in Meilenstein 1.
+Der Nutzer hat aus vier Vorschlägen den **Tisch- und Bestellkern** gewählt.
+
+Die zwei tragenden Befunde, die zu dieser Wahl geführt haben:
+
+1. **Kein Tischbegriff im Produktpfad.** Kein Treffer für `table_number`/
+   `tableId` in `kitchenlink/`, `guest-web/src/` oder `supabase/migrations/` —
+   obwohl `tables`, `qr_tokens`, `table_sessions` und `orders.table_id` seit dem
+   Kernschema (20260318011000) existieren. Eine Bestellung gehörte dem Lokal.
+2. **Der Kellner kann keine Bestellung aufnehmen.** Die Local-First-Entscheidung
+   vom 23. Juli macht „Gast bestellt mündlich, Kellner tippt ein" zum
+   Offline-Pfad der Sandbox-Beta. Im Produktpfad gibt es das nicht: `Service`
+   schaltet nur Status. Die Bestellaufnahme liegt im stillgelegten
+   Legacy-Checkout und als ungenutzte RPC `operator_create_order`.
+
+Diese Scheibe schließt (1). (2) ist der nächste Schritt und braucht (1).
+
+### Sicherheitsbefund (behoben, belegt)
+
+`tables`, `qr_tokens` und `table_sessions` waren die **einzigen** Tabellen des
+Gastschemas ohne Row Level Security — KL-WEB-002 hatte sechs Tabellen
+abgesichert, diese drei lagen als ungenutzt daneben. Supabase vergibt
+`anon`/`authenticated` per Default-Privileg Tabellenrechte, also war das keine
+Theorie. Lokal auf dem Stand **vor** dieser Migration reproduziert:
+`relrowsecurity = f` für alle drei, und `set role anon; insert into qr_tokens …`
+ging durch. Nach der Migration: RLS aktiv, nur Staff-Lese-Policies, kein
+einziger Schreibweg für Clients.
+
+### Umgesetzt
+
+- **Migration `20260730120000_table_context.sql`** (additiv): RLS + Policies,
+  `tables.area`/`sort_order`, zwei Partial-Unique-Indizes als tragende
+  Invarianten (**genau eine offene Session je Tisch**, **genau ein aktives
+  Token je Tisch**), die Staff-RPCs `operator_upsert_table`,
+  `operator_delete_table`, `operator_rotate_table_token`, die Gastauskunft
+  `guest_web_resolve_table` und ein zusätzlicher, vorbelegter Parameter
+  `p_table_token` an `guest_web_submit_order_v2`.
+  **Warum kein v3:** `create or replace` kann die Parameterliste nicht
+  erweitern, und ein zweiter Name hätte 470 Zeilen Bestelllogik dupliziert.
+  Stattdessen Drop + Create in derselben Transaktion; Aufrufer mit fünf
+  benannten Argumenten bleiben gültig.
+  Der Tisch geht in den Payload-Hash ein: gleicher Schlüssel, anderer Tisch ist
+  ein Konflikt, nicht stillschweigend derselbe Vorgang.
+- **`scripts/verify-supabase-migrations.sh` + `scripts/tests/`** (neu): fährt
+  eine Wegwerf-PostgreSQL-Instanz hoch, legt die drei Supabase-Stubs an
+  (`anon`/`authenticated`, pgcrypto im Schema `extensions`, `auth.uid()`/
+  `auth.jwt()` aus `request.jwt.claims`), spielt **alle zwölf Migrationen** ein
+  und lässt SQL-Assertions laufen. Das schließt die Lücke, die bei KL-WEB-003
+  zwei echte Fehler erst auf der öffentlichen Instanz sichtbar machte.
+  **Der Lauf hat sofort zwei echte Fehler gefunden:** `operator_delete_table`
+  verletzte über den `on delete set null`-FK die neue Token-Bedingung, und ein
+  mehrdeutiger Spaltenverweis in meinem eigenen Test. Beide behoben.
+- **Gast-Web:** `table-context.ts` (Token lesen, auflösen, Bezeichnung bilden,
+  Gast-URL bauen), Token durch `order-submit`/`order-backend-supabase` bis in
+  die RPC, Anzeige im Kartenkopf und im Bestell-Sheet, eigener Fehlerzustand.
+  **Warum das Token clientseitig gelesen wird:** die Menüseite ist ISR
+  (`revalidate = 60`). `searchParams` serverseitig zu lesen macht die Route
+  dynamisch und kostet jeder Karte den CDN-Cache; `useSearchParams` zwingt den
+  Baum bis zur nächsten Suspense-Grenze ins clientseitige Rendern, was hier die
+  ganze Karte wäre. Der Build meldet weiterhin `Revalidate 1m`.
+- **iOS:** `Features/Tables/` mit Transport (PostgREST-Lesen + drei RPCs),
+  Modell (Sitzung, genau-einmaliger 401-Refresh, Neuladen nach jeder Änderung
+  statt erfundenem lokalem Ergebnis) und Ansicht (Gruppierung nach Bereich,
+  QR-Code, Teilen/Drucken, Umbenennen, Stilllegen, Rotieren). Cloud-Bestellungen
+  tragen ihren Tisch jetzt bis in `Service` und `Heute`.
+- **Eine gemeinsame Bezeichnungsregel** (`KitchenLinkTableLabel.headline`,
+  gespiegelt in `tableHeadline`): ein zusammenhängendes Kürzel mit Ziffer ist
+  eine Tischnummer („Tisch 3", „Tisch A1"), alles andere ein Name („Theke",
+  „Terrasse 1"). Vorher stand app-weit „Tisch \(label)" — „Tisch Theke".
+  Die Regel `erstes Zeichen ist Ziffer` war mein erster Versuch; ein
+  **bestehender** Test (`Tisch A1`) hat sie widerlegt, bevor sie einzog.
+
+### Produktentscheidung, die noch offen ist
+
+Ein unbekannter, abgelaufener oder stillgelegter QR-Code führt zu einer
+**Absage** statt zu einer tischlosen Bestellung. Meine Begründung: eine
+Bestellung, die niemand zuordnen kann, kostet im Betrieb mehr als eine
+abgewiesene. Das ist eine Produktentscheidung, keine technische — sie steht
+bewusst **nicht** in `DECISIONS.md` und ist an einer Stelle umschaltbar
+(`tableUnknown` in `GuestMenuCard.tsx` plus die Abweisung in der RPC).
+
+### Verifikation
+
+- **SQL gegen echtes PostgreSQL 16:** alle zwölf Migrationen + `table-context`
+  bestanden (Tischauflösung, Session-Zusammenlegung über zwei Gäste,
+  Bestellung ohne Token unverändert, Abholung mit Tisch abgewiesen, Idempotenz
+  inkl. Tischwechsel-Konflikt, Token-Rotation, Löschschutz bei Bestellungen,
+  RLS-Sperre für `anon`).
+- **iOS:** Unit-Suite und Standard-UI-Suite grün, 398 Testfälle bestanden,
+  **1 Fehlschlag: `MenuManualEditorUITests.testManualMenuEditorCoreFlow` —
+  vorbestehend.** Auf ungeändertem Stand (`git stash`) reproduziert und auf
+  einem zweiten, sauberen Simulator ebenfalls rot. Nicht von dieser Scheibe
+  verursacht und nicht in ihrem Schreibbereich.
+- **Gast-Web:** typecheck und ESLint sauber, 105 Vitest-Tests (21 neu), Build
+  mit `Revalidate 1m` intakt.
+- **Visuell:** Gastkarte mobil (375×812) in beiden Zuständen — „Tisch 3 ·
+  Gastraum" im Kopf und „Für Tisch 3 · Gastraum" im Sheet gegen einen
+  Wegwerf-Mock, „Tisch nicht erkannt" gegen die echte Instanz ohne angewendete
+  Migration. iPhone 17 Pro hell und dunkel: Tischliste nach Bereichen,
+  QR-Detail mit Gast-URL.
+- Zwei eigene UI-Fehler dabei gefunden und behoben: die Farbe für „Tisch
+  löschen" lag außerhalb des Button-Styles und blieb wirkungslos, und der
+  app-weite Legacy-Tint (dunkles Petrol aus `KitchenTheme`) machte „Fertig" im
+  Dunkelmodus fast unlesbar (lokal überschrieben; **app-weit besteht das
+  weiter** — eigener Folgepunkt).
+
+### Offen / nächster Schritt
+
+1. **Nutzerabnahme:** Migration `20260730120000` auf der echten Instanz
+   anwenden und einmal über einen Tisch-QR bestellen (`SANDBOX_SETUP.md` §6.3).
+   Ohne sie zeigt die App ehrlich `column tables.area does not exist`.
+2. **KL-TABLE-002 — Kellnerbestellung am iPhone** auf eine Tisch-Session. Das
+   ist die zweite tragende Lücke und macht den beschlossenen Offline-Pfad
+   erstmals wirklich durchführbar. `operator_create_order` existiert bereits
+   und braucht den Tischparameter.
+3. Danach Rechnung/Zahlung (Blueprint §8) — sinnvolles Splitten setzt die
+   Tisch-Session voraus, die jetzt existiert.
+4. Kleinere Punkte: Tisch-Token im lokalen Hub-Gastpfad (heute nur Cloud),
+   app-weiter Legacy-Tint im Dunkelmodus, der vorbestehende
+   `MenuManualEditorUITests`-Fehlschlag.
 
 ## Session-Teil 22: Menu-Import launch-fähig gemacht (26. Juli 2026)
 

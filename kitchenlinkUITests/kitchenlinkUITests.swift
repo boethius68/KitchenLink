@@ -69,6 +69,99 @@ final class kitchenlinkUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["kitchen.connection"].waitForExistence(timeout: 5))
     }
 
+    /// KL-TABLE-001: Der Tischbereich ist erreichbar, gruppiert nach Bereich,
+    /// und der QR-Code eines Tisches steht mit seiner Gast-URL bereit.
+    @MainActor
+    func testTablesAreReachableAndShowTheirGuestQRCode() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--kitchenlink-design-v2", "--kitchenlink-demo-tables"]
+        app.launch()
+
+        let tablesLink = app.buttons["business.openTables"]
+        XCTAssertTrue(tablesLink.waitForExistence(timeout: 5))
+        scrollTo(tablesLink, in: app)
+        tablesLink.tap()
+
+        XCTAssertTrue(app.navigationBars["Tische"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["GASTRAUM"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["tables.add"].exists)
+
+        let firstTable = app.buttons["tables.row.1"]
+        XCTAssertTrue(firstTable.waitForExistence(timeout: 5))
+        firstTable.tap()
+
+        let qrCode = app.descendants(matching: .any)
+            .matching(identifier: "tableDetail.qrCode")
+            .firstMatch
+        XCTAssertTrue(qrCode.waitForExistence(timeout: 5))
+        let guestURL = app.staticTexts["tableDetail.guestURL"]
+        XCTAssertTrue(guestURL.waitForExistence(timeout: 5))
+        // Die Gast-URL muss den Tischparameter tragen — sonst zeigt der
+        // gedruckte Code auf die tischlose Karte.
+        XCTAssertTrue((guestURL.label).contains("?tisch="))
+        XCTAssertTrue(app.buttons["tableDetail.rotate"].exists)
+    }
+
+    /// KL-ROLE-002: Der gesperrte Zustand aus KL-ROLE-001 endet nicht mehr in
+    /// einer Sackgasse — die Kasse bietet die Freigabe durch eine
+    /// Führungskraft an, und das Blatt dafür erklärt, dass es bei genau einer
+    /// Aktion bleibt.
+    ///
+    /// `--kitchenlink-demo-service-role` gibt es nur dafür: der Demo-Zugang ist
+    /// sonst Inhaber und darf alles, womit dieser Bildschirm nie zu sehen wäre.
+    @MainActor
+    func testCashRegisterOffersAManagerPinInsteadOfADeadEnd() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--kitchenlink-design-v2",
+            "--kitchenlink-demo-tables",
+            "--kitchenlink-demo-service-role"
+        ]
+        app.launch()
+
+        let shiftLink = app.buttons["business.openShift"]
+        XCTAssertTrue(shiftLink.waitForExistence(timeout: 5))
+        scrollTo(shiftLink, in: app)
+        shiftLink.tap()
+
+        XCTAssertTrue(app.navigationBars["Kasse"].waitForExistence(timeout: 5))
+
+        // Die Erklärung nennt die eigene Rolle und den Weg — nicht nur ein
+        // Verbot.
+        let denied = app.staticTexts["shift.openDenied"]
+        XCTAssertTrue(denied.waitForExistence(timeout: 5))
+        XCTAssertTrue(denied.label.contains("Service"))
+
+        // Der Anfangsbestand bleibt eingebbar: erst eintragen, dann freigeben
+        // lassen — der Token gilt nur wenige Minuten.
+        XCTAssertTrue(app.textFields["shift.openingCash"].exists)
+
+        let authorize = app.buttons["shift.openWithPin"]
+        XCTAssertTrue(authorize.exists)
+        authorize.tap()
+
+        XCTAssertTrue(app.navigationBars["Freigabe"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["pin.title"].exists)
+        XCTAssertTrue(app.secureTextFields["pin.field"].exists)
+
+        // Ohne gültige PIN bleibt der Knopf gesperrt.
+        let submit = app.buttons["pin.submit"]
+        XCTAssertTrue(submit.exists)
+        XCTAssertFalse(submit.isEnabled)
+
+        app.secureTextFields["pin.field"].tap()
+        app.secureTextFields["pin.field"].typeText("1379")
+        XCTAssertTrue(submit.isEnabled)
+        submit.tap()
+
+        // Falsche PIN: eine Antwort mit verbleibenden Versuchen, kein
+        // Serverfehler.
+        let message = app.staticTexts["pin.message"]
+        XCTAssertTrue(message.waitForExistence(timeout: 5))
+        XCTAssertTrue(message.label.contains("PIN falsch"))
+        XCTAssertTrue(app.navigationBars["Freigabe"].exists)
+    }
+
     @MainActor
     func testLocalServiceNavigationRespondsBeforeHubStartup() throws {
         let app = XCUIApplication()

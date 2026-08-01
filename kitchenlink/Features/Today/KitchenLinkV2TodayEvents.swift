@@ -133,7 +133,7 @@ enum KitchenLinkV2TodayEventBuilder {
 
     static func placeTitle(for order: LiveOrderMessage) -> String {
         if let tableLabel = order.tableLabel, !tableLabel.isEmpty {
-            return "Tisch \(tableLabel)"
+            return KitchenLinkTableLabel.headline(tableLabel)
         }
         return order.serviceMode?.title ?? "Bestellung"
     }

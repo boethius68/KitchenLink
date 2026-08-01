@@ -1,6 +1,6 @@
 # KitchenLink Current State
 
-**Updated:** 28 July 2026
+**Updated:** 30 July 2026
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
@@ -583,5 +583,219 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   The free path remains slow — roughly 8 minutes for a three-page card, 19
   minutes for 17 pages, and a stall in one run — which is why the paid default
   of 26 July stands unchanged.
+- **Table context (KL-TABLE-001, 30 July):** a guest order now belongs to a
+  **table**, not just to the venue. The dormant `tables`/`qr_tokens`/
+  `table_sessions` layer from the core schema is activated by migration
+  `20260730120000` — and secured: these three were the only guest-schema tables
+  without Row Level Security, and `anon` could write QR tokens directly
+  (reproduced locally before the fix). Now RLS is on, staff read through
+  policies, every write goes through `operator_upsert_table`,
+  `operator_delete_table` or `operator_rotate_table_token`.
+  The table QR carries an opaque token (`qr_tokens`), not the table number:
+  renaming keeps printed codes valid, rotating invalidates exactly them. The
+  guest card reads `?tisch=<token>`, resolves it through
+  `guest_web_resolve_table` and shows "Tisch 3 · Gastraum" in the header and
+  the order sheet; the token enters the idempotency key and
+  `guest_web_submit_order_v2` (one additional, defaulted parameter) attaches
+  the order to the table **and** to the table's open session. First order opens
+  the shared session, every further order of that table joins it (Blueprint
+  §6.1). The page stays ISR-rendered — reading `searchParams` server-side would
+  have cost every card its CDN cache. An unknown, expired or deactivated code
+  is deliberately **rejected** rather than silently becoming a table-less
+  order; that is a reversible product decision, not an approved one.
+  iOS gains a `Tische` area (areas, tables, per-table QR with share/print,
+  rename, deactivate, rotate) and cloud orders now carry their table into
+  `Service` and `Heute`.
+  New: `scripts/verify-supabase-migrations.sh` runs all twelve migrations plus
+  SQL assertions against a throwaway local PostgreSQL — the first time this
+  project's RPC SQL was executed before the user applied it to the real
+  instance. It immediately found two real defects.
+  **Applied** on the real instance (31 July). Open: one order through a table
+  QR on a real device (`SANDBOX_SETUP.md` §6.3).
+- **Waiter-entered orders (KL-TABLE-002, 31 July):** the Local-First decision
+  of 23 July made "guests order verbally, the waiter enters it on the service
+  iPhone" the offline path of the sandbox beta — and the product had no such
+  path: `Service` only advanced statuses, order entry lived in the retired
+  legacy checkout, and `operator_create_order` was unused. `Service` now has
+  **„Bestellung aufnehmen"**: channel, table, the venue's own card, a kitchen
+  note. The order is committed to the local event log **first**, confirmed
+  only then, and pushed to the cloud afterwards — the waiter sees explicitly
+  whether the cloud already has it. Migration `20260730160000` gives
+  `operator_create_order` a table, attaches it to the table's open session
+  (shared with the guests' orders) and **fixes a real idempotency defect**: the
+  previous version kept the order unique on replay but inserted its *items*
+  again, so any outbox retry produced doubled lines and a wrong total.
+  Driving it in the simulator surfaced two more defects, both fixed: the local
+  order list filtered on `preparing` while a waiter order starts `pending` (it
+  was invisible), and the merge did not deduplicate by id (after cloud sync the
+  same order would have sat on the pass twice). Order cards now lead with the
+  table.
+  **Applied** on the real instance (31 July). Open: one real waiter order
+  (`SANDBOX_SETUP.md` §6.3/§6.4).
+- **Bill, tip and simulated payment (KL-PAY-001, 31 July):** Milestone 1 is
+  closed — the shared table session now has a bill. Multiple payments, multiple
+  methods (cash, card, Tap to Pay, voucher), splitting **by items** (which is
+  what "getrennt zahlen" means at a German table), tip per payment, refund.
+  **No sandbox payment moves real money.**
+  The amount never comes from the device: with items selected the database
+  computes it from their line totals and rejects a differing claim. The
+  load-bearing invariant is an index, not app logic —
+  `payment_items_one_open_payment_per_item` means two devices cashing the same
+  table cannot bill the same course twice; the loser gets a clean refusal.
+  Every payment carries an idempotency key that survives a session refresh, so
+  a retry never books twice. A refund keeps the payment as `refunded` (audited,
+  §8.2), frees its items and reopens the bill — unless new guests are already
+  seated at that table. `KitchenLinkPaymentProviding` is the §8.2 seam: card
+  and Tap to Pay run through the simulated provider, a declined authorization
+  produces no booking, and card data never reaches the app.
+  Deliberately not included: operating shift and day close (§8.3), guest-web
+  online payment, voucher/balance accounts, payment on delivery, fiscalization
+  and receipt printing.
+  **Applied** on the real instance (31 July). Open: one real split payment
+  (`SANDBOX_SETUP.md` §6.5).
+- **Stations and acceptance rule (KL-STATION-001 / KL-ORDER-001, 31 July):**
+  the last two open points of Milestone 1. `Service` now has `Küche | Bar |
+  Kellner`: each station sees only its own lines and releases only its own, and
+  an order becomes `ready` only when no station is still open — decided by
+  `operator_mark_station_ready` in the database, not by the app. The card names
+  the station that is still working (Blueprint §7). The station follows
+  `kind` (food → kitchen, drink → bar) but is stored as its own column, so a
+  later per-item assignment changes nothing structural.
+  `venues.order_confirmation_channels` carries the channels that need
+  confirmation; empty stays the documented default "automatically accepted".
+  Affected orders reach the station only after `accepted` and wait in their own
+  list with accept/reject. `rejected` was missing from the database status model
+  although Blueprint §6.4 lists it — it exists now, with reason and timestamp,
+  and only before acceptance (afterwards cancelling is the right move).
+  Deliberate boundary: station state lives in the cloud; purely local orders
+  (offline, one device) keep the whole-order bump, because station separation
+  solves a multi-device problem. The order read path falls back to the old
+  column list when `order_items.ready_at` is missing, so a venue that updated
+  the app but not yet the database still sees its orders.
+  **Applied** on the real instance (31 July). Open: one real run across two
+  stations (`SANDBOX_SETUP.md` §6.6).
+- **Own restaurant, and with it Milestone 1 (KL-ONBOARD-001, 31 July):** the
+  core pitch used to end where it should start — every scan went into the one
+  bundled demo venue, and a second restaurant needed hand-written SQL. An
+  operator can now create an account and their own restaurant in the app
+  (`operator_create_venue` makes the creator staff of it and seeds an empty
+  active menu; an anonymous guest explicitly cannot). The name comes from the
+  operator, the guest address follows from it — nobody invents a URL, and a
+  taken slug moves to a free variant instead of failing.
+  The load-bearing change is small and reaches everywhere:
+  `KitchenLinkCloudConfig.sandboxDefault` is no longer a constant but follows
+  the **active venue**. Instance and anon key stay baked in (the sandbox has one
+  instance), the venue does not. Scan-publish, tables, orders, stations and the
+  bill therefore work on the operator's own restaurant without further change —
+  every one of those RPCs already gates on `is_venue_staff`.
+  Verified against real PostgreSQL as a whole path in a fresh venue: create,
+  publish a menu, add a table, guest orders through the table QR, operator reads
+  the bill. Sandbox limit of five restaurants per account, against accidental
+  mass creation.
+  **Applied** on the real instance (31 July). Open: creating one real
+  restaurant (`SANDBOX_SETUP.md` §6.7).
+  **With this, Milestone 1 (`Scan bis Bezahlung`) is complete**: scan → review →
+  live guest menu → table QR → guest and waiter orders → acceptance rule →
+  kitchen and bar stations → served → split bill, tip and simulated payment.
+- **Operating shift and cash close (KL-SHIFT-001, 31 July):** the first slice of
+  Milestone 2 (Blueprint §8.3). Milestone 1 opened the money loop but never
+  closed it — money was taken, refunded and tipped, and at the end of the day
+  there was nothing to count against. A venue now opens one shared shift that
+  every device works on, with an optional opening float, collected movements
+  (payouts, expenses, deposits) and a close that records a counted amount, the
+  expected amount and the difference between them.
+  The load-bearing invariant is again an index, not a rule in the app: **at most
+  one open shift per venue.** Two open tills cannot be counted.
+  Two deliberate choices. A **payment** without an open shift is not blocked —
+  taking money must never fail on a forgotten button — it just carries no
+  shift and shows up in the report as "outside the shift" instead of vanishing
+  silently. A **cash movement** does require an open till, because it is the
+  booking *onto* the shift. And the variance is recorded, never prevented: a
+  close that hides a difference is worthless.
+  `payments.shift_id` is set by a `before insert` trigger rather than by
+  changing `operator_record_payment`, so the assignment also covers every later
+  payment path (guest-web online payment, counter, delivery) without anyone
+  having to remember it.
+  Verified against real PostgreSQL (second open shift rejected, card does not
+  count into the drawer, cash tips do, a refund lowers it again, a closed shift
+  stays frozen, Z numbers gapless, RLS proven with `set role`), 462 iOS unit
+  tests green, and a simulator run through open, book an expense, close both
+  with and without a variance. Migration applied to the instance and verified.
+  **Open:** one real trading day on a device (`SANDBOX_SETUP.md` §6.8).
+- **Roles and permissions (KL-ROLE-001, 31 July):** Blueprint §9.1. Until now
+  **whoever was signed in could do everything** — `is_venue_staff` checks
+  membership, not authority, so any service hand could close the till, refund a
+  payment and take cash out of the drawer.
+  The scoping was the real decision. There are 25 `operator_` RPCs; replacing
+  them all would have been a maintenance nightmare, and most of them *should*
+  stay open to every staff member (the kitchen needs `mark_station_ready`, the
+  service needs `record_payment`). So this slice introduces exactly **five**
+  permissions and enforces **all five**: `shift.open`, `shift.close`,
+  `cash.movement`, `payments.refund`, `staff.manage`. No permission is listed
+  that isn't checked somewhere — a role with an empty permission set means "may
+  do everything ordinary, nothing sensitive". Configuration rights (publish a
+  menu, change tables) are their own slice and will arrive together with their
+  enforcement, not before it.
+  Roles live **per venue** in `venue_roles` with the nine standard roles from
+  §9.1, so "custom roles with granular rights" later is one more row, not a
+  rebuild. `venue_staff.role` had a CHECK pinned to the single value
+  `'operator'`; it is now a foreign key.
+  Existing staff lose nothing — `operator` becomes `owner`. Anything else would
+  be a silent disenfranchisement by migration. The column default for *new* rows
+  is `service`: least privilege.
+  Three locks keep a venue from becoming leaderless: nobody changes or removes
+  their own access, only an owner may touch an owner, and the last owner stays
+  owner.
+  In the app: a new **Team** area, and the till now locks close and cash
+  movement and **explains** why instead of running into a server error.
+  Verified against real PostgreSQL in its own test venue, 483 iOS unit tests,
+  13 UI tests, a simulator run with a role change. Migration applied and
+  verified on the instance.
+  **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.9).
+- **Manager PIN (KL-ROLE-002, 31 July):** the other half of Blueprint §9.1,
+  which asks for sensitive actions "by special permission **or** manager PIN".
+  KL-ROLE-001 built only the permission — so a service hand who had to refund a
+  payment at the table had to go and fetch the manager. Now a lead authorises
+  **one** action on the spot, and nobody signs out and back in.
+  **The PIN belongs to a person, not to the venue.** That is the load-bearing
+  decision and it follows from §8.2: a shared house PIN cannot answer "who
+  authorised this?" — it only proves someone in the building knew it. So every
+  lead sets their own, and the grant carries their name. What a PIN may
+  authorise follows from the same rule: exactly what its holder could do
+  themselves. Demote a lead and their PIN stops working the same second,
+  without anyone deleting it.
+  **Four of the five permissions are overridable, `staff.manage` is not.**
+  Someone who could manage staff on a borrowed PIN would make themselves an
+  owner in the same minute — that is not an authorisation for one action but a
+  permanent escalation.
+  A grant is single-use, five minutes, one venue, one permission, one requester,
+  and it is claimed in the same statement that checks it, so two devices cannot
+  both win. The PIN is stored as a bcrypt hash (`extensions.crypt`), five wrong
+  attempts lock the **requesting device** (not the venue — a wrong PIN belongs
+  to nobody), and two people sharing a PIN authorise nothing rather than
+  producing an unattributable grant. `manager_pins`,
+  `manager_pin_attempts` and `manager_overrides` carry RLS with **no policy**
+  and no grants: no client ever reads a row; the audit is read through
+  `operator_recent_overrides`, which never hands out the token hash.
+  In the app: a shared authorisation sheet used by both the till and the check,
+  own-PIN management and the grant log under `Team`. The four money RPCs each
+  gained one defaulted `p_override_token` parameter (drop + create in the same
+  transaction, as with `guest_web_submit_order_v2`); callers without a grant are
+  unchanged.
+  New launch argument `--kitchenlink-demo-service-role`: the demo account owns
+  its venue and may do everything, so the *locked* state from KL-ROLE-001 — and
+  with it the PIN — could not be shown at all. It can now, in the simulator and
+  in a UI test.
+  Verified against real PostgreSQL in its own test venue (17 checked sections incl.
+  single use, wrong action, wrong requester, expiry, demoted grantor, lockout,
+  ambiguity, `staff.manage` refused, RLS), 512 iOS unit tests, 10 UI tests, and
+  a simulator run through both flows. Migration applied and verified on the
+  instance.
+  **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.10).
+- **Milestone 2 remainder:** shift planning and time tracking (§9.2/§9.3). The
+  workforce domain for it exists and is tested (`Features/Workforce/`, 38 tests)
+  but has **zero references** from the app — a foundation waiting for
+  persistence and a screen. Also open from §9.1: custom roles, qualifications,
+  staff profiles and permissions across several locations.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

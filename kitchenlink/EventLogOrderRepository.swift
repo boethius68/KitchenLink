@@ -219,8 +219,11 @@ final class CloudOutboxTransport: OutboxTransport {
                 sourceDevice: "ios-waiter",
                 totalCents: order.totalCents,
                 serviceMode: order.serviceMode?.rawValue ?? "dine_in",
-                customerNote: order.customerNote ?? "",
-                itemsJSON: itemsData
+                customerNote: order.customerNote,
+                itemsJSON: itemsData,
+                // KL-TABLE-002: der Tisch reist mit der lokal festgeschriebenen
+                // Bestellung in die Cloud und öffnet dort die Tisch-Session.
+                tableID: order.tableID
             )
             return ok ? .acknowledged(remoteToken: order.id) : .failed(reason: "RPC returned false")
         } catch {

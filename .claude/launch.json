@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "guest-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "guest-web"],
+      "port": 3000
+    },
+    {
+      "name": "import-review",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8931", "--directory", "/tmp/kitchenlink-import-review/latest"],
+      "port": 8931
+    }
+  ]
+}

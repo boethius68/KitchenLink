@@ -7,10 +7,37 @@ struct LiveOrderLine: Identifiable, Codable {
     let quantity: Int
     let unitPriceCents: Int
     let kind: MenuItemKind
+    /// Zeitpunkt, an dem die zuständige Station diese Position freigegeben hat
+    /// (KL-STATION-001). `nil` heißt: noch in Arbeit. Optional, damit ältere
+    /// Ereignisprotokoll-Schnappschüsse unverändert weiter lesbar sind.
+    let readyAt: Date?
+
+    init(
+        id: String,
+        name: String,
+        quantity: Int,
+        unitPriceCents: Int,
+        kind: MenuItemKind,
+        readyAt: Date? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.quantity = quantity
+        self.unitPriceCents = unitPriceCents
+        self.kind = kind
+        self.readyAt = readyAt
+    }
 
     var lineTotalCents: Int {
         quantity * unitPriceCents
     }
+
+    /// Speisen gehen in die Küche, Getränke an die Bar (Blueprint §7). Die
+    /// Zuordnung folgt der Artikelart; eine frei konfigurierbare Station je
+    /// Artikel ist eine spätere Erweiterung.
+    var station: KitchenLinkStation { KitchenLinkStation(kind: kind) }
+
+    var isReady: Bool { readyAt != nil }
 }
 
 struct LiveOrderMessage: Identifiable, Codable {
@@ -31,7 +58,7 @@ struct LiveOrderMessage: Identifiable, Codable {
         let segments: [String] = [
             venueName,
             serviceMode?.title,
-            tableLabel.map { "Tisch \($0)" }
+            tableLabel.map { KitchenLinkTableLabel.headline($0) }
         ].compactMap { value in
             guard let value, !value.isEmpty else { return nil }
             return value

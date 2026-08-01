@@ -45,11 +45,54 @@ struct KitchenLinkCloudConfig: Codable, Equatable {
     /// Verbindungsdaten eintippt; die Venue ist in der Sandbox `alte-muehle`.
     /// Für eine spätere Multi-Venue-/Produktionsphase ersetzt eine echte
     /// Konfigurationsquelle diese Konstante.
-    static let sandboxDefault = KitchenLinkCloudConfig(
-        supabaseURLString: "https://rjxlzqtaxqstctrrlqre.supabase.co",
-        anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqeGx6cXRheHFzdGN0cnJscXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTc5NTksImV4cCI6MjA5OTg5Mzk1OX0.lxml_3ka6lNeXlodO3JH5ExbWRtdbAInC1wpceC0uoQ",
-        venueSlug: "alte-muehle"
-    )
+    /// Instanz und Anon-Key bleiben eingebacken (die Sandbox hat genau eine
+    /// Instanz), **die Venue nicht mehr**: seit KL-ONBOARD-001 legt ein
+    /// Betreiber sein eigenes Restaurant an, und ab dann arbeitet die App mit
+    /// dessen Slug. Ohne eigenes Restaurant bleibt es beim Demo-Lokal.
+    static var sandboxDefault: KitchenLinkCloudConfig {
+        KitchenLinkCloudConfig(
+            supabaseURLString: sandboxURLString,
+            anonKey: sandboxAnonKey,
+            venueSlug: KitchenLinkActiveVenue.shared.slug
+        )
+    }
+
+    static let sandboxURLString = "https://rjxlzqtaxqstctrrlqre.supabase.co"
+    static let sandboxAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqeGx6cXRheHFzdGN0cnJscXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTc5NTksImV4cCI6MjA5OTg5Mzk1OX0.lxml_3ka6lNeXlodO3JH5ExbWRtdbAInC1wpceC0uoQ"
+    static let demoVenueSlug = "alte-muehle"
+}
+
+/// Welches Restaurant dieses Gerät gerade bedient (KL-ONBOARD-001).
+///
+/// Bewusst kein Geheimnis und deshalb in `UserDefaults`: der Slug steht ohnehin
+/// in der öffentlichen Gast-URL. Er wird beim Anlegen eines Restaurants und bei
+/// der Anmeldung gesetzt — nie von Hand eingetippt (Usability-Leitplanke).
+final class KitchenLinkActiveVenue: @unchecked Sendable {
+    static let shared = KitchenLinkActiveVenue()
+
+    private static let key = "kitchenlink.activeVenueSlug.v1"
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    var slug: String {
+        defaults.string(forKey: Self.key) ?? KitchenLinkCloudConfig.demoVenueSlug
+    }
+
+    /// True, solange der Betreiber noch beim mitgelieferten Demo-Lokal ist.
+    var isDemoVenue: Bool { slug == KitchenLinkCloudConfig.demoVenueSlug }
+
+    func set(slug newSlug: String) {
+        let trimmed = newSlug.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        defaults.set(trimmed, forKey: Self.key)
+    }
+
+    func reset() {
+        defaults.removeObject(forKey: Self.key)
+    }
 }
 
 struct KitchenLinkCloudSession: Codable, Equatable {
@@ -70,6 +113,8 @@ struct KitchenLinkCloudWireOrderItem: Codable, Equatable {
     let quantity: Int
     let unitPriceCents: Int
     let kind: String
+    /// KL-STATION-001: gesetzt, sobald die zuständige Station freigegeben hat.
+    let readyAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -77,7 +122,15 @@ struct KitchenLinkCloudWireOrderItem: Codable, Equatable {
         case quantity
         case unitPriceCents = "unit_price_cents"
         case kind
+        case readyAt = "ready_at"
     }
+}
+
+/// Eingebetteter Tisch der Bestellung (KL-TABLE-001). PostgREST liefert die
+/// Beziehung `orders.table_id -> tables.id` als eingebettetes Objekt.
+struct KitchenLinkCloudWireOrderTable: Codable, Equatable {
+    let label: String
+    let area: String?
 }
 
 struct KitchenLinkCloudWireOrder: Codable, Equatable {
@@ -89,6 +142,8 @@ struct KitchenLinkCloudWireOrder: Codable, Equatable {
     let serviceMode: String?
     let customerNote: String?
     let sourceDevice: String?
+    let tableID: String?
+    let table: KitchenLinkCloudWireOrderTable?
     let items: [KitchenLinkCloudWireOrderItem]
 
     enum CodingKeys: String, CodingKey {
@@ -100,6 +155,8 @@ struct KitchenLinkCloudWireOrder: Codable, Equatable {
         case serviceMode = "service_mode"
         case customerNote = "customer_note"
         case sourceDevice = "source_device"
+        case tableID = "table_id"
+        case table = "tables"
         case items = "order_items"
     }
 
@@ -118,8 +175,8 @@ struct KitchenLinkCloudWireOrder: Codable, Equatable {
             venueID: venueID,
             venueName: venueName,
             serviceMode: serviceMode.flatMap(ServiceMode.init(rawValue:)),
-            tableID: nil,
-            tableLabel: nil,
+            tableID: tableID,
+            tableLabel: table?.label,
             customerNote: customerNote ?? "",
             items: items.map { item in
                 LiveOrderLine(
@@ -127,7 +184,8 @@ struct KitchenLinkCloudWireOrder: Codable, Equatable {
                     name: item.name,
                     quantity: item.quantity,
                     unitPriceCents: item.unitPriceCents,
-                    kind: MenuItemKind(rawValue: item.kind) ?? .food
+                    kind: MenuItemKind(rawValue: item.kind) ?? .food,
+                    readyAt: item.readyAt.flatMap(KitchenLinkCloudTimestamp.parse)
                 )
             },
             totalCents: totalCents,
@@ -244,7 +302,10 @@ protocol KitchenLinkCloudTransport: KitchenLinkCloudAuthenticating {
         totalCents: Int,
         serviceMode: String,
         customerNote: String,
-        itemsJSON: Data
+        itemsJSON: Data,
+        /// Tisch der Kellnerbestellung (KL-TABLE-002); `nil` für Theke,
+        /// Abholung oder Telefon.
+        tableID: String?
     ) async throws -> Bool
 }
 
@@ -368,9 +429,49 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
         session: KitchenLinkCloudSession,
         venueID: String
     ) async throws -> [KitchenLinkCloudWireOrder] {
+        // Bewusst nur `label`: `tables.area` kommt erst mit der Tisch-Migration
+        // (20260730120000). Ein Betrieb, der die App aktualisiert hat, aber die
+        // Migration noch nicht, soll seine Bestellungen weiter sehen — die
+        // Bestellliste braucht den Bereich nicht.
+        // `ready_at` je Position kommt erst mit der Stationsmigration
+        // (20260731140000). Ein Betrieb, der die App aktualisiert hat, aber die
+        // Migration noch nicht, soll seine Bestellungen weiter sehen — deshalb
+        // ein Versuch mit, ein Rückfall ohne. Sobald die Migration steht,
+        // greift wieder der erste Weg.
+        do {
+            return try await loadOrders(
+                config: config,
+                session: session,
+                venueID: venueID,
+                includeStationReadiness: true
+            )
+        } catch let error as KitchenLinkCloudServiceError {
+            guard case .server(_, let message) = error,
+                  message.contains("ready_at") else {
+                throw error
+            }
+            return try await loadOrders(
+                config: config,
+                session: session,
+                venueID: venueID,
+                includeStationReadiness: false
+            )
+        }
+    }
+
+    private func loadOrders(
+        config: KitchenLinkCloudConfig,
+        session: KitchenLinkCloudSession,
+        venueID: String,
+        includeStationReadiness: Bool
+    ) async throws -> [KitchenLinkCloudWireOrder] {
+        let itemColumns = includeStationReadiness
+            ? "id,name,quantity,unit_price_cents,kind,ready_at"
+            : "id,name,quantity,unit_price_cents,kind"
         let select = "id,created_at,status,total_cents,currency,service_mode,"
-            + "customer_note,source_device,"
-            + "order_items(id,name,quantity,unit_price_cents,kind)"
+            + "customer_note,source_device,table_id,"
+            + "tables(label),"
+            + "order_items(\(itemColumns))"
         let data = try await get(
             config: config,
             bearer: session.accessToken,
@@ -440,7 +541,8 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
         totalCents: Int,
         serviceMode: String,
         customerNote: String,
-        itemsJSON: Data
+        itemsJSON: Data,
+        tableID: String?
     ) async throws -> Bool {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -456,6 +558,7 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
             /// Sent as raw JSON array, not a string — PostgREST maps it directly
             /// to the `jsonb` function parameter.
             let p_items: JSONValue
+            let p_table_id: String?
         }
         let items: JSONValue = try JSONDecoder().decode(JSONValue.self, from: itemsJSON)
         let body = CreateOrderBody(
@@ -466,7 +569,8 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
             p_total_cents: totalCents,
             p_service_mode: serviceMode,
             p_customer_note: customerNote,
-            p_items: items
+            p_items: items,
+            p_table_id: tableID
         )
         _ = try await rpcData(
             config: config,
@@ -561,6 +665,23 @@ struct URLSessionKitchenLinkCloudTransport: KitchenLinkCloudTransport {
             accessToken: urlSessionSession.accessToken,
             function: function,
             bodyData: try JSONEncoder().encode(body)
+        )
+    }
+
+    /// Gemeinsames PostgREST-GET für Erweiterungen in anderen Dateien (Swift
+    /// `private` ist dateiweit, `get` selbst bleibt daher intern). Genutzt von
+    /// der Tischverwaltung (KL-TABLE-001).
+    func restGet(
+        config: KitchenLinkCloudConfig,
+        accessToken: String,
+        path: String,
+        queryItems: [URLQueryItem]
+    ) async throws -> Data {
+        try await get(
+            config: config,
+            bearer: accessToken,
+            path: path,
+            queryItems: queryItems
         )
     }
 
