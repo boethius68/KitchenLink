@@ -852,10 +852,30 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   supposed to mirror the database. And the overlap rejection was **invisible**:
   the notice sat on the screen behind the editor sheet.
   **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.12).
-- **Milestone 2 remainder:** availability and absences, shift templates and
-  recurrence, target headcount and understaffing warnings, notification, swap
-  requests, holiday and sick leave (§9.2) — the domain models them, persistence
-  does not. Plus target/actual comparison and overtime (§9.3), which now have a
+- **Absences (KL-LEAVE-001, 1 August):** Blueprint §9.2, "holiday and sick
+  leave". KL-PLAN-001 had left a gap that shows up on day one: **someone on
+  holiday could still be rostered.**
+  The load-bearing decision is an asymmetry, and it follows from the trade, not
+  from the technology. Planning **into** an approved absence is **refused** —
+  the planner is doing something demonstrably wrong. Approving an absence that
+  falls on **already planned** shifts is **allowed** and merely reports them: a
+  sick note arrives after the roster, not before it. Whoever is ill is ill; the
+  approval must not fail on that. The shifts are not cancelled automatically —
+  who re-staffs them is the planner's call.
+  A **request** blocks nothing; only approval holds the period. Two approved
+  absences for one person cannot overlap (exclusion constraint), requests may —
+  otherwise a period could never be re-planned. Requesting needs no permission,
+  deciding needs `schedule.manage`: no seventh permission, because it is the
+  same job as planning.
+  One finding that could have been expensive: the model gained the leave
+  transport as a dependency — with the usual **network default**. The schedule
+  tests did not pass it through, so 48 unit tests suddenly called the real
+  instance and went red with nothing wrong in them, and the failure output said
+  nothing (`failed (0.000 seconds)`, no message).
+  **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.13).
+- **Milestone 2 remainder:** availability, shift templates and recurrence,
+  target headcount and understaffing warnings, notification, swap requests
+  (§9.2) — the domain models them, persistence does not. Plus target/actual comparison and overtime (§9.3), which now have a
   planning layer to compare against. Also open from §9.1: custom roles,
   qualifications, staff profiles and permissions across several locations.
 - **Production boundary:** no live payment, fiscal activation or removal of

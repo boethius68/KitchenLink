@@ -61,7 +61,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **22** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **23** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -87,16 +87,19 @@ Es gibt **22** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260731230000_manager_pin.sql` | Persönliche Manager-PIN, einmalige Freigabe je Aktion, Audit (KL-ROLE-002) |
 | `supabase/migrations/20260801120000_time_clock.sql` | Zeiterfassung: stempeln, Pausen, Korrektur mit Audit (KL-TIME-001) |
 | `supabase/migrations/20260801140000_shift_schedule.sql` | Dienstplan: planen, veröffentlichen, annehmen und ablehnen (KL-PLAN-001) |
+| `supabase/migrations/20260801160000_staff_leave.sql` | Abwesenheiten: beantragen, genehmigen, Planungssperre (KL-LEAVE-001) |
 
-> **Stand der Sandbox-Instanz (1. August 2026):** alle 22 sind angewendet,
+> **Stand der Sandbox-Instanz (1. August 2026):** alle 23 sind angewendet,
 > `supabase migration list` ist deckungsgleich (nichts offen). Geprüft nach dem
 > Push: keine Tabelle im Schema `public` ohne RLS, `time_entries`,
 > `time_breaks` und `manager_pins` vorhanden, dazu die RPCs
 > `operator_clock_in`, `operator_break_start`, `operator_team_time`,
 > `operator_correct_time_entry`, `operator_plan_shift`,
-> `operator_publish_schedule` und `operator_respond_to_shift`, dazu der
-> Ausschluss-Constraint `planned_shifts_no_overlap`. Die Schrittlisten in
-> Abschnitt 6 bleiben für eine frische Instanz gültig.
+> `operator_publish_schedule`, `operator_respond_to_shift`,
+> `operator_request_leave` und `operator_review_leave`, dazu die
+> Ausschluss-Constraints `planned_shifts_no_overlap` und
+> `staff_leaves_no_overlap`. Die Schrittlisten in Abschnitt 6 bleiben für eine
+> frische Instanz gültig.
 >
 > **Zwei Arbeitslinien gleichzeitig?** Dann muss die eine die Migration der
 > anderen im Verzeichnis haben, bevor sie pusht — sonst bricht
@@ -734,11 +737,44 @@ für den Handgriff am Tisch, einen Wochenplan schreibt niemand unter Zeitdruck
 mit geliehener Befugnis. Die eigene Schicht zu **beantworten** braucht dagegen
 kein Recht — es ist die eigene Zeit.
 
-**Noch nicht enthalten** (eigene Scheiben): Verfügbarkeiten und Abwesenheiten,
-Schichtvorlagen und Wiederholungen, Sollbesetzung und Unterbesetzungswarnung,
-Benachrichtigung, Tauschanfragen, Urlaubs- und Krankmeldungen. Die Domäne
-modelliert sie bereits (`WorkforceTimeModels.swift`), persistiert sind sie noch
-nicht.
+**Noch nicht enthalten** (eigene Scheiben): Verfügbarkeiten, Schichtvorlagen und
+Wiederholungen, Sollbesetzung und Unterbesetzungswarnung, Benachrichtigung,
+Tauschanfragen. Die Domäne modelliert sie bereits
+(`WorkforceTimeModels.swift`), persistiert sind sie noch nicht. Abwesenheiten
+stehen seit §6.13.
+
+## 6.13 Abwesenheiten (KL-LEAVE-001)
+
+Blueprint §9.2 — „Urlaubs- und Krankmeldungen". §6.12 hatte eine Lücke
+gelassen, die im Betrieb sofort auffällt: **es liess sich jemand einteilen, der
+Urlaub hat.**
+
+1. Migration `20260801160000_staff_leave.sql` anwenden (Abschnitt 2).
+2. **Dienstplan** öffnen. Unter „Meine Abwesenheiten" mit `+` beantragen —
+   Urlaub, Krank, unbezahlt, Schulung oder sonstiges, in ganzen Tagen.
+3. Solange der Antrag offen ist, lässt er sich zurückziehen.
+4. Wer `schedule.manage` trägt, sieht „Offene Abwesenheitsanträge" und
+   entscheidet. Fällt der Zeitraum auf geplante Schichten, steht die Zahl
+   dabei.
+
+**Semantik — die tragende Entscheidung ist eine Asymmetrie**, und sie folgt aus
+dem Betrieb, nicht aus der Technik:
+
+- In eine **genehmigte** Abwesenheit hinein zu planen wird **abgewiesen**
+  (`plan_on_leave`). Die Planung tut dann etwas nachweislich Falsches.
+- Eine Abwesenheit auf **bereits geplante** Schichten zu genehmigen wird
+  **erlaubt** und meldet die betroffenen Schichten zurück. Eine Krankmeldung
+  kommt nach dem Dienstplan, nicht davor. Die Schichten werden **nicht**
+  automatisch gestrichen — wer sie umbesetzt, entscheidet die Planung.
+
+Ein **Antrag** blockiert noch nichts; erst die Genehmigung hält den Zeitraum
+frei. Zwei genehmigte Abwesenheiten derselben Person können sich nicht
+überschneiden (`staff_leaves_no_overlap`), Anträge dagegen schon — sonst liesse
+sich ein Zeitraum nie umplanen.
+
+**Beantragen** braucht kein Recht (es ist die eigene Abwesenheit),
+**entscheiden** verlangt `schedule.manage`. Zurückziehen kann nur der
+Antragsteller und nur, solange niemand entschieden hat.
 
 ---
 

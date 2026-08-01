@@ -10,6 +10,7 @@ struct KitchenLinkV2ScheduleView: View {
     @State private var editing: KitchenLinkScheduleDraft?
     @State private var decliningShift: KitchenLinkPlannedShift?
     @State private var declineReason = ""
+    @State private var requestingLeave = false
 
     var body: some View {
         KitchenLinkV2Surface {
@@ -45,6 +46,13 @@ struct KitchenLinkV2ScheduleView: View {
                             awaitingSection
                         }
                         myShiftsSection
+                        // Die offenen Antraege stehen direkt hinter den eigenen
+                        // Schichten: sie sind das Zweite, was eine Entscheidung
+                        // verlangt.
+                        if model.canPlan, !model.openLeaveRequests.isEmpty {
+                            leaveRequestsSection
+                        }
+                        myLeavesSection
                         if model.canPlan {
                             weekSection
                         }
@@ -80,6 +88,17 @@ struct KitchenLinkV2ScheduleView: View {
                 return failure
             } onCancel: {
                 editing = nil
+            }
+        }
+        .sheet(isPresented: $requestingLeave) {
+            KitchenLinkV2LeaveRequestSheet { start, end, kind, reason in
+                let failure = await model.requestLeave(
+                    startsAt: start, endsAt: end, kind: kind, reason: reason
+                )
+                if failure == nil { requestingLeave = false }
+                return failure
+            } onCancel: {
+                requestingLeave = false
             }
         }
         .alert(
@@ -192,6 +211,147 @@ struct KitchenLinkV2ScheduleView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Abwesenheiten
+
+    private var leaveRequestsSection: some View {
+        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
+            Text("OFFENE ABWESENHEITSANTRÄGE")
+                .font(KitchenLinkV2Typography.meta)
+                .tracking(1.25)
+                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+
+            ForEach(model.openLeaveRequests) { leave in
+                KitchenLinkV2Card {
+                    VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("\(leave.displayName) · \(leave.kind.label)")
+                                .font(KitchenLinkV2Typography.primaryLine)
+                            Text(KitchenLinkV2ScheduleDateText.dayRange(
+                                leave.startsAt, leave.endsAt))
+                                .font(KitchenLinkV2Typography.meta)
+                                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                                .kitchenLinkV2TabularNumbers()
+                            if let reason = leave.reason {
+                                Text(reason)
+                                    .font(KitchenLinkV2Typography.meta)
+                                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                            }
+                        }
+
+                        // Die Zahl, die den Ausschlag gibt: eine Genehmigung
+                        // wird trotzdem erteilt, aber diese Schichten muessen
+                        // dann neu besetzt werden.
+                        if leave.conflictingShifts > 0 {
+                            HStack(alignment: .top, spacing: KitchenLinkV2Spacing.small) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .accessibilityHidden(true)
+                                Text(leave.conflictingShifts == 1
+                                     ? "Eine geplante Schicht fällt in den Zeitraum und "
+                                        + "müsste neu besetzt werden."
+                                     : "\(leave.conflictingShifts) geplante Schichten fallen "
+                                        + "in den Zeitraum und müssten neu besetzt werden.")
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .font(KitchenLinkV2Typography.secondaryLine)
+                            .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                            .accessibilityIdentifier("schedule.leaveConflict.\(leave.id)")
+                        }
+
+                        HStack(spacing: KitchenLinkV2Spacing.medium) {
+                            Button("Genehmigen") {
+                                Task { await model.review(leave, approve: true) }
+                            }
+                            .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                            .accessibilityIdentifier("schedule.approveLeave.\(leave.id)")
+
+                            Button("Ablehnen") {
+                                Task { await model.review(leave, approve: false) }
+                            }
+                            .buttonStyle(KitchenLinkV2SecondaryButtonStyle())
+                            .accessibilityIdentifier("schedule.rejectLeave.\(leave.id)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var myLeavesSection: some View {
+        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
+            HStack {
+                Text("MEINE ABWESENHEITEN")
+                    .font(KitchenLinkV2Typography.meta)
+                    .tracking(1.25)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                Spacer(minLength: 0)
+                Button {
+                    requestingLeave = true
+                } label: {
+                    Image(systemName: "plus").frame(width: 32, height: 32)
+                }
+                .accessibilityLabel("Abwesenheit beantragen")
+                .accessibilityIdentifier("schedule.requestLeave")
+            }
+
+            if model.myLeaves.isEmpty {
+                KitchenLinkV2Card {
+                    Text("Nichts beantragt.")
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                }
+            } else {
+                KitchenLinkV2Card(padding: 0) {
+                    VStack(spacing: 0) {
+                        ForEach(Array(model.myLeaves.enumerated()), id: \.element.id) { index, leave in
+                            if index > 0 {
+                                Divider().overlay(KitchenLinkV2Palette.Border.subtle)
+                            }
+                            myLeaveRow(leave)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func myLeaveRow(_ leave: KitchenLinkLeave) -> some View {
+        HStack(spacing: KitchenLinkV2Spacing.medium) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(leave.kind.label)
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                Text(KitchenLinkV2ScheduleDateText.dayRange(leave.startsAt, leave.endsAt))
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .kitchenLinkV2TabularNumbers()
+                if let note = leave.reviewNote {
+                    Text(note)
+                        .font(KitchenLinkV2Typography.meta)
+                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                }
+            }
+            Spacer(minLength: 0)
+            // Nur ein offener Antrag lässt sich zurückziehen — über eine
+            // entschiedene Abwesenheit entscheidet die Planung.
+            if leave.status.isOpen {
+                Button("Zurückziehen") { Task { await model.cancelLeave(leave) } }
+                    .font(KitchenLinkV2Typography.meta)
+                    .accessibilityIdentifier("schedule.cancelLeave.\(leave.id)")
+            } else {
+                Text(leave.status.label)
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(
+                        leave.status == .approved
+                            ? KitchenLinkV2Palette.Urgency.freshSymbol
+                            : KitchenLinkV2Palette.Content.muted
+                    )
+            }
+        }
+        .padding(.horizontal, KitchenLinkV2Spacing.large)
+        .frame(minHeight: KitchenLinkV2GuestMenuMetrics.minimumTapTarget)
     }
 
     // MARK: - Woche des Lokals
@@ -389,6 +549,18 @@ enum KitchenLinkV2ScheduleDateText {
     }
 
     static func weekday(_ day: Date) -> String { weekdayLong.string(from: day) }
+
+    /// Abwesenheiten werden in ganzen Tagen gedacht, nicht in Uhrzeiten.
+    /// Das Ende ist exklusiv gespeichert, wird hier aber als **letzter Tag**
+    /// gezeigt — „bis 27." liest sich niemand als „bis 26. um 24 Uhr".
+    static func dayRange(_ from: Date, _ to: Date) -> String {
+        let lastDay = to.addingTimeInterval(-1)
+        let start = dayShort.string(from: from)
+        guard !Calendar(identifier: .gregorian).isDate(from, inSameDayAs: lastDay) else {
+            return start
+        }
+        return "\(start) – \(dayShort.string(from: lastDay))"
+    }
 
     static func weekRange(_ start: Date) -> String {
         let end = Calendar(identifier: .gregorian)

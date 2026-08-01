@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 1 August 2026 (Session-Teil 40: Dienstplan)
+**Updated:** 1 August 2026 (Session-Teil 41: Abwesenheiten)
+**Zuvor:** 1 August 2026 (Session-Teil 40: Dienstplan)
 **Zuvor:** 1 August 2026 (Session-Teil 39: Zeiterfassung)
 **Zuvor:** 31 July 2026 (Session-Teil 38: Manager-PIN)
 **Zuvor:** 31 July 2026 (Session-Teil 37: Rollen und Rechte)
@@ -16,6 +17,78 @@
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 41: Abwesenheiten (1. August 2026)
+
+### Anlass
+
+Die Luecke, die Session-Teil 40 selbst benannt hatte: **es liess sich jemand
+einteilen, der Urlaub hat.** Blueprint §9.2, „Urlaubs- und Krankmeldungen".
+
+### Die tragende Entscheidung
+
+Eine **Asymmetrie**, und sie folgt aus dem Betrieb, nicht aus der Technik:
+
+- In eine **genehmigte** Abwesenheit hinein zu planen wird **abgewiesen**.
+- Eine Abwesenheit auf **bereits geplante** Schichten zu genehmigen wird
+  **erlaubt** und meldet die Schichten nur zurueck. Eine Krankmeldung kommt
+  nach dem Dienstplan, nicht davor. Alles andere waere absurd: wer krank ist,
+  ist krank.
+
+Beide Haelften klingen einzeln plausibel und bilden erst zusammen den Betrieb
+ab — der SQL-Test prueft deshalb ausdruecklich beide.
+
+Ein **Antrag** blockiert noch nichts. Zwei **genehmigte** Abwesenheiten
+derselben Person koennen sich nicht ueberschneiden; Antraege duerfen es, sonst
+liesse sich ein Zeitraum nie umplanen. Beantragen braucht kein Recht,
+entscheiden verlangt `schedule.manage` — kein siebtes Recht.
+
+### Ein Befund, der teuer haette werden koennen
+
+Das Modell bekam den Abwesenheits-Transport als neue Abhaengigkeit, mit dem
+ueblichen **Netzwerk-Standardwert**. `KitchenLinkScheduleTests` reichte ihn
+nicht durch — also telefonierten **48 Unit-Tests** plötzlich gegen die echte
+Instanz und wurden rot, ohne dass an ihnen etwas falsch war.
+
+Die Diagnose war unangenehm, weil die Ausgabe nichts hergab: `failed
+(0.000 seconds)`, kein Text, und die **Menge der roten Tests wechselte von Lauf
+zu Lauf**. Das sah nach einem Haenger aus. Erst ein serialisierter Lauf
+(`-maximum-parallel-testing-workers 1`) zeigte, dass der Lauf sauber zu Ende
+lief und die Fehler echt waren.
+
+Lehre fuer die naechste Abhaengigkeit: ein Standardwert, der ins Netz greift,
+macht aus Unit-Tests stillschweigend Integrationstests. Die Testfabrik reicht
+ihn jetzt durch, mit einem Kommentar, der den Fall benennt.
+
+### Verifikation
+
+10 SQL-Tests gruen, 23 Migrationen wiederholbar, 567 iOS-Unit-Tests.
+Simulator-Durchlauf: Antrag mit Kollisionswarnung, Genehmigung mit der Meldung
+„Eine geplante Schicht faellt in den Zeitraum und muss neu besetzt werden".
+Migration angewendet und geprueft — beide Ausschluss-Constraints vorhanden,
+`operator_plan_shift` **ersetzt** statt dupliziert (eine Version), keine Tabelle
+in `public` ohne RLS.
+
+### Offen
+
+Ein realer Durchlauf mit einem zweiten Konto (`SANDBOX_SETUP.md` §6.13).
+
+**Der UI-Flake breitet sich aus.** Neben dem vorbestehenden
+`MenuManualEditorUITests` fiel diesmal
+`testGuestPreviewShowsEveryDeclarationOfAFullyDeclaredDish` — ein **zweiter**
+Gast-Vorschau-Test, isoliert gruen in 48 Sekunden. Zusammen mit
+`testGuestPreviewUsesCountersAndCompactQuantityControl` (Session-Teil 39) sind
+es jetzt zwei aus derselben Familie: langsame Tests, die im Parallellauf um den
+Simulator konkurrieren. Das stuetzt die Diagnose der laufenden Flake-Sitzung —
+es ist kein Einzeltest, sondern die Auslastung.
+
+### Empfohlener naechster Schritt
+
+§9.2 hat noch: Verfuegbarkeiten („ich kann dienstags abends"), Schichtvorlagen
+und Wiederholungen, Sollbesetzung mit Unterbesetzungswarnung, Benachrichtigung,
+Tauschanfragen. Davon traegt **Sollbesetzung** am meisten: sie beantwortet die
+Frage, die eine Planende beim Blick auf die Woche wirklich hat — „reicht das?".
+Die Domaene hat dafuer bereits `targetHeadcount` auf der Schichtvorlage.
 
 ## Session-Teil 40: Dienstplan (1. August 2026)
 

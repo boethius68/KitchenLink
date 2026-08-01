@@ -1471,6 +1471,55 @@ Ueberlappung war **unsichtbar**: der Hinweis lag auf dem Bildschirm hinter dem
 Bearbeitungsbogen. `plan(...)` gibt den Grund jetzt zurueck, der Bogen zeigt ihn
 selbst.
 
+### KL-LEAVE-001 - Abwesenheiten
+
+**Status:** Implementiert auf `main` (1. August 2026), Migration angewendet und
+auf der Instanz verifiziert; offen ist ein realer Durchlauf mit einem zweiten
+Konto (`SANDBOX_SETUP.md` §6.13)
+**Abhaengigkeit:** KL-PLAN-001 (die Planung, die geschuetzt wird)
+**Schreibbereich:** `supabase/migrations/20260801160000_staff_leave.sql` (neu),
+`scripts/tests/staff-leave.sql` (neu),
+`kitchenlink/Features/Schedule/` (Client, Demo-Transport, Antragsbogen, Modell,
+Ansicht), `kitchenlinkTests/KitchenLinkLeaveTests.swift` (neu),
+`KitchenLinkScheduleTests.swift`, `scripts/verify-supabase-migrations.sh`,
+`SANDBOX_SETUP.md`, dieser Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+Blueprint §9.2, „Urlaubs- und Krankmeldungen". KL-PLAN-001 hatte eine Luecke
+gelassen, die im Betrieb sofort auffaellt: **es liess sich jemand einteilen, der
+Urlaub hat.** Der Lebenszyklus folgt `WorkforceLeave` aus der getesteten
+Domaene, mit denselben fuenf Arten.
+
+**Die tragende Entscheidung ist eine Asymmetrie**, und sie folgt aus dem
+Betrieb, nicht aus der Technik:
+
+- In eine **genehmigte** Abwesenheit hinein zu planen wird **abgewiesen**.
+- Eine Abwesenheit auf **bereits geplante** Schichten zu genehmigen wird
+  **erlaubt** und meldet die Schichten nur. Eine Krankmeldung kommt nach dem
+  Dienstplan. Wer krank ist, ist krank — die Genehmigung darf daran nicht
+  scheitern. Die Schichten werden nicht automatisch gestrichen; wer sie
+  umbesetzt, entscheidet die Planung.
+
+Ein **Antrag** blockiert noch nichts. Zwei **genehmigte** Abwesenheiten
+derselben Person koennen sich nicht ueberschneiden (Ausschluss-Constraint);
+Antraege duerfen es, sonst liesse sich ein Zeitraum nie umplanen.
+
+Beantragen braucht kein Recht, entscheiden verlangt `schedule.manage` — kein
+siebtes Recht, weil es dieselbe Aufgabe ist wie die Planung.
+
+Verifikation: SQL gegen echtes PostgreSQL in einer eigenen Testvenue (beide
+Haelften der Asymmetrie, Antrag blockiert nicht, zwei Genehmigungen
+ueberschneiden sich nicht, Rueckzug nur im Zustand beantragt und nur vom
+Antragsteller, RLS mit `set role`). 567 iOS-Unit-Tests gruen;
+Simulator-Durchlauf ueber Genehmigen mit Kollisionsmeldung.
+
+**Ein Befund, der teuer haette werden koennen:** das Modell bekam den
+Abwesenheits-Transport als neue Abhaengigkeit — mit dem ueblichen
+**Netzwerk-Standardwert**. `KitchenLinkScheduleTests` reichte ihn nicht durch,
+also telefonierten 48 Unit-Tests plötzlich gegen die echte Instanz und wurden
+rot, ohne dass an ihnen etwas falsch war. Die Fehlermeldung verriet nichts
+davon (`failed (0.000 seconds)`, kein Text). Die Testfabrik reicht ihn jetzt
+durch, mit einem Kommentar, der den Fall benennt.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

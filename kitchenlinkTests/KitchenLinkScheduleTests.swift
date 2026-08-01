@@ -82,6 +82,12 @@ private func makeModel(
         config: .sandboxDefault,
         transport: transport,
         teamTransport: PlannerRole(permissions),
+        // Ohne diese Zeile faellt das Modell auf den **Netzwerk**-Standardwert
+        // zurueck und der Unit-Test telefoniert gegen die echte Instanz. Genau
+        // das ist bei KL-LEAVE-001 einmal passiert, als der Abwesenheits-
+        // Transport dazukam: 48 Tests wurden rot, ohne dass an ihnen etwas
+        // falsch war.
+        leaveTransport: KitchenLinkDemoLeaveTransport(),
         store: store ?? makeStore()
     )
 }

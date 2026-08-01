@@ -21,6 +21,10 @@ final class KitchenLinkScheduleModel: ObservableObject {
     @Published private(set) var venueShifts: [KitchenLinkPlannedShift] = []
     @Published private(set) var team: [KitchenLinkTeamMember] = []
     @Published private(set) var myRole: KitchenLinkMyRole = .none
+    /// KL-LEAVE-001: Abwesenheiten gehören auf denselben Bildschirm wie der
+    /// Plan — sie sind der Grund, warum eine Woche nicht aufgeht.
+    @Published private(set) var myLeaves: [KitchenLinkLeave] = []
+    @Published private(set) var venueLeaves: [KitchenLinkLeave] = []
     @Published var notice: String?
 
     /// Montag der angezeigten Woche, in der Zeitzone des Geräts.
@@ -30,6 +34,7 @@ final class KitchenLinkScheduleModel: ObservableObject {
     private let auth: KitchenLinkCloudAuthenticating
     private let transport: KitchenLinkScheduleTransport
     private let teamTransport: KitchenLinkTeamTransport
+    private let leaveTransport: KitchenLinkLeaveTransport
     private let store: KitchenLinkCloudCredentialStore
     private let requiresSession: Bool
     private let calendar: Calendar
@@ -39,6 +44,7 @@ final class KitchenLinkScheduleModel: ObservableObject {
         auth: KitchenLinkCloudAuthenticating = URLSessionKitchenLinkCloudTransport(),
         transport: KitchenLinkScheduleTransport = URLSessionKitchenLinkCloudTransport(),
         teamTransport: KitchenLinkTeamTransport = URLSessionKitchenLinkCloudTransport(),
+        leaveTransport: KitchenLinkLeaveTransport = URLSessionKitchenLinkCloudTransport(),
         store: KitchenLinkCloudCredentialStore = KitchenLinkCloudCredentialStore(),
         requiresSession: Bool = true,
         now: Date = Date()
@@ -47,6 +53,7 @@ final class KitchenLinkScheduleModel: ObservableObject {
         self.auth = auth
         self.transport = transport
         self.teamTransport = teamTransport
+        self.leaveTransport = leaveTransport
         self.store = store
         self.requiresSession = requiresSession
 
@@ -64,6 +71,7 @@ final class KitchenLinkScheduleModel: ObservableObject {
         return KitchenLinkScheduleModel(
             transport: KitchenLinkDemoScheduleTransport(),
             teamTransport: KitchenLinkDemoTeamTransport(),
+            leaveTransport: KitchenLinkDemoLeaveTransport(),
             requiresSession: false
         )
     }
@@ -116,6 +124,21 @@ final class KitchenLinkScheduleModel: ObservableObject {
         myShifts.filter { $0.status == .accepted }
     }
 
+    /// Offene Anträge — das Einzige an den Abwesenheiten, das eine Entscheidung
+    /// verlangt. Sie stehen deshalb oben, gleich hinter den eigenen Schichten.
+    var openLeaveRequests: [KitchenLinkLeave] {
+        venueLeaves.filter { $0.status.isOpen }
+    }
+
+    var approvedLeaves: [KitchenLinkLeave] {
+        venueLeaves.filter { $0.status == .approved }
+    }
+
+    /// Eigene Anträge, die noch zurückgezogen werden können.
+    var myOpenLeaves: [KitchenLinkLeave] {
+        myLeaves.filter { $0.status.isOpen }
+    }
+
     // MARK: - Woche wechseln
 
     func showWeek(offsetBy weeks: Int) async {
@@ -146,6 +169,9 @@ final class KitchenLinkScheduleModel: ObservableObject {
             myShifts = try await transport.loadMyShifts(
                 config: config, session: session, venueSlug: config.venueSlug, daysAhead: 21
             )
+            myLeaves = try await leaveTransport.loadMyLeaves(
+                config: config, session: session, venueSlug: config.venueSlug
+            )
 
             if myRole.can(.scheduleManage) {
                 venueShifts = try await transport.loadVenueSchedule(
@@ -161,9 +187,14 @@ final class KitchenLinkScheduleModel: ObservableObject {
                         config: config, session: session, venueSlug: config.venueSlug
                     )
                     : []
+                venueLeaves = try await leaveTransport.loadVenueLeaves(
+                    config: config, session: session, venueSlug: config.venueSlug,
+                    onlyOpen: false
+                )
             } else {
                 venueShifts = []
                 team = []
+                venueLeaves = []
             }
             phase = .ready
         } catch KitchenLinkCloudServiceError.unauthorized {
@@ -297,8 +328,104 @@ final class KitchenLinkScheduleModel: ObservableObject {
         }
     }
 
+    // MARK: - Abwesenheiten
+
+    /// Gibt `nil` zurück, wenn beantragt wurde, sonst den Grund der Absage.
+    func requestLeave(
+        startsAt: Date,
+        endsAt: Date,
+        kind: KitchenLinkLeaveKind,
+        reason: String?
+    ) async -> String? {
+        guard let session = currentSession else {
+            phase = .needsSignIn
+            return "Bitte zuerst anmelden."
+        }
+        guard endsAt > startsAt else {
+            return "Das Ende muss nach dem Beginn liegen."
+        }
+
+        phase = .working
+        do {
+            try await leaveTransport.requestLeave(
+                config: config, session: session, venueSlug: config.venueSlug,
+                startsAt: startsAt, endsAt: endsAt, kind: kind,
+                reason: reason?.isEmpty == true ? nil : reason
+            )
+            notice = "\(kind.label) beantragt. Die Planung entscheidet."
+            await load()
+            return nil
+        } catch {
+            phase = .ready
+            return Self.explain(Self.message(for: error))
+        }
+    }
+
+    func cancelLeave(_ leave: KitchenLinkLeave) async {
+        guard let session = currentSession else {
+            phase = .needsSignIn
+            return
+        }
+        phase = .working
+        do {
+            try await leaveTransport.cancelLeave(
+                config: config, session: session, venueSlug: config.venueSlug, leaveID: leave.id
+            )
+            notice = "Antrag zurückgezogen."
+            await load()
+        } catch {
+            notice = Self.explain(Self.message(for: error))
+            phase = .ready
+        }
+    }
+
+    func review(_ leave: KitchenLinkLeave, approve: Bool, note: String? = nil) async {
+        guard let session = currentSession else {
+            phase = .needsSignIn
+            return
+        }
+        phase = .working
+        do {
+            let decision = try await leaveTransport.reviewLeave(
+                config: config, session: session, venueSlug: config.venueSlug,
+                leaveID: leave.id, approve: approve,
+                note: note?.isEmpty == true ? nil : note
+            )
+            // Die kollidierenden Schichten werden **nicht** gestrichen — wer
+            // sie umbesetzt, entscheidet die Planung. Der Satz sagt das auch.
+            if approve, decision.conflictingShiftCount > 0 {
+                notice = decision.conflictingShiftCount == 1
+                    ? "Genehmigt. Eine geplante Schicht fällt in den Zeitraum und "
+                        + "muss neu besetzt werden."
+                    : "Genehmigt. \(decision.conflictingShiftCount) geplante Schichten "
+                        + "fallen in den Zeitraum und müssen neu besetzt werden."
+            } else {
+                notice = approve ? "Genehmigt." : "Abgelehnt."
+            }
+            await load()
+        } catch {
+            notice = Self.explain(Self.message(for: error))
+            phase = .ready
+        }
+    }
+
     /// Die Absagen der Datenbank in einem Satz, der im Betrieb weiterhilft.
     nonisolated static func explain(_ message: String) -> String {
+        if message.contains("plan_on_leave") {
+            return "Diese Person hat in dem Zeitraum eine genehmigte Abwesenheit."
+        }
+        if message.contains("leave_already_approved") {
+            return "Für diesen Zeitraum ist bereits etwas genehmigt."
+        }
+        if message.contains("leave_already_decided") {
+            return "Darüber ist bereits entschieden."
+        }
+        if message.contains("leave_not_yours") {
+            return "Das ist nicht dein Antrag."
+        }
+        if message.contains("leave_invalid_range") {
+            return "Das Ende muss nach dem Beginn liegen."
+        }
         if message.contains("plan_overlaps") {
             return "Diese Person ist in dem Zeitraum schon verplant."
         }
