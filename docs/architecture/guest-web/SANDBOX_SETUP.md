@@ -61,7 +61,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **23** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **24** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -88,17 +88,18 @@ Es gibt **23** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260801120000_time_clock.sql` | Zeiterfassung: stempeln, Pausen, Korrektur mit Audit (KL-TIME-001) |
 | `supabase/migrations/20260801140000_shift_schedule.sql` | Dienstplan: planen, veröffentlichen, annehmen und ablehnen (KL-PLAN-001) |
 | `supabase/migrations/20260801160000_staff_leave.sql` | Abwesenheiten: beantragen, genehmigen, Planungssperre (KL-LEAVE-001) |
+| `supabase/migrations/20260801180000_staffing_requirements.sql` | Sollbesetzung je Wochentag, Unterbesetzungswarnung (KL-STAFFING-001) |
 
-> **Stand der Sandbox-Instanz (1. August 2026):** alle 23 sind angewendet,
+> **Stand der Sandbox-Instanz (1. August 2026):** alle 24 sind angewendet,
 > `supabase migration list` ist deckungsgleich (nichts offen). Geprüft nach dem
 > Push: keine Tabelle im Schema `public` ohne RLS, `time_entries`,
 > `time_breaks` und `manager_pins` vorhanden, dazu die RPCs
 > `operator_clock_in`, `operator_break_start`, `operator_team_time`,
 > `operator_correct_time_entry`, `operator_plan_shift`,
 > `operator_publish_schedule`, `operator_respond_to_shift`,
-> `operator_request_leave` und `operator_review_leave`, dazu die
-> Ausschluss-Constraints `planned_shifts_no_overlap` und
-> `staff_leaves_no_overlap`. Die Schrittlisten in Abschnitt 6 bleiben für eine
+> `operator_request_leave`, `operator_review_leave` und
+> `operator_staffing_coverage`, dazu die Ausschluss-Constraints
+> `planned_shifts_no_overlap` und `staff_leaves_no_overlap`. Die Schrittlisten in Abschnitt 6 bleiben für eine
 > frische Instanz gültig.
 >
 > **Zwei Arbeitslinien gleichzeitig?** Dann muss die eine die Migration der
@@ -738,10 +739,9 @@ mit geliehener Befugnis. Die eigene Schicht zu **beantworten** braucht dagegen
 kein Recht — es ist die eigene Zeit.
 
 **Noch nicht enthalten** (eigene Scheiben): Verfügbarkeiten, Schichtvorlagen und
-Wiederholungen, Sollbesetzung und Unterbesetzungswarnung, Benachrichtigung,
-Tauschanfragen. Die Domäne modelliert sie bereits
-(`WorkforceTimeModels.swift`), persistiert sind sie noch nicht. Abwesenheiten
-stehen seit §6.13.
+Wiederholungen, Benachrichtigung, Tauschanfragen. Die Domäne modelliert sie
+bereits (`WorkforceTimeModels.swift`), persistiert sind sie noch nicht.
+Abwesenheiten stehen seit §6.13, die Sollbesetzung seit §6.14.
 
 ## 6.13 Abwesenheiten (KL-LEAVE-001)
 
@@ -775,6 +775,38 @@ sich ein Zeitraum nie umplanen.
 **Beantragen** braucht kein Recht (es ist die eigene Abwesenheit),
 **entscheiden** verlangt `schedule.manage`. Zurückziehen kann nur der
 Antragsteller und nur, solange niemand entschieden hat.
+
+## 6.14 Sollbesetzung (KL-STAFFING-001)
+
+Blueprint §9.2, „Sollbesetzung und Unterbesetzungswarnung". Der Dienstplan
+zeigt, **wer** eingeteilt ist. Die Frage, die eine Planende beim Blick auf die
+Woche tatsächlich hat, beantwortet er nicht: **reicht das?**
+
+1. Migration `20260801180000_staffing_requirements.sql` anwenden (Abschnitt 2).
+2. Im **Dienstplan** über dem Wochenplan auf das Personen-Zahnrad tippen und
+   den Bedarf anlegen: Wochentag, Zeitfenster, Anzahl, optional eine Station.
+3. Fehlt an einem Tag jemand, steht die Zeile direkt an der Tageskarte —
+   „17:00–23:00 · 1 von 3 · 2 fehlen". Neben der Wochenangabe steht die Summe.
+
+**Semantik:** Der Bedarf ist ein **Wochenmuster**, kein Einzelwert je Tag — so
+ist er im Betrieb gedacht („freitags abends drei"). Niemand trägt jede Woche
+dasselbe neu ein.
+
+Die Abdeckung wird **in der Datenbank** gerechnet: nur sie kennt den Plan, den
+alle Geräte teilen, und nur sie löst das Zeitfenster korrekt in der Zeitzone
+der Venue auf — Sommerzeit eingeschlossen. Gezählt werden **Personen**, nur
+überlappende Schichten, und eine **abgelehnte** Schicht zählt nicht mit. Ein
+**Entwurf** dagegen schon: er ist eine Absicht der Planung, auch wenn ihn noch
+niemand gesehen hat.
+
+**Unterbesetzung ist eine Warnung, keine Sperre.** Eine Woche lässt sich auch
+unterbesetzt veröffentlichen — manchmal ist schlicht niemand da, und ein
+Dienstplan, den man nicht herausgeben kann, hilft niemandem. Dieselbe Haltung
+wie beim Kassenabschluss mit offenen Rechnungen (§6.8). Überbesetzung ist keine
+Meldung: eine gedeckte Woche sieht ruhig aus.
+
+Den Bedarf **zu sehen** ist für das Personal kein Eingriff — im Gegenteil, es
+erklärt, warum eine Woche eng ist. Ändern verlangt `schedule.manage`.
 
 ---
 

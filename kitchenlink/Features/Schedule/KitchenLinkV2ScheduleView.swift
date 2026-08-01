@@ -11,6 +11,7 @@ struct KitchenLinkV2ScheduleView: View {
     @State private var decliningShift: KitchenLinkPlannedShift?
     @State private var declineReason = ""
     @State private var requestingLeave = false
+    @State private var editingRequirements = false
 
     var body: some View {
         KitchenLinkV2Surface {
@@ -99,6 +100,20 @@ struct KitchenLinkV2ScheduleView: View {
                 return failure
             } onCancel: {
                 requestingLeave = false
+            }
+        }
+        .sheet(isPresented: $editingRequirements) {
+            KitchenLinkV2StaffingRequirementsSheet(
+                requirements: model.requirements
+            ) { weekday, start, end, target, station in
+                await model.addRequirement(
+                    weekday: weekday, startsAtLocal: start, endsAtLocal: end,
+                    targetHeadcount: target, station: station
+                )
+            } onDelete: { requirement in
+                await model.deleteRequirement(requirement)
+            } onClose: {
+                editingRequirements = false
             }
         }
         .alert(
@@ -381,10 +396,33 @@ struct KitchenLinkV2ScheduleView: View {
                 .accessibilityIdentifier("schedule.nextWeek")
             }
 
-            Text(KitchenLinkV2ScheduleDateText.weekRange(model.weekStart))
-                .font(KitchenLinkV2Typography.secondaryLine)
-                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
-                .accessibilityIdentifier("schedule.weekLabel")
+            HStack(spacing: KitchenLinkV2Spacing.small) {
+                Text(KitchenLinkV2ScheduleDateText.weekRange(model.weekStart))
+                    .font(KitchenLinkV2Typography.secondaryLine)
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .accessibilityIdentifier("schedule.weekLabel")
+
+                // Die eine Zahl, die sagt, ob der Plan aufgeht.
+                if model.missingThisWeek > 0 {
+                    Text(model.missingThisWeek == 1
+                         ? "· eine Person fehlt"
+                         : "· \(model.missingThisWeek) Personen fehlen")
+                        .font(KitchenLinkV2Typography.secondaryLine)
+                        .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                        .accessibilityIdentifier("schedule.weekShortfall")
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    editingRequirements = true
+                } label: {
+                    Image(systemName: "person.2.badge.gearshape")
+                        .frame(width: 32, height: 32)
+                }
+                .accessibilityLabel("Sollbesetzung bearbeiten")
+                .accessibilityIdentifier("schedule.openRequirements")
+            }
 
             ForEach(model.weekDays, id: \.day) { entry in
                 dayCard(entry.day, shifts: entry.shifts)
@@ -427,6 +465,21 @@ struct KitchenLinkV2ScheduleView: View {
                     }
                 }
 
+                // Was fehlt, steht direkt am Tag — das ist die Frage, die eine
+                // Planende beim Blick auf die Woche wirklich hat.
+                ForEach(model.shortfalls(on: day)) { gap in
+                    HStack(alignment: .top, spacing: KitchenLinkV2Spacing.small) {
+                        Image(systemName: "person.badge.minus")
+                            .font(.system(size: 13, weight: .semibold))
+                            .accessibilityHidden(true)
+                        Text(shortfallText(gap))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(KitchenLinkV2Typography.meta)
+                    .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                    .accessibilityIdentifier("schedule.shortfall.\(gap.id)")
+                }
+
                 if shifts.isEmpty {
                     Text("Niemand eingeteilt.")
                         .font(KitchenLinkV2Typography.meta)
@@ -444,6 +497,16 @@ struct KitchenLinkV2ScheduleView: View {
                 }
             }
         }
+    }
+
+    /// „17:00–23:00 · 2 von 3 · eine fehlt" — der Satz sagt Fenster, Stand und
+    /// Lücke in der Reihenfolge, in der man sie liest.
+    private func shortfallText(_ gap: KitchenLinkStaffingCoverage) -> String {
+        var parts = [KitchenLinkV2ScheduleDateText.range(gap.startsAt, gap.endsAt)]
+        if let station = gap.stationLabel { parts.append(station) }
+        parts.append("\(gap.plannedHeadcount) von \(gap.targetHeadcount)")
+        parts.append(gap.missing == 1 ? "eine fehlt" : "\(gap.missing) fehlen")
+        return parts.joined(separator: " · ")
     }
 
     private func planRow(_ shift: KitchenLinkPlannedShift) -> some View {

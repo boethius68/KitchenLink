@@ -25,6 +25,10 @@ final class KitchenLinkScheduleModel: ObservableObject {
     /// Plan — sie sind der Grund, warum eine Woche nicht aufgeht.
     @Published private(set) var myLeaves: [KitchenLinkLeave] = []
     @Published private(set) var venueLeaves: [KitchenLinkLeave] = []
+    /// KL-STAFFING-001: was der Woche fehlt. Die Zahl steht neben dem Tag —
+    /// gesperrt wird nichts, entschieden wird von der Planung.
+    @Published private(set) var coverage: [KitchenLinkStaffingCoverage] = []
+    @Published private(set) var requirements: [KitchenLinkStaffingRequirement] = []
     @Published var notice: String?
 
     /// Montag der angezeigten Woche, in der Zeitzone des Geräts.
@@ -35,6 +39,7 @@ final class KitchenLinkScheduleModel: ObservableObject {
     private let transport: KitchenLinkScheduleTransport
     private let teamTransport: KitchenLinkTeamTransport
     private let leaveTransport: KitchenLinkLeaveTransport
+    private let staffingTransport: KitchenLinkStaffingTransport
     private let store: KitchenLinkCloudCredentialStore
     private let requiresSession: Bool
     private let calendar: Calendar
@@ -45,6 +50,7 @@ final class KitchenLinkScheduleModel: ObservableObject {
         transport: KitchenLinkScheduleTransport = URLSessionKitchenLinkCloudTransport(),
         teamTransport: KitchenLinkTeamTransport = URLSessionKitchenLinkCloudTransport(),
         leaveTransport: KitchenLinkLeaveTransport = URLSessionKitchenLinkCloudTransport(),
+        staffingTransport: KitchenLinkStaffingTransport = URLSessionKitchenLinkCloudTransport(),
         store: KitchenLinkCloudCredentialStore = KitchenLinkCloudCredentialStore(),
         requiresSession: Bool = true,
         now: Date = Date()
@@ -54,6 +60,7 @@ final class KitchenLinkScheduleModel: ObservableObject {
         self.transport = transport
         self.teamTransport = teamTransport
         self.leaveTransport = leaveTransport
+        self.staffingTransport = staffingTransport
         self.store = store
         self.requiresSession = requiresSession
 
@@ -68,10 +75,14 @@ final class KitchenLinkScheduleModel: ObservableObject {
         guard KitchenLinkDesignPreviewConfiguration.shouldSeedDemoTables() else {
             return KitchenLinkScheduleModel()
         }
+        // **Ein** Plan für beide: die Abdeckung muss denselben Bestand zählen,
+        // den der Wochenplan zeigt. Zwei Instanzen wären zwei Wahrheiten.
+        let shifts = KitchenLinkDemoScheduleTransport()
         return KitchenLinkScheduleModel(
-            transport: KitchenLinkDemoScheduleTransport(),
+            transport: shifts,
             teamTransport: KitchenLinkDemoTeamTransport(),
             leaveTransport: KitchenLinkDemoLeaveTransport(),
+            staffingTransport: KitchenLinkDemoStaffingTransport(shifts: shifts),
             requiresSession: false
         )
     }
@@ -139,6 +150,20 @@ final class KitchenLinkScheduleModel: ObservableObject {
         myLeaves.filter { $0.status.isOpen }
     }
 
+    /// Was an einem Tag fehlt. Nur Unterbesetzung — Überbesetzung ist keine
+    /// Meldung wert, und eine gedeckte Woche soll ruhig aussehen.
+    func shortfalls(on day: Date) -> [KitchenLinkStaffingCoverage] {
+        coverage
+            .filter { $0.isShort && calendar.isDate($0.day, inSameDayAs: day) }
+            .sorted { $0.startsAt < $1.startsAt }
+    }
+
+    /// Wie viele Personen der ganzen Woche fehlen — die eine Zahl, die sagt,
+    /// ob der Plan aufgeht.
+    var missingThisWeek: Int {
+        coverage.reduce(0) { $0 + $1.missing }
+    }
+
     // MARK: - Woche wechseln
 
     func showWeek(offsetBy weeks: Int) async {
@@ -191,10 +216,20 @@ final class KitchenLinkScheduleModel: ObservableObject {
                     config: config, session: session, venueSlug: config.venueSlug,
                     onlyOpen: false
                 )
+                requirements = try await staffingTransport.loadRequirements(
+                    config: config, session: session, venueSlug: config.venueSlug
+                )
+                coverage = try await staffingTransport.loadCoverage(
+                    config: config, session: session, venueSlug: config.venueSlug,
+                    from: weekStart,
+                    to: calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+                )
             } else {
                 venueShifts = []
                 team = []
                 venueLeaves = []
+                requirements = []
+                coverage = []
             }
             phase = .ready
         } catch KitchenLinkCloudServiceError.unauthorized {
@@ -328,6 +363,55 @@ final class KitchenLinkScheduleModel: ObservableObject {
         }
     }
 
+    // MARK: - Sollbesetzung
+
+    /// Gibt `nil` zurück, wenn angelegt wurde, sonst den Grund der Absage.
+    func addRequirement(
+        weekday: Int,
+        startsAtLocal: String,
+        endsAtLocal: String,
+        targetHeadcount: Int,
+        station: String?
+    ) async -> String? {
+        guard let session = currentSession else {
+            phase = .needsSignIn
+            return "Bitte zuerst anmelden."
+        }
+        phase = .working
+        do {
+            try await staffingTransport.upsertRequirement(
+                config: config, session: session, venueSlug: config.venueSlug,
+                weekday: weekday, startsAtLocal: startsAtLocal, endsAtLocal: endsAtLocal,
+                targetHeadcount: targetHeadcount, station: station, area: nil
+            )
+            notice = "Bedarf gespeichert."
+            await load()
+            return nil
+        } catch {
+            phase = .ready
+            return Self.explain(Self.message(for: error))
+        }
+    }
+
+    func deleteRequirement(_ requirement: KitchenLinkStaffingRequirement) async {
+        guard let session = currentSession else {
+            phase = .needsSignIn
+            return
+        }
+        phase = .working
+        do {
+            try await staffingTransport.deleteRequirement(
+                config: config, session: session, venueSlug: config.venueSlug,
+                requirementID: requirement.id
+            )
+            notice = "Bedarf entfernt."
+            await load()
+        } catch {
+            notice = Self.explain(Self.message(for: error))
+            phase = .ready
+        }
+    }
+
     // MARK: - Abwesenheiten
 
     /// Gibt `nil` zurück, wenn beantragt wurde, sonst den Grund der Absage.
@@ -411,6 +495,12 @@ final class KitchenLinkScheduleModel: ObservableObject {
 
     /// Die Absagen der Datenbank in einem Satz, der im Betrieb weiterhilft.
     nonisolated static func explain(_ message: String) -> String {
+        if message.contains("staffing_invalid_window") {
+            return "Das Ende muss nach dem Beginn liegen."
+        }
+        if message.contains("staffing_invalid_headcount") {
+            return "Es braucht mindestens eine Person."
+        }
         if message.contains("plan_on_leave") {
             return "Diese Person hat in dem Zeitraum eine genehmigte Abwesenheit."
         }

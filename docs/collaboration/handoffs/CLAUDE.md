@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 1 August 2026 (Session-Teil 41: Abwesenheiten)
+**Updated:** 1 August 2026 (Session-Teil 42: Sollbesetzung)
+**Zuvor:** 1 August 2026 (Session-Teil 41: Abwesenheiten)
 **Zuvor:** 1 August 2026 (Session-Teil 40: Dienstplan)
 **Zuvor:** 1 August 2026 (Session-Teil 39: Zeiterfassung)
 **Zuvor:** 31 July 2026 (Session-Teil 38: Manager-PIN)
@@ -17,6 +18,63 @@
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 42: Sollbesetzung (1. August 2026)
+
+### Anlass
+
+Blueprint §9.2, „Sollbesetzung und Unterbesetzungswarnung". Der Dienstplan
+zeigt, **wer** eingeteilt ist — nicht, ob es reicht.
+
+### Entscheidungen
+
+- Der Bedarf ist ein **Wochenmuster**, kein Einzelwert je Tag. So ist er im
+  Betrieb gedacht, und niemand traegt jede Woche dasselbe neu ein.
+- Die Abdeckung wird **in der Datenbank** gerechnet — Zeitzone und Sommerzeit
+  gehoeren dorthin, nicht ins Geraet.
+- **Unterbesetzung warnt, sie sperrt nicht.** Eine Woche laesst sich auch
+  unterbesetzt veroeffentlichen; ein Dienstplan, den man nicht herausgeben
+  kann, hilft niemandem. Dieselbe Haltung wie beim Kassenabschluss mit offenen
+  Rechnungen (Session-Teil 36). Ueberbesetzung ist gar keine Meldung.
+- Ein **Entwurf** deckt mit, eine **abgelehnte** Schicht nicht. Ein Entwurf ist
+  eine Absicht der Planung, auch wenn ihn noch niemand gesehen hat.
+
+### Der Sommerzeit-Test hat sich sofort bezahlt gemacht
+
+`generate_series` mit `date`-Argumenten liefert **timestamptz**. Darauf dreht
+`at time zone` die Richtung um: es rechnet *aus* der Zone heraus statt in sie
+hinein. Das Fenster „17 bis 23 Uhr" verrutschte an beiden Zeitumstellungen um
+eine Stunde — ein Fehler, der im Betrieb genau zweimal im Jahr auffaellt und
+dann teuer ist. Der Test an den echten Uebergaengen 2026 (29. Maerz und
+25. Oktober) hat ihn beim **ersten** Lauf gefunden.
+
+Er prueft zusaetzlich, dass die beiden Tage wirklich verschiedene UTC-Abstaende
+haben — sonst haette er nichts geprueft.
+
+### Zweiter Befund
+
+`KitchenLinkScheduleModel.make()` baute fuer Plan und Abdeckung **zwei
+verschiedene** Demo-Transporte. Die Wochenansicht haette also einen anderen
+Bestand gezaehlt als sie anzeigt — zwei Wahrheiten auf einem Bildschirm. Jetzt
+teilen sie sich eine Instanz.
+
+### Verifikation
+
+11 SQL-Tests gruen, 24 Migrationen wiederholbar, 582 iOS-Unit-Tests.
+Simulator: „17:00–23:00 · 1 von 3 · 2 fehlen" am Freitag, gedeckter Dienstag
+still. Migration angewendet und geprueft.
+
+### Offen
+
+Ein realer Wochendurchlauf (`SANDBOX_SETUP.md` §6.14).
+
+### Empfohlener naechster Schritt
+
+§9.2 hat noch Verfuegbarkeiten („ich kann dienstags abends"), Schichtvorlagen
+mit Wiederholung, Benachrichtigung und Tauschanfragen. **Verfuegbarkeiten**
+tragen am meisten: sie sind das Gegenstueck zur Sollbesetzung — diese sagt, wie
+viele gebraucht werden, jene, wer ueberhaupt kann. Zusammen ergeben sie den
+Vorschlag, den eine Planung wirklich haben will.
 
 ## Session-Teil 41: Abwesenheiten (1. August 2026)
 

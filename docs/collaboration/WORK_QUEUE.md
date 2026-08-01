@@ -1520,6 +1520,56 @@ rot, ohne dass an ihnen etwas falsch war. Die Fehlermeldung verriet nichts
 davon (`failed (0.000 seconds)`, kein Text). Die Testfabrik reicht ihn jetzt
 durch, mit einem Kommentar, der den Fall benennt.
 
+### KL-STAFFING-001 - Sollbesetzung und Unterbesetzungswarnung
+
+**Status:** Implementiert auf `main` (1. August 2026), Migration angewendet und
+auf der Instanz verifiziert; offen ist ein realer Wochendurchlauf
+(`SANDBOX_SETUP.md` §6.14)
+**Abhaengigkeit:** KL-PLAN-001 (der Plan, gegen den gezaehlt wird)
+**Schreibbereich:** `supabase/migrations/20260801180000_staffing_requirements.sql`
+(neu), `scripts/tests/staffing-requirements.sql` (neu),
+`kitchenlink/Features/Schedule/` (Client, Demo-Transport, Bedarfsbogen, Modell,
+Ansicht), `kitchenlinkTests/KitchenLinkStaffingTests.swift` (neu), die beiden
+anderen Schedule-Testfabriken, `scripts/verify-supabase-migrations.sh`,
+`SANDBOX_SETUP.md`, dieser Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+Blueprint §9.2. Der Dienstplan zeigt, **wer** eingeteilt ist; die Frage, die
+eine Planende beim Blick auf die Woche wirklich hat, beantwortet er nicht:
+**reicht das?**
+
+- Der Bedarf ist ein **Wochenmuster** (Wochentag, Zeitfenster, Anzahl,
+  optionale Station) — so ist er im Betrieb gedacht, und niemand traegt jede
+  Woche dasselbe neu ein.
+- Die Abdeckung wird **in der Datenbank** gerechnet: nur sie kennt den Plan,
+  den alle Geraete teilen, und nur sie loest das Fenster korrekt in der
+  Zeitzone der Venue auf. Gezaehlt werden **Personen**, nur ueberlappende
+  Schichten; eine **abgelehnte** zaehlt nicht, ein **Entwurf** schon.
+- **Unterbesetzung ist eine Warnung, keine Sperre.** Eine Woche laesst sich
+  auch unterbesetzt veroeffentlichen — manchmal ist niemand da, und ein
+  Dienstplan, den man nicht herausgeben kann, hilft niemandem. Dieselbe Haltung
+  wie beim Kassenabschluss mit offenen Rechnungen. Ueberbesetzung ist keine
+  Meldung.
+- Den Bedarf zu **sehen** ist fuer das Personal kein Eingriff; **aendern**
+  verlangt `schedule.manage`. Kein siebtes Recht.
+
+**Der Test hat sofort geliefert, wofuer er geschrieben war.**
+`generate_series` mit `date`-Argumenten gibt **timestamptz** zurueck — darauf
+dreht `at time zone` die Richtung um und rechnet *aus* der Zone heraus statt in
+sie hinein. Das Fenster verrutschte an beiden Zeitumstellungen um eine Stunde,
+und genau das faellt im Betrieb zweimal im Jahr auf und ist dann teuer. Der
+Sommerzeit-Test an den echten Uebergaengen 2026 (29. Maerz und 25. Oktober) hat
+es beim ersten Lauf gefunden.
+
+Zweiter Befund: `KitchenLinkScheduleModel.make()` baute fuer Plan und Abdeckung
+**zwei verschiedene** Demo-Transporte — die Wochenansicht haette also einen
+anderen Bestand gezaehlt als sie zeigt. Jetzt teilen sie sich einen.
+
+Verifikation: SQL gegen echtes PostgreSQL in einer eigenen Testvenue (Station
+filtert, abgelehnte Schicht zaehlt nicht, Schicht neben dem Fenster zaehlt
+nicht, beide Sommerzeituebergaenge, Bereichsgrenzen, RLS). 582 iOS-Unit-Tests
+gruen; Simulator-Durchlauf mit „17:00–23:00 · 1 von 3 · 2 fehlen" am Freitag
+und einem stillen, gedeckten Dienstag.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

@@ -74,6 +74,7 @@ private func makeModel(
         transport: KitchenLinkDemoScheduleTransport(),
         teamTransport: LeaveRole(permissions),
         leaveTransport: leaveTransport,
+        staffingTransport: KitchenLinkDemoStaffingTransport(),
         store: store ?? makeStore()
     )
 }

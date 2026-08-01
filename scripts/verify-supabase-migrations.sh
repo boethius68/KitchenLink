@@ -26,6 +26,7 @@
 #   …0000000000d1-d3   Gaeste (business-shift)
 #   …0000000000e1-e9   Konten (roles-and-permissions)
 #   …0000000000f1-f9   Konten (manager-pin)
+#   …000000009601-9609 Konten (staffing-requirements)
 #   …000000009701-9709 Konten (staff-leave)
 #   …000000009801-9809 Konten (shift-schedule)
 #   …000000009901-9909 Konten (time-clock)

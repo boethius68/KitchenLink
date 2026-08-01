@@ -873,9 +873,31 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   instance and went red with nothing wrong in them, and the failure output said
   nothing (`failed (0.000 seconds)`, no message).
   **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.13).
+- **Target headcount (KL-STAFFING-001, 1 August):** Blueprint §9.2. The roster
+  shows **who** is scheduled; the question a planner actually has looking at the
+  week is **is that enough?**
+  The requirement is a **weekly pattern** — weekday, time window, headcount,
+  optional station — because that is how staffing needs are ("Friday evening,
+  three"). Nobody re-enters the same thing every week.
+  Coverage is computed **in the database**: only it knows the plan every device
+  shares, and only it resolves the window correctly in the venue's timezone.
+  People are counted, only overlapping shifts, a **declined** shift does not
+  count and a **draft** does.
+  **Understaffing warns, it does not block.** A week can be published
+  understaffed — sometimes there simply is nobody, and a roster you cannot hand
+  out helps no one. Same stance as closing the till with open bills.
+  Overstaffing is not a message at all.
+  The DST test earned its keep on the first run: `generate_series` with `date`
+  arguments returns **timestamptz**, and on that `at time zone` reverses
+  direction — it converts *out of* the zone instead of into it. The window
+  slipped by an hour at both transitions, which in a real business shows up
+  exactly twice a year and is expensive when it does. Second finding: the demo
+  path built **two separate** transports for plan and coverage, so the week view
+  would have counted a different roster than it displays.
+  **Open:** one real week on a device (`SANDBOX_SETUP.md` §6.14).
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
-  target headcount and understaffing warnings, notification, swap requests
-  (§9.2) — the domain models them, persistence does not. Plus target/actual comparison and overtime (§9.3), which now have a
+  notification, swap requests (§9.2) — the domain models them, persistence does
+  not. Plus target/actual comparison and overtime (§9.3), which now have a
   planning layer to compare against. Also open from §9.1: custom roles,
   qualifications, staff profiles and permissions across several locations.
 - **Production boundary:** no live payment, fiscal activation or removal of

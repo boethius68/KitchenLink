@@ -88,6 +88,7 @@ private func makeModel(
         // Transport dazukam: 48 Tests wurden rot, ohne dass an ihnen etwas
         // falsch war.
         leaveTransport: KitchenLinkDemoLeaveTransport(),
+        staffingTransport: KitchenLinkDemoStaffingTransport(),
         store: store ?? makeStore()
     )
 }
