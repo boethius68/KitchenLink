@@ -1328,6 +1328,70 @@ Service, Publish-Sheet); jetzt ueberall `Text(verbatim:)`.
 die Anforderung), eigene Rollen, Qualifikationen, Mitarbeiterprofile,
 Standortzuordnung ueber mehrere Venues.
 
+### KL-TIME-001 - Zeiterfassung
+
+**Status:** Implementiert auf `main` (1. August 2026), lokal gegen echtes
+PostgreSQL geprueft — **Migration noch nicht gepusht**, siehe „Offen" unten
+**Abhaengigkeit:** KL-ROLE-001 (`staff.manage` fuer den Team-Stand)
+**Schreibbereich:** `supabase/migrations/20260801120000_time_clock.sql` (neu),
+`scripts/tests/time-clock.sql` (neu), `kitchenlink/Features/TimeClock/` (neu),
+`App/KitchenLinkV2BusinessHomeView.swift`,
+`kitchenlinkTests/KitchenLinkTimeClockTests.swift` (neu), `SANDBOX_SETUP.md`,
+dieser Eintrag und `docs/collaboration/handoffs/CLAUDE.md`
+
+Blueprint §9.3. Seit KL-WORKFORCE-001 (17. Juli) lag unter
+`kitchenlink/Features/Workforce/` eine vollstaendige, getestete Domaene fuer
+Personal, Planung und Zeit — mit **null Referenzen** aus der App. 1850 Zeilen
+Code und Tests, die nichts taten. Diese Scheibe liefert Persistenz und
+Oberflaeche fuer den ersten Teil davon: das Stempeln.
+
+**Die Trennung der drei Fachobjekte bleibt** (Blueprint §9): Betriebsschicht
+(`business_shifts`), geplante Schicht (noch nicht persistiert) und Zeiteintrag.
+Ein Zeiteintrag haengt deshalb ausdruecklich **nicht** an einer
+Betriebsschicht — wer um 15 Uhr die Kueche vorbereitet, arbeitet auch dann,
+wenn die Kasse noch zu ist.
+
+- `time_entries` und `time_breaks`, beide mit der tragenden Zusage als Index:
+  **niemand steht zweimal gleichzeitig auf der Uhr**, und in einem Eintrag
+  laeuft hoechstens eine Pause.
+- `kitchenlink_time_entry_seconds` als *eine* Quelle fuer brutto, Pause und
+  netto.
+- Die eigene Zeit zu stempeln braucht **kein** Recht (die Kueche muss auf die
+  Uhr kommen, ohne zu fragen); fremde Zeiten zu sehen und zu korrigieren
+  verlangt `staff.manage`. Bewusst **kein sechstes Recht** — ein Recht, das nur
+  an einer Stelle wirkt, waere eine Zeile mehr in jeder Rollenliste ohne
+  Gewinn, und die parallele PIN-Arbeitslinie fasst dieselbe Stelle an.
+- Ein Nachtdienst zaehlt zu dem Tag, an dem er **begonnen** hat.
+- Korrektur mit Grund und Audit: `original_started_at`/`original_ended_at`
+  bleiben stehen, eine zweite Korrektur ueberschreibt sie nicht.
+
+**Warum die Korrektur nicht optional ist:** ohne sie bliebe ein vergessener
+Ausstempel fuer immer offen — und die betroffene Person kaeme wegen des Index
+nie wieder auf die Uhr. Der Bildschirm meldet Eintraege ueber zwoelf Stunden
+deshalb aktiv und bietet die Korrektur an.
+
+Verifikation: SQL gegen echtes PostgreSQL in einer eigenen Testvenue
+(zweimal einstempeln abgewiesen, Pause zieht ab, laufende Pause wird beim
+Ausstempeln mitbeendet, Tagesgrenze, Team-Stand nur mit `staff.manage`,
+Korrektur behaelt den Originalwert, RLS mit `set role`). 498 iOS-Unit-Tests
+gruen; Simulator-Durchlauf ueber einstempeln, Pause, Korrektur eines
+vergessenen Ausstempels.
+
+Zwei Fehler unterwegs: der SQL-Test haing an der Uhrzeit des Laufs (er lief um
+01:57, und „zwei Stunden zurueck" fiel damit auf den Vortag) — statt die
+Tagesgrenze zu umgehen, prueft er sie jetzt ausdruecklich. Und der
+Constraint `ended_at > started_at` wies einen Eintrag ohne Dauer ab; wer sich
+vergreift und sofort wieder ausstempelt, erzeugt genau den. Jetzt `>=`, weil
+eine Null-Dauer ehrliche Datenlage ist — eine Korrektur von Hand verlangt
+weiterhin ein Ende nach dem Beginn.
+
+**Offen:** Die Migration ist **nicht gepusht**. Auf der Instanz liegt bereits
+`20260731230000_manager_pin.sql` aus einer parallelen Arbeitslinie, deren Datei
+noch in einem eigenen Arbeitsbaum liegt; `supabase db push` verlangt eine
+lueckenlose lokale Historie und verweigert deshalb. Die Kombination beider
+Migrationen ist lokal geprueft (alle sieben SQL-Tests bestehen). Sobald die
+PIN-Arbeit auf `main` ist, ist der Push ein einzelner Aufruf.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,

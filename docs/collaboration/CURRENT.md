@@ -752,10 +752,38 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   13 UI tests, a simulator run with a role change. Migration applied and
   verified on the instance.
   **Open:** one real run with a second account (`SANDBOX_SETUP.md` §6.9).
-- **Milestone 2 remainder:** shift planning and time tracking (§9.2/§9.3). The
-  workforce domain for it exists and is tested (`Features/Workforce/`, 38 tests)
-  but has **zero references** from the app — a foundation waiting for
-  persistence and a screen. Also open from §9.1: manager PIN for a one-off
-  authorisation at the table, custom roles, staff profiles.
+- **Time tracking (KL-TIME-001, 1 August):** Blueprint §9.3, and the first time
+  the workforce domain from 17 July does anything. It had 1850 lines of code and
+  tests with **zero references** from the app; what it lacked was persistence
+  and a screen. This slice supplies both for the clock.
+  Blueprint §9 keeps three objects apart and this keeps them apart: the
+  operating shift (`business_shifts`, "the till is open"), the planned shift
+  (not persisted yet) and the time entry ("this person worked"). A time entry
+  therefore explicitly does **not** hang off an operating shift — someone
+  prepping the kitchen at 3pm is working even though the till is still closed.
+  Load-bearing invariants are indexes again: **nobody is on the clock twice at
+  once**, and at most one break runs per entry. Breaks subtract from working
+  time, and a running break is counted up to now so the display doesn't keep
+  ticking. A night shift belongs to the day it **started**.
+  Clocking yourself needs **no** permission — the kitchen has to get on the
+  clock without asking anyone. Seeing and correcting other people's time
+  requires `staff.manage`; deliberately **no sixth permission**, since one that
+  acts in a single place is a line in every role list without a gain.
+  Corrections carry a reason and **keep the original**: `original_started_at`
+  and `original_ended_at` survive, and a second correction does not overwrite
+  them. Without that path a forgotten clock-out would stay open forever — and
+  the person could never get back on the clock, because the index forbids it.
+  The screen therefore flags entries open for over twelve hours.
+  Verified against real PostgreSQL in its own test venue, 498 iOS unit tests, a
+  simulator run through clock-in, break and correcting a forgotten clock-out.
+  **Open:** the migration is **not pushed**. The instance already carries
+  `20260731230000_manager_pin.sql` from a parallel line of work whose file still
+  lives in its own worktree; `supabase db push` requires a gapless local history
+  and refuses. The two migrations were verified together locally — all seven SQL
+  tests pass. Once the PIN work is on `main`, the push is a single call.
+- **Milestone 2 remainder:** shift planning — availability, templates,
+  publication, swaps, leave (§9.2) — plus target/actual comparison and overtime
+  (§9.3), both of which need the planning layer to compare against. Also open
+  from §9.1: custom roles, qualifications, staff profiles.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.

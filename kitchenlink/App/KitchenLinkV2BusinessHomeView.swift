@@ -226,6 +226,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2TimeClockView()
+            } label: {
+                operationsRow(
+                    title: "Zeiterfassung",
+                    subtitle: "Ein- und ausstempeln · Pausen",
+                    systemImage: "clock"
+                )
+            }
+            .accessibilityIdentifier("business.openTimeClock")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 KitchenLinkV2TablesView()
             } label: {
                 operationsRow(

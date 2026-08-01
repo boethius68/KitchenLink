@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 31 July 2026 (Session-Teil 37: Rollen und Rechte)
+**Updated:** 1 August 2026 (Session-Teil 38: Zeiterfassung)
+**Zuvor:** 31 July 2026 (Session-Teil 37: Rollen und Rechte)
 **Zuvor:** 31 July 2026 (Session-Teil 36: Betriebsschicht und Kassenabschluss)
 **Zuvor:** 31 July 2026 (Session-Teil 35: Migrationen selbst angewendet)
 **Zuvor:** 31 July 2026 (Session-Teil 34: Meilenstein 1 abgeschlossen)
@@ -13,6 +14,87 @@
 **Zuvor:** 30 July 2026 (Session-Teil 27: Layoutstufe und erzwungenes Dekodieren)
 **Zuvor:** 29 July 2026 (Session-Teil 26: Kostenloser Pfad repariert, Seitenrettung, Zeitlimit)
 **Zuvor:** 28 July 2026 (Session-Teil 25: Vier deterministische Reparaturen, Guthaben erschöpft)
+
+## Session-Teil 38: Zeiterfassung (1. August 2026)
+
+### Anlass
+
+Meilenstein 2, §9.3. Und der Anlass, die tote Workforce-Domaene endlich
+anzuschliessen: seit KL-WORKFORCE-001 (17. Juli) liegen unter
+`kitchenlink/Features/Workforce/` 1850 Zeilen Code und Tests mit **null
+Referenzen** aus der App. Ihr fehlten Persistenz und Oberflaeche — diese
+Scheibe liefert beides fuer das Stempeln.
+
+Bewusst **nicht** der Manager-PIN: der lief zeitgleich in einer eigenen
+Sitzung und fasst dasselbe Rechtesystem an.
+
+### Umgesetzt (KL-TIME-001)
+
+- `time_entries`, `time_breaks`, beide Invarianten als Index: **niemand steht
+  zweimal gleichzeitig auf der Uhr**, hoechstens eine Pause je Eintrag.
+- `kitchenlink_time_entry_seconds` als *eine* Quelle fuer brutto/Pause/netto.
+- RPCs: `operator_clock_in`, `operator_clock_out`, `operator_break_start`,
+  `operator_break_end`, `operator_my_time_status`, `operator_team_time`,
+  `operator_correct_time_entry`.
+- App: Bereich `Zeiterfassung` mit laufender Uhr, Pausensteuerung, Tagessumme,
+  Team-Stand und Korrekturbogen.
+
+**Die Trennung der drei Fachobjekte bleibt** (Blueprint §9): ein Zeiteintrag
+haengt ausdruecklich nicht an einer Betriebsschicht.
+
+**Kein sechstes Recht.** Die eigene Zeit zu stempeln braucht keines — die
+Kueche muss auf die Uhr kommen, ohne zu fragen. Fremde Zeiten zu sehen und zu
+korrigieren verlangt das bestehende `staff.manage`. Ein Recht, das nur an einer
+Stelle wirkt, waere eine Zeile mehr in jeder Rollenliste ohne Gewinn — und die
+parallele PIN-Arbeitslinie fasst genau diese Stelle an.
+
+### Zwei Fehler unterwegs
+
+- Der SQL-Test hing an der **Uhrzeit des Laufs**: er startete um 01:57, „zwei
+  Stunden zurueckdatieren" fiel damit auf den Vortag, und die Tagesliste
+  enthielt einen Eintrag statt zwei. Der Code war richtig (ein Nachtdienst
+  gehoert zum Starttag) — der Test hat die Regel uebersehen, die er haette
+  pruefen sollen. Er prueft sie jetzt ausdruecklich.
+- Der Constraint `ended_at > started_at` wies einen Eintrag ohne Dauer ab. Wer
+  sich vergreift und sofort wieder ausstempelt, erzeugt genau den — im Test wie
+  im Betrieb. Jetzt `>=`: eine Null-Dauer ist ehrliche Datenlage, ein roher
+  Constraint-Fehler waere schlechter. Eine Korrektur **von Hand** verlangt
+  weiterhin ein Ende nach dem Beginn, weil es dort ein Tippfehler waere.
+
+### Verifikation
+
+- SQL gegen echtes PostgreSQL in einer eigenen Testvenue; alle sieben Tests des
+  Verzeichnisses bestehen, auch **zusammen mit der PIN-Migration** aus der
+  parallelen Sitzung (temporaer eingelegt, danach wieder entfernt).
+- 498 iOS-Unit-Tests gruen, erster Anlauf.
+- Simulator: einstempeln, Pause (Arbeitszeit steht still, Pausenuhr laeuft),
+  Korrektur eines seit 20 Stunden offenen Eintrags.
+
+### Offen — Migration ist NICHT gepusht
+
+`supabase db push` verweigert: auf der Instanz liegt bereits
+`20260731230000_manager_pin.sql` aus der parallelen Sitzung, deren Datei noch
+in `.claude/worktrees/fervent-lederberg-e1a835` liegt und nicht auf `main` ist.
+Die CLI verlangt eine lueckenlose lokale Historie.
+
+Der von der CLI vorgeschlagene Weg (`migration repair --status reverted
+20260731230000`) waere **falsch**: er wuerde eine tatsaechlich angewendete
+Migration als zurueckgenommen markieren und den Stand der anderen Sitzung
+beschaedigen.
+
+Richtiger Weg: warten, bis die PIN-Arbeit auf `main` ist — dann liegen beide
+Dateien im Baum und der Push ist ein einzelner Aufruf. Die Kombination ist
+lokal bereits belegt.
+
+### Empfohlener naechster Schritt
+
+Nach dem Push: **§9.2 Schichtplanung** — Verfuegbarkeiten, Wochenplanung,
+Vorlagen, Veroeffentlichung, Annahme/Ablehnung/Tausch, Urlaub und Krankheit.
+Das ist der groesste verbleibende Block von Meilenstein 2 und die Voraussetzung
+fuer Soll-/Ist und Ueberstunden (§9.3), die ohne Planung nichts haben, wogegen
+sie vergleichen koennten. Die Domaene dafuer liegt in
+`Features/Workforce/WorkforceTimeModels.swift` und
+`WorkforceShiftLifecycle.swift` bereits vollstaendig und getestet vor.
 
 ## Session-Teil 37: Rollen und Rechte (31. Juli 2026)
 

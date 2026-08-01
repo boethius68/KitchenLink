@@ -61,7 +61,7 @@ DECISIONS.md Guest Web).
 
 ## 2. Migrationen anwenden
 
-Es gibt **19** Migrationen, die in Reihenfolge angewendet werden müssen:
+Es gibt **20** Migrationen, die in Reihenfolge angewendet werden müssen:
 
 | Datei | Zweck |
 |---|---|
@@ -84,11 +84,18 @@ Es gibt **19** Migrationen, die in Reihenfolge angewendet werden müssen:
 | `supabase/migrations/20260731180000_operator_create_venue.sql` | Eigenes Restaurant anlegen, Slug-Vorschlag, eigene Venues (KL-ONBOARD-001) |
 | `supabase/migrations/20260731200000_business_shift.sql` | Betriebsschicht, Bargeldbewegungen, Kassenabschluss und Z-Bericht (KL-SHIFT-001) |
 | `supabase/migrations/20260731220000_roles_and_permissions.sql` | Standardrollen je Venue, fünf Rechte, Personalverwaltung (KL-ROLE-001) |
+| `supabase/migrations/20260801120000_time_clock.sql` | Zeiterfassung: stempeln, Pausen, Korrektur mit Audit (KL-TIME-001) |
 
-> **Stand der Sandbox-Instanz (31. Juli 2026):** alle 19 sind angewendet,
-> `supabase migration list` ist deckungsgleich. Geprüft nach dem Push: keine
-> Tabelle im Schema `public` ohne RLS, sechs aktive Tische, die RPCs
-> `operator_table_check`, `operator_record_payment`,
+> **Stand der Sandbox-Instanz (1. August 2026):** angewendet sind die ersten 19
+> sowie eine Manager-PIN-Migration (`20260731230000`) aus einer parallelen
+> Arbeitslinie. **Offen ist `20260801120000_time_clock.sql`** — sie ist lokal
+> gegen echtes PostgreSQL geprüft, auch zusammen mit der PIN-Migration, aber
+> noch nicht gepusht: `supabase db push` verlangt eine lückenlose lokale
+> Historie, und die PIN-Datei liegt bis zu ihrer Integration in einem anderen
+> Arbeitsbaum. Sobald beide auf `main` sind, ist der Push ein einzelner Aufruf.
+>
+> Zuletzt geprüft: keine Tabelle im Schema `public` ohne RLS, sechs aktive
+> Tische, die RPCs `operator_table_check`, `operator_record_payment`,
 > `operator_mark_station_ready`, `operator_reject_order` und
 > `operator_create_venue` vorhanden. Die Schrittlisten in Abschnitt 6 bleiben
 > für eine frische Instanz gültig.
@@ -574,6 +581,46 @@ alles") wird zu `owner`. Der Spaltendefault für neue Zeilen steht dagegen auf
 (Blueprint §9.1 nennt „besonderes Recht **oder** Manager-PIN"; das Recht allein
 erfüllt die Anforderung, die PIN ist die nächste Scheibe), eigene Rollen,
 Qualifikationen, Mitarbeiterprofile und Rechte über mehrere Standorte.
+
+## 6.10 Zeiterfassung (KL-TIME-001)
+
+Blueprint §9.3, Meilenstein 2 — die erste Hälfte der Personalzeit. Seit
+KL-WORKFORCE-001 lag unter `kitchenlink/Features/Workforce/` eine getestete
+Domäne für Planung und Zeit mit **null Referenzen** aus der App; ihr fehlten
+Persistenz und Oberfläche.
+
+1. Migration `20260801120000_time_clock.sql` anwenden (Abschnitt 2).
+2. **Zeiterfassung** öffnen (Startseite). Der große Knopf stempelt ein und aus.
+3. Während der Schicht **Pause beginnen** und **beenden**; die Arbeitszeit
+   steht still, solange die Pause läuft.
+4. Wer `staff.manage` trägt, sieht darunter, wer gerade auf der Uhr steht, und
+   die abgeschlossenen Einträge des Tages.
+5. Steht jemand seit über zwölf Stunden auf der Uhr, meldet der Bildschirm das
+   als vergessenen Ausstempel und bietet die Korrektur an.
+
+**Semantik:** Blueprint §9 hält drei Fachobjekte getrennt, und das bleibt so —
+die **Betriebsschicht** (`business_shifts`, „die Kasse ist offen"), die
+**geplante Schicht** (noch nicht persistiert, §9.2) und der **Zeiteintrag**
+(„diese Person hat gearbeitet"). Ein Zeiteintrag hängt deshalb nicht an einer
+Betriebsschicht: wer um 15 Uhr die Küche vorbereitet, arbeitet auch dann, wenn
+die Kasse noch zu ist.
+
+Die eigene Zeit zu stempeln braucht **kein** besonderes Recht — die Küche muss
+auf die Uhr kommen, ohne jemanden zu fragen. Die Zeiten *anderer* zu sehen und
+zu korrigieren verlangt `staff.manage`. Ein Nachtdienst zählt zu dem Tag, an
+dem er **begonnen** hat. Pausen gehen von der Arbeitszeit ab; eine laufende
+Pause wird bis jetzt gerechnet, damit die Anzeige nicht weiterläuft.
+
+Eine **Korrektur** (§9.3 „mit Freigabe und Audit") verlangt einen Grund und
+**behält den ursprünglichen Stand**: `original_started_at` und
+`original_ended_at` bleiben stehen, dazu Urheber und Zeitpunkt. Eine zweite
+Korrektur überschreibt den echten Originalwert nicht. Ohne diesen Weg bliebe ein
+vergessener Ausstempel für immer offen — und die Person käme wegen des Index nie
+wieder auf die Uhr.
+
+**Noch nicht enthalten:** Schichtplanung, Verfügbarkeiten, Urlaub und Krankheit
+(§9.2), Soll-/Ist-Vergleich und Überstunden (§9.3 — beides setzt die Planung
+voraus, gegen die verglichen wird), Lohnbuchhaltungsexporte.
 
 ---
 
