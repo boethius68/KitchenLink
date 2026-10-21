@@ -1,11 +1,33 @@
-# KitchenLink
+<p align="center">
+  <img src="docs/design/codex-logo/working-v1/kitchenlink-lockup.svg" alt="KitchenLink Logo" width="420">
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
-[![SwiftUI](https://img.shields.io/badge/SwiftUI-iOS%20%2F%20iPadOS-orange)](https://developer.apple.com/xcode/swiftui/)
-[![Supabase](https://img.shields.io/badge/Backend-Supabase-green)](https://supabase.com)
+<p align="center">
+  <strong>Smartphone-First Restaurant Operating System</strong><br>
+  Native SwiftUI POS • Instant QR Table Ordering • Offline LAN Relay • Supabase Backend
+</p>
 
-**KitchenLink** is a smartphone-first operating system designed for restaurants, bars, and cafes. It bridges the gap between guests, service staff, and the kitchen with a native iOS/iPadOS business app, instant QR-code guest ordering in the browser, and offline-resilient local order dispatching.
+<p align="center">
+  <a href="https://kitchenlink.luneq.eu/alte-muehle/menu"><strong>🚀 Live Guest Sandbox Demo</strong></a>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js-14-black" alt="Next.js"></a>
+  <a href="https://developer.apple.com/xcode/swiftui/"><img src="https://img.shields.io/badge/SwiftUI-iOS%20%2F%20iPadOS-orange" alt="SwiftUI"></a>
+  <a href="https://supabase.com"><img src="https://img.shields.io/badge/Backend-Supabase-green" alt="Supabase"></a>
+  <a href="https://github.com/boethius68/KitchenLink/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen" alt="Contributions Welcome"></a>
+</p>
+
+---
+
+<p align="center">
+  <img src="docs/design/app-direction.png" alt="KitchenLink Preview" width="850">
+</p>
+
+---
+
+**KitchenLink** is a modern, smartphone-first operating system designed for restaurants, bars, and cafes. It bridges the gap between guests, service staff, and the kitchen with a native iOS/iPadOS business app, instant QR-code guest ordering in the browser, and offline-resilient local order dispatching.
 
 > 🇩🇪 **Hinweis für die DACH-Gastronomie:**  
 > KitchenLink wurde gezielt für den europäischen Markt entwickelt — mit lückenloser Auszeichnung aller 14 EU-Allergene, deklarationspflichtiger Zusatzstoffe und robuster Offline-Fähigkeit bei instabilem Restaurant-WLAN.
@@ -74,7 +96,7 @@ npm run dev
 
 Open [http://localhost:3000/alte-muehle/menu](http://localhost:3000/alte-muehle/menu) to view the sample restaurant menu.
 
-To run the verification suite:
+To run the automated verification suite:
 ```bash
 npm run typecheck
 npm run lint
@@ -106,9 +128,13 @@ KitchenLink is being built towards an autonomous, reliable restaurant OS. Canoni
 
 ---
 
-## Contributing
+## Contributing & Good First Issues
 
-Contributions, issues, and feature suggestions are very welcome! Please read our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting pull requests.
+Contributions, issues, and feature suggestions are very welcome! If you want to contribute, check out our beginner-friendly issues:
+
+👉 **[Browse Good First Issues](https://github.com/boethius68/KitchenLink/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)**
+
+Please read our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting pull requests.
 
 ---
 
