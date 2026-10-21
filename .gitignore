@@ -1,23 +1,38 @@
+# OS and Editor
 .DS_Store
+*.swp
+*~
+.idea/
+.vscode/
 
-# Claude Code creates isolated parallel sessions here.
-.claude/worktrees/
+# Environment and secrets (never commit secrets)
+.env*
+!.env.example
 
-# New Claude Design downloads are transient until imported as a numbered round.
-docs/design/claude-design/inbox/*.zip
+# Node / Build artifacts
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
 
+# Xcode and Swift
 *.xcuserstate
 xcuserdata/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+.build/
+DerivedData/
+
+# Claude / Agent workspaces
+.claude/worktrees/
+docs/design/claude-design/inbox/*.zip
+.zcode/
 
 # Supabase CLI local cache (contains project ref + pooler URL; never commit).
 supabase/.temp/
 
-# ZCode agent session state (transient, agent-specific).
-.zcode/
-
-# Python-Cache der Gate-Skripte (transient). Bewusst ohne Pfadpräfix: die
-# frühere Regel deckte `scripts/tests/__pycache__/` nicht ab, und eine .pyc ist
-# so in einen Merge gerutscht.
+# Python cache
 __pycache__/
+*.py[cod]
