@@ -255,4 +255,12 @@ public enum KitchenLinkReservationDateHelper {
         outputFormatter.dateStyle = .medium
         return outputFormatter.string(from: date)
     }
+
+    public static func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        formatter.locale = Locale(identifier: "de_DE")
+        formatter.timeZone = TimeZone(identifier: "Europe/Berlin") ?? .current
+        return formatter.string(from: date)
+    }
 }

@@ -282,6 +282,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2DeliveryView()
+            } label: {
+                operationsRow(
+                    title: "Lieferung",
+                    subtitle: "Fahrerzuweisung · Touren & Status · Sandbox",
+                    systemImage: "bicycle"
+                )
+            }
+            .accessibilityIdentifier("business.openDelivery")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 InventoryOperatorView()
             } label: {
                 operationsRow(

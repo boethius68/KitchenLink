@@ -953,6 +953,21 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   3. Added responsive UI feedback in order summary sheet, wallet payment sheet, and post-order
      confirmation banner specifically tailored for take-away pickup.
   4. Added comprehensive unit tests in `guest-web/__tests__/order-submit.test.ts`.
+- **In-house delivery, driver dispatch & tour management (KL-DELIVERY-001, October 2026):**
+  Blueprint §12 & §6.2 (Meilenstein 3: Eigener Lieferbetrieb, Fahrerzuweisung, Tourenstatus).
+  1. Additive database migration `20261023180000_delivery_orders.sql` adding `delivery_areas` table
+     with postal codes, minimum order requirements, and delivery fees. Added delivery attributes to
+     `orders` (recipient name, phone, address, status, driver reference, dispatch/delivery timestamps,
+     payment method on delivery). Added staff RPCs `operator_list_deliveries`, `operator_assign_delivery_driver`,
+     `operator_update_delivery_status`, and `operator_upsert_delivery_area`.
+  2. Swift delivery domain (`KitchenLinkDeliveryModel.swift`): `KitchenLinkDeliveryStatus` (`pending`, `assigned`,
+     `out_for_delivery`, `delivered`, `failed`), `KitchenLinkDeliveryAddress` with single-line formatting
+     and Apple Maps deep-linking, `KitchenLinkDeliveryOrder`, and `KitchenLinkDeliveryDemoProvider` actor.
+  3. Interactive SwiftUI operator view [`KitchenLinkV2DeliveryView.swift`](file:///Users/test/Developments/kitchenlink-claude/kitchenlink/Features/Delivery/KitchenLinkV2DeliveryView.swift)
+     with tabs for ready/assigned, in-transit, and completed deliveries, active driver summary, driver dispatch
+     sheet, failure reporting sheet, delivery area conditions sheet, and direct map navigation.
+     Integrated into `KitchenLinkV2BusinessHomeView.swift`.
+  4. 7 new Swift unit tests in `KitchenLinkDeliveryTests.swift`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and
