@@ -12,6 +12,7 @@ struct KitchenLinkV2ScheduleView: View {
     @State private var declineReason = ""
     @State private var requestingLeave = false
     @State private var editingRequirements = false
+    @State private var showingEvaluation = false
 
     var body: some View {
         KitchenLinkV2Surface {
@@ -115,6 +116,17 @@ struct KitchenLinkV2ScheduleView: View {
             } onClose: {
                 editingRequirements = false
             }
+        }
+        .sheet(isPresented: $showingEvaluation) {
+            KitchenLinkV2WorkforceEvaluationSheet(
+                evaluation: KitchenLinkTeamWorkforceEvaluation.calculate(
+                    plannedShifts: model.weekDays.flatMap(\.shifts),
+                    timeEntries: []
+                ),
+                onClose: {
+                    showingEvaluation = false
+                }
+            )
         }
         .alert(
             "Schicht ablehnen",
@@ -413,6 +425,15 @@ struct KitchenLinkV2ScheduleView: View {
                 }
 
                 Spacer(minLength: 0)
+
+                Button {
+                    showingEvaluation = true
+                } label: {
+                    Image(systemName: "chart.bar.doc.horizontal")
+                        .frame(width: 32, height: 32)
+                }
+                .accessibilityLabel("Soll-/Ist-Auswertung öffnen")
+                .accessibilityIdentifier("schedule.openEvaluation")
 
                 Button {
                     editingRequirements = true
