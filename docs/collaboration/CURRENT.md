@@ -943,6 +943,16 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      with area filters, status color-coded cards, detail sheet, table transfer sheet, and table merge sheet.
      Integrated via toolbar action in `KitchenLinkV2TablesView.swift`.
   4. 4 new Swift unit tests in `KitchenLinkFloorPlanTests.swift`.
+- **Take-away and scheduled pickup orders in guest-web (KL-OMNI-001, October 2026):**
+  Blueprint §10 & §6.2 (Abholung, Zeitfenster, Omnichannel).
+  1. Extended `guest-web/src/components/GuestMenuCard.tsx` with service mode selection
+     (`🍽️ Im Restaurant` vs `🛍️ Zur Abholung`) and pickup scheduling slots ("sofort (~20 Min.)",
+     "+30 Min.", "+45 Min.", "+60 Min."), guest contact name and phone intake.
+  2. Enforced backend table constraint (`tableToken: null` for pickup orders) while preserving
+     customer pickup note and timestamp in `submitOrder`.
+  3. Added responsive UI feedback in order summary sheet, wallet payment sheet, and post-order
+     confirmation banner specifically tailored for take-away pickup.
+  4. Added comprehensive unit tests in `guest-web/__tests__/order-submit.test.ts`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

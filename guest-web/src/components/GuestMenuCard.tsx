@@ -25,7 +25,7 @@ import {
 import {
   createSupabaseOrderBackend,
 } from "@/lib/order-backend-supabase";
-import { createOrderAttemptID, submitOrder } from "@/lib/order-submit";
+import { createOrderAttemptID, submitOrder, type ServiceMode } from "@/lib/order-submit";
 import {
   acceptedState,
   errorState,
@@ -357,7 +357,7 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
             setConfirmedCart(null);
             setSummaryOpen(false);
           }}
-          onSubmit={async () => {
+          onSubmit={async (options) => {
             const cartAtSubmission = cart;
             const fingerprint = JSON.stringify(
               cartLines(cart)
@@ -375,11 +375,14 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
               };
             }
             setSubmitState(submittingState());
+            const mode = options?.serviceMode ?? (tableToken ? "dine_in" : "pickup");
             const result = await submitOrder({
               venue,
               cart,
               attemptID: orderAttemptRef.current.id,
-              tableToken,
+              serviceMode: mode,
+              customerNote: options?.customerNote ?? "",
+              tableToken: mode === "pickup" ? null : tableToken,
               backend: createSupabaseOrderBackend(),
             });
             if (result.ok) {
@@ -948,7 +951,7 @@ interface OrderSummarySheetProps {
   onDecrementLine: (line: CartLine) => void;
   onIncrementLine: (line: CartLine) => void;
   onClose: () => void;
-  onSubmit: () => void | Promise<void>;
+  onSubmit: (options?: { serviceMode: ServiceMode; customerNote: string }) => void | Promise<void>;
 }
 
 function OrderSummarySheet({
@@ -980,6 +983,18 @@ function OrderSummarySheet({
   const isLocalFallback = localFallbackUrl !== null && !isAccepted;
   const [isWalletOpen, setWalletOpen] = useState(false);
 
+  const [orderMode, setOrderMode] = useState<ServiceMode>(tableLabel ? "dine_in" : "pickup");
+  const [pickupTime, setPickupTime] = useState<string>("sofort (~20 Min.)");
+  const [pickupName, setPickupName] = useState<string>("");
+  const [pickupPhone, setPickupPhone] = useState<string>("");
+
+  const handleFinalSubmit = () => {
+    const note = orderMode === "pickup"
+      ? `Abholung: ${pickupTime}${pickupName.trim() ? ` · Name: ${pickupName.trim()}` : ""}${pickupPhone.trim() ? ` · Tel: ${pickupPhone.trim()}` : ""}`
+      : "";
+    void onSubmit({ serviceMode: orderMode, customerNote: note });
+  };
+
   return (
     <div
       className="kl-sheet-backdrop"
@@ -997,8 +1012,75 @@ function OrderSummarySheet({
         <h2 id="kl-order-summary-title" className="kl-type-section">
           Deine Auswahl
         </h2>
-        {tableLabel && (
+
+        {!isAccepted && (
+          <div style={{ display: "flex", gap: "var(--kl-space-2)", margin: "var(--kl-space-2) 0 var(--kl-space-3)" }}>
+            <button
+              type="button"
+              className={`kl-chip ${orderMode === "dine_in" ? "kl-chip-selected" : ""}`}
+              style={{ fontSize: "0.875rem", minHeight: "2.25rem" }}
+              onClick={() => setOrderMode("dine_in")}
+            >
+              🍽️ Im Restaurant
+            </button>
+            <button
+              type="button"
+              className={`kl-chip ${orderMode === "pickup" ? "kl-chip-selected" : ""}`}
+              style={{ fontSize: "0.875rem", minHeight: "2.25rem" }}
+              onClick={() => setOrderMode("pickup")}
+            >
+              🛍️ Zur Abholung
+            </button>
+          </div>
+        )}
+
+        {orderMode === "dine_in" && tableLabel && (
           <p className="kl-sheet-table kl-type-meta">Für {tableLabel}</p>
+        )}
+
+        {orderMode === "dine_in" && !tableLabel && !isAccepted && (
+          <p className="kl-sheet-note kl-type-secondary" style={{ color: "var(--kl-urgency-waiting-text)", margin: "0 0 var(--kl-space-3)" }}>
+            Kein Tisch-QR gescannt. Bitte vor Ort Tisch scannen oder oben „Zur Abholung“ wählen.
+          </p>
+        )}
+
+        {orderMode === "pickup" && !isAccepted && (
+          <div style={{ margin: "0 0 var(--kl-space-3)", padding: "var(--kl-space-3)", background: "var(--kl-surface-control)", borderRadius: "var(--kl-radius-control)" }}>
+            <span className="kl-form-label" style={{ fontSize: "0.8125rem", marginBottom: "var(--kl-space-1)" }}>
+              Gewünschte Abholzeit
+            </span>
+            <div className="kl-chips-grid" style={{ marginBottom: "var(--kl-space-2)" }}>
+              {["sofort (~20 Min.)", "+30 Min.", "+45 Min.", "+60 Min."].map((slot) => (
+                <button
+                  key={slot}
+                  type="button"
+                  className={`kl-chip ${pickupTime === slot ? "kl-chip-selected" : ""}`}
+                  style={{ fontSize: "0.75rem", minHeight: "1.75rem", padding: "0 var(--kl-space-2)" }}
+                  onClick={() => setPickupTime(slot)}
+                >
+                  {slot}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--kl-space-2)" }}>
+              <input
+                type="text"
+                placeholder="Name für Abholung"
+                value={pickupName}
+                onChange={(e) => setPickupName(e.target.value)}
+                className="kl-text-input"
+                style={{ minHeight: "2.25rem", fontSize: "0.8125rem" }}
+              />
+              <input
+                type="tel"
+                placeholder="Telefon (optional)"
+                value={pickupPhone}
+                onChange={(e) => setPickupPhone(e.target.value)}
+                className="kl-text-input"
+                style={{ minHeight: "2.25rem", fontSize: "0.8125rem" }}
+              />
+            </div>
+          </div>
         )}
         <ul className="kl-sheet-lines">
           {lines.map(({ line, item }) => {
@@ -1072,7 +1154,7 @@ function OrderSummarySheet({
           </p>
         )}
 
-        <SubmitStatusRow submitState={submitState} />
+        <SubmitStatusRow submitState={submitState} orderMode={orderMode} />
 
         <div className="kl-sheet-actions">
           {!isAccepted && !isLocalFallback && lines.length > 0 && (
@@ -1084,9 +1166,9 @@ function OrderSummarySheet({
           <button
             type="button"
             className="kl-primary-button kl-type-button"
-            onClick={onSubmit}
+            onClick={handleFinalSubmit}
             disabled={
-              isSubmitting || isAccepted || isLocalFallback || lines.length === 0
+              isSubmitting || isAccepted || isLocalFallback || lines.length === 0 || (orderMode === "dine_in" && !tableLabel)
             }
           >
             {isSubmitting
@@ -1095,7 +1177,9 @@ function OrderSummarySheet({
                 ? "Bestellung eingegangen ✓"
                 : isLocalFallback
                   ? "Online-Bestellung nicht möglich"
-                  : "Sandbox-Bestellung senden"}
+                  : orderMode === "pickup"
+                    ? "Zur Abholung bestellen"
+                    : "Sandbox-Bestellung senden"}
           </button>
           <button
             type="button"
@@ -1111,23 +1195,30 @@ function OrderSummarySheet({
 
       <WalletPaymentSheet
         venueName={venue.name}
-        tableLabel={tableLabel}
+        tableLabel={orderMode === "pickup" ? "Abholung" : tableLabel}
         totalCents={totalCents}
         isOpen={isWalletOpen}
         isSubmitting={isSubmitting}
         onClose={() => setWalletOpen(false)}
-        onConfirm={async () => {
+        onConfirm={() => {
           setWalletOpen(false);
-          await onSubmit();
+          handleFinalSubmit();
         }}
       />
     </div>
   );
 }
 
-function SubmitStatusRow({ submitState }: { submitState: SubmitUiState }) {
+function SubmitStatusRow({
+  submitState,
+  orderMode,
+}: {
+  submitState: SubmitUiState;
+  orderMode?: ServiceMode;
+}) {
   if (submitState.kind === "accepted") {
     const ack = submitState.ack;
+    const isPickup = orderMode === "pickup";
     return (
       // Prominente Erfolgsbestaetigung (eigene Flaeche, nicht die graue Notiz).
       // Bewusst KEINE Zitrone (die bleibt dem CTA vorbehalten, §5/§9): die
@@ -1135,9 +1226,13 @@ function SubmitStatusRow({ submitState }: { submitState: SubmitUiState }) {
       <div className="kl-confirmation" role="status" aria-live="polite">
         <div className="kl-confirmation-check" aria-hidden="true">✓</div>
         <div className="kl-confirmation-body">
-          <p className="kl-confirmation-title kl-type-section">Bestellung eingegangen</p>
+          <p className="kl-confirmation-title kl-type-section">
+            {isPickup ? "Abholbestellung eingegangen" : "Bestellung eingegangen"}
+          </p>
           <p className="kl-confirmation-meta kl-type-secondary">
-            Bestellnummer: <span className="kl-tabular">{ack.orderId.slice(0, 8)}</span>
+            {isPickup
+              ? "Deine Speisen werden frisch zur Abholung vorbereitet."
+              : `Bestellnummer: ${ack.orderId.slice(0, 8)}`}
             {ack.idempotentReplay ? " · idempotente Wiederholung" : ""}
           </p>
           <p className="kl-confirmation-status kl-type-meta">

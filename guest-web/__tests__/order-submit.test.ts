@@ -284,4 +284,31 @@ describe("submitOrder", () => {
     });
     if (!result.ok) expect(result.code).toBe("rpc_error");
   });
+
+  it("übermittelt Service-Modus pickup mit Abholnotiz an das Backend", async () => {
+    const rpcSpy = vi.fn().mockResolvedValue(okRow());
+    const backend: OrderBackend = {
+      signInAnonymously: vi.fn().mockResolvedValue(undefined),
+      submitOrderRpc: rpcSpy,
+    };
+
+    const result = await submitOrder({
+      venue,
+      attemptID: "attempt-pickup",
+      cart: cartWith(["kuerbissuppe", 1]),
+      serviceMode: "pickup",
+      customerNote: "Abholung um 19:30 Uhr · Maria",
+      tableToken: null,
+      backend,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceMode: "pickup",
+        customerNote: "Abholung um 19:30 Uhr · Maria",
+        tableToken: null,
+      }),
+    );
+  });
 });
