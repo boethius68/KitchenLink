@@ -47,6 +47,7 @@ import {
 import { getSupabase } from "@/lib/supabase-client";
 import type { GuestAllergen, GuestMenuItem, GuestVenue } from "@/lib/venue-data";
 import { ThemeToggle } from "./ThemeToggle";
+import { WalletPayButton, WalletPaymentSheet } from "./WalletPaymentSheet";
 
 interface GuestMenuCardProps {
   venue: GuestVenue;
@@ -969,6 +970,7 @@ function OrderSummarySheet({
   // Submit wird gesperrt und der lokale Weg angeboten (eine bereits
   // bestaetigte Bestellung bleibt unveraendert sichtbar).
   const isLocalFallback = localFallbackUrl !== null && !isAccepted;
+  const [isWalletOpen, setWalletOpen] = useState(false);
 
   return (
     <div
@@ -1065,6 +1067,12 @@ function OrderSummarySheet({
         <SubmitStatusRow submitState={submitState} />
 
         <div className="kl-sheet-actions">
+          {!isAccepted && !isLocalFallback && lines.length > 0 && (
+            <WalletPayButton
+              onClick={() => setWalletOpen(true)}
+              disabled={isSubmitting}
+            />
+          )}
           <button
             type="button"
             className="kl-primary-button kl-type-button"
@@ -1092,6 +1100,19 @@ function OrderSummarySheet({
           </button>
         </div>
       </div>
+
+      <WalletPaymentSheet
+        venueName={venue.name}
+        tableLabel={tableLabel}
+        totalCents={totalCents}
+        isOpen={isWalletOpen}
+        isSubmitting={isSubmitting}
+        onClose={() => setWalletOpen(false)}
+        onConfirm={async () => {
+          setWalletOpen(false);
+          await onSubmit();
+        }}
+      />
     </div>
   );
 }
