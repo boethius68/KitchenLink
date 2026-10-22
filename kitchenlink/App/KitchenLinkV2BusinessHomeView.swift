@@ -268,6 +268,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2ReservationsView()
+            } label: {
+                operationsRow(
+                    title: "Reservierungen",
+                    subtitle: "Tagesübersicht · Tischzuweisung · Telefonannahme",
+                    systemImage: "calendar"
+                )
+            }
+            .accessibilityIdentifier("business.openReservations")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 InventoryOperatorView()
             } label: {
                 operationsRow(

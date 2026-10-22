@@ -910,6 +910,18 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
 - **RFC 4180 CSV Export (KL-OPS-002, October 2026 / Issue #39):**
   `KitchenLinkCSVExporter` for closed orders and shift close totals with UTF-8 BOM
   for Excel compatibility and standard iOS `ShareLink` toolbar integration.
+- **Table reservations and operator seating (KL-RES-001, October 2026):**
+  Blueprint §10 (Milestone 3: Reservierung und Omnichannel).
+  1. Additive database migration `20261023120000_table_reservations.sql` creating `table_reservations`
+     with RLS, `guest_web_create_reservation` RPC generating 6-digit confirmation codes (`KL-XXXXXX`),
+     and staff RPCs `operator_list_reservations` and `operator_update_reservation_status`.
+  2. Guest-Web reservation domain (`guest-web/src/lib/reservation.ts`), validation rules,
+     simulated & Supabase backends, and full interactive UI (`ReservationForm.tsx` & `/[venueSlug]/reserve/page.tsx`).
+     Connected with header link on menu page. 12 new unit tests.
+  3. iOS reservation domain (`KitchenLinkReservationModel.swift`) with live status transitions
+     (`confirmed` -> `seated` -> `completed` / `no_show` / `cancelled`), table assignment, and phone
+     reservation creation (`KitchenLinkNewReservationSheet`). Integrated into `KitchenLinkV2BusinessHomeView.swift`.
+     7 new Swift unit tests.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

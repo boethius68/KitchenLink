@@ -1114,3 +1114,126 @@ button {
   border-radius: var(--kl-radius-card);
   text-decoration: none;
 }
+
+/* ==========================================================================
+   Tischreservierung (KL-RES-001, Blueprint §10)
+   ========================================================================== */
+.kl-reservation-card {
+  background: var(--kl-surface-card);
+  border-radius: var(--kl-radius-card);
+  padding: var(--kl-space-4);
+  border: 1px solid var(--kl-border-subtle);
+  margin-top: var(--kl-space-4);
+  margin-bottom: var(--kl-space-4);
+}
+
+.kl-form-group {
+  margin-bottom: var(--kl-space-4);
+}
+
+.kl-form-label {
+  display: block;
+  font-weight: 700;
+  color: var(--kl-text-primary);
+  margin-bottom: var(--kl-space-2);
+}
+
+.kl-form-hint {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--kl-text-secondary);
+  margin-top: var(--kl-space-1);
+}
+
+.kl-form-error {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--kl-urgency-critical-text);
+  margin-top: var(--kl-space-1);
+}
+
+.kl-text-input,
+.kl-textarea,
+.kl-select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--kl-space-2) var(--kl-space-3);
+  border: 1px solid var(--kl-border-control);
+  border-radius: var(--kl-radius-control);
+  background: var(--kl-surface-control);
+  color: var(--kl-text-primary);
+  font: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.kl-textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.kl-text-input:focus,
+.kl-textarea:focus,
+.kl-select:focus {
+  outline: 2px solid var(--kl-focus-ring);
+  outline-offset: 1px;
+}
+
+.kl-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kl-space-2);
+}
+
+.kl-chip {
+  min-height: 2.5rem;
+  padding: 0 var(--kl-space-3);
+  border: 1px solid var(--kl-border-control);
+  border-radius: var(--kl-radius-control);
+  background: var(--kl-surface-control);
+  color: var(--kl-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.kl-chip:active {
+  transform: scale(0.97);
+}
+
+.kl-chip-selected {
+  background: var(--kl-brand-grape);
+  color: var(--kl-content-light);
+  border-color: var(--kl-brand-grape);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .kl-chip-selected {
+  background: var(--kl-brand-lemon);
+  color: var(--kl-brand-grape);
+  border-color: var(--kl-brand-lemon);
+}
+
+.kl-reservation-ref-code {
+  font-family: monospace;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: var(--kl-space-2) var(--kl-space-3);
+  background: var(--kl-surface-dark-raised);
+  color: var(--kl-brand-lemon);
+  border-radius: var(--kl-radius-compact);
+  display: inline-block;
+  margin: var(--kl-space-2) 0;
+}
+
+.kl-banner-error {
+  background: var(--kl-surface-card);
+  border-left: 4px solid var(--kl-urgency-critical-symbol);
+  padding: var(--kl-space-3) var(--kl-space-4);
+  border-radius: var(--kl-radius-control);
+  color: var(--kl-urgency-critical-text);
+  margin-bottom: var(--kl-space-4);
+}
+

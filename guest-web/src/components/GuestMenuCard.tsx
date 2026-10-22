@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   cartLines,
   type Cart,
@@ -214,6 +215,13 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
           <h1 className="kl-type-display">{venue.name}</h1>
           <div className="kl-venue-header-actions">
             <ThemeToggle />
+            <Link
+              href={`/${venue.slug}/reserve`}
+              className="kl-badge kl-badge-on-dark kl-type-meta"
+              style={{ textDecoration: "none" }}
+            >
+              Reservieren
+            </Link>
             <span className="kl-badge kl-badge-on-dark kl-type-meta">
               {venue.isOpen ? "geöffnet" : "geschlossen"}
             </span>
