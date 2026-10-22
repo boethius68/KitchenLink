@@ -67,14 +67,53 @@
 }
 
 /*
- * Kein automatischer Seitenwechsel auf Dunkel: Jeder verifizierte Round-04-
- * Referenzscreen zeigt das Gast-Web hell mit einem immer-Traube-Kopf (§9,
- * "Restaurant fuehrt"); nur die Kueche ist "immer Tief" (§9 Kueche), das
- * Gast-Web nicht. Die Dringlichkeits-Tokens bleiben fuer eine spaetere
- * Bestellverfolgung dunkel-faehig, ohne die Seite selbst umzuschalten.
+ * Dark Mode Token Overrides:
+ * Aktivierbar durch [data-theme="dark"] am Root-Element oder automatisch
+ * über das Betriebssystem, sofern nicht explizit [data-theme="light"] gewählt ist.
  */
+[data-theme="dark"] {
+  --kl-surface-base: #181320;
+  --kl-surface-raised: #241c2f;
+  --kl-surface-recessed: #2f253d;
+  --kl-surface-dark-raised: #3c324c;
+  --kl-content-light: #f1eff7;
+
+  --kl-text-primary: #f5f3f9;
+  --kl-text-secondary: #c5bfd8;
+  --kl-text-muted: #9e97b3;
+  --kl-border-subtle: rgba(241, 239, 247, 0.14);
+  --kl-border-control: #8f88a4;
+  --kl-focus-ring: #b6cc1b;
+
+  --kl-urgency-fresh-symbol: #3fa96d;
+  --kl-urgency-fresh-text: #5bc088;
+  --kl-urgency-neutral-symbol: #9a94ae;
+  --kl-urgency-neutral-text: #b4aec6;
+  --kl-urgency-waiting-symbol: #d79a2a;
+  --kl-urgency-waiting-text: #e9b84a;
+  --kl-urgency-critical-symbol: #ef6e64;
+  --kl-urgency-critical-text: #ef6e64;
+
+  --kl-surface-page: var(--kl-surface-base);
+  --kl-surface-card: var(--kl-surface-raised);
+  --kl-surface-control: var(--kl-surface-recessed);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    --kl-surface-base: #181320;
+    --kl-surface-raised: #241c2f;
+    --kl-surface-recessed: #2f253d;
+    --kl-surface-dark-raised: #3c324c;
+    --kl-content-light: #f1eff7;
+
+    --kl-text-primary: #f5f3f9;
+    --kl-text-secondary: #c5bfd8;
+    --kl-text-muted: #9e97b3;
+    --kl-border-subtle: rgba(241, 239, 247, 0.14);
+    --kl-border-control: #8f88a4;
+    --kl-focus-ring: #b6cc1b;
+
     --kl-urgency-fresh-symbol: #3fa96d;
     --kl-urgency-fresh-text: #5bc088;
     --kl-urgency-neutral-symbol: #9a94ae;
@@ -83,5 +122,9 @@
     --kl-urgency-waiting-text: #e9b84a;
     --kl-urgency-critical-symbol: #ef6e64;
     --kl-urgency-critical-text: #ef6e64;
+
+    --kl-surface-page: var(--kl-surface-base);
+    --kl-surface-card: var(--kl-surface-raised);
+    --kl-surface-control: var(--kl-surface-recessed);
   }
 }

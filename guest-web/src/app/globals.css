@@ -112,6 +112,39 @@ button {
   margin: 0 auto;
 }
 
+.kl-venue-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--kl-space-2);
+  flex: none;
+}
+
+.kl-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  border-radius: 999px;
+  background: var(--kl-surface-dark-raised);
+  color: var(--kl-content-light);
+  border: 1px solid var(--kl-border-subtle-inverse);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.kl-theme-toggle:active {
+  transform: scale(0.92);
+}
+
+.kl-theme-toggle svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
 .kl-venue-header h1 {
   margin: 0;
 }

@@ -46,6 +46,7 @@ import {
 } from "@/lib/table-context";
 import { getSupabase } from "@/lib/supabase-client";
 import type { GuestAllergen, GuestMenuItem, GuestVenue } from "@/lib/venue-data";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface GuestMenuCardProps {
   venue: GuestVenue;
@@ -210,9 +211,12 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
       <header className="kl-venue-header">
         <div className="kl-venue-header-top">
           <h1 className="kl-type-display">{venue.name}</h1>
-          <span className="kl-badge kl-badge-on-dark kl-type-meta">
-            {venue.isOpen ? "geöffnet" : "geschlossen"}
-          </span>
+          <div className="kl-venue-header-actions">
+            <ThemeToggle />
+            <span className="kl-badge kl-badge-on-dark kl-type-meta">
+              {venue.isOpen ? "geöffnet" : "geschlossen"}
+            </span>
+          </div>
         </div>
         <p className="kl-venue-header-context kl-type-secondary">
           {tableLabel ?? "Speisekarte"}

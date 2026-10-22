@@ -19,7 +19,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de">
+    <html lang="de" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("kitchenlink-theme");var m=window.matchMedia("(prefers-color-scheme: dark)").matches;var theme=t||(m?"dark":"light");document.documentElement.setAttribute("data-theme",theme);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body>
         <div className="kl-sandbox-banner kl-type-meta" role="status">
           Sandbox – keine echten Bestellungen, keine Zahlungen
