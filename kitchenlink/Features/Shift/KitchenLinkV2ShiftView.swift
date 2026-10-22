@@ -93,6 +93,21 @@ struct KitchenLinkV2ShiftView: View {
         .navigationTitle("Kasse")
         .navigationBarTitleDisplayMode(.inline)
         .tint(KitchenLinkV2Palette.Content.primary)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ShareLink(
+                    item: KitchenLinkCSVExporter.exportShiftSummaryCSV(
+                        shift: model.report.shift,
+                        totals: model.totals
+                    ),
+                    preview: SharePreview("Kassenbericht.csv")
+                ) {
+                    Label("CSV", systemImage: "square.and.arrow.up")
+                        .font(KitchenLinkV2Typography.compactSection)
+                }
+                .accessibilityIdentifier("shift.export_csv")
+            }
+        }
         .task { await model.load() }
         .sheet(isPresented: $showsCloseSheet) { closeSheet }
         .sheet(item: $pinRequest) { request in
