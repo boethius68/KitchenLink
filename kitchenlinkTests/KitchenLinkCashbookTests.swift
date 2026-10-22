@@ -94,4 +94,35 @@ final class KitchenLinkCashbookTests: XCTestCase {
         XCTAssertEqual(entry.formattedAmount, "-23.80 €")
         XCTAssertEqual(entry.formattedTax, "19% MwSt (3.80 €)")
     }
+
+    func testDATEVExportFormat() async throws {
+        let provider = KitchenLinkCashbookDemoProvider()
+        let entries = try await provider.loadCashbook()
+
+        let csv = KitchenLinkFiscalExporter.exportDATEVBuchungsstapel(entries: entries)
+
+        XCTAssertTrue(csv.contains("\"EXTF\";700;21;\"Buchungsstapel\""))
+        XCTAssertTrue(csv.contains("Umsatz (ohne Soll/Haben-Kz);Soll/Haben-Kennzeichen"))
+        // Check presence of cash register account 1000 and revenue account 8400/8300
+        XCTAssertTrue(csv.contains(";1000;"))
+        XCTAssertTrue(csv.contains(";8400;"))
+        XCTAssertTrue(csv.contains(";4900;")) // expense account
+    }
+
+    func testDSFinVKExportFormat() async throws {
+        let provider = KitchenLinkCashbookDemoProvider()
+        let entries = try await provider.loadCashbook()
+        let tseTxs = try await provider.loadTSETransactions()
+
+        let exportText = KitchenLinkFiscalExporter.exportDSFinVK(
+            entries: entries,
+            tseTransactions: tseTxs
+        )
+
+        XCTAssertTrue(exportText.contains("DSFinV-K KASSENPRUEFEXPORT V2.3"))
+        XCTAssertTrue(exportText.contains("[TSE_STAMMDATEN]"))
+        XCTAssertTrue(exportText.contains("TSE-KL-DEMO-001;ECDSA-plain-SHA256"))
+        XCTAssertTrue(exportText.contains("[TRANSAKTIONEN]"))
+        XCTAssertTrue(exportText.contains("[KASSENBUCH_BEWEGUNGEN]"))
+    }
 }

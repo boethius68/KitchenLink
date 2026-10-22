@@ -61,6 +61,26 @@ public struct KitchenLinkV2CashbookView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: KitchenLinkV2Spacing.small) {
+                    Menu {
+                        ShareLink(
+                            item: KitchenLinkFiscalExporter.exportDATEVBuchungsstapel(entries: entries),
+                            preview: SharePreview("DATEV_Buchungsstapel.csv")
+                        ) {
+                            Label("DATEV Buchungsstapel", systemImage: "doc.text")
+                        }
+
+                        ShareLink(
+                            item: KitchenLinkFiscalExporter.exportDSFinVK(entries: entries, tseTransactions: tseTransactions),
+                            preview: SharePreview("DSFinV-K_Pruefprotokoll.txt")
+                        ) {
+                            Label("DSFinV-K Kassenprüfung", systemImage: "lock.shield")
+                        }
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .accessibilityIdentifier("cashbook.fiscal_export_menu")
+
                     Button {
                         Task { await reloadData() }
                     } label: {

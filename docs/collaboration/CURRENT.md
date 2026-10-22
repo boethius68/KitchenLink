@@ -1054,7 +1054,10 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      - New cash deposit sheet (`KitchenLinkNewDepositSheet`).
      - TSE inspector sheet (`KitchenLinkTSEInspectorSheet`) with DSFinV-K receipt footer preview and QR string sharing.
      - Integrated into `KitchenLinkV2BusinessHomeView.swift` and `KitchenLinkV2ShiftView.swift`.
-  4. 5 new Swift unit tests in `KitchenLinkCashbookTests.swift`.
+  4. DATEV- & DSFinV-K-Testexport (`KitchenLinkFiscalExporter.swift`):
+     - `exportDATEVBuchungsstapel`: Standard EXTF 700 format with SKR03 accounts (1000 Kasse, 8400 19% Erlöse, 8300 7% Erlöse, 4900 Aufwand).
+     - `exportDSFinVK`: Kassenprüfexport nach § 146b AO mit TSE-Stammdaten, Signaturzählern, Bonzeilen und DSFinV-K-Prüfstring.
+  5. 7 new Swift unit tests in `KitchenLinkCashbookTests.swift`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and
