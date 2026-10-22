@@ -922,6 +922,16 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      (`confirmed` -> `seated` -> `completed` / `no_show` / `cancelled`), table assignment, and phone
      reservation creation (`KitchenLinkNewReservationSheet`). Integrated into `KitchenLinkV2BusinessHomeView.swift`.
      7 new Swift unit tests.
+- **Walk-ins, waitlist and seating turnover (KL-RES-002, October 2026):**
+  Blueprint §10 (Warteliste, Walk-ins, Aufenthaltsdauer und Folgebelegung).
+  1. Additive database migration `20261023140000_waitlist_walkins.sql` creating `table_waitlist_entries`
+     with RLS, staff RPCs `operator_add_waitlist_entry`, `operator_list_waitlist`, and `operator_update_waitlist_status`.
+  2. Swift waitlist domain (`KitchenLinkWaitlistModel.swift`): `KitchenLinkWaitlistStatus` (`waiting`, `notified`,
+     `seated`, `cancelled`), elapsed wait time tracking, overdue flagging, and `KitchenLinkSeatingTurnoverHelper`
+     (90-minute standard seating duration projection).
+  3. Integrated into `KitchenLinkV2ReservationsView.swift` with tab navigation between reservations and live waitlist,
+     `KitchenLinkNewWaitlistSheet` for staff entry of walk-ins, and direct seating/notification actions.
+  4. 7 new Swift unit tests in `KitchenLinkWaitlistTests.swift`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

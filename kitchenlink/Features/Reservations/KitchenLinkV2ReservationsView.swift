@@ -1,13 +1,32 @@
 import SwiftUI
 
-/// KL-RES-001: Reservierungsübersicht & Tischzuweisung für den Service (Blueprint §10).
+/// KL-RES-001 & KL-RES-002: Reservierungsübersicht, Tischzuweisung & Warteliste (Blueprint §10).
 public struct KitchenLinkV2ReservationsView: View {
     @State private var provider: KitchenLinkReservationsProviding = KitchenLinkReservationsDemoProvider()
+    @State private var waitlistProvider: KitchenLinkWaitlistProviding = KitchenLinkWaitlistDemoProvider()
+
+    public enum SectionMode: String, CaseIterable, Identifiable {
+        case reservations = "Reservierungen"
+        case waitlist = "Warteliste"
+
+        public var id: String { rawValue }
+    }
+
+    @State private var sectionMode: SectionMode = .reservations
+
+    // Reservierungs-Status
     @State private var reservations: [KitchenLinkReservation] = []
     @State private var selectedDate: String = KitchenLinkReservationDateHelper.todayDateString()
     @State private var selectedFilter: ReservationFilter = .all
     @State private var showNewReservationSheet: Bool = false
     @State private var selectedReservationForSeating: KitchenLinkReservation? = nil
+
+    // Wartelisten-Status
+    @State private var waitlistEntries: [KitchenLinkWaitlistEntry] = []
+    @State private var showNewWaitlistSheet: Bool = false
+    @State private var selectedWaitlistForSeating: KitchenLinkWaitlistEntry? = nil
+
+    // Gemeinsame Tischzuweisung
     @State private var assigningTableNumber: String = ""
     @State private var isLoading: Bool = false
     @State private var errorMessage: String? = nil
@@ -21,30 +40,47 @@ public struct KitchenLinkV2ReservationsView: View {
         public var id: String { rawValue }
     }
 
-    public init(provider: KitchenLinkReservationsProviding? = nil) {
+    public init(
+        provider: KitchenLinkReservationsProviding? = nil,
+        waitlistProvider: KitchenLinkWaitlistProviding? = nil
+    ) {
         if let customProvider = provider {
             _provider = State(initialValue: customProvider)
+        }
+        if let customWaitlist = waitlistProvider {
+            _waitlistProvider = State(initialValue: customWaitlist)
         }
     }
 
     public var body: some View {
         ScrollView {
             VStack(spacing: KitchenLinkV2Spacing.large) {
-                dateSelector
-                summaryBar
-                filterChips
-                reservationList
+                modeSegmentedPicker
+
+                if sectionMode == .reservations {
+                    dateSelector
+                    summaryBar
+                    filterChips
+                    reservationList
+                } else {
+                    waitlistSummaryBar
+                    waitlistList
+                }
             }
             .padding(.horizontal, KitchenLinkV2Spacing.large)
             .padding(.vertical, KitchenLinkV2Spacing.medium)
         }
         .background(KitchenLinkV2Palette.Surface.base.ignoresSafeArea())
-        .navigationTitle("Reservierungen")
+        .navigationTitle(sectionMode == .reservations ? "Reservierungen" : "Warteliste")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    showNewReservationSheet = true
+                    if sectionMode == .reservations {
+                        showNewReservationSheet = true
+                    } else {
+                        showNewWaitlistSheet = true
+                    }
                 } label: {
                     Label("Neu", systemImage: "plus")
                         .font(.system(size: 15, weight: .semibold))
@@ -52,6 +88,9 @@ public struct KitchenLinkV2ReservationsView: View {
             }
         }
         .task(id: selectedDate) {
+            await reloadData()
+        }
+        .task(id: sectionMode) {
             await reloadData()
         }
         .sheet(isPresented: $showNewReservationSheet) {
@@ -62,19 +101,30 @@ public struct KitchenLinkV2ReservationsView: View {
                 Task { await reloadData() }
             }
         }
+        .sheet(isPresented: $showNewWaitlistSheet) {
+            KitchenLinkNewWaitlistSheet(
+                provider: waitlistProvider
+            ) {
+                Task { await reloadData() }
+            }
+        }
         .alert(
             "Tisch zuweisen & Gäste platzieren",
             isPresented: Binding(
-                get: { selectedReservationForSeating != nil },
-                set: { if !$0 { selectedReservationForSeating = nil } }
+                get: { selectedReservationForSeating != nil || selectedWaitlistForSeating != nil },
+                set: { if !$0 {
+                    selectedReservationForSeating = nil
+                    selectedWaitlistForSeating = nil
+                }}
             )
         ) {
             TextField("Tischnummer (z. B. 4)", text: $assigningTableNumber)
                 .keyboardType(.numberPad)
             Button("Platzieren") {
+                let table = assigningTableNumber.trimmingCharacters(in: .whitespaces)
+                let tableID = table.isEmpty ? nil : table
+
                 if let res = selectedReservationForSeating {
-                    let table = assigningTableNumber.trimmingCharacters(in: .whitespaces)
-                    let tableID = table.isEmpty ? nil : table
                     Task {
                         try? await provider.updateStatus(
                             reservationID: res.id,
@@ -85,18 +135,65 @@ public struct KitchenLinkV2ReservationsView: View {
                         selectedReservationForSeating = nil
                         assigningTableNumber = ""
                     }
+                } else if let wait = selectedWaitlistForSeating {
+                    Task {
+                        try? await waitlistProvider.updateStatus(
+                            entryID: wait.id,
+                            status: .seated,
+                            tableID: tableID
+                        )
+                        await reloadData()
+                        selectedWaitlistForSeating = nil
+                        assigningTableNumber = ""
+                    }
                 }
             }
             Button("Abbrechen", role: .cancel) {
                 selectedReservationForSeating = nil
+                selectedWaitlistForSeating = nil
                 assigningTableNumber = ""
             }
         } message: {
             if let res = selectedReservationForSeating {
                 Text("Gäste \(res.guestName) (\(res.partySize) Personen) auf welchen Tisch platzieren?")
+            } else if let wait = selectedWaitlistForSeating {
+                Text("Walk-in \(wait.guestName) (\(wait.partySize) Personen) auf welchen Tisch platzieren?")
             }
         }
     }
+
+    private var modeSegmentedPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(SectionMode.allCases) { mode in
+                let isSelected = sectionMode == mode
+                Button {
+                    sectionMode = mode
+                } label: {
+                    Text(mode.rawValue)
+                        .font(.system(size: 14, weight: isSelected ? .bold : .medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            isSelected ? KitchenLinkV2Palette.Brand.grape : Color.clear,
+                            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control - 2, style: .continuous)
+                        )
+                        .foregroundStyle(
+                            isSelected ? Color.white : KitchenLinkV2Palette.Content.primary
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(
+            KitchenLinkV2Palette.Surface.recessed,
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+        )
+    }
+
+    // =========================================================================
+    // RESERVIERUNGEN BEREICH
+    // =========================================================================
 
     private var dateSelector: some View {
         HStack(spacing: KitchenLinkV2Spacing.small) {
@@ -404,11 +501,226 @@ public struct KitchenLinkV2ReservationsView: View {
         }
     }
 
+    // =========================================================================
+    // WARTELISTE BEREICH (KL-RES-002)
+    // =========================================================================
+
+    private var waitlistSummaryBar: some View {
+        HStack(spacing: KitchenLinkV2Spacing.large) {
+            let totalWaitingGuests = waitlistEntries.reduce(0) { $0 + $1.partySize }
+            let notifiedCount = waitlistEntries.filter { $0.status == .notified }.count
+            let overdueCount = waitlistEntries.filter { $0.isOverdue() }.count
+
+            summaryItem(label: "Wartende Gäste", value: "\(totalWaitingGuests)")
+            Divider().frame(height: 24)
+            summaryItem(label: "Benachrichtigt", value: "\(notifiedCount)")
+            Divider().frame(height: 24)
+            summaryItem(label: "Überfällig", value: "\(overdueCount)")
+        }
+        .padding(KitchenLinkV2Spacing.medium)
+        .frame(maxWidth: .infinity)
+        .background(
+            KitchenLinkV2Palette.Surface.raised,
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+        }
+    }
+
+    private var waitlistList: some View {
+        VStack(spacing: KitchenLinkV2Spacing.medium) {
+            if waitlistEntries.isEmpty {
+                VStack(spacing: KitchenLinkV2Spacing.small) {
+                    Image(systemName: "person.2.badge.gearshape")
+                        .font(.system(size: 36))
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    Text("Warteliste ist leer")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Zurzeit warten keine spontanen Gäste auf einen Tisch.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.vertical, KitchenLinkV2Spacing.xxLarge)
+            } else {
+                ForEach(waitlistEntries) { entry in
+                    waitlistCard(entry)
+                }
+            }
+        }
+    }
+
+    private func waitlistCard(_ entry: KitchenLinkWaitlistEntry) -> some View {
+        VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: KitchenLinkV2Spacing.small) {
+                        Text("\(entry.partySize) \(entry.partySize == 1 ? "Gast" : "Gäste")")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+
+                        Text("· Wartezeit ca. \(entry.estimatedWaitMinutes) Min.")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    }
+
+                    Text(entry.guestName)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                }
+
+                Spacer()
+
+                waitlistStatusBadge(entry)
+            }
+
+            HStack(spacing: KitchenLinkV2Spacing.small) {
+                Label(entry.area, systemImage: "mappin.and.ellipse")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+
+                if let phone = entry.guestPhone, !phone.isEmpty {
+                    Text("·")
+                    Label(phone, systemImage: "phone")
+                        .font(.system(size: 13))
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                }
+
+                Spacer()
+
+                let elapsed = entry.elapsedMinutes()
+                Text("wartet seit \(elapsed) Min.")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(
+                        entry.isOverdue()
+                            ? KitchenLinkV2Palette.Urgency.criticalText
+                            : KitchenLinkV2Palette.Content.secondary
+                    )
+            }
+
+            if let notes = entry.notes, !notes.isEmpty {
+                HStack(alignment: .top, spacing: KitchenLinkV2Spacing.small) {
+                    Image(systemName: "note.text")
+                        .font(.system(size: 13))
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    Text(notes)
+                        .font(.system(size: 13))
+                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                }
+                .padding(KitchenLinkV2Spacing.small)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    KitchenLinkV2Palette.Surface.recessed,
+                    in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.compact, style: .continuous)
+                )
+            }
+
+            // Aktionen
+            HStack(spacing: KitchenLinkV2Spacing.small) {
+                Button {
+                    selectedWaitlistForSeating = entry
+                } label: {
+                    Text("Tisch zuweisen & platzieren")
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            KitchenLinkV2Palette.Action.persistentPrimary,
+                            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                        )
+                        .foregroundStyle(KitchenLinkV2Palette.Brand.grape)
+                }
+                .buttonStyle(.plain)
+
+                if entry.status == .waiting {
+                    Button {
+                        Task {
+                            try? await waitlistProvider.updateStatus(
+                                entryID: entry.id,
+                                status: .notified,
+                                tableID: nil
+                            )
+                            await reloadData()
+                        }
+                    } label: {
+                        Text("Benachrichtigen")
+                            .font(.system(size: 13, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                KitchenLinkV2Palette.Surface.recessed,
+                                in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                            )
+                            .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button {
+                    Task {
+                        try? await waitlistProvider.updateStatus(
+                            entryID: entry.id,
+                            status: .cancelled,
+                            tableID: nil
+                        )
+                        await reloadData()
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(
+                            KitchenLinkV2Palette.Surface.recessed,
+                            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                        )
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(KitchenLinkV2Spacing.medium)
+        .background(
+            KitchenLinkV2Palette.Surface.raised,
+            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
+                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+        }
+    }
+
+    private func waitlistStatusBadge(_ entry: KitchenLinkWaitlistEntry) -> some View {
+        let title = entry.status.title
+        let isNotified = entry.status == .notified
+        let isOverdue = entry.isOverdue()
+
+        let bgColor: Color = isNotified
+            ? KitchenLinkV2Palette.Action.persistentPrimary.opacity(0.35)
+            : (isOverdue ? KitchenLinkV2Palette.Urgency.criticalSymbol.opacity(0.15) : KitchenLinkV2Palette.Surface.recessed)
+        let fgColor: Color = isNotified
+            ? KitchenLinkV2Palette.Brand.grape
+            : (isOverdue ? KitchenLinkV2Palette.Urgency.criticalText : KitchenLinkV2Palette.Content.primary)
+
+        return Text(title)
+            .font(.system(size: 11, weight: .bold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(bgColor, in: Capsule())
+            .foregroundStyle(fgColor)
+    }
+
     private func reloadData() async {
         isLoading = true
         defer { isLoading = false }
         do {
-            reservations = try await provider.loadReservations(date: selectedDate)
+            if sectionMode == .reservations {
+                reservations = try await provider.loadReservations(date: selectedDate)
+            } else {
+                waitlistEntries = try await waitlistProvider.loadWaitlist()
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -510,6 +822,100 @@ public struct KitchenLinkNewReservationSheet: View {
                     time: reservationTime,
                     area: area,
                     specialRequests: specialRequests.isEmpty ? nil : specialRequests
+                )
+                onSaved()
+                dismiss()
+            } catch {
+                formError = error.localizedDescription
+                isSaving = false
+            }
+        }
+    }
+}
+
+/// Sheet zur Erfassung spontan eintreffender Walk-ins auf der Warteliste (Blueprint §10).
+public struct KitchenLinkNewWaitlistSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let provider: KitchenLinkWaitlistProviding
+    let onSaved: () -> Void
+
+    @State private var guestName: String = ""
+    @State private var guestPhone: String = ""
+    @State private var partySize: Int = 2
+    @State private var area: String = "Gastraum"
+    @State private var estimatedWaitMinutes: Int = 15
+    @State private var notes: String = ""
+    @State private var isSaving: Bool = false
+    @State private var formError: String? = nil
+
+    public init(
+        provider: KitchenLinkWaitlistProviding,
+        onSaved: @escaping () -> Void
+    ) {
+        self.provider = provider
+        self.onSaved = onSaved
+    }
+
+    public var body: some View {
+        NavigationStack {
+            Form {
+                Section("Gäste") {
+                    TextField("Name des Gastes *", text: $guestName)
+                    TextField("Mobilnummer (für Benachrichtigung)", text: $guestPhone)
+                        .keyboardType(.phonePad)
+                    Stepper("Personen: \(partySize)", value: $partySize, in: 1...30)
+                }
+
+                Section("Wartezeit & Bereich") {
+                    Stepper("Geschätzte Wartezeit: \(estimatedWaitMinutes) Min.", value: $estimatedWaitMinutes, in: 5...120, step: 5)
+
+                    Picker("Bereichspräferenz", selection: $area) {
+                        Text("Gastraum (Innen)").tag("Gastraum")
+                        Text("Terrasse").tag("Terrasse")
+                        Text("Egal / Erster freier Tisch").tag("Egal")
+                    }
+                }
+
+                Section("Notizen") {
+                    TextField("z. B. wartet an der Bar, Kinderstuhl...", text: $notes)
+                }
+
+                if let err = formError {
+                    Section {
+                        Text(err)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(KitchenLinkV2Palette.Urgency.criticalText)
+                    }
+                }
+            }
+            .navigationTitle("Auf Warteliste setzen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Eintragen") {
+                        saveEntry()
+                    }
+                    .disabled(guestName.trimmingCharacters(in: .whitespaces).count < 2 || isSaving)
+                }
+            }
+        }
+    }
+
+    private func saveEntry() {
+        isSaving = true
+        formError = nil
+        Task {
+            do {
+                _ = try await provider.addWalkIn(
+                    guestName: guestName,
+                    partySize: partySize,
+                    phone: guestPhone.isEmpty ? nil : guestPhone,
+                    area: area,
+                    estimatedWaitMinutes: estimatedWaitMinutes,
+                    notes: notes.isEmpty ? nil : notes
                 )
                 onSaved()
                 dismiss()
