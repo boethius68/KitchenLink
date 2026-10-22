@@ -968,6 +968,27 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      sheet, failure reporting sheet, delivery area conditions sheet, and direct map navigation.
      Integrated into `KitchenLinkV2BusinessHomeView.swift`.
   4. 7 new Swift unit tests in `KitchenLinkDeliveryTests.swift`.
+- **Inventory ledger persistence, stock booking & audit (KL-INV-001, October 2026):**
+  Blueprint §11 & §6.2 (Meilenstein 4: Warenwirtschaft und Einkauf).
+  1. Additive database migration `20261023200000_inventory_management.sql`:
+     - Tables for locations (`inventory_stock_locations`), ingredients (`inventory_ingredients`),
+       recipes and components (`inventory_recipes`, `inventory_recipe_components`), suppliers
+       (`inventory_suppliers`), purchase orders (`inventory_purchase_orders`), and the append-only
+       stock movements ledger (`inventory_stock_movements`).
+     - Staff RPCs: `operator_get_inventory_levels` (calculates physical, reserved, available, and urgency),
+       `operator_record_stock_movement` (append-only ledger write), `operator_book_inventory_audit`
+       (reconciliation comparing counted vs actual stock and booking adjustments), and
+       `operator_get_replenishment_suggestions` (reorder suggestions based on min/target stock).
+  2. Swift model expansion in `InventoryOperatorModel.swift`:
+     - Added `recordMovement` for receipt, waste, and corrections.
+     - Added `recordAudit` for automated physical inventory count adjustments.
+     - Added `replenishmentSuggestions` integration via `InventoryReplenishmentAdvisor`.
+  3. Interactive operator UI in [`InventoryOperatorView.swift`](file:///Users/test/Developments/kitchenlink-claude/kitchenlink/Features/Inventory/Views/InventoryOperatorView.swift):
+     - Quick action buttons ("Buchen", "Inventur", "Vorschläge").
+     - `KitchenLinkBookMovementSheet` for recording receipts, waste, and corrections.
+     - `KitchenLinkInventoryAuditSheet` for entering counted physical stock with live diff computation.
+     - `KitchenLinkReplenishmentSuggestionsSheet` for viewing stock shortfalls and target replenishment.
+  4. 4 new Swift unit tests in `KitchenLinkInventoryActionsTests.swift`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

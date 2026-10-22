@@ -65,4 +65,103 @@ final class InventoryOperatorModel: ObservableObject {
             acc + group.rows.lazy.filter { $0.urgency == .critical }.count
         }
     }
+
+    // MARK: - Warenwirtschaft Aktionen (KL-INV-001 / Blueprint §11)
+
+    var availableLocations: [StockLocation] {
+        guard let catalog else { return [] }
+        return Array(catalog.locations.values).sorted { $0.name < $1.name }
+    }
+
+    var availableIngredients: [Ingredient] {
+        guard let catalog else { return [] }
+        return Array(catalog.ingredients.values).sorted { $0.name < $1.name }
+    }
+
+    /// Verbucht eine unveränderliche Bewegung (Wareneingang, Verderb, Korrektur).
+    func recordMovement(
+        ingredientID: String,
+        locationID: String,
+        kind: StockMovementKind,
+        amount: Decimal,
+        note: String? = nil
+    ) throws {
+        guard let catalog, let ledger else {
+            throw InventoryModelError.unknownLocation(id: locationID)
+        }
+        let ingredient = try catalog.ingredient(id: ingredientID)
+        let quantity = try InventoryQuantity(amount: amount, unit: ingredient.baseUnit)
+        let movement = StockMovement(
+            ingredientID: ingredientID,
+            locationID: locationID,
+            kind: kind,
+            quantity: quantity,
+            note: note
+        )
+        try ledger.record(movement)
+        refresh()
+    }
+
+    /// Führt einen Inventur-Abgleich durch: Differenz zwischen Ist und Soll wird
+    /// als unveränderliche Korrekturbuchung erfasst.
+    func recordAudit(
+        locationID: String,
+        counts: [String: Decimal],
+        note: String? = nil
+    ) throws {
+        guard let catalog, let ledger else {
+            throw InventoryModelError.unknownLocation(id: locationID)
+        }
+        let projection = InventoryProjection(catalog: catalog, ledger: ledger)
+        let auditNote = note?.trimmingCharacters(in: .whitespaces).isEmpty == false ? note! : "Inventur"
+
+        for (ingredientID, countedAmount) in counts {
+            let ingredient = try catalog.ingredient(id: ingredientID)
+            let currentPhysical = try projection.physicalQuantity(ingredientID: ingredientID, locationID: locationID)
+            let countedQuantity = try InventoryQuantity(amount: countedAmount, unit: ingredient.baseUnit)
+
+            let diff = countedQuantity.baseAmount - currentPhysical.baseAmount
+            if diff > 0 {
+                let diffQty = InventoryQuantity(uncheckedBaseAmount: diff, unit: ingredient.baseUnit)
+                let movement = StockMovement(
+                    ingredientID: ingredientID,
+                    locationID: locationID,
+                    kind: .correctionIncrease,
+                    quantity: diffQty,
+                    note: "\(auditNote): Ist \(countedQuantity.displayString()) > Soll \(currentPhysical.displayString())"
+                )
+                try ledger.record(movement)
+            } else if diff < 0 {
+                let diffQty = InventoryQuantity(uncheckedBaseAmount: abs(diff), unit: ingredient.baseUnit)
+                let movement = StockMovement(
+                    ingredientID: ingredientID,
+                    locationID: locationID,
+                    kind: .correctionDecrease,
+                    quantity: diffQty,
+                    note: "\(auditNote): Ist \(countedQuantity.displayString()) < Soll \(currentPhysical.displayString())"
+                )
+                try ledger.record(movement)
+            }
+        }
+        refresh()
+    }
+
+    /// Berechnet Bestellvorschläge basierend auf aktuellem Bestand und Mindestbestand.
+    func replenishmentSuggestions(for locationID: String? = nil) throws -> [ReplenishmentSuggestion] {
+        guard let catalog, let ledger else { return [] }
+        let projection = InventoryProjection(catalog: catalog, ledger: ledger)
+        let advisor = InventoryReplenishmentAdvisor(catalog: catalog, projection: projection)
+
+        let targetLocations = locationID != nil ? [locationID!] : Array(catalog.locations.keys)
+        var results: [ReplenishmentSuggestion] = []
+        for loc in targetLocations {
+            let evaluations = try advisor.evaluateAll(at: loc)
+            for eval in evaluations {
+                if let suggestion = advisor.suggestion(for: eval) {
+                    results.append(suggestion)
+                }
+            }
+        }
+        return results
+    }
 }
