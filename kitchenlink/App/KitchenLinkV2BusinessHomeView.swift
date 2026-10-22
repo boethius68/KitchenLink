@@ -170,6 +170,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 .overlay(KitchenLinkV2Palette.Border.subtle)
 
             NavigationLink {
+                KitchenLinkV2CashbookView()
+            } label: {
+                operationsRow(
+                    title: "Kassenbuch & TSE",
+                    subtitle: "Laufendes Kassenbuch · Betriebsausgaben · KassenSichV",
+                    systemImage: "book.closed"
+                )
+            }
+            .accessibilityIdentifier("business.openCashbook")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
                 KitchenLinkV2TodayView()
             } label: {
                 operationsRow(

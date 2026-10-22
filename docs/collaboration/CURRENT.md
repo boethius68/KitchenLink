@@ -1036,6 +1036,25 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      - New voucher creation sheet (`KitchenLinkNewVoucherSheet`).
      - Integrated into `KitchenLinkV2BusinessHomeView.swift`.
   4. 4 new Swift unit tests in `KitchenLinkLoyaltyTests.swift`.
+- **Cashbook, business expenses & simulated TSE (KL-CASHBOOK-001 & KL-TSE-001, October 2026):**
+  Blueprint §15 & §6.2 (Meilenstein 6: Abrechnungssandbox).
+  1. Additive database migration `20261024020000_cashbook_and_tse.sql`:
+     - Table `cashbook_entries` for GoBD-compliant running cash log (sequential entry numbering,
+       receipt numbers, transaction types, 7% and 19% VAT splits, and running balance tracking).
+     - Table `tse_transactions` for KassenSichV compliance simulation (serial number, transaction
+       counter, signature counter, start/finish timestamps, SHA-256 signatures, DSFinV-K QR string).
+     - Staff RPCs: `operator_list_cashbook`, `operator_record_cashbook_entry`, and `operator_sign_tse_transaction`.
+  2. Swift domain & provider (`KitchenLinkCashbookModel.swift`):
+     - `KitchenLinkCashbookEntry`, `KitchenLinkCashbookEntryType`, `KitchenLinkTSETransaction`,
+       `KitchenLinkCashbookProviding` protocol and actor `KitchenLinkCashbookDemoProvider`.
+  3. Interactive operator UI [`KitchenLinkV2CashbookView.swift`](file:///Users/test/Developments/kitchenlink-claude/kitchenlink/Features/Shift/KitchenLinkV2CashbookView.swift):
+     - Real-time running cash balance card and GoBD indicator.
+     - Filter tabs ("Alle", "Ausgaben", "Einnahmen") and TSE-Sicherheit inspection tab.
+     - New expense sheet (`KitchenLinkNewExpenseSheet`) with 19%/7%/0% VAT calculation and receipt input.
+     - New cash deposit sheet (`KitchenLinkNewDepositSheet`).
+     - TSE inspector sheet (`KitchenLinkTSEInspectorSheet`) with DSFinV-K receipt footer preview and QR string sharing.
+     - Integrated into `KitchenLinkV2BusinessHomeView.swift` and `KitchenLinkV2ShiftView.swift`.
+  4. 5 new Swift unit tests in `KitchenLinkCashbookTests.swift`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

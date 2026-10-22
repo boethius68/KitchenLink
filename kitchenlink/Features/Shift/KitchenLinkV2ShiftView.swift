@@ -95,17 +95,27 @@ struct KitchenLinkV2ShiftView: View {
         .tint(KitchenLinkV2Palette.Content.primary)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                ShareLink(
-                    item: KitchenLinkCSVExporter.exportShiftSummaryCSV(
-                        shift: model.report.shift,
-                        totals: model.totals
-                    ),
-                    preview: SharePreview("Kassenbericht.csv")
-                ) {
-                    Label("CSV", systemImage: "square.and.arrow.up")
-                        .font(KitchenLinkV2Typography.compactSection)
+                HStack(spacing: KitchenLinkV2Spacing.small) {
+                    NavigationLink {
+                        KitchenLinkV2CashbookView()
+                    } label: {
+                        Label("Kassenbuch", systemImage: "book.closed")
+                            .font(KitchenLinkV2Typography.compactSection)
+                    }
+                    .accessibilityIdentifier("shift.open_cashbook")
+
+                    ShareLink(
+                        item: KitchenLinkCSVExporter.exportShiftSummaryCSV(
+                            shift: model.report.shift,
+                            totals: model.totals
+                        ),
+                        preview: SharePreview("Kassenbericht.csv")
+                    ) {
+                        Label("CSV", systemImage: "square.and.arrow.up")
+                            .font(KitchenLinkV2Typography.compactSection)
+                    }
+                    .accessibilityIdentifier("shift.export_csv")
                 }
-                .accessibilityIdentifier("shift.export_csv")
             }
         }
         .task { await model.load() }
