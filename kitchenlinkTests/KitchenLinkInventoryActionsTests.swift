@@ -102,4 +102,43 @@ final class KitchenLinkInventoryActionsTests: XCTestCase {
             XCTAssertGreaterThan(suggestion.shortfall.baseAmount, 0)
         }
     }
+
+    func testConsumeOrderRecipeResolution() throws {
+        let model = InventoryOperatorModel()
+        InventoryOperatorDemoSeeder.seed(into: model)
+
+        guard let initialMozzarella = model.groups
+            .first(where: { $0.id == InventorySandboxFixture.locationKitchen })?
+            .rows.first(where: { $0.ingredientID == InventorySandboxFixture.ingredientMozzarella }) else {
+            XCTFail("Mozzarella not found in kitchen group")
+            return
+        }
+
+        let initialAmount = initialMozzarella.physical.amount
+
+        // Bestelle 2x Pizza Margherita
+        let orderLine = InventoryOrderLine(
+            id: "line-pizza-1",
+            salesItemID: InventorySandboxFixture.salesItemPizza,
+            quantity: 2,
+            reference: "order-test-101"
+        )
+
+        let resolution = try model.consumeOrder(
+            lines: [orderLine],
+            at: InventorySandboxFixture.locationKitchen
+        )
+
+        XCTAssertEqual(resolution.consumptions.count, 4) // Mehl, Mozzarella, Tomaten, Basilikum
+        XCTAssertTrue(resolution.unresolved.isEmpty)
+
+        let updatedMozzarella = try XCTUnwrap(
+            model.groups
+                .first(where: { $0.id == InventorySandboxFixture.locationKitchen })?
+                .rows.first(where: { $0.ingredientID == InventorySandboxFixture.ingredientMozzarella })
+        )
+
+        // Jede Pizza verbraucht 0.150 kg Mozzarella, bei 2 Pizzen = 0.300 kg
+        XCTAssertEqual(updatedMozzarella.physical.amount, initialAmount - 0.3)
+    }
 }

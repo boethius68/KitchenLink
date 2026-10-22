@@ -989,6 +989,18 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      - `KitchenLinkInventoryAuditSheet` for entering counted physical stock with live diff computation.
      - `KitchenLinkReplenishmentSuggestionsSheet` for viewing stock shortfalls and target replenishment.
   4. 4 new Swift unit tests in `KitchenLinkInventoryActionsTests.swift`.
+- **Automatic stock deduction on order completion & recipe resolution (KL-INV-002, October 2026):**
+  Blueprint §11 (automatische Bestandsbewegung durch abgeschlossene Bestellungen).
+  1. Additive database migration `20261023220000_inventory_order_consumption.sql`:
+     - RPC `operator_consume_order_inventory`: resolves order items against `inventory_recipes`
+       and `inventory_recipe_components` and automatically records immutable `consumption`
+       movements with unique composite idempotency keys (`consume:<order_id>:<order_item_id>:<component_id>`).
+     - Hooked directly into `operator_update_order_status` on transition to `served` (KDS bump).
+     - Hooked into `operator_update_delivery_status` on transition to `delivered`.
+  2. Swift domain integration:
+     - Added `consumeOrder(lines:at:)` to `InventoryOperatorModel.swift` leveraging `InventoryRecipeResolver`.
+     - 1 new unit test in `KitchenLinkInventoryActionsTests.swift` validating ingredient consumption
+       and physical stock deduction across multiple order line quantities.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

@@ -164,4 +164,20 @@ final class InventoryOperatorModel: ObservableObject {
         }
         return results
     }
+
+    /// Löst eine abgeschlossene Bestellung in Rezeptbestandteile auf und
+    /// bucht die Verbräuche automatisch in das Bestandsledger.
+    @discardableResult
+    func consumeOrder(lines: [InventoryOrderLine], at locationID: String) throws -> InventoryOrderResolution {
+        guard let catalog, let ledger else {
+            throw InventoryModelError.unknownLocation(id: locationID)
+        }
+        let resolver = InventoryRecipeResolver(catalog: catalog)
+        let resolution = try resolver.resolve(lines: lines, at: locationID)
+        for movement in resolution.consumptions {
+            try ledger.record(movement)
+        }
+        refresh()
+        return resolution
+    }
 }
