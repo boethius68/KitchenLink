@@ -305,6 +305,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 )
             }
             .accessibilityIdentifier("business.openInventory")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
+                KitchenLinkV2PurchaseOrdersView()
+            } label: {
+                operationsRow(
+                    title: "Einkauf",
+                    subtitle: "Lieferantenbestellungen · Wareneingang · Sandbox",
+                    systemImage: "shippingbox"
+                )
+            }
+            .accessibilityIdentifier("business.openPurchaseOrders")
         }
         .padding(.horizontal, KitchenLinkV2Spacing.large)
         .background(

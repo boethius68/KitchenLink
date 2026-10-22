@@ -71,6 +71,12 @@ struct InventoryOperatorView: View {
                     } label: {
                         Label("Bestellvorschläge", systemImage: "cart")
                     }
+
+                    NavigationLink {
+                        KitchenLinkV2PurchaseOrdersView()
+                    } label: {
+                        Label("Lieferantenbestellungen", systemImage: "shippingbox")
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.system(size: 16, weight: .semibold))

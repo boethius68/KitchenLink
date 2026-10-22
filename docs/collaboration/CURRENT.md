@@ -1001,6 +1001,23 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      - Added `consumeOrder(lines:at:)` to `InventoryOperatorModel.swift` leveraging `InventoryRecipeResolver`.
      - 1 new unit test in `KitchenLinkInventoryActionsTests.swift` validating ingredient consumption
        and physical stock deduction across multiple order line quantities.
+- **Supplier purchase orders & automated goods receipt (KL-PURCHASE-001, October 2026):**
+  Blueprint §11 & §6.2 (Lieferantenbestellungen, Wareneingang und Einkaufspreise).
+  1. Additive database migration `20261023230000_purchase_orders.sql`:
+     - Table `inventory_purchase_order_lines` with ingredients, ordered quantities, units, and unit prices.
+     - Staff RPCs: `operator_list_purchase_orders` (fetching POs with supplier details and line items),
+       `operator_create_purchase_order` (creating POs in draft status), `operator_send_purchase_order`
+       (marking POs as sent to suppliers), and `operator_receive_purchase_order` (automatically converting
+       all delivered line items into immutable `receipt` movements in `inventory_stock_movements`).
+  2. Swift domain model (`KitchenLinkPurchaseOrderModel.swift`):
+     - `KitchenLinkPurchaseOrderStatus` (`draft`, `sent`, `received`, `cancelled`), `KitchenLinkPurchaseOrderLine`,
+       `KitchenLinkPurchaseOrder`, and `KitchenLinkPurchaseOrderDemoProvider` actor.
+  3. Interactive operator UI [`KitchenLinkV2PurchaseOrdersView.swift`](file:///Users/test/Developments/kitchenlink-claude/kitchenlink/Features/Inventory/Views/KitchenLinkV2PurchaseOrdersView.swift):
+     - Tabs for active (`draft`, `sent`), received, and all purchase orders.
+     - Action buttons for sending orders and booking automated goods receipts into stock ledger.
+     - New PO sheet (`KitchenLinkNewPurchaseOrderSheet`) for creating orders with line items.
+     - Linked from `InventoryOperatorView.swift` and `KitchenLinkV2BusinessHomeView.swift`.
+  4. 4 new Swift unit tests in `KitchenLinkPurchaseOrdersTests.swift`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and
