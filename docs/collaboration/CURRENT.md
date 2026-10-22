@@ -895,10 +895,24 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   path built **two separate** transports for plan and coverage, so the week view
   would have counted a different roster than it displays.
   **Open:** one real week on a device (`SANDBOX_SETUP.md` §6.14).
+- **Target vs. actual evaluation and overtime (KL-WORKFORCE-EVAL-001, October 2026):**
+  Blueprint §9.3. Links planned shift hours (`KitchenLinkPlannedShift`) with
+  tracked time entries (`KitchenLinkTimeTotals`). Calculates employee and team
+  target hours, actual net hours, overtime/undertime balances, and checks statutory
+  German break compliance under § 4 ArbZG (30 min for >6h, 45 min for >9h).
+  Accessible for managers via `KitchenLinkV2WorkforceEvaluationSheet` in the schedule view.
+- **Guest Web Dark Mode (KL-WEB-005, October 2026 / Issue #38):**
+  Theme store with localStorage persistence, anti-FOUC script, semantic dark CSS tokens,
+  and accessible theme toggle in header.
+- **Simulated Wallet Checkout (KL-WEB-006, October 2026 / Issue #40):**
+  `WalletPayButton` and animated `WalletPaymentSheet` with haptic feedback simulation
+  and direct submission into the authoritative order RPC.
+- **RFC 4180 CSV Export (KL-OPS-002, October 2026 / Issue #39):**
+  `KitchenLinkCSVExporter` for closed orders and shift close totals with UTF-8 BOM
+  for Excel compatibility and standard iOS `ShareLink` toolbar integration.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
-  not. Plus target/actual comparison and overtime (§9.3), which now have a
-  planning layer to compare against. Also open from §9.1: custom roles,
-  qualifications, staff profiles and permissions across several locations.
+  not. Also open from §9.1: custom roles, qualifications, staff profiles and
+  permissions across several locations.
 - **Production boundary:** no live payment, fiscal activation or removal of
   sandbox labeling is approved.
