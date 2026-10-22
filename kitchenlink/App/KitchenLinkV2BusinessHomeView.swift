@@ -319,6 +319,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 )
             }
             .accessibilityIdentifier("business.openPurchaseOrders")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
+                KitchenLinkV2LoyaltyFeedbackView()
+            } label: {
+                operationsRow(
+                    title: "Kunden & Loyalty",
+                    subtitle: "Stammgäste · Gutscheine & Rabatte · Feedback",
+                    systemImage: "star.bubble"
+                )
+            }
+            .accessibilityIdentifier("business.openLoyalty")
         }
         .padding(.horizontal, KitchenLinkV2Spacing.large)
         .background(

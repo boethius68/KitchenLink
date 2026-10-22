@@ -1018,6 +1018,24 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      - New PO sheet (`KitchenLinkNewPurchaseOrderSheet`) for creating orders with line items.
      - Linked from `InventoryOperatorView.swift` and `KitchenLinkV2BusinessHomeView.swift`.
   4. 4 new Swift unit tests in `KitchenLinkPurchaseOrdersTests.swift`.
+- **Customer loyalty, vouchers & guest feedback (KL-LOYALTY-001, October 2026):**
+  Blueprint §13 & §6.2 (Meilenstein 5: Kunden und Wachstum).
+  1. Additive database migration `20261024000000_customer_loyalty.sql`:
+     - Tables for customer profiles (`customer_profiles` with tiers 'bronze', 'silver', 'gold', 'vip'),
+       promotional vouchers (`vouchers` with percentage or fixed discount and min order thresholds),
+       and post-order reviews (`order_feedbacks` with 1-5 stars and comments).
+     - Guest RPCs: `guest_web_validate_voucher` and `guest_web_submit_order_feedback`.
+     - Staff RPCs: `operator_list_vouchers`, `operator_create_voucher`, `operator_list_feedbacks`,
+       and `operator_list_customers`.
+  2. Web & voucher validation (`guest-web/src/lib/voucher.ts`):
+     - Unit-tested local and simulated voucher evaluation (`guest-web/__tests__/loyalty-voucher.test.ts`).
+  3. Swift domain & operator view:
+     - `KitchenLinkLoyaltyModel.swift` with `KitchenLinkCustomerProfile`, `KitchenLinkVoucher`, `KitchenLinkOrderFeedback`.
+     - Operator view [`KitchenLinkV2LoyaltyFeedbackView.swift`](file:///Users/test/Developments/kitchenlink-claude/kitchenlink/Features/Customers/KitchenLinkV2LoyaltyFeedbackView.swift)
+       with tabs for guest feedback (star ratings, quotes), active vouchers, and loyalty customers.
+     - New voucher creation sheet (`KitchenLinkNewVoucherSheet`).
+     - Integrated into `KitchenLinkV2BusinessHomeView.swift`.
+  4. 4 new Swift unit tests in `KitchenLinkLoyaltyTests.swift`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and
