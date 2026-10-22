@@ -932,6 +932,17 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
   3. Integrated into `KitchenLinkV2ReservationsView.swift` with tab navigation between reservations and live waitlist,
      `KitchenLinkNewWaitlistSheet` for staff entry of walk-ins, and direct seating/notification actions.
   4. 7 new Swift unit tests in `KitchenLinkWaitlistTests.swift`.
+- **Interactive floor plan, occupancy status and table transfer (KL-TABLE-003, October 2026):**
+  Blueprint §10 (grafischer Tischplan, Raumstatus, Tisch umsetzen und zusammenlegen).
+  1. Additive database migration `20261023160000_table_floorplan.sql` adding `seats`, `shape`, `pos_x`, `pos_y`
+     to `tables`, plus staff RPCs `operator_get_floorplan_status`, `operator_transfer_table_session` (transferring
+     open session and orders from table A to B) and `operator_merge_tables` (merging sessions).
+  2. Swift floor plan domain (`KitchenLinkFloorPlanModel.swift`): `KitchenLinkFloorPlanOccupancy` (`free`, `occupied`,
+     `reserved`, `inactive`), `KitchenLinkFloorPlanTable`, `KitchenLinkFloorPlanProviding` protocol, and demo actor provider.
+  3. Interactive SwiftUI view [`KitchenLinkV2FloorPlanView.swift`](file:///Users/test/Developments/kitchenlink-claude/kitchenlink/Features/Tables/KitchenLinkV2FloorPlanView.swift)
+     with area filters, status color-coded cards, detail sheet, table transfer sheet, and table merge sheet.
+     Integrated via toolbar action in `KitchenLinkV2TablesView.swift`.
+  4. 4 new Swift unit tests in `KitchenLinkFloorPlanTests.swift`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

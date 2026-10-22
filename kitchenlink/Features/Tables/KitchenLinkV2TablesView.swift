@@ -52,6 +52,17 @@ struct KitchenLinkV2TablesView: View {
         }
         .navigationTitle("Tische")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    KitchenLinkV2FloorPlanView()
+                } label: {
+                    Label("Tischplan", systemImage: "square.grid.2x2")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .accessibilityIdentifier("tables.openFloorPlan")
+            }
+        }
         .task { await model.load() }
         .sheet(isPresented: $isAddingTable) {
             KitchenLinkTableEditorSheet(table: nil) { label, area, _ in
