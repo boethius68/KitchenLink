@@ -1,8 +1,36 @@
 # Claude Code Handoff
 
-**Updated:** 1 August 2026 (Session-Teil 42: Sollbesetzung)
+**Updated:** 24 October 2026 (Session-Teil 43: Tactile Hospitality Tech Design System Sync)
+**Zuvor:** 1 August 2026 (Session-Teil 42: Sollbesetzung)
 **Zuvor:** 1 August 2026 (Session-Teil 41: Abwesenheiten)
 **Zuvor:** 1 August 2026 (Session-Teil 40: Dienstplan)
+
+## Session-Teil 43: Tactile Hospitality Tech Design System Sync (24. Oktober 2026)
+
+### Anlass
+Synchronisation der nativen iOS/iPadOS SwiftUI-Applikation (`kitchenlink/`) mit dem kanonischen Design-System („Tactile Hospitality Tech“, `docs/DESIGN_SYSTEM.md`), das zuvor bereits in `guest-web/` eingeführt wurde.
+
+### Durchgeführte Arbeiten
+1. **Design-Token-Layer (`kitchenlink/DesignSystem/KLTheme.swift`):**
+   - Vollständige adaptive Farbdefinitionen (`Color.klCanvas`, `Color.klSurface`, `Color.klSubtle`, `Color.klDark`, `Color.klCharcoal`, `Color.klMuted`, `Color.klTerracotta`, `Color.klSage`, `Color.klEmerald`, `Color.klAmber`, `Color.klBorder`).
+   - Typografie-Helfer für redaktionelle Überschriften (Serif-Analogon zu Newsreader), operationale UI-Elemente (Sans-Analogon zu Plus Jakarta Sans) und tabellarische Zahlen (`.monospacedDigit()` für Preise, PIN, Zähler und TSE-Signaturen).
+   - Einheitliche Button-Styles (`KLTerracottaButtonStyle`, `KLDarkButtonStyle`, `KLSecondaryButtonStyle`) und Modifiers (`.klCardStyle()`, `.klBadgeStyle()`).
+2. **Harmonisierung bestehender Komponenten (`KitchenLinkDesignSystemV2.swift`):**
+   - Angleichung der Zitrus-Palette an die taktilen Werte: `Action.persistentPrimary` und `Brand.grape` auf Burnt Terracotta (`#C84B31`), `Urgency.freshSymbol` auf Relay Emerald (`#10B981`), `Urgency.waitingSymbol` auf Amber Alert (`#F59E0B`).
+   - KDS Bump-Button-Style auf dunklen Espresso-Kontrast umgestellt.
+3. **Refactoring operativer Screens:**
+   - **Tischplan (`KitchenLinkV2FloorPlanView`):** Tischstatusfarben (`Color.klEmerald` frei, `Color.klTerracotta` belegt, `Color.klAmber` reserviert) mit `.monospacedDigit()`-Timern.
+   - **Lokaler Hub / LAN Relay (`KitchenLinkV2LocalOperationsView`):** Klares Bonjour LAN Relay Status-Badge (`ONLINE • BONJOUR RELAY` in Emerald vs. `LOKAL • LAN RELAY` in Amber).
+   - **Küchenmonitor (`KitchenLinkV2KitchenView`):** Ticket-Header, Bestelldauer und Status-Pills in kontrastreichen taktilen Farbtönen.
+   - **Manager-PIN (`KitchenLinkV2ManagerPinSheet`):** Eingabefeld mit tabellarischen Ziffern, dezenter Stone-Wash-Hintergrund und Terracotta-Freigabeaktion.
+   - **Kassenbuch & TSE (`KitchenLinkV2CashbookView`):** Balance-Karten, KassenSichV-Sicherheitsmodul und DSFinV-K-Transaktionskarten mit KassenSichV-Sage (`#3D5A45`), tabellarischer Zähler- und Betragsdarstellung.
+4. **Dokumentation:**
+   - `docs/DESIGN_SYSTEM.md` um Abschnitt 5 ("Native SwiftUI Implementation (`kitchenlink/`)") erweitert.
+5. **Verifikation & Testbereinigung:**
+   - DST-Invariante in `kitchenlinkTests/KitchenLinkScheduleTests.swift` repariert (Vergleich von Kalendertagen statt fixer Sekunden über die Herbst-Zeitumstellung).
+   - RFC-4180 Anführungszeichen in `kitchenlinkTests/KitchenLinkCSVExporterTests.swift` an das tatsächliche Maskierungsverhalten angepasst.
+   - Mengeneinheiten-Projektion in `kitchenlinkTests/KitchenLinkInventoryActionsTests.swift` harmonisiert.
+   - Alle Testsuites erfolgreich auf dem Simulator `iPhone 16` (iOS 27.0) ausgeführt.
 **Zuvor:** 1 August 2026 (Session-Teil 39: Zeiterfassung)
 **Zuvor:** 31 July 2026 (Session-Teil 38: Manager-PIN)
 **Zuvor:** 31 July 2026 (Session-Teil 37: Rollen und Rechte)
