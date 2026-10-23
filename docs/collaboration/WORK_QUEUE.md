@@ -1570,6 +1570,31 @@ nicht, beide Sommerzeituebergaenge, Bereichsgrenzen, RLS). 582 iOS-Unit-Tests
 gruen; Simulator-Durchlauf mit „17:00–23:00 · 1 von 3 · 2 fehlen" am Freitag
 und einem stillen, gedeckten Dienstag.
 
+### KL-WEB-005 - KitchenLink Signboard-Homepage & B2B-Lieferanten-Portal (Plattform-Kompatibilität)
+
+**Status:** Erledigt; direkt auf `main` integriert
+**Abhängigkeit:** KL-WEB-001 (Gast-Web-Fundament), KL-PURCHASE-001 (Lieferantenbestellungen)
+**Schreibbereich:** `guest-web/src/app/page.tsx`, `guest-web/src/app/vendors/`, `guest-web/src/components/`, `guest-web/src/lib/vendor-data.ts`, `guest-web/src/app/globals.css`, `guest-web/__tests__/`
+
+**Kontext & Ergebnis:**
+Ausbau der KitchenLink Web-Plattform vom reinen internen Sandbox-Index zu einem vollwertigen Aushängeschild (Homepage Signboard) und B2B-Plattform-Gegenstück zur iOS-App:
+1. **Homepage Signboard (`guest-web/src/app/page.tsx`):**
+   - Repräsentatives Aushängeschild der Marke KitchenLink ("Smartphone-First Gastronomie. Web & iOS nahtlos vereint.").
+   - Vorstellung der 3 Kernsäulen: Gast-Web (Ordering & Gästeservice), B2B Lieferanten-Portal (Beschaffung & Warenwirtschaft), KitchenLink Business App (Kasse, KDS & Betriebsleitung auf iPhone/iPad).
+   - Direkte Einstiege in Live-Demos: Speisekarte (`/alte-muehle/menu`), Tischreservierung (`/alte-muehle/reserve`) und B2B Lieferanten-Portal (`/vendors`).
+   - Rechtssicherheits- & Hardware-Unabhängigkeits-Präsentation (GoBD, KassenSichV § 146a AO mit TSE, DATEV EXTF 700, 14 EU-Allergene gem. LMIV).
+2. **Plattform-Kompatibilitäts-Matrix (`PlatformCompatibilityMatrix.tsx`):**
+   - Klare Gegenüberstellung der Zielgruppen (Gast, Lieferant, Service/Kasse, Küche/Bar, Management), der Endgeräte (Web vs. native iOS) und Kernfeatures.
+3. **B2B Lieferanten-Portal (`guest-web/src/app/vendors/page.tsx` & `VendorPortal.tsx`):**
+   - Vollständiges Web-Gegenstück für Großhändler, Erzeuger und Getränkelieferanten (Kochberg Frischegroßhandel, Weingut Hölle & Söhne, Bio-Gemüsehof Lindner etc.).
+   - Einsicht in eingehende Purchase Orders (PO-2026-081, PO-2026-082 usw.) mit Positionsdaten, Mengen, Einheiten und Preisen aus dem Restaurant-Warenwirtschaftsmodul (KL-PURCHASE-001).
+   - Lieferanten-Aktionen: Verbindliche Terminbestätigung mit Notizen, Statusübergabe an Zustellfahrzeuge und Meldung des Wareneingangs.
+   - Standardisierter digitaler Lieferschein (`VendorDeliverySlipModal.tsx`) mit Barcode-Darstellung, Artikelzeilen und Unterschriftsfeldern für Fahrer und Wareneingang.
+   - Lieferanten-Onboarding & Partnerregistrierung für neue Zulieferer.
+4. **Domain-Logik & Tests (`vendor-data.ts`):**
+   - 100% offline- und sandbox-fähig mit verlässlichen Fixture-Daten und Synchronisation im Browser-localStorage.
+   - 16 Test-Suiten (144 Unit-Tests) in `guest-web` grün; Next.js 16 SSG-Build und TypeScript typecheck fehlerfrei.
+
 ## Integrationsreihenfolge
 
 1. ~~KL-CLAUDE-001 unabhaengig ausfuehren und Findings bewerten.~~ Erledigt,
