@@ -3,144 +3,126 @@
 import React from "react";
 import Link from "next/link";
 
-interface PlatformRow {
-  role: string;
-  targetUser: string;
-  primarySurface: string;
-  deviceRequirement: string;
-  keyFeatures: string[];
+interface MatrixEntry {
+  actor: string;
+  roleDescription: string;
+  platform: string;
+  device: string;
+  responsibilities: string;
   status: string;
-  demoLink?: string;
-  demoLabel?: string;
+  actionLink?: string;
+  actionText?: string;
 }
 
-const platformRows: PlatformRow[] = [
+const matrixEntries: MatrixEntry[] = [
   {
-    role: "Gäste & Besteller",
-    targetUser: "Restaurantgäste vor Ort & Abholer",
-    primarySurface: "KitchenLink Gast-Web",
-    deviceRequirement: "Beliebiger Browser (iOS Safari, Android Chrome, Mac/PC)",
-    keyFeatures: [
-      "Keine App-Installation nötig",
-      "Tisch-QR-Code-Erkennung",
-      "Rechtssichere 14 EU-Allergene im Fließtext",
-      "Tischreservierung & Vorbestellung",
-      "Apple Pay, Google Pay & Bar am Tisch",
-    ],
-    status: "Live in Sandbox",
-    demoLink: "/alte-muehle/menu",
-    demoLabel: "Speisekarte testen",
+    actor: "Gast am Tisch",
+    roleDescription: "Gäste vor Ort, Abholung, Reservierung",
+    platform: "KitchenLink Gast-Web",
+    device: "Mobiler Browser (Safari, Chrome, Firefox) auf beliebigem Smartphone oder Desktop",
+    responsibilities: "Tisch-QR scannen, Speisekarte mit 14 EU-Allergenen einsehen, bestellen, Apple/Google Pay oder Bar am Tisch",
+    status: "Live (Web)",
+    actionLink: "/alte-muehle/menu",
+    actionText: "Speisekarte",
   },
   {
-    role: "Lieferanten & Partner",
-    targetUser: "Großhändler, Winzer & Erzeuger",
-    primarySurface: "B2B Lieferanten-Portal",
-    deviceRequirement: "Web-Portal auf Tablet, PC & Smartphone",
-    keyFeatures: [
-      "Purchase Orders direkt aus der Küchen-Warenwirtschaft",
-      "Verbindliche Bestätigung von Lieferterminen",
-      "Standardisierter digitaler Lieferschein (Druck/PDF)",
-      "Automatischer Wareneingang & Bestandsbuchung",
-    ],
-    status: "Live in Sandbox",
-    demoLink: "/vendors",
-    demoLabel: "Lieferanten-Portal öffnen",
+    actor: "Lieferant & Erzeuger",
+    roleDescription: "Großhändler, Getränkelogistik, Winzer",
+    platform: "B2B Lieferanten-Portal",
+    device: "Web-Portal auf Desktop, Tablet oder Smartphone",
+    responsibilities: "Eingehende Purchase Orders (PO) prüfen, Liefertermin bestätigen, digitalen Lieferschein (PDF/Druck) generieren",
+    status: "Live (Web)",
+    actionLink: "/vendors",
+    actionText: "Portal",
   },
   {
-    role: "Service & Kassenpersonal",
-    targetUser: "Kellner, Servicekräfte & Barista",
-    primarySurface: "KitchenLink Business App",
-    deviceRequirement: "iPhone (iOS) & iPad",
-    keyFeatures: [
-      "Mobiles POS am Tisch",
-      "GoBD- & KassenSichV-konform mit simulierter TSE",
-      "Tischpläne & Gang-Steuerung",
-      "Tap to Pay & Kartenterminals",
-    ],
-    status: "Native iOS / Simulator",
-    demoLink: "#app-showcase",
-    demoLabel: "App-Funktionen einsehen",
+    actor: "Service & Kassenpersonal",
+    roleDescription: "Kellner, Restaurantleitung, Bar",
+    platform: "KitchenLink Business",
+    device: "Apple iPhone & iPad (iOS)",
+    responsibilities: "Mobiles POS am Tisch, Bonierung, Split-Zahlungen, TSE-Absicherung (§ 146a AO) und Tap to Pay",
+    status: "Native iOS",
+    actionLink: "#business-app",
+    actionText: "Details",
   },
   {
-    role: "Küche & Bar (KDS)",
-    targetUser: "Küchenchef, Köche & Bar-Team",
-    primarySurface: "KitchenLink Kitchen Display",
-    deviceRequirement: "iPad (Tief-Modus) & iPhone",
-    keyFeatures: [
-      "Stationsbezogene digitale Küchenbons",
-      "Automatische Rezeptauflösung",
-      "Automatischer Bestandsabzug beim KDS-Bump",
-      "Ruhe-Farbschema (Immer Tief)",
-    ],
-    status: "Native iOS / Simulator",
-    demoLink: "#kds-showcase",
-    demoLabel: "KDS-Architektur",
+    actor: "Küche & Bar",
+    roleDescription: "Köche, Küchenchef, Ausgabepass",
+    platform: "KitchenLink Küchenmonitor (KDS)",
+    device: "iPad (Montage am Pass, Farbschema Immer Tief)",
+    responsibilities: "Stationsweise Bons, Zubereitungszeiten, Bon-Bumps mit automatischem Zutatenabzug aus dem Lagerledger",
+    status: "Native iPadOS",
+    actionLink: "#business-app",
+    actionText: "Details",
   },
   {
-    role: "Betriebsleitung & Inhaber",
-    targetUser: "Gastronomen, Betriebsleiter & Steuerberater",
-    primarySurface: "Management & Browser-Verwaltung",
-    deviceRequirement: "Web-Verwaltung & iPhone",
-    keyFeatures: [
-      "Laufendes GoBD-Kassenbuch",
-      "DATEV EXTF 700 & DSFinV-K Steuerprüfexporte",
-      "Schicht- & Zeiterfassung nach deutschem Arbeitsrecht",
-      "Warenwirtschaft, Rezepturen & Rohertragsanalysen",
-    ],
-    status: "Hybrid iOS / Web",
-    demoLink: "#management-showcase",
-    demoLabel: "Betriebs-Funktionen",
+    actor: "Betriebsleitung & Inhaber",
+    roleDescription: "Gastronom, Buchhaltung, Steuerberater",
+    platform: "Management & Kassenbuch",
+    device: "iPhone App & Web-Verwaltung",
+    responsibilities: "GoBD-Kassenbuch, Schicht- und Dienstplanung, DATEV EXTF 700 & DSFinV-K 2.3 Steuerprüfexporte",
+    status: "iOS & Web",
+    actionLink: "#business-app",
+    actionText: "Details",
   },
 ];
 
 export function PlatformCompatibilityMatrix() {
   return (
-    <section className="kl-matrix-section" id="plattform">
-      <div className="kl-matrix-header">
-        <span className="kl-hero-badge">Plattform-Kompatibilität</span>
-        <h2 className="kl-type-section">
-          Das KitchenLink Ökosystem: iPhone & Web im Einklang
-        </h2>
-        <p className="kl-type-secondary">
-          Warum nicht nur eine iPhone-App? Weil Gastronomie ein vernetztes
-          Ökosystem ist: Gäste und Lieferanten verlangen sofortigen Zugriff ohne
-          Hürden, während Service und Küche von der Zuverlässigkeit nativer
-          Apple-Hardware profitieren.
-        </p>
-      </div>
+    <section className="kl-matrix-section">
+      <div className="kl-matrix-container">
+        <div className="kl-surface-meta">
+          <span className="kl-surface-kicker">Architektur</span>
+          <h2 className="kl-surface-heading">Plattform-Kompatibilitäts-Matrix</h2>
+          <p className="kl-type-secondary">
+            Gastronomie erfordert Rollentrennung: Gäste und Lieferanten verlangen
+            sofortigen Zugriff im Web ohne App-Store-Download, während Kasse und
+            Küchenpass auf die Zuverlässigkeit dedizierter Apple-Hardware setzen.
+          </p>
+        </div>
 
-      <div className="kl-matrix-grid">
-        {platformRows.map((row) => (
-          <div key={row.role} className="kl-matrix-card">
-            <div className="kl-matrix-card-top">
-              <span className="kl-matrix-status-pill">{row.status}</span>
-              <h3 className="kl-type-primary">{row.role}</h3>
-              <div className="kl-type-meta kl-slip-muted">{row.targetUser}</div>
-            </div>
-
-            <div className="kl-matrix-card-surface">
-              <div className="kl-type-meta">Oberfläche & Gerät:</div>
-              <strong className="kl-type-secondary">{row.primarySurface}</strong>
-              <div className="kl-type-meta kl-slip-muted">{row.deviceRequirement}</div>
-            </div>
-
-            <ul className="kl-matrix-features-list">
-              {row.keyFeatures.map((f, i) => (
-                <li key={i} className="kl-type-secondary">
-                  <span className="kl-matrix-check" aria-hidden="true">✓</span> {f}
-                </li>
+        <div className="kl-matrix-table-wrapper">
+          <table className="kl-matrix-table">
+            <thead>
+              <tr>
+                <th style={{ width: "22%" }}>Akteur & Rolle</th>
+                <th style={{ width: "24%" }}>Plattform & Gerät</th>
+                <th>Aufgaben im Betrieb</th>
+                <th style={{ width: "16%", textAlign: "right" }}>Einstieg</th>
+              </tr>
+            </thead>
+            <tbody>
+              {matrixEntries.map((entry) => (
+                <tr key={entry.actor}>
+                  <td>
+                    <strong>{entry.actor}</strong>
+                    <div className="kl-type-meta kl-text-muted">
+                      {entry.roleDescription}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="kl-type-secondary">
+                      <strong>{entry.platform}</strong>
+                    </span>
+                    <div className="kl-type-meta kl-text-muted">
+                      {entry.device}
+                    </div>
+                  </td>
+                  <td className="kl-type-secondary">
+                    {entry.responsibilities}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {entry.actionLink && (
+                      <Link href={entry.actionLink} className="kl-table-action-link">
+                        {entry.actionText} →
+                      </Link>
+                    )}
+                  </td>
+                </tr>
               ))}
-            </ul>
-
-            {row.demoLink && (
-              <div className="kl-matrix-card-action">
-                <Link href={row.demoLink} className="kl-btn-subtle">
-                  {row.demoLabel} →
-                </Link>
-              </div>
-            )}
-          </div>
-        ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );
