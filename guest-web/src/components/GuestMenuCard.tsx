@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   cartLines,
@@ -517,7 +518,18 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
     item.tag?.toLowerCase().includes("vegetar");
 
   return (
-    <li className="kl-menu-row">
+    <li className={`kl-menu-row ${item.imageUrl ? "flex items-start gap-3 sm:gap-4" : ""}`}>
+      {item.imageUrl && (
+        <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl overflow-hidden border border-kl-border shadow-sm bg-kl-subtle">
+          <Image
+            src={item.imageUrl}
+            alt={item.name}
+            fill
+            sizes="(max-width: 640px) 64px, 80px"
+            className="object-cover"
+          />
+        </div>
+      )}
       <div className="kl-menu-row-info">
         <div className="kl-menu-row-heading">
           <div className="kl-menu-row-name">
@@ -726,6 +738,17 @@ function MenuConfigurationDialog({
         aria-labelledby={`kl-config-title-${item.id}`}
         onClick={(event) => event.stopPropagation()}
       >
+        {item.imageUrl && (
+          <div className="relative w-full h-44 sm:h-52 rounded-xl overflow-hidden mb-4 border border-kl-border shadow-sm bg-kl-subtle">
+            <Image
+              src={item.imageUrl}
+              alt={item.name}
+              fill
+              sizes="(max-width: 640px) 100vw, 480px"
+              className="object-cover"
+            />
+          </div>
+        )}
         <div className="kl-configuration-heading">
           <div>
             <h2 id={`kl-config-title-${item.id}`} className="kl-type-section">

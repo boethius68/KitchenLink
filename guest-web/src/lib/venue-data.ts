@@ -44,6 +44,8 @@ export interface GuestMenuItem {
   allergens?: GuestAllergen[];
   /** Varianten/Portionen/Extras des Artikels. */
   variants?: GuestVariantOption[];
+  /** Bild-URL für Quiet-UI Vorschaubild (optional). */
+  imageUrl?: string;
 }
 
 export interface GuestVenue {
@@ -146,20 +148,54 @@ export const sandboxVenues: GuestVenue[] = [
         ],
       },
       {
-        id: "zander",
-        name: "Gebratener Zander",
-        description: "Rahmwirsing und Petersilienkartoffeln",
-        priceCents: 2350,
+        id: "rote-bete",
+        name: "Geschmorte Rote Bete",
+        tag: "vegetarisch",
+        description: "Ziegenfrischkäse, geröstete Walnüsse, Wildkräuter & alter Balsamico",
+        priceCents: 1450,
         kind: "food",
-        allergens: resolveAllergens(["d", "g"], null),
+        imageUrl: "/images/dish-rote-bete.jpg",
+        allergens: resolveAllergens(["g", "h"], null),
       },
       {
-        id: "apfelstrudel",
-        name: "Apfelstrudel",
-        description: "Mit Vanillesauce und Schlagsahne",
-        priceCents: 780,
+        id: "entrecote",
+        name: "Dry Aged Entrecôte",
+        tag: "beliebt",
+        description: "300g vom Weiderind mit Rosmarinjus, Kräuterbutter & getoastetem Sauerteigbrot",
+        priceCents: 3850,
         kind: "food",
-        allergens: resolveAllergens(["a", "g", "h", "l"], null),
+        imageUrl: "/images/dish-entrecote.jpg",
+        allergens: resolveAllergens(["a", "g"], null),
+        variants: [
+          {
+            id: "entrecote-garstufe-medium",
+            name: "Garstufe: Medium",
+            priceCents: 0,
+            kind: "variant",
+            priceKind: "included",
+            groupID: "garstufe",
+            groupTitle: "Garstufe",
+            minimumSelections: 1,
+            maximumSelections: 1,
+            selectionMode: "single",
+            freeSelectionCount: 1,
+            allowsRepeats: false,
+          },
+          {
+            id: "entrecote-garstufe-medium-rare",
+            name: "Garstufe: Medium-rare",
+            priceCents: 0,
+            kind: "variant",
+            priceKind: "included",
+            groupID: "garstufe",
+            groupTitle: "Garstufe",
+            minimumSelections: 1,
+            maximumSelections: 1,
+            selectionMode: "single",
+            freeSelectionCount: 1,
+            allowsRepeats: false,
+          },
+        ],
       },
       {
         id: "hauslimonade",

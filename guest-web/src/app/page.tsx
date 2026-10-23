@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -122,10 +123,31 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Right Column: Dual Live UI Artifact (Pure Layered CSS/JSX) */}
-              <div className="lg:col-span-5 relative min-h-[460px] sm:min-h-[500px] flex items-center justify-center">
+              {/* Right Column: Hero Bistro Atmosphere + Dual Live UI Artifacts */}
+              <div className="lg:col-span-5 relative min-h-[520px] sm:min-h-[580px] flex items-center justify-center">
+                {/* Atmospheric Background Image: Bistro Table with iPhone POS */}
+                <div className="absolute inset-0 rounded-2xl overflow-hidden border border-neutral-800 shadow-2xl">
+                  <Image
+                    src="/images/hero-bistro.png"
+                    alt="Atmosphärischer Restauranttisch mit KitchenLink iPhone-Kasse"
+                    fill
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 42vw"
+                    className="object-cover opacity-60"
+                  />
+                  {/* Warm dark vignette overlay so typography remains crisp */}
+                  <div
+                    className="absolute inset-0 bg-gradient-to-t from-kl-dark/85 via-kl-dark/20 to-transparent pointer-events-none"
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="absolute inset-0 bg-gradient-to-r from-kl-dark/70 via-transparent to-kl-dark/50 pointer-events-none"
+                    aria-hidden="true"
+                  />
+                </div>
+
                 {/* 1. POS Dark Card (Simulated SwiftUI Order Ticket) */}
-                <div className="bg-[#141413] border border-neutral-700/80 rounded-2xl p-5 sm:p-6 shadow-2xl w-full max-w-sm sm:max-w-md transform lg:-rotate-2 transition-transform duration-300 hover:rotate-0 z-10">
+                <div className="bg-[#141413]/95 backdrop-blur-md border border-neutral-700/80 rounded-2xl p-5 sm:p-6 shadow-2xl w-full max-w-sm sm:max-w-md transform lg:-rotate-2 transition-transform duration-300 hover:rotate-0 z-10 mb-8 sm:mb-12">
                   <div className="flex items-center justify-between border-b border-neutral-800 pb-3 mb-3.5">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-kl-emerald animate-pulse" />
@@ -190,8 +212,8 @@ export default function Home() {
                 </div>
 
                 {/* 2. Guest Web Paper Card (Simulated Mini Dining Room Preview) */}
-                <div className="absolute -bottom-6 -right-2 sm:right-2 sm:-bottom-8 max-w-xs sm:max-w-sm w-full bg-kl-canvas text-kl-charcoal border border-kl-border rounded-2xl p-5 shadow-2xl transform lg:rotate-2 hover:rotate-0 transition-transform duration-300 z-20">
-                  <div className="flex items-center justify-between border-b border-kl-border pb-2.5 mb-3">
+                <div className="absolute -bottom-6 -right-2 sm:right-2 sm:-bottom-8 max-w-xs sm:max-w-sm w-full bg-kl-canvas text-kl-charcoal border border-kl-border rounded-2xl p-4 sm:p-5 shadow-2xl transform lg:rotate-2 hover:rotate-0 transition-transform duration-300 z-20">
+                  <div className="flex items-center justify-between border-b border-kl-border pb-2 mb-2.5">
                     <span className="font-serif font-medium text-sm text-kl-charcoal">
                       Gasthaus Alte Mühle
                     </span>
@@ -201,20 +223,33 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-sans font-semibold text-sm text-kl-charcoal">
-                        Geschmorte Rote Bete
-                      </span>
-                      <span className="bg-kl-sage/15 text-kl-sage text-[10px] px-1.5 py-0.5 rounded font-medium">
-                        Vegetarisch
-                      </span>
+                    <div className="flex items-start gap-3">
+                      <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-kl-border flex-shrink-0 bg-kl-subtle shadow-sm">
+                        <Image
+                          src="/images/dish-rote-bete.jpg"
+                          alt="Geschmorte Rote Bete mit Ziegenfrischkäse und Walnüssen"
+                          fill
+                          sizes="56px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-sans font-semibold text-sm text-kl-charcoal leading-snug">
+                            Geschmorte Rote Bete
+                          </span>
+                          <span className="bg-kl-sage/15 text-kl-sage text-[10px] px-1.5 py-0.5 rounded font-medium">
+                            Vegetarisch
+                          </span>
+                        </div>
+
+                        <p className="font-sans text-xs text-kl-muted mt-1 leading-relaxed line-clamp-2">
+                          Ziegenfrischkäse, geröstete Walnüsse, Wildkräuter & alter Balsamico.
+                        </p>
+                      </div>
                     </div>
 
-                    <p className="font-sans text-xs text-kl-muted mt-1 leading-relaxed">
-                      Ziegenfrischkäse, geröstete Walnüsse, Wildkräuter & alter Balsamico.
-                    </p>
-
-                    <div className="flex items-center gap-1 mt-2">
+                    <div className="flex items-center gap-1 mt-2.5">
                       <span className="bg-kl-subtle text-kl-muted font-mono text-[10px] px-1.5 py-0.5 rounded">
                         G · Milch
                       </span>
