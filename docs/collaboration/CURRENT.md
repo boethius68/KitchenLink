@@ -1058,6 +1058,27 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      - `exportDATEVBuchungsstapel`: Standard EXTF 700 format with SKR03 accounts (1000 Kasse, 8400 19% Erlöse, 8300 7% Erlöse, 4900 Aufwand).
      - `exportDSFinVK`: Kassenprüfexport nach § 146b AO mit TSE-Stammdaten, Signaturzählern, Bonzeilen und DSFinV-K-Prüfstring.
   5. 7 new Swift unit tests in `KitchenLinkCashbookTests.swift`.
+- **Beta Hardening, Guided Scenarios & Security Hardening (KL-SANDBOX-001 / KL-SEC-001, October 2026):**
+  Blueprint §20 & §21 (Meilenstein 7: Beta-Härtung).
+  1. Additive database migration `20261024040000_security_and_rls_hardening.sql`:
+     - Row-Level Security enabled on all 18 operational tables (`venues`, `tables`, `table_floorplans`,
+       `table_reservations`, `waitlist_entries`, `delivery_areas`, `inventory_*`, `customer_profiles`,
+       `vouchers`, `order_feedbacks`, `cashbook_entries`, `tse_transactions`).
+     - Explicit isolation policies enforcing `venue_id` membership on authenticated users.
+     - Revocation of all direct table modifications from `anon`, granting execution only on audited
+       guest RPCs (`guest_web_validate_voucher`, `guest_web_submit_order_feedback`, `guest_web_create_reservation`).
+  2. Guided Demo-Scenarios & Fault Injection (`KitchenLinkSandboxScenarioModel.swift`):
+     - 4 controllable operational phases (`lunchRush`, `eveningBar`, `shiftClosing`, `offlineDisaster`).
+     - Fault injection controls for payment timeouts, cash variance (5,00 €), ingredient depletion, and offline mode.
+     - Unified JSON restaurant snapshot export & schema validation (`KitchenLinkBackupExporter`).
+  3. Interactive operator view [`KitchenLinkV2SandboxControlView.swift`](file:///Users/test/Developments/kitchenlink-claude/kitchenlink/Features/Sandbox/KitchenLinkV2SandboxControlView.swift):
+     - Scenario cards with 1-tap activation.
+     - Live fault simulation switches and 1-click factory reset to "Gasthaus Alte Mühle".
+     - Header badge in `KitchenLinkV2BusinessHomeView.swift` transformed into a direct entry point.
+  4. Web Platform & Ecosystem expansions:
+     - Public Homepage signboard, Platform Compatibility Matrix, and B2B Vendor Portal (`guest-web/src/app/vendors/`).
+     - 16 test suites (144 tests) in `guest-web` passing.
+  5. 4 new Swift unit tests in `KitchenLinkSandboxControlTests.swift`.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

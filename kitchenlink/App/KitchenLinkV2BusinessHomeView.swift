@@ -51,19 +51,26 @@ struct KitchenLinkV2BusinessHomeView: View {
 
             Spacer()
 
-            if dynamicTypeSize.isAccessibilitySize {
-                Image(systemName: "shippingbox")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        KitchenLinkV2Palette.Surface.recessed,
-                        in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
-                    )
-                    .accessibilityLabel("Sandbox für Betreiber")
-            } else {
-                Text("SANDBOX")
-                    .font(KitchenLinkV2Typography.meta)
+            NavigationLink {
+                KitchenLinkV2SandboxControlView()
+            } label: {
+                if dynamicTypeSize.isAccessibilitySize {
+                    Image(systemName: "shippingbox")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            KitchenLinkV2Palette.Surface.recessed,
+                            in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                        )
+                        .accessibilityLabel("Sandbox für Betreiber öffnen")
+                } else {
+                    HStack(spacing: 4) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 11))
+                        Text("SANDBOX")
+                            .font(KitchenLinkV2Typography.meta)
+                    }
                     .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                     .padding(.horizontal, KitchenLinkV2Spacing.medium)
                     .frame(minHeight: 32)
@@ -71,7 +78,9 @@ struct KitchenLinkV2BusinessHomeView: View {
                         KitchenLinkV2Palette.Surface.recessed,
                         in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.label, style: .continuous)
                     )
+                }
             }
+            .accessibilityIdentifier("business.sandboxHeaderBadge")
         }
     }
 
@@ -347,6 +356,20 @@ struct KitchenLinkV2BusinessHomeView: View {
                 )
             }
             .accessibilityIdentifier("business.openLoyalty")
+
+            Divider()
+                .overlay(KitchenLinkV2Palette.Border.subtle)
+
+            NavigationLink {
+                KitchenLinkV2SandboxControlView()
+            } label: {
+                operationsRow(
+                    title: "Sandbox & Szenarien",
+                    subtitle: "Demo-Szenarien · Fehlersimulation · Backup & Reset",
+                    systemImage: "slider.horizontal.3"
+                )
+            }
+            .accessibilityIdentifier("business.openSandboxControl")
         }
         .padding(.horizontal, KitchenLinkV2Spacing.large)
         .background(
