@@ -15,7 +15,7 @@ final class KitchenLinkInventoryActionsTests: XCTestCase {
             return
         }
 
-        let initialAmount = initialFlour.physical.amount
+        let initialAmount = try initialFlour.physical.amount(in: .mass(.kilogram))
 
         // Buche 5 kg Wareneingang Mehl
         try model.recordMovement(
@@ -32,7 +32,7 @@ final class KitchenLinkInventoryActionsTests: XCTestCase {
                 .rows.first(where: { $0.ingredientID == InventorySandboxFixture.ingredientFlour })
         )
 
-        XCTAssertEqual(updatedFlour.physical.amount, initialAmount + 5)
+        XCTAssertEqual(try updatedFlour.physical.amount(in: .mass(.kilogram)), initialAmount + 5)
     }
 
     func testRecordWasteMovement() throws {
@@ -46,7 +46,7 @@ final class KitchenLinkInventoryActionsTests: XCTestCase {
             return
         }
 
-        let initialAmount = initialTomatoes.physical.amount
+        let initialAmount = try initialTomatoes.physical.amount(in: .mass(.kilogram))
 
         // Buche 1 kg Verderb
         try model.recordMovement(
@@ -63,7 +63,7 @@ final class KitchenLinkInventoryActionsTests: XCTestCase {
                 .rows.first(where: { $0.ingredientID == InventorySandboxFixture.ingredientTomato })
         )
 
-        XCTAssertEqual(updatedTomatoes.physical.amount, initialAmount - 1)
+        XCTAssertEqual(try updatedTomatoes.physical.amount(in: .mass(.kilogram)), initialAmount - 1)
     }
 
     func testInventoryAuditCorrection() throws {
@@ -86,7 +86,7 @@ final class KitchenLinkInventoryActionsTests: XCTestCase {
         )
 
         // Nach der Inventur entspricht der physische Bestand exakt der Zählung
-        XCTAssertEqual(updatedFlour.physical.amount, 10)
+        XCTAssertEqual(try updatedFlour.physical.amount(in: .mass(.kilogram)), 10)
     }
 
     func testReplenishmentSuggestions() throws {
@@ -114,7 +114,7 @@ final class KitchenLinkInventoryActionsTests: XCTestCase {
             return
         }
 
-        let initialAmount = initialMozzarella.physical.amount
+        let initialAmount = try initialMozzarella.physical.amount(in: .mass(.kilogram))
 
         // Bestelle 2x Pizza Margherita
         let orderLine = InventoryOrderLine(
@@ -129,7 +129,7 @@ final class KitchenLinkInventoryActionsTests: XCTestCase {
             at: InventorySandboxFixture.locationKitchen
         )
 
-        XCTAssertEqual(resolution.consumptions.count, 4) // Mehl, Mozzarella, Tomaten, Basilikum
+        XCTAssertEqual(resolution.consumptions.count, 5) // Mehl, Mozzarella, Tomaten, Basilikum, Olivenöl
         XCTAssertTrue(resolution.unresolved.isEmpty)
 
         let updatedMozzarella = try XCTUnwrap(
@@ -139,6 +139,6 @@ final class KitchenLinkInventoryActionsTests: XCTestCase {
         )
 
         // Jede Pizza verbraucht 0.150 kg Mozzarella, bei 2 Pizzen = 0.300 kg
-        XCTAssertEqual(updatedMozzarella.physical.amount, initialAmount - 0.3)
+        XCTAssertEqual(try updatedMozzarella.physical.amount(in: .mass(.kilogram)), initialAmount - 0.3)
     }
 }

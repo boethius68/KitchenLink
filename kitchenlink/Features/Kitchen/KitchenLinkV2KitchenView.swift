@@ -161,19 +161,19 @@ struct KitchenLinkV2KitchenView: View {
             HStack(spacing: KitchenLinkV2Spacing.small) {
                 if isReceiving {
                     Circle()
-                        .fill(KitchenLinkV2Palette.Content.primary)
+                        .fill(Color.klEmerald)
                         .frame(width: 7, height: 7)
                 } else {
                     KitchenLinkV2OperationGlyph(
                         operation: .connection,
-                        color: KitchenLinkV2Palette.Urgency.neutralSymbol,
+                        color: Color.klAmber,
                         size: 13
                     )
                 }
 
                 Text(isReceiving ? "LIVE" : "kein Empfang")
-                    .font(KitchenLinkV2Typography.kitchenStatus)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .font(KLTheme.Typography.tabularMono(.caption, weight: .bold))
+                    .foregroundStyle(isReceiving ? Color.klEmerald : Color.klAmber)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(isReceiving
@@ -213,8 +213,8 @@ struct KitchenLinkV2KitchenView: View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
             HStack(alignment: .firstTextBaseline) {
                 Text(ticket.tableTitle)
-                    .font(KitchenLinkV2Typography.kitchenTitle)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                    .font(KLTheme.Typography.editorialTitle(.title2, weight: .semibold))
+                    .foregroundStyle(Color.klCanvas)
                     .lineLimit(2)
 
                 Spacer(minLength: KitchenLinkV2Spacing.small)
@@ -226,7 +226,7 @@ struct KitchenLinkV2KitchenView: View {
                         size: 12
                     )
                     Text(ticket.status.verb)
-                        .font(KitchenLinkV2Typography.kitchenStatus)
+                        .font(KLTheme.Typography.tabularMono(.caption, weight: .semibold))
                         .foregroundStyle(ticket.status.urgency.textColor)
                 }
             }
@@ -234,14 +234,14 @@ struct KitchenLinkV2KitchenView: View {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(ticket.itemLines.enumerated()), id: \.offset) { item in
                     Text(item.element)
-                        .font(KitchenLinkV2Typography.primaryLine)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                        .font(KLTheme.Typography.operational(.body, weight: .medium))
+                        .foregroundStyle(Color.klCanvas)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if ticket.overflowCount > 0 {
                     Text("+\(ticket.overflowCount) weitere")
-                        .font(KitchenLinkV2Typography.secondaryLine)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                        .font(KLTheme.Typography.operational(.footnote, weight: .regular))
+                        .foregroundStyle(Color.klMuted)
                 }
             }
 
@@ -249,22 +249,22 @@ struct KitchenLinkV2KitchenView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     KitchenLinkV2OperationGlyph(
                         operation: .change,
-                        color: KitchenLinkV2Palette.Urgency.waitingSymbol,
+                        color: Color.klAmber,
                         size: 11
                     )
                     Text(note)
-                        .font(KitchenLinkV2Typography.kitchenStatus)
-                        .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                        .font(KLTheme.Typography.operational(.subheadline, weight: .medium))
+                        .foregroundStyle(Color.klAmber)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
             Text(ticket.trailingText)
-                .font(KitchenLinkV2Typography.primaryLine)
+                .font(KLTheme.Typography.tabularMono(.callout, weight: .bold))
                 .foregroundStyle(ticket.isOverdue
-                    ? KitchenLinkV2Palette.Urgency.waitingText
-                    : KitchenLinkV2Palette.Content.primary)
-                .kitchenLinkV2TabularNumbers()
+                    ? Color.klTerracotta
+                    : Color.klCanvas)
+                .klTabularDigits()
 
             if let actionTitle = ticket.advanceActionTitle {
                 Button(actionTitle) {

@@ -3,10 +3,10 @@ import UIKit
 
 // MARK: - Palette
 
-/// Semantic colors for the Zitrus ("Frisch") design language (Claude Design Turn 3b / 4b).
+/// Semantic colors for the "Tactile Hospitality Tech" design language (docs/DESIGN_SYSTEM.md).
 ///
-/// Zitrus brings appetite, warmth, and fresh energy into daily restaurant operations:
-/// Crisp carbon text, warm paper surfaces, and vivid lemon as a lively interaction accent.
+/// Bridges the warm natural dining room aesthetic (Canvas, Linen, Terracotta) with
+/// high-contrast precision in service (Espresso Dark POS & KDS, Relay Emerald, Amber Alerts).
 enum KitchenLinkV2Palette {
     struct RGB: Hashable, Sendable {
         let red: Double
@@ -50,52 +50,52 @@ enum KitchenLinkV2Palette {
     }
 
     enum Brand {
-        static let grape = Color(rgb: RGB(hex: 0x2C2438))
-        static let deep = Color(rgb: RGB(hex: 0x0D0D10))
-        static let carbon = Color(rgb: RGB(hex: 0x17171B))
+        static let grape = Color(rgb: RGB(hex: 0xC84B31)) // Canonical Terracotta accent
+        static let deep = Color(rgb: RGB(hex: 0x141413))  // Espresso Ink
+        static let carbon = Color(rgb: RGB(hex: 0x1C1B19)) // Charcoal Ink
     }
 
     enum Surface {
-        static let base = adaptive(light: RGB(hex: 0xF4F4F1), dark: RGB(hex: 0x121215))
-        static let raised = adaptive(light: RGB(hex: 0xFFFFFF), dark: RGB(hex: 0x1E1E24))
-        static let recessed = adaptive(light: RGB(hex: 0xEAEAE5), dark: RGB(hex: 0x282830))
+        static let base = adaptive(light: RGB(hex: 0xFAF7F2), dark: RGB(hex: 0x141413)) // Canvas / Dark
+        static let raised = adaptive(light: RGB(hex: 0xFFFFFF), dark: RGB(hex: 0x1C1B19)) // Surface
+        static let recessed = adaptive(light: RGB(hex: 0xF2ECE4), dark: RGB(hex: 0x262523)) // Subtle
         static let kitchenBase = Brand.deep
     }
 
     enum Content {
-        static let primary = adaptive(light: RGB(hex: 0x17171B), dark: RGB(hex: 0xF4F4F1))
-        static let secondary = adaptive(light: RGB(hex: 0x52525C), dark: RGB(hex: 0xB0B0BC))
-        static let muted = adaptive(light: RGB(hex: 0x71717D), dark: RGB(hex: 0x888896))
-        static let onPrimaryAction = Color(rgb: RGB(hex: 0x17171B))
+        static let primary = adaptive(light: RGB(hex: 0x1C1B19), dark: RGB(hex: 0xFAF7F2)) // Charcoal / Canvas
+        static let secondary = adaptive(light: RGB(hex: 0x6E6A63), dark: RGB(hex: 0xA8A39B)) // Muted
+        static let muted = adaptive(light: RGB(hex: 0x8C877E), dark: RGB(hex: 0x948F86))
+        static let onPrimaryAction = Color(rgb: RGB(hex: 0xFFFFFF)) // White text on Terracotta CTA
     }
 
     enum Border {
         static let subtle = adaptive(
-            light: RGB(hex: 0x17171B, opacity: 0.09),
-            dark: RGB(hex: 0xF4F4F1, opacity: 0.12)
+            light: RGB(hex: 0xE6E0D6),
+            dark: RGB(hex: 0x2E2D2A)
         )
-        static let control = adaptive(light: RGB(hex: 0x7E7E8A), dark: RGB(hex: 0x888896))
-        static let focusRing = adaptive(light: RGB(hex: 0x17171B), dark: RGB(hex: 0xB6CC1B))
+        static let control = adaptive(light: RGB(hex: 0x8C877E), dark: RGB(hex: 0x888896))
+        static let focusRing = adaptive(light: RGB(hex: 0xC84B31), dark: RGB(hex: 0xC84B31))
     }
 
     enum Action {
         /// For one persistent primary action in a visible working context.
-        static let persistentPrimary = Color(rgb: RGB(hex: 0xB6CC1B))
-        static let persistentPrimaryPressed = Color(rgb: RGB(hex: 0x9FB014))
+        static let persistentPrimary = Color(rgb: RGB(hex: 0xC84B31)) // Burnt Terracotta
+        static let persistentPrimaryPressed = Color(rgb: RGB(hex: 0xAF3F27))
 
         /// For the logo handoff only, or a brief successful handoff animation.
-        static let logoHandoff = Color(rgb: RGB(hex: 0xB6CC1B))
+        static let logoHandoff = Color(rgb: RGB(hex: 0xC84B31))
     }
 
     enum Urgency {
-        static let freshSymbol = adaptive(light: RGB(hex: 0x2E8F5A), dark: RGB(hex: 0x3FA96D))
-        static let freshText = adaptive(light: RGB(hex: 0x1F7A47), dark: RGB(hex: 0x5BC088))
-        static let neutralSymbol = adaptive(light: RGB(hex: 0x656573), dark: RGB(hex: 0x888896))
-        static let neutralText = adaptive(light: RGB(hex: 0x52525C), dark: RGB(hex: 0xB0B0BC))
-        static let waitingSymbol = adaptive(light: RGB(hex: 0x9E6705), dark: RGB(hex: 0xD79A2A))
-        static let waitingText = adaptive(light: RGB(hex: 0x8A5800), dark: RGB(hex: 0xE9B84A))
-        static let criticalSymbol = adaptive(light: RGB(hex: 0xB3261E), dark: RGB(hex: 0xEF6E64))
-        static let criticalText = adaptive(light: RGB(hex: 0xA31C15), dark: RGB(hex: 0xEF6E64))
+        static let freshSymbol = adaptive(light: RGB(hex: 0x10B981), dark: RGB(hex: 0x10B981)) // Relay Emerald
+        static let freshText = adaptive(light: RGB(hex: 0x059669), dark: RGB(hex: 0x34D399))
+        static let neutralSymbol = adaptive(light: RGB(hex: 0x6E6A63), dark: RGB(hex: 0xA8A39B))
+        static let neutralText = adaptive(light: RGB(hex: 0x6E6A63), dark: RGB(hex: 0xA8A39B))
+        static let waitingSymbol = adaptive(light: RGB(hex: 0xF59E0B), dark: RGB(hex: 0xF59E0B)) // Amber Alert
+        static let waitingText = adaptive(light: RGB(hex: 0xD97706), dark: RGB(hex: 0xFBBF24))
+        static let criticalSymbol = adaptive(light: RGB(hex: 0xC84B31), dark: RGB(hex: 0xEF6E64)) // Terracotta
+        static let criticalText = adaptive(light: RGB(hex: 0xC84B31), dark: RGB(hex: 0xEF6E64))
     }
 
     private static func adaptive(light: RGB, dark: RGB) -> Color {
@@ -524,8 +524,8 @@ struct KitchenLinkV2KitchenBumpButtonStyle: ButtonStyle {
         configuration.label
             .font(KitchenLinkV2Typography.primaryButton)
             .foregroundStyle(isEnabled
-                ? Color(rgb: KitchenLinkV2Palette.RGB(hex: 0x2C2438))
-                : Color(rgb: KitchenLinkV2Palette.RGB(hex: 0x9A94AE)))
+                ? Color(rgb: KitchenLinkV2Palette.RGB(hex: 0x141413))
+                : Color(rgb: KitchenLinkV2Palette.RGB(hex: 0x6E6A63)))
             .frame(maxWidth: .infinity, minHeight: 52)
             .padding(.horizontal, KitchenLinkV2Spacing.large)
             .background(backgroundColor(isPressed: configuration.isPressed))
@@ -536,12 +536,12 @@ struct KitchenLinkV2KitchenBumpButtonStyle: ButtonStyle {
 
     private func backgroundColor(isPressed: Bool) -> Color {
         guard isEnabled else {
-            return Color(rgb: KitchenLinkV2Palette.RGB(hex: 0x383048))
+            return Color(rgb: KitchenLinkV2Palette.RGB(hex: 0x262523))
         }
 
         return isPressed
-            ? Color(rgb: KitchenLinkV2Palette.RGB(hex: 0xD9D3E6))
-            : Color(rgb: KitchenLinkV2Palette.RGB(hex: 0xF1EFF7))
+            ? Color(rgb: KitchenLinkV2Palette.RGB(hex: 0xE6E0D6))
+            : Color(rgb: KitchenLinkV2Palette.RGB(hex: 0xFAF7F2))
     }
 }
 

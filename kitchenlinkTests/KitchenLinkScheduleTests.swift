@@ -369,7 +369,8 @@ private func makeModel(
     let start = model.weekStart
 
     await model.showWeek(offsetBy: 1)
-    #expect(model.weekStart.timeIntervalSince(start) == 7 * 86_400)
+    let calendar = Calendar(identifier: .gregorian)
+    #expect(calendar.dateComponents([.day], from: start, to: model.weekStart).day == 7)
 
     await model.showWeek(offsetBy: -1)
     #expect(model.weekStart == start)

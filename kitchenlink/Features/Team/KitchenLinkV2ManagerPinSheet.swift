@@ -59,18 +59,19 @@ struct KitchenLinkV2ManagerPinSheet: View {
         KitchenLinkV2Card {
             VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
                 Text(model.permission.label)
-                    .font(KitchenLinkV2Typography.section)
+                    .font(KLTheme.Typography.editorialTitle(.title3, weight: .semibold))
+                    .foregroundStyle(Color.klCharcoal)
                     .accessibilityIdentifier("pin.title")
                 Text("Eine Führungskraft gibt hier einmal frei — für diese "
                      + "Aktion, jetzt. Danach ist die Freigabe verbraucht. Du "
                      + "bleibst an diesem Gerät angemeldet, es wird niemand "
                      + "ab- und wieder angemeldet.")
-                    .font(KitchenLinkV2Typography.secondaryLine)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .font(KLTheme.Typography.operational(.body, weight: .regular))
+                    .foregroundStyle(Color.klMuted)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Wer freigibt, steht danach im Protokoll.")
-                    .font(KitchenLinkV2Typography.meta)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .font(KLTheme.Typography.operational(.caption, weight: .medium))
+                    .foregroundStyle(Color.klMuted)
             }
         }
     }
@@ -79,14 +80,15 @@ struct KitchenLinkV2ManagerPinSheet: View {
         KitchenLinkV2Card {
             VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.medium) {
                 Text("PIN DER FÜHRUNGSKRAFT")
-                    .font(KitchenLinkV2Typography.meta)
+                    .font(KLTheme.Typography.tabularMono(.caption, weight: .bold))
                     .tracking(1.25)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .foregroundStyle(Color.klMuted)
 
                 SecureField("PIN", text: $model.pin, prompt: Text(verbatim: "••••"))
                     .keyboardType(.numberPad)
                     .textContentType(.oneTimeCode)
-                    .kitchenLinkV2TabularNumbers()
+                    .font(KLTheme.Typography.tabularMono(.title2, weight: .bold))
+                    .klTabularDigits()
                     .disabled(model.isLocked)
                     .onChange(of: model.pin) { _, value in
                         // Mehr als acht Ziffern nimmt die Datenbank ohnehin
@@ -97,17 +99,21 @@ struct KitchenLinkV2ManagerPinSheet: View {
                     }
                     .padding(KitchenLinkV2Spacing.medium)
                     .background(
-                        KitchenLinkV2Palette.Surface.recessed,
+                        Color.klSubtle,
                         in: RoundedRectangle(
                             cornerRadius: KitchenLinkV2Radius.control, style: .continuous
                         )
                     )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
+                            .stroke(Color.klBorder, lineWidth: 1)
+                    }
                     .accessibilityIdentifier("pin.field")
 
                 if let message = model.message {
                     Text(message)
-                        .font(KitchenLinkV2Typography.secondaryLine)
-                        .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                        .font(KLTheme.Typography.operational(.subheadline, weight: .medium))
+                        .foregroundStyle(Color.klAmber)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("pin.message")
                 }
@@ -120,7 +126,7 @@ struct KitchenLinkV2ManagerPinSheet: View {
                         }
                     }
                 }
-                .buttonStyle(KitchenLinkV2PrimaryButtonStyle())
+                .buttonStyle(KLTerracottaButtonStyle(minHeight: 48))
                 .disabled(!model.canSubmit)
                 .accessibilityIdentifier("pin.submit")
             }

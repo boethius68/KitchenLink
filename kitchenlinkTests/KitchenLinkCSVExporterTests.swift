@@ -46,10 +46,10 @@ struct KitchenLinkCSVExporterTests {
         #expect(csv.contains("Bestell-ID,Tisch,Zeitstempel,Artikel,Zwischensumme_EUR,Trinkgeld_EUR,Gesamtsumme_EUR,Zahlungsart"))
         #expect(csv.contains("ord-001,Tisch 4"))
         #expect(csv.contains("\"2× Schnitzel Wiener Art, 1× Weißbier\""))
-        #expect(csv.contains("38,50,3,00,41,50,Karte"))
+        #expect(csv.contains("\"38,50\",\"3,00\",\"41,50\",Karte"))
         #expect(csv.contains("ord-002,Bar"))
         #expect(csv.contains("1× Espresso"))
-        #expect(csv.contains("2,50,0,50,3,00,Bar"))
+        #expect(csv.contains("\"2,50\",\"0,50\",\"3,00\",Bar"))
     }
 
     @Test func testExportOrdersCSVIncludesBOM() {
@@ -91,12 +91,12 @@ struct KitchenLinkCSVExporterTests {
 
         #expect(csv.contains("Schicht-ID,shift-777"))
         #expect(csv.contains("Z-Nummer,42"))
-        #expect(csv.contains("Anfangsbestand_EUR,150,00"))
-        #expect(csv.contains("Umsatz_EUR,420,00"))
-        #expect(csv.contains("Bargeld_Erwartet_EUR,320,00"))
-        #expect(csv.contains("Bargeld_Gezaehlt_EUR,320,00"))
-        #expect(csv.contains("Zaehldifferenz_EUR,0,00"))
-        #expect(csv.contains("Bar,12,170,00,15,00"))
-        #expect(csv.contains("Karte,18,250,00,20,00"))
+        #expect(csv.contains("Anfangsbestand_EUR,\"150,00\""))
+        #expect(csv.contains("Umsatz_EUR,\"420,00\""))
+        #expect(csv.contains("Bargeld_Erwartet_EUR,\"320,00\""))
+        #expect(csv.contains("Bargeld_Gezaehlt_EUR,\"320,00\""))
+        #expect(csv.contains("Zaehldifferenz_EUR,\"0,00\""))
+        #expect(csv.contains("Bar,12,\"170,00\",\"15,00\""))
+        #expect(csv.contains("Karte,18,\"250,00\",\"20,00\""))
     }
 }

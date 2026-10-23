@@ -174,18 +174,22 @@ public struct KitchenLinkV2CashbookView: View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
             HStack {
                 Text("AKTUELLES KASSENGUTHABEN")
-                    .font(KitchenLinkV2Typography.meta)
+                    .font(KLTheme.Typography.tabularMono(.caption, weight: .bold))
                     .tracking(1.25)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .foregroundStyle(Color.klMuted)
                 Spacer()
                 Text("GoBD-konform")
-                    .font(KitchenLinkV2Typography.meta)
-                    .foregroundStyle(KitchenLinkV2Palette.Urgency.freshText)
+                    .font(KLTheme.Typography.tabularMono(.caption2, weight: .semibold))
+                    .foregroundStyle(Color.klSage)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.klSage.opacity(0.12))
+                    .clipShape(Capsule())
             }
 
             Text(String(format: "%.2f €", locale: Locale(identifier: "de_DE"), Double(currentBalanceCents) / 100.0))
-                .font(KitchenLinkV2Typography.display)
-                .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                .font(.system(.largeTitle, design: .monospaced).weight(.bold).monospacedDigit())
+                .foregroundStyle(Color.klCharcoal)
 
             Divider()
                 .padding(.vertical, 4)
@@ -193,11 +197,11 @@ public struct KitchenLinkV2CashbookView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Buchungen gesamt")
-                        .font(KitchenLinkV2Typography.meta)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                        .font(KLTheme.Typography.operational(.caption, weight: .medium))
+                        .foregroundStyle(Color.klMuted)
                     Text("\(entries.count)")
-                        .font(KitchenLinkV2Typography.primaryLine)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                        .font(KLTheme.Typography.tabularMono(.body, weight: .bold))
+                        .foregroundStyle(Color.klCharcoal)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
@@ -275,7 +279,7 @@ public struct KitchenLinkV2CashbookView: View {
         VStack(alignment: .leading, spacing: KitchenLinkV2Spacing.small) {
             HStack(alignment: .top) {
                 Image(systemName: entry.entryType.icon)
-                    .foregroundStyle(entry.isIncome ? KitchenLinkV2Palette.Urgency.freshSymbol : KitchenLinkV2Palette.Urgency.criticalSymbol)
+                    .foregroundStyle(entry.isIncome ? Color.klEmerald : Color.klTerracotta)
                     .font(.system(size: 18))
                     .frame(width: 24, height: 24)
 
@@ -286,8 +290,8 @@ public struct KitchenLinkV2CashbookView: View {
                             .foregroundStyle(KitchenLinkV2Palette.Content.primary)
                         Spacer()
                         Text(entry.formattedAmount)
-                            .font(KitchenLinkV2Typography.primaryLine)
-                            .foregroundStyle(entry.isIncome ? KitchenLinkV2Palette.Urgency.freshText : KitchenLinkV2Palette.Urgency.criticalText)
+                            .font(KLTheme.Typography.tabularPrice(size: 16))
+                            .foregroundStyle(entry.isIncome ? Color.klEmerald : Color.klTerracotta)
                     }
 
                     Text(entry.description)
@@ -296,26 +300,26 @@ public struct KitchenLinkV2CashbookView: View {
 
                     HStack(spacing: KitchenLinkV2Spacing.small) {
                         Text("#\(entry.entryNumber)")
-                            .font(KitchenLinkV2Typography.meta)
-                            .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                            .font(KLTheme.Typography.tabularMono(size: 12))
+                            .foregroundStyle(Color.klMuted)
 
                         if let receipt = entry.receiptNumber {
                             Text("•  Beleg: \(receipt)")
-                                .font(KitchenLinkV2Typography.meta)
-                                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                                .font(KLTheme.Typography.tabularMono(size: 12))
+                                .foregroundStyle(Color.klMuted)
                         }
 
                         if let tax = entry.formattedTax {
                             Text("•  \(tax)")
                                 .font(KitchenLinkV2Typography.meta)
-                                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                                .foregroundStyle(Color.klSage)
                         }
 
                         Spacer()
 
                         Text("Stand: \(entry.formattedBalance)")
-                            .font(KitchenLinkV2Typography.meta)
-                            .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                            .font(KLTheme.Typography.tabularMono(size: 12))
+                            .foregroundStyle(Color.klMuted)
                     }
                     .padding(.top, 4)
                 }
@@ -323,12 +327,12 @@ public struct KitchenLinkV2CashbookView: View {
         }
         .padding(KitchenLinkV2Spacing.medium)
         .background(
-            KitchenLinkV2Palette.Surface.raised,
+            Color.klSurface,
             in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
         )
         .overlay {
             RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
-                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+                .stroke(Color.klBorder, lineWidth: 1)
         }
     }
 
@@ -342,7 +346,7 @@ public struct KitchenLinkV2CashbookView: View {
                 Text("TSE-SIGNATUR-TRANSAKTIONEN")
                     .font(KitchenLinkV2Typography.meta)
                     .tracking(1.25)
-                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .foregroundStyle(Color.klMuted)
                 Spacer()
                 Button {
                     Task {
@@ -359,7 +363,7 @@ public struct KitchenLinkV2CashbookView: View {
                 VStack(spacing: KitchenLinkV2Spacing.medium) {
                     Image(systemName: "lock.shield")
                         .font(.system(size: 36))
-                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                        .foregroundStyle(Color.klMuted)
                     Text("Noch keine TSE-Transaktionen signiert.")
                         .font(KitchenLinkV2Typography.primaryLine)
                         .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
@@ -384,18 +388,18 @@ public struct KitchenLinkV2CashbookView: View {
                 Spacer()
                 Text("Simuliert (KassenSichV)")
                     .font(KitchenLinkV2Typography.meta)
-                    .foregroundStyle(KitchenLinkV2Palette.Urgency.freshText)
+                    .foregroundStyle(Color.klSage)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(
-                        KitchenLinkV2Palette.Surface.recessed,
+                        Color.klSage.opacity(0.12),
                         in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.label, style: .continuous)
                     )
             }
 
             Text("Seriennummer: TSE-KL-DEMO-001 • Algorithmus: ECDSA-SHA256 • DSFinV-K V2.3")
-                .font(KitchenLinkV2Typography.meta)
-                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                .font(KLTheme.Typography.tabularMono(size: 12))
+                .foregroundStyle(Color.klMuted)
 
             Text("Jeder Belegabschluss erzeugt eine unveränderliche kryptografische Signatur mit lückenlos fortlaufendem Zähler.")
                 .font(KitchenLinkV2Typography.secondaryLine)
@@ -403,12 +407,12 @@ public struct KitchenLinkV2CashbookView: View {
         }
         .padding(KitchenLinkV2Spacing.large)
         .background(
-            KitchenLinkV2Palette.Surface.raised,
+            Color.klSurface,
             in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
         )
         .overlay {
             RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
-                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+                .stroke(Color.klBorder, lineWidth: 1)
         }
     }
 
@@ -421,10 +425,11 @@ public struct KitchenLinkV2CashbookView: View {
                     Text("Transaktion #\(tx.transactionNumber)")
                         .font(KitchenLinkV2Typography.primaryLine)
                         .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                        .monospacedDigit()
                     Spacer()
                     Text("Zähler: \(tx.signatureCounter)")
-                        .font(KitchenLinkV2Typography.meta)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                        .font(KLTheme.Typography.tabularMono(size: 12))
+                        .foregroundStyle(Color.klMuted)
                 }
 
                 HStack {
@@ -434,22 +439,23 @@ public struct KitchenLinkV2CashbookView: View {
                     Spacer()
                     Text(KitchenLinkReservationDateHelper.formatTime(tx.finishedAt) + " Uhr")
                         .font(KitchenLinkV2Typography.meta)
-                        .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                        .foregroundStyle(Color.klMuted)
+                        .monospacedDigit()
                 }
 
                 Text("Signatur: \(tx.signatureValue)")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                    .font(KLTheme.Typography.tabularMono(size: 11))
+                    .foregroundStyle(Color.klMuted)
                     .lineLimit(1)
             }
             .padding(KitchenLinkV2Spacing.medium)
             .background(
-                KitchenLinkV2Palette.Surface.raised,
+                Color.klSurface,
                 in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: KitchenLinkV2Radius.card, style: .continuous)
-                    .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+                    .stroke(Color.klBorder, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -596,14 +602,14 @@ public struct KitchenLinkTSEInspectorSheet: View {
                         Text("KASSENSICHV-BELEGDRUCK")
                             .font(KitchenLinkV2Typography.meta)
                             .tracking(1.25)
-                            .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                            .foregroundStyle(Color.klMuted)
 
                         Text(transaction.receiptFooterText)
-                            .font(.system(size: 13, design: .monospaced))
+                            .font(KLTheme.Typography.tabularMono(size: 13))
                             .padding(KitchenLinkV2Spacing.medium)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
-                                KitchenLinkV2Palette.Surface.recessed,
+                                Color.klSubtle,
                                 in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
                             )
                     }
@@ -612,15 +618,15 @@ public struct KitchenLinkTSEInspectorSheet: View {
                         Text("DSFINV-K QR-STRING")
                             .font(KitchenLinkV2Typography.meta)
                             .tracking(1.25)
-                            .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                            .foregroundStyle(Color.klMuted)
 
                         Text(transaction.qrCodeData)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(KLTheme.Typography.tabularMono(size: 11))
                             .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
                             .padding(KitchenLinkV2Spacing.medium)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
-                                KitchenLinkV2Palette.Surface.recessed,
+                                Color.klSubtle,
                                 in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
                             )
                     }

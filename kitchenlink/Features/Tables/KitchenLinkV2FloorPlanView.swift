@@ -70,19 +70,19 @@ public struct KitchenLinkV2FloorPlanView: View {
                     selectedArea = area
                 } label: {
                     Text(area)
-                        .font(.system(size: 13, weight: isSelected ? .bold : .medium))
+                        .font(KLTheme.Typography.operational(.subheadline, weight: isSelected ? .bold : .medium))
                         .padding(.horizontal, KitchenLinkV2Spacing.medium)
                         .padding(.vertical, 6)
                         .background(
-                            isSelected ? KitchenLinkV2Palette.Brand.grape : KitchenLinkV2Palette.Surface.raised,
+                            isSelected ? Color.klTerracotta : Color.klSurface,
                             in: Capsule()
                         )
                         .foregroundStyle(
-                            isSelected ? Color.white : KitchenLinkV2Palette.Content.primary
+                            isSelected ? Color.white : Color.klCharcoal
                         )
                         .overlay {
                             Capsule()
-                                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+                                .stroke(Color.klBorder, lineWidth: 1)
                         }
                 }
                 .buttonStyle(.plain)
@@ -97,22 +97,22 @@ public struct KitchenLinkV2FloorPlanView: View {
             let occupiedCount = tables.filter { $0.occupancy.isOccupied }.count
             let reservedCount = tables.filter { $0.occupancy.isReserved }.count
 
-            legendItem(color: KitchenLinkV2Palette.Urgency.freshSymbol, label: "Frei", count: freeCount)
+            legendItem(color: Color.klEmerald, label: "Frei", count: freeCount)
             Divider().frame(height: 18)
-            legendItem(color: KitchenLinkV2Palette.Brand.grape, label: "Belegt", count: occupiedCount)
+            legendItem(color: Color.klTerracotta, label: "Belegt", count: occupiedCount)
             Divider().frame(height: 18)
-            legendItem(color: KitchenLinkV2Palette.Urgency.waitingSymbol, label: "Reserviert", count: reservedCount)
+            legendItem(color: Color.klAmber, label: "Reserviert", count: reservedCount)
         }
         .padding(.vertical, KitchenLinkV2Spacing.small)
         .padding(.horizontal, KitchenLinkV2Spacing.medium)
         .frame(maxWidth: .infinity)
         .background(
-            KitchenLinkV2Palette.Surface.raised,
+            Color.klSurface,
             in: RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
         )
         .overlay {
             RoundedRectangle(cornerRadius: KitchenLinkV2Radius.control, style: .continuous)
-                .stroke(KitchenLinkV2Palette.Border.subtle, lineWidth: 1)
+                .stroke(Color.klBorder, lineWidth: 1)
         }
     }
 
@@ -122,8 +122,8 @@ public struct KitchenLinkV2FloorPlanView: View {
                 .fill(color)
                 .frame(width: 8, height: 8)
             Text("\(label): \(count)")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .foregroundStyle(Color.klCharcoal)
         }
     }
 
@@ -153,12 +153,12 @@ public struct KitchenLinkV2FloorPlanView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(table.headline)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(KitchenLinkV2Palette.Content.primary)
+                            .font(KLTheme.Typography.editorialTitle(.title3, weight: .semibold))
+                            .foregroundStyle(Color.klCharcoal)
 
                         Text("\(table.seats) Plätze · \(table.areaOrDefault)")
-                            .font(.system(size: 12))
-                            .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                            .font(KLTheme.Typography.operational(.caption, weight: .medium))
+                            .foregroundStyle(Color.klMuted)
                     }
 
                     Spacer()
@@ -167,7 +167,7 @@ public struct KitchenLinkV2FloorPlanView: View {
                 }
 
                 Divider()
-                    .overlay(KitchenLinkV2Palette.Border.subtle)
+                    .overlay(Color.klBorder)
 
                 occupancyView(table.occupancy)
             }
@@ -197,7 +197,7 @@ public struct KitchenLinkV2FloorPlanView: View {
             }
         }
         .font(.system(size: 14))
-        .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+        .foregroundStyle(Color.klMuted)
     }
 
     @ViewBuilder
@@ -206,11 +206,11 @@ public struct KitchenLinkV2FloorPlanView: View {
         case .free:
             HStack(spacing: 4) {
                 Circle()
-                    .fill(KitchenLinkV2Palette.Urgency.freshSymbol)
+                    .fill(Color.klEmerald)
                     .frame(width: 6, height: 6)
                 Text("Frei / Bereit")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(KitchenLinkV2Palette.Urgency.freshText)
+                    .font(KLTheme.Typography.operational(.caption, weight: .semibold))
+                    .foregroundStyle(Color.klEmerald)
             }
         case .occupied(_, let startedAt, let orderCount, let totalCents):
             let minutes = max(0, Int(Date().timeIntervalSince(startedAt) / 60))
@@ -218,61 +218,61 @@ public struct KitchenLinkV2FloorPlanView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(KitchenLinkV2Palette.Brand.grape)
+                        .fill(Color.klTerracotta)
                         .frame(width: 6, height: 6)
                     Text("Belegt · seit \(minutes) Min.")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(KitchenLinkV2Palette.Brand.grape)
+                        .font(KLTheme.Typography.operational(.caption, weight: .bold).monospacedDigit())
+                        .foregroundStyle(Color.klTerracotta)
                 }
                 Text("\(orderCount) Positionen · \(euro)")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .font(KLTheme.Typography.tabularMono(.caption, weight: .semibold))
+                    .foregroundStyle(Color.klMuted)
             }
         case .reserved(let time, let guestName, let partySize):
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(KitchenLinkV2Palette.Urgency.waitingSymbol)
+                        .fill(Color.klAmber)
                         .frame(width: 6, height: 6)
                     Text("Reserviert um \(time)")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(KitchenLinkV2Palette.Urgency.waitingText)
+                        .font(KLTheme.Typography.operational(.caption, weight: .bold).monospacedDigit())
+                        .foregroundStyle(Color.klAmber)
                 }
                 Text("\(guestName) (\(partySize) P.)")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                    .font(KLTheme.Typography.operational(.caption, weight: .medium))
+                    .foregroundStyle(Color.klMuted)
                     .lineLimit(1)
             }
         case .inactive:
             Text("Stillgelegt")
-                .font(.system(size: 12))
-                .foregroundStyle(KitchenLinkV2Palette.Content.muted)
+                .font(KLTheme.Typography.operational(.caption, weight: .regular))
+                .foregroundStyle(Color.klMuted)
         }
     }
 
     private func tableBackgroundColor(_ occupancy: KitchenLinkFloorPlanOccupancy) -> Color {
         switch occupancy {
         case .free:
-            return KitchenLinkV2Palette.Surface.raised
+            return Color.klSurface
         case .occupied:
-            return KitchenLinkV2Palette.Brand.grape.opacity(0.06)
+            return Color.klTerracotta.opacity(0.08)
         case .reserved:
-            return KitchenLinkV2Palette.Urgency.waitingSymbol.opacity(0.08)
+            return Color.klAmber.opacity(0.08)
         case .inactive:
-            return KitchenLinkV2Palette.Surface.recessed
+            return Color.klSubtle
         }
     }
 
     private func tableBorderColor(_ occupancy: KitchenLinkFloorPlanOccupancy) -> Color {
         switch occupancy {
         case .free:
-            return KitchenLinkV2Palette.Border.subtle
+            return Color.klBorder
         case .occupied:
-            return KitchenLinkV2Palette.Brand.grape.opacity(0.3)
+            return Color.klTerracotta.opacity(0.4)
         case .reserved:
-            return KitchenLinkV2Palette.Urgency.waitingSymbol.opacity(0.4)
+            return Color.klAmber.opacity(0.4)
         case .inactive:
-            return KitchenLinkV2Palette.Border.subtle
+            return Color.klBorder
         }
     }
 

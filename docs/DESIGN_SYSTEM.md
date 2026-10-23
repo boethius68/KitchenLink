@@ -44,3 +44,35 @@ KitchenLink bridges two worlds: the warm, unhurried atmosphere of European gastr
 * **Allergen & Additive Badges:** Never use loud warning icons. Render inline below the dish description using `bg-kl-subtle text-kl-muted font-mono text-[10px] px-1.5 py-0.5 rounded`.
 * **Price Alignment:** Prices are right-aligned in `font-mono text-sm font-medium text-kl-charcoal` with a subtle `+` action button (`bg-kl-subtle hover:bg-kl-terracotta hover:text-white`) directly below.
 * **Sticky Order Bar:** Anchored at the bottom in `bg-kl-dark text-kl-canvas rounded-xl shadow-md` with a `bg-kl-terracotta` item counter badge.
+
+---
+
+## 5. Native SwiftUI Implementation (`kitchenlink/`)
+
+The native iOS/iPadOS application mirrors the design system via centralized tokens in `kitchenlink/DesignSystem/KLTheme.swift` and harmonizes existing components in `KitchenLinkDesignSystemV2.swift`.
+
+### 5.1 Color Tokens & Extensions
+All 11 design tokens are exposed as native SwiftUI `Color` extensions with adaptive light/dark mode support:
+* `Color.klCanvas`: `#FAF7F2` (Warm Alabaster paper surface)
+* `Color.klSurface`: `#FFFFFF` / `#1C1B19` (Card and modal background)
+* `Color.klSubtle`: `#F2ECE4` / `#262523` (Pills, inputs, unselected chips)
+* `Color.klDark`: `#141413` (Espresso Ink for POS, KDS & dark operational panels)
+* `Color.klCharcoal`: `#1C1B19` / `#FAF7F2` (Primary high-contrast text)
+* `Color.klMuted`: `#6E6A63` / `#A8A39B` (Secondary text, metadata, footnotes)
+* `Color.klTerracotta`: `#C84B31` (Burnt Terracotta primary action, occupied table, fire course)
+* `Color.klSage`: `#3D5A45` / `#5E8468` (KassenSichV TSE compliance & cashbook badges)
+* `Color.klEmerald`: `#10B981` (Bonjour LAN Relay active / free table status)
+* `Color.klAmber`: `#F59E0B` (Offline queue / reserved table status)
+* `Color.klBorder`: `#E6E0D6` / `#2E2D2A` (1px hairlines and cell dividers)
+
+### 5.2 System Typography & Tabular Numerals
+SwiftUI leverages Apple's San Francisco / New York typographic system to match the web pairing without bundle bloat:
+* **Editorial Titles:** `KLTheme.Typography.editorialTitle(...)` uses `.system(..., design: .serif)`
+* **Operational Text & Dishes:** `KLTheme.Typography.dishTitle(...)` and `.operational(...)` use `.system(..., design: .default)`
+* **Tabular Numerals & Code:** `KLTheme.Typography.tabularMono(...)` and `.tabularPrice(...)` enforce `.monospacedDigit()` for all currency amounts, order counters, PIN digits, and cryptographic signatures.
+
+### 5.3 Button Styles & View Modifiers
+* `KLTerracottaButtonStyle`: Primary high-emphasis CTA (`#C84B31` background with white text).
+* `KLDarkButtonStyle`: Dark operational CTA for bump bars and service controls.
+* `KLSecondaryButtonStyle`: Subtle bordered action with `.klSubtle` fill.
+* `.klCardStyle()` & `.klBadgeStyle(...)`: Standardized card elevation and status pill styling.

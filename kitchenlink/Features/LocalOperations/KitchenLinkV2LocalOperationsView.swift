@@ -269,8 +269,18 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
                 .fill(badgeColor)
                 .frame(width: 8, height: 8)
             Text(badgeTitle)
-                .font(KitchenLinkV2Typography.meta)
-                .foregroundStyle(KitchenLinkV2Palette.Content.secondary)
+                .font(KLTheme.Typography.tabularMono(.caption2, weight: .bold))
+                .foregroundStyle(Color.klCharcoal)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Color.klSubtle,
+            in: Capsule()
+        )
+        .overlay {
+            Capsule()
+                .stroke(badgeColor.opacity(0.4), lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(badgeAccessibilityLabel)
@@ -278,13 +288,13 @@ private struct KitchenLinkV2LocalOperationsContentView: View {
     }
 
     private var badgeTitle: String {
-        if cloud.isConnected { return "ONLINE" }
-        return "LOKAL"
+        if cloud.isConnected { return "ONLINE • BONJOUR RELAY" }
+        return "LOKAL • LAN RELAY"
     }
 
     private var badgeColor: Color {
-        if cloud.isConnected { return KitchenLinkV2Palette.Urgency.freshSymbol }
-        return KitchenLinkV2Palette.Content.muted
+        if cloud.isConnected { return Color.klEmerald }
+        return Color.klAmber
     }
 
     private var badgeAccessibilityLabel: String {
