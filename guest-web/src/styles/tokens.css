@@ -1,6 +1,6 @@
 /*
  * KitchenLink Design-Tokens (Web)
- * Quelle: docs/design/DESIGN_SYSTEM.md (4a "Ruhe", Round 04 Turn 6)
+ * Quelle: docs/design/DESIGN_SYSTEM.md (Zitrus / "Frisch")
  *
  * Die semantischen Namen sind mit der SwiftUI-Umsetzung geteilt
  * (DESIGN_SYSTEM.md §11): `brand.grape` -> `--kl-brand-grape` usw.
@@ -10,38 +10,38 @@
 :root {
   /* §3 Grundfarben — schemaunabhaengig */
   --kl-brand-grape: #2c2438;
-  --kl-brand-deep: #221b2e;
+  --kl-brand-deep: #0d0d10;
   --kl-brand-lemon: #b6cc1b;
   --kl-brand-lemon-pressed: #9fb014;
-  --kl-surface-base: #f4f2f8;
-  --kl-surface-raised: #fcfbfe;
-  --kl-surface-recessed: #eceaf3;
-  --kl-surface-dark-raised: #383048;
-  --kl-content-light: #f1eff7;
+  --kl-surface-base: #f4f4f1;
+  --kl-surface-raised: #ffffff;
+  --kl-surface-recessed: #eaeae5;
+  --kl-surface-dark-raised: #1e1e24;
+  --kl-content-light: #f4f4f1;
 
   /* §4 Inhalt und Kontur — heller Kontext */
-  --kl-text-primary: #2c2438;
-  --kl-text-secondary: #56506a;
-  --kl-text-muted: #6e6880;
-  --kl-border-subtle: rgba(44, 36, 56, 0.12);
-  --kl-border-control: #7e7890;
-  --kl-focus-ring: #2c2438;
+  --kl-text-primary: #17171b;
+  --kl-text-secondary: #52525c;
+  --kl-text-muted: #71717d;
+  --kl-border-subtle: rgba(23, 23, 27, 0.09);
+  --kl-border-control: #7e7e8a;
+  --kl-focus-ring: #17171b;
 
   /* §4 Inverse-Namen bleiben in beiden Schemata adressierbar */
-  --kl-text-primary-inverse: #f1eff7;
-  --kl-text-secondary-inverse: #b4aec6;
-  --kl-text-muted-inverse: #9a94ae;
-  --kl-border-subtle-inverse: rgba(241, 239, 247, 0.14);
-  --kl-border-control-inverse: #9a94ae;
-  --kl-focus-ring-inverse: #f1eff7;
+  --kl-text-primary-inverse: #f4f4f1;
+  --kl-text-secondary-inverse: #b0b0bc;
+  --kl-text-muted-inverse: #888896;
+  --kl-border-subtle-inverse: rgba(244, 244, 241, 0.12);
+  --kl-border-control-inverse: #888896;
+  --kl-focus-ring-inverse: #b6cc1b;
 
   /* §6 Dringlichkeit — heller Kontext: Symbol / Text */
   --kl-urgency-fresh-symbol: #2e8f5a;
   --kl-urgency-fresh-text: #1f7a47;
-  --kl-urgency-neutral-symbol: #6e6880;
-  --kl-urgency-neutral-text: #56506a;
-  --kl-urgency-waiting-symbol: #a97512;
-  --kl-urgency-waiting-text: #8a6410;
+  --kl-urgency-neutral-symbol: #656573;
+  --kl-urgency-neutral-text: #52525c;
+  --kl-urgency-waiting-symbol: #9e6705;
+  --kl-urgency-waiting-text: #8a5800;
   --kl-urgency-critical-symbol: #b3261e;
   --kl-urgency-critical-text: #a31c15;
 
@@ -72,23 +72,23 @@
  * über das Betriebssystem, sofern nicht explizit [data-theme="light"] gewählt ist.
  */
 [data-theme="dark"] {
-  --kl-surface-base: #181320;
-  --kl-surface-raised: #241c2f;
-  --kl-surface-recessed: #2f253d;
-  --kl-surface-dark-raised: #3c324c;
-  --kl-content-light: #f1eff7;
+  --kl-surface-base: #121215;
+  --kl-surface-raised: #1e1e24;
+  --kl-surface-recessed: #282830;
+  --kl-surface-dark-raised: #282830;
+  --kl-content-light: #f4f4f1;
 
-  --kl-text-primary: #f5f3f9;
-  --kl-text-secondary: #c5bfd8;
-  --kl-text-muted: #9e97b3;
-  --kl-border-subtle: rgba(241, 239, 247, 0.14);
-  --kl-border-control: #8f88a4;
+  --kl-text-primary: #f4f4f1;
+  --kl-text-secondary: #b0b0bc;
+  --kl-text-muted: #888896;
+  --kl-border-subtle: rgba(244, 244, 241, 0.12);
+  --kl-border-control: #888896;
   --kl-focus-ring: #b6cc1b;
 
   --kl-urgency-fresh-symbol: #3fa96d;
   --kl-urgency-fresh-text: #5bc088;
-  --kl-urgency-neutral-symbol: #9a94ae;
-  --kl-urgency-neutral-text: #b4aec6;
+  --kl-urgency-neutral-symbol: #888896;
+  --kl-urgency-neutral-text: #b0b0bc;
   --kl-urgency-waiting-symbol: #d79a2a;
   --kl-urgency-waiting-text: #e9b84a;
   --kl-urgency-critical-symbol: #ef6e64;
@@ -101,23 +101,23 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --kl-surface-base: #181320;
-    --kl-surface-raised: #241c2f;
-    --kl-surface-recessed: #2f253d;
-    --kl-surface-dark-raised: #3c324c;
-    --kl-content-light: #f1eff7;
+    --kl-surface-base: #121215;
+    --kl-surface-raised: #1e1e24;
+    --kl-surface-recessed: #282830;
+    --kl-surface-dark-raised: #282830;
+    --kl-content-light: #f4f4f1;
 
-    --kl-text-primary: #f5f3f9;
-    --kl-text-secondary: #c5bfd8;
-    --kl-text-muted: #9e97b3;
-    --kl-border-subtle: rgba(241, 239, 247, 0.14);
-    --kl-border-control: #8f88a4;
+    --kl-text-primary: #f4f4f1;
+    --kl-text-secondary: #b0b0bc;
+    --kl-text-muted: #888896;
+    --kl-border-subtle: rgba(244, 244, 241, 0.12);
+    --kl-border-control: #888896;
     --kl-focus-ring: #b6cc1b;
 
     --kl-urgency-fresh-symbol: #3fa96d;
     --kl-urgency-fresh-text: #5bc088;
-    --kl-urgency-neutral-symbol: #9a94ae;
-    --kl-urgency-neutral-text: #b4aec6;
+    --kl-urgency-neutral-symbol: #888896;
+    --kl-urgency-neutral-text: #b0b0bc;
     --kl-urgency-waiting-symbol: #d79a2a;
     --kl-urgency-waiting-text: #e9b84a;
     --kl-urgency-critical-symbol: #ef6e64;

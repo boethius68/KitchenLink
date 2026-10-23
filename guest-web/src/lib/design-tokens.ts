@@ -1,5 +1,6 @@
 /**
- * Semantische Design-Token-Namen und Werte aus docs/design/DESIGN_SYSTEM.md.
+ * Semantische Design-Token-Namen und Werte aus docs/design/DESIGN_SYSTEM.md
+ * Farbwelt: Zitrus / "Frisch" (Turn 3b / 4b).
  *
  * SwiftUI und Web teilen dieselben semantischen Namen (§11). Dieses Modul
  * ist die typisierte Referenz; `src/styles/tokens.css` trägt dieselben
@@ -9,24 +10,24 @@
 
 export const KL_COLOR_TOKENS = {
   "brand.grape": "#2c2438",
-  "brand.deep": "#221b2e",
+  "brand.deep": "#0d0d10",
   "brand.lemon": "#b6cc1b",
   "brand.lemonPressed": "#9fb014",
-  "surface.base": "#f4f2f8",
-  "surface.raised": "#fcfbfe",
-  "surface.recessed": "#eceaf3",
-  "surface.darkRaised": "#383048",
-  "content.light": "#f1eff7",
-  "text.primary": "#2c2438",
-  "text.secondary": "#56506a",
-  "text.muted": "#6e6880",
-  "border.control": "#7e7890",
-  "focus.ring": "#2c2438",
-  "text.primaryInverse": "#f1eff7",
-  "text.secondaryInverse": "#b4aec6",
-  "text.mutedInverse": "#9a94ae",
-  "border.controlInverse": "#9a94ae",
-  "focus.ringInverse": "#f1eff7",
+  "surface.base": "#f4f4f1",
+  "surface.raised": "#ffffff",
+  "surface.recessed": "#eaeae5",
+  "surface.darkRaised": "#1e1e24",
+  "content.light": "#f4f4f1",
+  "text.primary": "#17171b",
+  "text.secondary": "#52525c",
+  "text.muted": "#71717d",
+  "border.control": "#7e7e8a",
+  "focus.ring": "#17171b",
+  "text.primaryInverse": "#f4f4f1",
+  "text.secondaryInverse": "#b0b0bc",
+  "text.mutedInverse": "#888896",
+  "border.controlInverse": "#888896",
+  "focus.ringInverse": "#b6cc1b",
 } as const;
 
 export const KL_RADIUS_TOKENS = {

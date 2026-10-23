@@ -78,9 +78,11 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
 - The emotional color brief is the reward after a hard day through taste and
   connection: fresh and sparkling like a warm breeze.
 - From Claude Design Turn 3b, `Zitrus` (lemon and grape) is the preferred color
-  territory. In Turn 4, 4a `Ruhe` was selected as the sole basis for refinement:
-  grape carries the brand foundation and lemon marks the logo handoff and primary
-  action. Exact values and supporting colors are not yet approved.
+  territory. Following user feedback that 4a "Ruhe" felt too somber and passive for
+  a bustling restaurant, KitchenLink pivoted to the vibrant "Zitrus" (4b Frisch)
+  language: clean warm paper (#F4F4F1), crisp neutral carbon (#17171B) and deep (#0D0D10),
+  with vivid lemon (#B6CC1B) leading interaction and appetite. Exact values and
+  supporting colors are documented in DESIGN_SYSTEM.md.
 - Round 01 and its review are under `docs/design/claude-design/round-01/`.
 - Round 02, the selected 4a direction and the constrained Turn 5 prompt are under
   `docs/design/claude-design/round-02/`.
@@ -111,8 +113,8 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
 ## Code
 
 - A functioning SwiftUI sandbox prototype exists.
-- The 4a `Ruhe` tokens, type roles, status semantics, surfaces and controls now
-  exist alongside the legacy theme in `KitchenLinkDesignSystemV2.swift`.
+- The `Zitrus` ("Frisch") tokens, type roles, status semantics, surfaces and controls now
+  exist in `KitchenLinkDesignSystemV2.swift` and Web `tokens.css`.
 - The internal build starts directly in the current V2 business home and
   scan/import flow. The legacy design switch and product-sandbox entry are
   retired; their useful import behavior now lives in the V2 path.

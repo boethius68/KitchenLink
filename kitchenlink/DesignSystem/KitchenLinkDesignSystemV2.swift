@@ -3,10 +3,10 @@ import UIKit
 
 // MARK: - Palette
 
-/// Semantic colors for the 4a Ruhe sandbox direction.
+/// Semantic colors for the Zitrus ("Frisch") design language (Claude Design Turn 3b / 4b).
 ///
-/// Lemon is deliberately exposed only through the logo handoff and primary-action
-/// roles. It must not be used to communicate an operational status.
+/// Zitrus brings appetite, warmth, and fresh energy into daily restaurant operations:
+/// Crisp carbon text, warm paper surfaces, and vivid lemon as a lively interaction accent.
 enum KitchenLinkV2Palette {
     struct RGB: Hashable, Sendable {
         let red: Double
@@ -51,30 +51,31 @@ enum KitchenLinkV2Palette {
 
     enum Brand {
         static let grape = Color(rgb: RGB(hex: 0x2C2438))
-        static let deep = Color(rgb: RGB(hex: 0x221B2E))
+        static let deep = Color(rgb: RGB(hex: 0x0D0D10))
+        static let carbon = Color(rgb: RGB(hex: 0x17171B))
     }
 
     enum Surface {
-        static let base = adaptive(light: RGB(hex: 0xF4F2F8), dark: RGB(hex: 0x221B2E))
-        static let raised = adaptive(light: RGB(hex: 0xFCFBFE), dark: RGB(hex: 0x383048))
-        static let recessed = adaptive(light: RGB(hex: 0xECEAF3), dark: RGB(hex: 0x2C2438))
+        static let base = adaptive(light: RGB(hex: 0xF4F4F1), dark: RGB(hex: 0x121215))
+        static let raised = adaptive(light: RGB(hex: 0xFFFFFF), dark: RGB(hex: 0x1E1E24))
+        static let recessed = adaptive(light: RGB(hex: 0xEAEAE5), dark: RGB(hex: 0x282830))
         static let kitchenBase = Brand.deep
     }
 
     enum Content {
-        static let primary = adaptive(light: RGB(hex: 0x2C2438), dark: RGB(hex: 0xF1EFF7))
-        static let secondary = adaptive(light: RGB(hex: 0x56506A), dark: RGB(hex: 0xB4AEC6))
-        static let muted = adaptive(light: RGB(hex: 0x6E6880), dark: RGB(hex: 0x9A94AE))
-        static let onPrimaryAction = Color(rgb: RGB(hex: 0x2C2438))
+        static let primary = adaptive(light: RGB(hex: 0x17171B), dark: RGB(hex: 0xF4F4F1))
+        static let secondary = adaptive(light: RGB(hex: 0x52525C), dark: RGB(hex: 0xB0B0BC))
+        static let muted = adaptive(light: RGB(hex: 0x71717D), dark: RGB(hex: 0x888896))
+        static let onPrimaryAction = Color(rgb: RGB(hex: 0x17171B))
     }
 
     enum Border {
         static let subtle = adaptive(
-            light: RGB(hex: 0x2C2438, opacity: 0.12),
-            dark: RGB(hex: 0xF1EFF7, opacity: 0.14)
+            light: RGB(hex: 0x17171B, opacity: 0.09),
+            dark: RGB(hex: 0xF4F4F1, opacity: 0.12)
         )
-        static let control = adaptive(light: RGB(hex: 0x7E7890), dark: RGB(hex: 0x9A94AE))
-        static let focusRing = adaptive(light: RGB(hex: 0x2C2438), dark: RGB(hex: 0xF1EFF7))
+        static let control = adaptive(light: RGB(hex: 0x7E7E8A), dark: RGB(hex: 0x888896))
+        static let focusRing = adaptive(light: RGB(hex: 0x17171B), dark: RGB(hex: 0xB6CC1B))
     }
 
     enum Action {
@@ -89,10 +90,10 @@ enum KitchenLinkV2Palette {
     enum Urgency {
         static let freshSymbol = adaptive(light: RGB(hex: 0x2E8F5A), dark: RGB(hex: 0x3FA96D))
         static let freshText = adaptive(light: RGB(hex: 0x1F7A47), dark: RGB(hex: 0x5BC088))
-        static let neutralSymbol = adaptive(light: RGB(hex: 0x6E6880), dark: RGB(hex: 0x9A94AE))
-        static let neutralText = adaptive(light: RGB(hex: 0x56506A), dark: RGB(hex: 0xB4AEC6))
-        static let waitingSymbol = adaptive(light: RGB(hex: 0xA97512), dark: RGB(hex: 0xD79A2A))
-        static let waitingText = adaptive(light: RGB(hex: 0x8A6410), dark: RGB(hex: 0xE9B84A))
+        static let neutralSymbol = adaptive(light: RGB(hex: 0x656573), dark: RGB(hex: 0x888896))
+        static let neutralText = adaptive(light: RGB(hex: 0x52525C), dark: RGB(hex: 0xB0B0BC))
+        static let waitingSymbol = adaptive(light: RGB(hex: 0x9E6705), dark: RGB(hex: 0xD79A2A))
+        static let waitingText = adaptive(light: RGB(hex: 0x8A5800), dark: RGB(hex: 0xE9B84A))
         static let criticalSymbol = adaptive(light: RGB(hex: 0xB3261E), dark: RGB(hex: 0xEF6E64))
         static let criticalText = adaptive(light: RGB(hex: 0xA31C15), dark: RGB(hex: 0xEF6E64))
     }

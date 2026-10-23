@@ -1,20 +1,19 @@
 # KitchenLink Design System
 
-**Stand:** 15. Juli 2026
+**Stand:** 23. Oktober 2026 (aktualisiert nach Nutzerentscheidung)
 **Status:** Technische Arbeitsgrundlage fuer den Sandbox-Prototyp
-**Visuelle Quelle:** Claude Design Round 04, Turn 6
+**Visuelle Quelle:** Claude Design Turn 3b / 4b `Zitrus` ("Frisch")
 
-4a `Ruhe` ist die ausgewaehlte Designrichtung. Dieses Dokument ueberfuehrt sie in
-plattformneutrale Regeln, die Codex ohne weitere Claude-Runden in SwiftUI und Web
-umsetzen kann. Exakte Tonwerte, Typografie und das Working-v1-Logo sind noch keine
-finale Markenfreigabe. Neue Umsetzung bleibt deshalb vom bestehenden
-Sandbox-Prototyp trennbar und schaltbar.
+`Zitrus` ist die verbindliche Designrichtung. Sie loest die zu melancholische,
+gedaempfte Richtung 4a "Ruhe" ab und bringt echte gastronomische Energie, Frische,
+Appetit und Klarheit in das Produkt. Dieses Dokument ueberfuehrt sie in
+plattformneutrale Regeln fuer SwiftUI und Web.
 
 ## 1. Designthese
 
-KitchenLink bringt Ruhe in einen lebendigen Betrieb. Traube schafft einen
-eigenstaendigen, verlaesslichen Raum; Zitrone markiert nur den Moment, an dem etwas
-uebergeben oder verbindlich ausgeloest wird.
+KitchenLink ist das frische, wache Restaurantbetriebssystem.
+*„Zitronenschale und Sprudel — wach, prickelnd, unkompliziert. Die Belohnung nach einem
+langen Arbeitstag: Frische, Genuss und Verbindung.“*
 
 Die Oberflaeche beantwortet zuerst:
 
@@ -24,9 +23,12 @@ Die Oberflaeche beantwortet zuerst:
 
 ## 2. Markenrollen
 
-- In Business, Service und Kueche darf KitchenLink sichtbar fuehren.
-- Im Gast-Web fuehrt das Restaurant. Traube ist nur der sichere Fallback, wenn die
-  Venue keine eigene visuelle Identitaet hinterlegt hat.
+- In Business, Service und Kueche fuehrt KitchenLink mit einem klaren, kraftvollen
+  Dunkel (Carbon `#17171B` / Tief `#0D0D10`) und dynamischem Zitrone-Akzent (`#B6CC1B`).
+- Im Gast-Web fuehrt das Restaurant auf hellem, warmem Papier (`#F4F4F1`). KitchenLink
+  erscheint nur als dezente Vertrauenssignatur.
+- Traube (`#2C2438`) bleibt als charakteristische Markenflaeche erhalten, dominiert
+  aber nicht mehr als lila Schleier ueber allen Flaechen.
 - Das Working-v1-Zeichen bleibt geometrisch unveraendert.
 - Die Wortmarke ist immer einfarbig. `Kitchen` und `Link` werden nicht getrennt
   eingefaerbt.
@@ -37,15 +39,15 @@ Die Oberflaeche beantwortet zuerst:
 
 | Token | Wert | Aufgabe |
 | --- | --- | --- |
-| `brand.grape` | `#2C2438` | Markenbasis, dunkle Hauptflaeche, Text auf Zitrone |
-| `brand.deep` | `#221B2E` | tiefste Flaechen, App-Icon, Kuechenhintergrund |
-| `brand.lemon` | `#B6CC1B` | Logo-Uebergabe und eine Primaeraktion |
-| `brand.lemonPressed` | `#9FB014` | ausschliesslich gedrueckter Primaerzustand |
-| `surface.base` | `#F4F2F8` | helle Produkt- und Papierflaeche |
-| `surface.raised` | `#FCFBFE` | erhoehte helle Flaeche |
-| `surface.recessed` | `#ECEAF3` | Auswahl, Mulde, Mengensteuerung |
-| `surface.darkRaised` | `#383048` | erhoehte Flaeche auf Traube oder Tief |
-| `content.light` | `#F1EFF7` | Primaertext und Logo auf dunkler Flaeche |
+| `brand.lemon` | `#B6CC1B` | Zitrus-Leitakzent: Uebergabe, aktive Handlungen und Primaeraktionen |
+| `brand.lemonPressed` | `#9FB014` | gedrueckter Zustand von Zitrone |
+| `brand.grape` | `#2C2438` | Markenbasis fuer ausgewaehlte Akzente |
+| `brand.deep` | `#0D0D10` | tiefste Flaeche, Kuechenmonitor-Basis ("Kueche ist Tief") |
+| `surface.base` | `#F4F4F1` | warmes, frisches Papier statt aschigem Grau |
+| `surface.raised` | `#FFFFFF` | reine, erhoehte Arbeitsflaeche und Karten |
+| `surface.recessed` | `#EAEAE5` | Mulde, Auswahl, Mengensteuerung |
+| `surface.darkRaised` | `#1E1E24` | neutral erhoehte Flaeche im Dunkelkontext |
+| `content.light` | `#F4F4F1` | Primaertext auf dunkler Flaeche |
 
 ## 4. Inhalt und Kontur
 
@@ -53,23 +55,23 @@ Die Oberflaeche beantwortet zuerst:
 
 | Token | Wert |
 | --- | --- |
-| `text.primary` | `#2C2438` |
-| `text.secondary` | `#56506A` |
-| `text.muted` | `#6E6880` |
-| `border.subtle` | `rgba(44, 36, 56, 0.12)` |
-| `border.control` | `#7E7890` |
-| `focus.ring` | `#2C2438` |
+| `text.primary` | `#17171B` (klares Carbon/Neutral) |
+| `text.secondary` | `#52525C` |
+| `text.muted` | `#71717D` |
+| `border.subtle` | `rgba(23, 23, 27, 0.09)` |
+| `border.control` | `#7E7E8A` |
+| `focus.ring` | `#17171B` |
 
 ### Auf Dunkel
 
 | Token | Wert |
 | --- | --- |
-| `text.primaryInverse` | `#F1EFF7` |
-| `text.secondaryInverse` | `#B4AEC6` |
-| `text.mutedInverse` | `#9A94AE` |
-| `border.subtleInverse` | `rgba(241, 239, 247, 0.14)` |
-| `border.controlInverse` | `#9A94AE` |
-| `focus.ringInverse` | `#F1EFF7` |
+| `text.primaryInverse` | `#F4F4F1` |
+| `text.secondaryInverse` | `#B0B0BC` |
+| `text.mutedInverse` | `#888896` |
+| `border.subtleInverse` | `rgba(244, 244, 241, 0.12)` |
+| `border.controlInverse` | `#888896` |
+| `focus.ringInverse` | `#B6CC1B` |
 
 `border.subtle` ist rein dekorativ. Wenn eine Grenze zum Erkennen oder Bedienen
 eines Controls notwendig ist, muss `border.control` verwendet werden. Fokus ist
