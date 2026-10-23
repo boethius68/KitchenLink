@@ -1,9 +1,41 @@
 # Claude Code Handoff
 
-**Updated:** 24 October 2026 (Session-Teil 43: Tactile Hospitality Tech Design System Sync)
+**Updated:** 24 October 2026 (Session-Teil 44: Guest Split-Bill, Trinkgeld & Bewirtungsbeleg (§ 4 Abs. 5 Nr. 2 EStG))
+**Zuvor:** 24 October 2026 (Session-Teil 43: Tactile Hospitality Tech Design System Sync)
 **Zuvor:** 1 August 2026 (Session-Teil 42: Sollbesetzung)
 **Zuvor:** 1 August 2026 (Session-Teil 41: Abwesenheiten)
 **Zuvor:** 1 August 2026 (Session-Teil 40: Dienstplan)
+
+## Session-Teil 44: Guest Split-Bill, Trinkgeld & Bewirtungsbeleg (§ 4 Abs. 5 Nr. 2 EStG) (24. Oktober 2026)
+
+### Anlass
+Erweiterung des Gast-Checkouts am Tisch (`guest-web/`) um getrenntes Zahlen nach Positionen und Teilmengen („Artikel aufteilen“), taktilen Trinkgeld-Wähler inklusive Aufrunden („Aufrunden auf vollen Euro“) sowie steuerlich konformen Bewirtungsbeleg gem. § 4 Abs. 5 Nr. 2 EStG mit detailliertem 7 % / 19 % MwSt.-Ausweis und TSE-Signaturblock nach KassenSichV / DSFinV-K im kanonischen Design-System („Tactile Hospitality Tech“ / Quiet UI).
+
+### Durchgeführte Arbeiten
+1. **Domänenmodell & Steuerberechnung (`guest-web/src/lib/table-check.ts`):**
+   - Aufteilung der Mehrwertsteuer nach deutschem Gastronomierecht: 7 % auf Speisen (`food`), 19 % auf Getränke & Alkohol (`drink`), Trinkgeld steuerfrei gem. § 3 Nr. 51 EStG (`computeVatBreakdown`).
+   - Automatische Erkennung von Getränken (`isDrinkItem`).
+   - Aufrundungs-Trinkgeldlogik (`computeRoundUpTipCents`).
+   - Unterstützung für mengenbasierte Teilzahlung (`selectedItemQuantities`) für Positionen mit Anzahl > 1 in `computeSelectedItemsTotal` und `applyLocalDemoPayment`.
+   - Pflichtfelder für steuerlichen Betriebsausgabenabzug gem. § 4 Abs. 5 Nr. 2 EStG (`BewirtungsbelegData`: `hostName`, `guests`, `purpose`).
+   - Vollständige TSE-Fiskalmetadaten (`tseTransactionNumber`, `tseSignatureCounter`, `tseSerialNumber`, `tseQrData`) im Belegobjekt.
+2. **Druckfähige Bewirtungsbeleg-Komponente (`guest-web/src/components/HospitalityReceiptModal.tsx`):**
+   - Eigenständiges Modal mit Druckoptimierung (`@media print` in `globals.css` blendet Seiten-Header, Footer und UI-Chrome aus).
+   - Taktile Papierästhetik (`bg-kl-canvas` / `bg-kl-surface`), redaktionelle Überschrift in Newsreader (`font-serif`), Ziffern und TSE-Daten in JetBrains Mono (`font-mono tabular-nums`).
+   - Vollständiger Steuerabschnitt: Netto, 7 % MwSt., 19 % MwSt., Bruttobetrag, steuerfreies Trinkgeld.
+   - Gesetzliche Pflichtfelder für Bewirtungsaufwand mit Unterschriftenzeile für den Gastgeber.
+   - TSE-Signaturblock mit Signaturzähler, Seriennummer, Start-/Endzeitpunkt und DSFinV-K QR-String.
+3. **Überarbeitung des Rechnungs-Drawers (`guest-web/src/components/TableCheckSheet.tsx`):**
+   - Umstellung auf `kl-*` Design-Tokens.
+   - Segmentierte Split-Modi: „Gesamter Tisch“, „Artikel aufteilen“ (inkl. Mengen-Stepper `+`/`-` für mehrfach bestellte Positionen), „Gleichmäßig teilen“.
+   - Taktiler Trinkgeld-Wähler mit Chips für 0 %, 5 %, 10 %, 15 % und „Aufrunden“ mit exakter Euro-Anzeige.
+   - Integrierter Schalter für Bewirtungsbeleg mit Validierungsanzeige.
+   - Nach erfolgreicher Zahlung sofortige Anzeige des Bewirtungsbelegs per Klick auf „Bewirtungsbeleg anzeigen & drucken“.
+4. **Verifikation & Testabdeckung:**
+   - 5 neue Unit-Tests in `guest-web/__tests__/table-check.test.ts` (Getränkeerkennung, MwSt.-Aufteilung 7 %/19 %, Aufrundung, Mengen-Splitting, Bewirtungsbeleg-TSE-Generierung).
+   - Alle 17 Testsuiten (156 Tests) in `guest-web` fehlerfrei bestanden.
+   - TypeScript-Typcheck (`npm run typecheck`) und Linter (`npm run lint`) ohne Befund.
+   - Next.js Produktions-Build (`npm run build`) mit SSG aller 7 Routen erfolgreich.
 
 ## Session-Teil 43: Tactile Hospitality Tech Design System Sync (24. Oktober 2026)
 

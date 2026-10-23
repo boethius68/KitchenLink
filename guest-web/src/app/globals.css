@@ -2267,11 +2267,15 @@ button {
 @media print {
   body {
     background: #fff !important;
+    color: #000 !important;
   }
   .no-print,
   .kl-sandbox-banner,
   .kl-brand-header,
-  .kl-brand-footer {
+  .kl-brand-footer,
+  .kl-venue-header,
+  .kl-order-bar,
+  .kl-sheet-backdrop {
     display: none !important;
   }
   .kl-modal-backdrop {
@@ -2282,5 +2286,12 @@ button {
   .kl-slip-container {
     box-shadow: none;
     max-height: none;
+  }
+  .kl-receipt-printable {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
 }

@@ -15,7 +15,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { GuestVenue } from "./venue-data";
+import type { GuestMenuItemKind, GuestVenue } from "./venue-data";
 
 export type GuestCheckItemSource = "guest_qr" | "service";
 
@@ -29,6 +29,8 @@ export interface GuestTableCheckItem {
   paid: boolean;
   paymentId: string | null;
   source: GuestCheckItemSource;
+  kind?: GuestMenuItemKind;
+  vatRate?: 7 | 19;
 }
 
 export interface GuestTableCheck {
@@ -42,6 +44,39 @@ export interface GuestTableCheck {
   items: GuestTableCheckItem[];
 }
 
+export interface VatRateBreakdown {
+  ratePercent: 7 | 19;
+  netCents: number;
+  vatCents: number;
+  grossCents: number;
+}
+
+export interface VatBreakdown {
+  rate7: VatRateBreakdown;
+  rate19: VatRateBreakdown;
+  totalNetCents: number;
+  totalVatCents: number;
+  totalGrossCents: number;
+  tipCents: number;
+  grandTotalCents: number;
+}
+
+export interface BewirtungsbelegData {
+  enabled: boolean;
+  hostName: string;
+  guests: string;
+  purpose: string;
+}
+
+export interface VenueTaxInfo {
+  name: string;
+  legalName: string;
+  address: string;
+  postalCity: string;
+  taxNumber: string;
+  vatId: string;
+}
+
 export interface GuestTablePaymentReceipt {
   paymentId: string;
   amountCents: number;
@@ -49,13 +84,129 @@ export interface GuestTablePaymentReceipt {
   method: string;
   providerReference: string;
   tseSignature: string;
+  tseTransactionNumber?: string;
+  tseSignatureCounter?: number;
+  tseStartedAt?: string;
+  tseFinishedAt?: string;
+  tseSerialNumber?: string;
+  tseQrData?: string;
   openCents: number;
   sessionClosed: boolean;
   replayed: boolean;
+  paidItems?: GuestTableCheckItem[];
+  bewirtungsbeleg?: BewirtungsbelegData;
+  issuedAt?: string;
+  tableLabel?: string;
+  tableArea?: string;
+  venueName?: string;
+  vatBreakdown?: VatBreakdown;
 }
 
 export type GuestSplitMode = "items" | "full" | "equal";
 export type GuestTipPercent = 0 | 5 | 10 | 15;
+
+/**
+ * Liefert Stammdaten & Steuerdaten einer Venue für den gesetzeskonformen Beleg.
+ */
+export function getVenueTaxInfo(venueSlugOrName: string): VenueTaxInfo {
+  const isAlteMuehle =
+    venueSlugOrName.toLowerCase().includes("muehle") ||
+    venueSlugOrName.toLowerCase().includes("mühle") ||
+    venueSlugOrName.toLowerCase().includes("alte");
+  if (isAlteMuehle) {
+    return {
+      name: "Gasthaus Alte Mühle",
+      legalName: "Alte Mühle Gastronomie GmbH",
+      address: "Mühlenweg 4",
+      postalCity: "80331 München",
+      taxNumber: "143/218/90123",
+      vatId: "DE 314 892 019",
+    };
+  }
+  return {
+    name: venueSlugOrName || "Restaurant KitchenLink",
+    legalName: `${venueSlugOrName || "Restaurant KitchenLink"} Gastronomiebetrieb`,
+    address: "Marktplatz 1",
+    postalCity: "10115 Berlin",
+    taxNumber: "112/145/80231",
+    vatId: "DE 298 471 052",
+  };
+}
+
+/**
+ * Erkennt anhand des Artikelnamens oder der Kennzeichnung, ob es sich um ein Getränk handelt
+ * (19% MwSt.) oder um Speisen (7% MwSt. ermäßigt).
+ */
+export function isDrinkItem(name: string, kind?: GuestMenuItemKind): boolean {
+  if (kind === "drink") return true;
+  if (kind === "food") return false;
+  const lower = name.toLowerCase();
+  const drinkKeywords = [
+    "bier", "pils", "kellerbier", "weißbier", "hefeweizen", "radler",
+    "wein", "rotwein", "weißwein", "riesling", "chianti", "grauburgunder", "spätburgunder",
+    "sekt", "prosecco", "champagner", "spritz", "aperol", "spritzer",
+    "wasser", "mineralwasser", "still", "medium", "sprudel",
+    "saft", "schorle", "apfelschorle", "johannisbeer", "limo", "limonade", "cola", "fanta", "spezi",
+    "kaffee", "espresso", "cappuccino", "latte", "tee",
+    "schnaps", "brand", "grappa", "likör", "gin", "tonic", "rum", "whisky", "cocktail",
+  ];
+  return drinkKeywords.some((kw) => lower.includes(kw));
+}
+
+/**
+ * Berechnet die gesetzeskonforme Mehrwertsteuer-Aufschlüsselung (7% Speisen, 19% Getränke).
+ * Trinkgeld ist in Deutschland nach § 3 Nr. 51 EStG steuerfrei und wird getrennt ausgewiesen.
+ */
+export function computeVatBreakdown(
+  items: Array<{ name: string; lineTotalCents: number; kind?: GuestMenuItemKind; vatRate?: 7 | 19 }>,
+  tipCents = 0,
+): VatBreakdown {
+  let gross7Cents = 0;
+  let gross19Cents = 0;
+
+  for (const item of items) {
+    const isDrink =
+      item.vatRate === 19 || (item.vatRate !== 7 && isDrinkItem(item.name, item.kind));
+    if (isDrink) {
+      gross19Cents += item.lineTotalCents;
+    } else {
+      gross7Cents += item.lineTotalCents;
+    }
+  }
+
+  // Netto = Brutto / (1 + Steuersatz)
+  const net7Cents = Math.round(gross7Cents / 1.07);
+  const vat7Cents = gross7Cents - net7Cents;
+
+  const net19Cents = Math.round(gross19Cents / 1.19);
+  const vat19Cents = gross19Cents - net19Cents;
+
+  const totalNetCents = net7Cents + net19Cents;
+  const totalVatCents = vat7Cents + vat19Cents;
+  const totalGrossCents = gross7Cents + gross19Cents;
+  const safeTipCents = Math.max(0, tipCents);
+  const grandTotalCents = totalGrossCents + safeTipCents;
+
+  return {
+    rate7: {
+      ratePercent: 7,
+      netCents: net7Cents,
+      vatCents: vat7Cents,
+      grossCents: gross7Cents,
+    },
+    rate19: {
+      ratePercent: 19,
+      netCents: net19Cents,
+      vatCents: vat19Cents,
+      grossCents: gross19Cents,
+    },
+    totalNetCents,
+    totalVatCents,
+    totalGrossCents,
+    tipCents: safeTipCents,
+    grandTotalCents,
+  };
+}
 
 /**
  * Dekodiert die Antwort von `guest_web_get_table_check` defensiv.
@@ -136,6 +287,12 @@ export function decodeGuestTablePaymentReceipt(raw: unknown): GuestTablePaymentR
       typeof obj.tse_signature === "string"
         ? obj.tse_signature
         : `TSE-SIM-${paymentId.replace(/-/g, "").slice(0, 12).toUpperCase()}`,
+    tseTransactionNumber: typeof obj.tse_transaction_number === "string" ? obj.tse_transaction_number : undefined,
+    tseSignatureCounter: typeof obj.tse_signature_counter === "number" ? obj.tse_signature_counter : undefined,
+    tseStartedAt: typeof obj.tse_started_at === "string" ? obj.tse_started_at : undefined,
+    tseFinishedAt: typeof obj.tse_finished_at === "string" ? obj.tse_finished_at : undefined,
+    tseSerialNumber: typeof obj.tse_serial_number === "string" ? obj.tse_serial_number : undefined,
+    tseQrData: typeof obj.tse_qr_data === "string" ? obj.tse_qr_data : undefined,
     openCents: typeof obj.open_cents === "number" ? obj.open_cents : 0,
     sessionClosed: Boolean(obj.session_closed),
     replayed: Boolean(obj.replayed),
@@ -144,16 +301,23 @@ export function decodeGuestTablePaymentReceipt(raw: unknown): GuestTablePaymentR
 
 /**
  * Berechnet die Zwischensumme der vom Gast ausgewählten offenen Positionen,
+ * optional unter Berücksichtigung partieller Mengen (z.B. 1 von 2 Bieren),
  * gedeckelt auf den tatsächlich noch offenen Rechnungsbetrag.
  */
 export function computeSelectedItemsTotal(
   check: GuestTableCheck,
   selectedItemIds: ReadonlySet<string>,
+  selectedItemQuantities?: Record<string, number>,
 ): number {
   let sum = 0;
   for (const item of check.items) {
     if (!item.paid && selectedItemIds.has(item.orderItemId)) {
-      sum += item.lineTotalCents;
+      if (selectedItemQuantities && typeof selectedItemQuantities[item.orderItemId] === "number") {
+        const qty = Math.max(1, Math.min(item.quantity, selectedItemQuantities[item.orderItemId]));
+        sum += qty * item.unitPriceCents;
+      } else {
+        sum += item.lineTotalCents;
+      }
     }
   }
   return Math.min(sum, check.openCents);
@@ -178,6 +342,18 @@ export function computeTipCents(baseAmountCents: number, tipPercent: GuestTipPer
     return 0;
   }
   return Math.round((baseAmountCents * tipPercent) / 100);
+}
+
+/**
+ * Berechnet ein Aufrund-Trinkgeld auf den nächsten vollen Euro.
+ * Bei 18,30 € -> 0,70 € Trinkgeld (= 19,00 €).
+ * Bei 18,00 € -> 1,00 € Trinkgeld (= 19,00 €).
+ */
+export function computeRoundUpTipCents(baseAmountCents: number): number {
+  if (baseAmountCents <= 0) return 0;
+  const remainder = baseAmountCents % 100;
+  if (remainder === 0) return 100;
+  return 100 - remainder;
 }
 
 /**
@@ -216,6 +392,8 @@ export function buildDemoTableCheck(
       paid: false,
       paymentId: null,
       source: "guest_qr",
+      kind: firstFood.kind,
+      vatRate: 7,
     });
   }
 
@@ -230,6 +408,8 @@ export function buildDemoTableCheck(
       paid: false,
       paymentId: null,
       source: "service",
+      kind: secondFood.kind,
+      vatRate: 7,
     });
   }
 
@@ -244,6 +424,8 @@ export function buildDemoTableCheck(
       paid: false,
       paymentId: null,
       source: "service",
+      kind: firstDrink.kind,
+      vatRate: 19,
     });
   }
 
@@ -258,6 +440,8 @@ export function buildDemoTableCheck(
       paid: false,
       paymentId: null,
       source: "guest_qr",
+      kind: isDrinkItem(extra.name) ? "drink" : "food",
+      vatRate: isDrinkItem(extra.name) ? 19 : 7,
     });
   });
 
@@ -283,9 +467,12 @@ export function applyLocalDemoPayment(
   check: GuestTableCheck,
   params: {
     orderItemIds?: string[];
+    selectedQuantities?: Record<string, number>;
     amountCents?: number;
     tipCents: number;
     idempotencyKey: string;
+    bewirtungsbeleg?: BewirtungsbelegData;
+    venueName?: string;
   },
 ): { ok: true; check: GuestTableCheck; receipt: GuestTablePaymentReceipt } | { ok: false; message: string } {
   if (check.openCents <= 0) {
@@ -294,6 +481,10 @@ export function applyLocalDemoPayment(
 
   const selectedIds = new Set(params.orderItemIds ?? []);
   let amountCents = 0;
+  const paidItems: GuestTableCheckItem[] = [];
+  const updatedItems: GuestTableCheckItem[] = [];
+
+  const paymentId = `pay-${params.idempotencyKey.slice(0, 12)}`;
 
   if (selectedIds.size > 0) {
     for (const id of selectedIds) {
@@ -304,8 +495,55 @@ export function applyLocalDemoPayment(
           message: "Eine ausgewählte Position wurde bereits bezahlt oder gehört nicht zu diesem Tisch.",
         };
       }
-      amountCents += item.lineTotalCents;
     }
+
+    for (const item of check.items) {
+      if (item.paid) {
+        updatedItems.push(item);
+        continue;
+      }
+
+      if (selectedIds.has(item.orderItemId)) {
+        const requestedQty = params.selectedQuantities?.[item.orderItemId];
+        const qtyToPay =
+          typeof requestedQty === "number" && requestedQty > 0
+            ? Math.min(item.quantity, requestedQty)
+            : item.quantity;
+
+        const lineAmount = qtyToPay * item.unitPriceCents;
+        amountCents += lineAmount;
+
+        const paidPortion: GuestTableCheckItem = {
+          ...item,
+          quantity: qtyToPay,
+          lineTotalCents: lineAmount,
+          paid: true,
+          paymentId,
+        };
+        paidItems.push(paidPortion);
+
+        if (qtyToPay < item.quantity) {
+          // Teilmenge bezahlt: Restzeile bleibt offen
+          updatedItems.push({
+            ...item,
+            quantity: item.quantity - qtyToPay,
+            lineTotalCents: (item.quantity - qtyToPay) * item.unitPriceCents,
+            paid: false,
+            paymentId: null,
+          });
+          // Bezahlter Anteil wird als bezahlt dokumentiert
+          updatedItems.push({
+            ...paidPortion,
+            orderItemId: `${item.orderItemId}-p1`,
+          });
+        } else {
+          updatedItems.push(paidPortion);
+        }
+      } else {
+        updatedItems.push(item);
+      }
+    }
+
     amountCents = Math.min(amountCents, check.openCents);
   } else {
     if (!params.amountCents || params.amountCents <= 0) {
@@ -315,23 +553,52 @@ export function applyLocalDemoPayment(
       return { ok: false, message: "Der Betrag übersteigt den offenen Rechnungsbetrag." };
     }
     amountCents = params.amountCents;
+
+    const sessionClosedSoon = amountCents >= check.openCents;
+
+    for (const item of check.items) {
+      if (item.paid) {
+        updatedItems.push(item);
+      } else if (sessionClosedSoon) {
+        const paidItem = { ...item, paid: true, paymentId };
+        paidItems.push(paidItem);
+        updatedItems.push(paidItem);
+      } else {
+        updatedItems.push(item);
+      }
+    }
+
+    if (paidItems.length === 0) {
+      paidItems.push({
+        orderItemId: `item-split-${paymentId}`,
+        orderId: `ord-split-${paymentId}`,
+        name: `Tisch ${check.tableLabel} anteilig`,
+        quantity: 1,
+        unitPriceCents: amountCents,
+        lineTotalCents: amountCents,
+        paid: true,
+        paymentId,
+        source: "guest_qr",
+        vatRate: 19,
+      });
+    }
   }
 
-  const paymentId = `pay-${params.idempotencyKey.slice(0, 12)}`;
   const newPaidCents = check.paidCents + amountCents;
   const newOpenCents = Math.max(0, check.totalCents - newPaidCents);
   const sessionClosed = newOpenCents === 0;
 
-  const updatedItems = check.items.map((item) => {
-    if (selectedIds.has(item.orderItemId) || (selectedIds.size === 0 && sessionClosed && !item.paid)) {
-      return {
-        ...item,
-        paid: true,
-        paymentId,
-      };
-    }
-    return item;
-  });
+  const now = new Date();
+  const dateStr = now.toISOString();
+  const txNumber = `TSE-TX-#${Math.floor(100000 + Math.random() * 900000)}`;
+  const signatureCounter = Math.floor(10000 + Math.random() * 80000);
+  const serialNumber = "TSE-KL-DEMO-001";
+  const startedAt = new Date(now.getTime() - 85000).toISOString();
+  const finishedAt = dateStr;
+  const signature = `TSE-SIM-${params.idempotencyKey.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase()}-MEUCIQ${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+  const qrData = `V0;${params.venueName || "Alte Muehle"};${(amountCents + Math.max(0, params.tipCents)) / 100};${txNumber};${dateStr};${serialNumber};${signature}`;
+
+  const vatBreakdown = computeVatBreakdown(paidItems, params.tipCents);
 
   const receipt: GuestTablePaymentReceipt = {
     paymentId,
@@ -339,10 +606,23 @@ export function applyLocalDemoPayment(
     tipCents: Math.max(0, params.tipCents),
     method: "online",
     providerReference: `sandbox-wallet-${params.idempotencyKey.slice(0, 8)}`,
-    tseSignature: `TSE-SIM-${params.idempotencyKey.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase()}`,
+    tseSignature: signature,
+    tseTransactionNumber: txNumber,
+    tseSignatureCounter: signatureCounter,
+    tseStartedAt: startedAt,
+    tseFinishedAt: finishedAt,
+    tseSerialNumber: serialNumber,
+    tseQrData: qrData,
     openCents: newOpenCents,
     sessionClosed,
     replayed: false,
+    paidItems,
+    bewirtungsbeleg: params.bewirtungsbeleg,
+    issuedAt: dateStr,
+    tableLabel: check.tableLabel,
+    tableArea: check.tableArea,
+    venueName: params.venueName,
+    vatBreakdown,
   };
 
   return {

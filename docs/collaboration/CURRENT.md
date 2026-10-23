@@ -1,6 +1,6 @@
 # KitchenLink Current State
 
-**Updated:** 30 July 2026
+**Updated:** 24 October 2026
 **Integration branch:** `main`
 **Phase:** Integrated sandbox; guest web live, iOS domain expansion
 **Release status:** Publicly reachable sandbox, not production
@@ -1118,6 +1118,27 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      - 4-Säulen-Bento-Grid (LAN-Resilienz, LMIV-Allergene, Native SwiftUI POS, DACH-Fiskal KassenSichV/DATEV).
      - High-Contrast Sandbox-Callout-Banner und Compliance-Footer.
   6. Verifikation: `typecheck`, `lint`, 17/17 Testsuiten (151 Tests) und Next.js Turbopack-Build bestanden.
+- **Gast Split-Bill, Trinkgeld & Bewirtungsbeleg (§ 4 Abs. 5 Nr. 2 EStG / TSE KassenSichV) (Oktober 2026):**
+  Blueprint §6.1, §8.1; `docs/DESIGN_SYSTEM.md`.
+  1. Domänenmodell & Steuerberechnung in `guest-web/src/lib/table-check.ts`:
+     - Aufteilung der Mehrwertsteuer nach deutschem Gastronomierecht: 7 % Speisen (`food`), 19 % Getränke/Alkohol (`drink`), Trinkgeld steuerfrei gem. § 3 Nr. 51 EStG (`computeVatBreakdown`, `isDrinkItem`).
+     - Pflichtfelder für steuerlichen Betriebsausgabenabzug gem. § 4 Abs. 5 Nr. 2 EStG (`BewirtungsbelegData`: `hostName`, `guests`, `purpose`).
+     - Mengen-Splitting (`selectedItemQuantities`) für Teilbezahlung mehrfach bestellter Positionen.
+     - Aufrundungs-Trinkgeldlogik (`computeRoundUpTipCents`) sowie 5 %, 10 %, 15 % Taktil-Chips.
+     - KassenSichV TSE-Fiskalmetadaten (`tseTransactionNumber`, `tseSignatureCounter`, `tseSerialNumber`, `tseQrData`).
+  2. Druckfähiger Bewirtungsbeleg [`guest-web/src/components/HospitalityReceiptModal.tsx`](file:///Users/test/Developments/kitchenlink-claude/guest-web/src/components/HospitalityReceiptModal.tsx):
+     - Print-optimiertes Layout (`@media print`), das Web-Chrome ausblendet und Beleg als DIN-A4/Bon darstellt.
+     - Netto-, MwSt.- (7 % / 19 %) und Brutto-Aufschlüsselungstabelle, steuerfreier Trinkgeldausweis.
+     - Amtliche Felder für Bewirtende/Firma, Bewirtete und konkreten geschäftlichen Anlass mit physischer Unterschriftenlinie.
+     - KassenSichV-Sicherheitsblock mit Zähler, Seriennummer, Zeitstempeln und DSFinV-K QR-String.
+  3. Redesign Rechnungs-Sheet [`guest-web/src/components/TableCheckSheet.tsx`](file:///Users/test/Developments/kitchenlink-claude/guest-web/src/components/TableCheckSheet.tsx):
+     - Quiet UI & kanonische `kl-*`-Tokens (`bg-kl-canvas`, `bg-kl-surface`, `bg-kl-subtle`, `bg-kl-terracotta`, `bg-kl-dark`).
+     - Split-Modi: „Gesamter Tisch“, „Artikel aufteilen“ (mit Mengenschritten `+`/`-`), „Gleichmäßig teilen“.
+     - Taktiler Trinkgeld-Wähler und Bewirtungsbeleg-Toggle mit Pflichtfeldvalidierung.
+     - Nach Bezahlung direkter Aufruf des druckbaren Bewirtungsbelegs.
+  4. Verifikation:
+     - 5 neue Unit-Tests in `guest-web/__tests__/table-check.test.ts` (17 Testsuiten, 156 Tests grün).
+     - `npm run typecheck`, `npm run lint` und Next.js Produktions-Build (`npm run build`) erfolgreich.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

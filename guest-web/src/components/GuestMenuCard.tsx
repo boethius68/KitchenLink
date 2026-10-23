@@ -1169,7 +1169,18 @@ function OrderSummarySheet({
         )}
 
         {orderMode === "dine_in" && tableLabel && (
-          <p className="kl-sheet-table kl-type-meta">Für {tableLabel}</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="kl-sheet-table kl-type-meta">Für {tableLabel}</p>
+            {onOpenTableCheck && (
+              <button
+                type="button"
+                onClick={onOpenTableCheck}
+                className="font-sans text-xs text-kl-terracotta hover:underline font-semibold cursor-pointer"
+              >
+                Tischrechnung & Teilen →
+              </button>
+            )}
+          </div>
         )}
 
         {orderMode === "dine_in" && !tableLabel && !isAccepted && (
