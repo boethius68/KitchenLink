@@ -1081,6 +1081,43 @@ verified end-to-end against the EU-Frankfurt Supabase instance.
      - Public Homepage signboard, Platform Compatibility Matrix, and B2B Vendor Portal (`guest-web/src/app/vendors/`).
      - 16 test suites (144 tests) in `guest-web` passing.
   5. 4 new Swift unit tests in `KitchenLinkSandboxControlTests.swift`.
+- **Guest-Self-Checkout & Rechnungs-Splitting am Tisch (KL-WEB-007, Oktober 2026):**
+  Blueprint §6.1, §8.1.
+  1. Additive database migration `20261024060000_guest_table_check_and_split_pay.sql`:
+     - Staff- & guest RPC `guest_web_get_table_check`: loads authoritative table check via valid
+       active table token (`qr_tokens`), returning all items across both QR and waiter orders.
+     - Staff- & guest RPC `guest_web_pay_table_check`: supports item-by-item split ("Meine Positionen"),
+       equal split ("Durch X teilen"), or full open balance payment ("Alles Offene") with tip,
+       enforcing database-level concurrency protection (`payment_items_one_open_payment_per_item`).
+     - Granted to `anon, authenticated`.
+  2. Guest-Web domain model (`guest-web/src/lib/table-check.ts`):
+     - `GuestTableCheckItem`, `GuestTableCheck`, `GuestTablePaymentReceipt`, `GuestSplitMode`.
+     - Pure calculation functions for selected items total, equal split share, tip percentages (0%, 5%, 10%, 15%),
+       and payable cents.
+     - Full offline/sandbox fallback engine (`buildDemoTableCheck`, `applyLocalDemoPayment`) and Supabase RPC transport.
+     - 7 new unit tests in `guest-web/__tests__/table-check.test.ts`.
+  3. Interactive UI [`guest-web/src/components/TableCheckSheet.tsx`](file:///Users/test/Developments/kitchenlink-claude/guest-web/src/components/TableCheckSheet.tsx):
+     - Table check header with live total, paid, and open balance badges.
+     - 3 split modes: item checkboxes with source badges (`Tisch-QR` vs `Service`), full balance, and N-person equal split stepper.
+     - Tip selection chips with live preview and digital KassenSichV / TSE simulation receipt card upon completion.
+     - Integrated into [`guest-web/src/components/GuestMenuCard.tsx`](file:///Users/test/Developments/kitchenlink-claude/guest-web/src/components/GuestMenuCard.tsx)
+       with header action badge and direct prompt in `OrderSummarySheet` after order submission.
+  4. Strategic foundation:
+     - Documented DACH competitor analysis & differentiation wedges in [`docs/strategy/COMPETITOR_ANALYSIS_DACH_2026-10.md`](file:///Users/test/Developments/kitchenlink-claude/docs/strategy/COMPETITOR_ANALYSIS_DACH_2026-10.md).
+  5. Verified:
+     - 17/17 test suites (151 unit tests) passing in `guest-web`, TypeScript check green, Next.js static build successful.
+- **Design System „Tactile Hospitality Tech" & B2B-Showcase-Homepage (Oktober 2026):**
+  Blueprint §3.1, §20; `docs/DESIGN_SYSTEM.md`.
+  1. Kanonische Markenvorgaben in `docs/DESIGN_SYSTEM.md` verankert und in `AGENTS.md`, `CLAUDE.md`, `DECISIONS.md` referenziert.
+  2. `guest-web` Tailwind- und CSS-Token-Integration: `kl-canvas` (#FAF7F2), `kl-surface` (#FFFFFF), `kl-subtle` (#F2ECE4), `kl-dark` (#141413), `kl-charcoal` (#1C1B19), `kl-muted` (#6E6A63), `kl-terracotta` (#C84B31), `kl-sage` (#3D5A45), `kl-emerald` (#10B981), `kl-border` (#E6E0D6).
+  3. Google Fonts: `Plus Jakarta Sans` (UI), `Newsreader` (Editorial / Überschriften) und `JetBrains Mono` (`tabular-nums` für Preise, Allergencodes, Fiskaldaten).
+  4. Quiet UI: 14 EU-Hauptallergene und Zusatzstoffe dezent inline im Fließtext als `font-mono text-[10px] px-1.5 py-0.5 rounded`.
+  5. Neue B2B-Showcase-Homepage (`/`):
+     - Sticky Navigation mit Brand Mark, Versions-Badge `OS 1.4` und `BONJOUR LAN RELAY • OFFLINE-FIRST` Status-Pill.
+     - Dual Live UI Artifact (reine CSS/JSX-Komposition) mit POS-Dark-Ticket und warmer Gast-Web-Papierkarte.
+     - 4-Säulen-Bento-Grid (LAN-Resilienz, LMIV-Allergene, Native SwiftUI POS, DACH-Fiskal KassenSichV/DATEV).
+     - High-Contrast Sandbox-Callout-Banner und Compliance-Footer.
+  6. Verifikation: `typecheck`, `lint`, 17/17 Testsuiten (151 Tests) und Next.js Turbopack-Build bestanden.
 - **Milestone 2 remainder:** availability, shift templates and recurrence,
   notification, swap requests (§9.2) — the domain models them, persistence does
   not. Also open from §9.1: custom roles, qualifications, staff profiles and

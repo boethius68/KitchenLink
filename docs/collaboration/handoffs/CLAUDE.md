@@ -3229,16 +3229,72 @@ autoritative Bestellgrenze, Supabase-Anbindung, PWA-Stufe.
   Supabase-Anon-Key im Relay (vorbestehend), PR #7/#8 ungereviewt,
   KL-INVENTORY-001 unbesetzt.
 
-## Recommended Next Step
+## Session: DACH-Marktanalyse & KL-WEB-007 Gast-Self-Checkout & Rechnungs-Splitting (Oktober 2026)
 
-Zwei parallele Nutzer-Abnahmen offen, beide nur mit echter Instanz/Geraet
-machbar: (1) KL-CLOUD-001 (Migration `20260719100000` + Betreiber-Konto,
-`SANDBOX_SETUP.md` §6.1, reale Web-zu-iPhone-Abnahme) und (2) KL-MENU-005
-(Migration `20260719200000`, einmal veroeffentlichen, `SANDBOX_SETUP.md` §6.2).
-Nach diesen Abnahmen ist die geschlossene Schleife *Papierkarte → Scan →
-Pruefung → Live-Gastkarte → Bestellung → Kueche → serviert* erstmals
-durchgaengig vorfuehrbar. Naechste Code-Schritte danach: Tisch-Kontext im
-Gast-Web (QR mit Tischparameter + minimale Tisch-Session) und die
-Payment/TSE-Provider-Vorentscheidung als Papieraufgabe. Als Folgetickets offen:
-Gast-Statusseite nach dem ACK, additive Kartenpflege (statt Vollersatz) und
-stabile Slug-Zuordnung ueber Re-Publish.
+- Umfassende DACH-Marktrecherche und Wettbewerbsanalyse durchgeführt und
+  unter `docs/strategy/COMPETITOR_ANALYSIS_DACH_2026-10.md` dauerhaft verankert.
+- Auf Wunsch des Nutzers Hebel A umgesetzt: **Gast-Self-Checkout & Rechnungs-Splitting
+  am Tisch („Sunday-Killer")**.
+- Additive Datenbank-Migration `20261024060000_guest_table_check_and_split_pay.sql`:
+  - `guest_web_get_table_check`: liest offene Tischrechnung anhand des aktiven QR-Tokens
+    inkl. aller Positionen (Gast-QR + Kellner-Bonierung).
+  - `guest_web_pay_table_check`: unterstützt Positions-Splitting, Pro-Kopf-Teilung und
+    vollständigen Ausgleich mit Trinkgeld; concurrency-safe über `payment_items_one_open_payment_per_item`.
+- Gast-Web-Domain `guest-web/src/lib/table-check.ts` mit defensiver Dekodierung,
+  Split-Berechnungen, Tip-Rechner, Demo-Fallback und Supabase-Integration.
+- UI-Komponente `guest-web/src/components/TableCheckSheet.tsx` mit 3 Aufteilungsmodi
+  („Meine Artikel", „Alles Offene", „Durch X teilen"), Trinkgeld-Chips und digitalem
+  KassenSichV-/TSE-Simulationsbeleg.
+- Integration in `guest-web/src/components/GuestMenuCard.tsx` (Rechnungs-Button im Header
+  und Direktsprung aus der Bestellbestätigung).
+- Verifikation:
+  - `guest-web`: `npm run typecheck` (0 Fehler)
+  - `guest-web`: `npm run lint` (0 Warnungen)
+  - `guest-web`: `vitest` 17/17 Suiten (151 Tests) bestanden
+  - `guest-web`: `next build` erfolgreich abgeschlossen
+
+### Risiken und offene Punkte
+
+- Die neue Migration `20261024060000_guest_table_check_and_split_pay.sql` ist additiv und
+  erfordert vor einem produktiven Test das Einspielen auf der Supabase-Sandbox-Instanz.
+- Bleibt wie vorgesehen im Sandbox-Modus (keine echte Geld- oder TSE-Buchung).
+
+## Session: Tactile Hospitality Tech Design System Implementierung (Oktober 2026)
+
+- Kanonische Marken- und Designvorgaben aus `docs/DESIGN_SYSTEM.md` („Tactile Hospitality Tech")
+  vollständig in `guest-web/` verankert und in allen Governance-Dokumenten verlinkt:
+  1. `docs/DESIGN_SYSTEM.md`: Markenrichtlinien, `kl-*`-Farbtoken, Typografieskala (`Newsreader`,
+     `Plus Jakarta Sans`, `JetBrains Mono`) und Quiet-UI-Komponentenregeln.
+  2. `AGENTS.md`, `CLAUDE.md`, `docs/collaboration/DECISIONS.md`: Als kanonische Design-Quelle
+     der Rangfolge hinzugefügt (Übersteuerung früherer Zitrone-/Traube-Farbwelten).
+  3. `guest-web/tailwind.config.ts` und `guest-web/postcss.config.mjs`: Konfiguriert mit der
+     vollständigen Farbpalette (`kl-canvas`, `kl-surface`, `kl-subtle`, `kl-dark`, `kl-charcoal`,
+     `kl-muted`, `kl-terracotta`, `kl-sage`, `kl-emerald`, `kl-amber`, `kl-border`) und Schriftarten.
+  4. `guest-web/src/app/layout.tsx`: `next/font/google`-Integration für `Plus_Jakarta_Sans`,
+     `Newsreader` und `JetBrains_Mono` mit CSS-Variablen `--font-sans`, `--font-serif`, `--font-mono`.
+  5. `guest-web/src/app/globals.css`: Tailwind-Direktiven, CSS-Variablen und `.kl-tabular` / `.font-mono`
+     mit `font-variant-numeric: tabular-nums` und `font-feature-settings: "tnum"`.
+  6. `guest-web/src/components/GuestMenuCard.tsx`:
+     - Menü-Kopf in `bg-kl-dark` mit `Newsreader`-Schrift (`font-serif`) und `font-mono tabular-nums` für Tischkontext.
+     - Kategorie-Überschriften in `font-serif italic text-kl-charcoal` mit `border-kl-border`-Trennern.
+     - Gerichtstitel in `font-sans font-semibold text-kl-charcoal`, Beschreibungen in `text-kl-muted font-sans`.
+     - Preise in `font-mono tabular-nums text-sm font-medium text-kl-charcoal`.
+     - 14 EU-Allergene & Zusatzstoffe dezent inline als `bg-kl-subtle text-kl-muted font-mono text-[10px] px-1.5 py-0.5 rounded`.
+     - Diätetische Kennzeichnungen (Vegan/Vegetarisch) in `bg-kl-sage/15 text-kl-sage`.
+     - Plus-Button in `bg-kl-subtle text-kl-charcoal hover:bg-kl-terracotta hover:text-white`.
+     - Mengen-Stepper mit `font-mono tabular-nums` und `bg-kl-terracotta`-Zählern.
+     - Fixierte Bestellleiste in `bg-kl-dark text-kl-canvas rounded-xl shadow-md` mit `bg-kl-terracotta`-Counter-Badge.
+  7. `guest-web/src/app/page.tsx`:
+     - Vollständiger B2B-Showcase-Neuaufbau nach "Tactile Hospitality Tech":
+       - Sticky Header mit Brand Mark (`bg-kl-terracotta`), Version `OS 1.4` und pulsierendem Status-Pill `BONJOUR LAN RELAY • OFFLINE-FIRST`.
+       - High-Impact Hero mit Editorial-Typografie (`font-serif`, `Ruhe im Service, selbst wenn das WLAN brennt`), Live-Sandbox-CTA und GitHub-Architektur-Link.
+       - Dual Live UI Artifact (reine CSS/JSX-Komposition): Überlappendes natives SwiftUI-POS-Ticket (Tisch 12, Bon #084, TSE-Signatur, 12ms Sync) und warme Gast-Web-Papierkarte (Alte Mühle, ruhige EU-Allergene `G · Milch`, `H · Walnuss`).
+       - Asymmetrisches 4-Karten-Bento-Grid (`bg-kl-canvas` / `bg-kl-surface`): Offline-First LAN-Resilienz (mDNS Mesh), Dish-First Guest Web (LMIV), Native SwiftUI POS (120Hz & Gangfeuerung) und DACH-Fiskal (KassenSichV § 146a AO, GoBD, DSFinV-K 2.3, DATEV 700).
+       - Interaktiver Sandbox-Callout-Banner und aufgeräumter 4-Spalten-Footer mit Compliance- und Architekturverweisen.
+- Qualitätstore und Verifikation im `guest-web/`:
+  - `npm run typecheck`: 0 Fehler
+  - `npm run lint`: 0 Warnungen
+  - `npm test`: 17/17 Suiten (151 Tests) bestanden
+  - `npm run build`: Erfolgreicher statischer SSG/ISR-Build mit Turbopack
+
+

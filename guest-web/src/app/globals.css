@@ -1,9 +1,10 @@
 @import "../styles/tokens.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /*
- * Basisstile Gast-Web. Bricolage Grotesque / Source Sans 3 sind noch nicht
- * als lokale Assets freigegeben (DESIGN_SYSTEM.md §11); bis dahin gelten
- * System-Fallbacks. Keine Laufzeitabhaengigkeit von Google Fonts.
+ * Basisstile Gast-Web.
  */
 
 * {
@@ -40,51 +41,66 @@ button {
   outline-offset: 2px;
 }
 
-.kl-tabular {
+.kl-tabular,
+.font-mono,
+[data-tabular-nums] {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
-/* Typo-Rollen (DESIGN_SYSTEM.md §7, Basisgroessen in rem bei 16px-Basis) */
+/* Typo-Rollen (Tactile Hospitality Tech, docs/DESIGN_SYSTEM.md) */
 .kl-type-display {
+  font-family: var(--font-serif), Georgia, serif;
   font-size: 1.75rem; /* 28 */
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.2;
 }
 
 .kl-type-section {
+  font-family: var(--font-serif), Georgia, serif;
   font-size: 1.25rem; /* 20 */
-  font-weight: 700;
+  font-weight: 600;
+  font-style: italic;
   line-height: 1.25;
 }
 
 .kl-type-primary {
+  font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 1.0625rem; /* 17 */
   font-weight: 600;
   line-height: 1.3;
 }
 
 .kl-type-secondary {
+  font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 0.9375rem; /* 15 */
   font-weight: 400;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .kl-type-meta {
-  font-size: 0.8125rem; /* 13, Minimum fuer notwendige UI-Information */
-  font-weight: 600;
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem; /* 13 */
+  font-weight: 500;
 }
 
 .kl-type-button {
+  font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 1rem; /* 16 */
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* Sandbox-Banner: Pflicht auf jeder Gast-Seite (Blueprint §20) */
 .kl-sandbox-banner {
-  background: var(--kl-brand-deep);
-  color: var(--kl-content-light);
+  background: var(--kl-dark);
+  color: var(--kl-canvas);
   text-align: center;
-  padding: var(--kl-space-2) var(--kl-space-4);
+  padding: 0.375rem 1rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid rgba(230, 224, 214, 0.15);
 }
 
 /* Seitenlayout mobil zuerst. Der Venue-Kopf liegt ausserhalb dieses
@@ -95,12 +111,12 @@ button {
   padding: 0 var(--kl-space-4) calc(6rem + env(safe-area-inset-bottom));
 }
 
-/* Venue-Kopf: das Restaurant fuehrt; Traube ist der sichere Fallback.
-   Randlos ueber die volle Breite, kein Kartenabstand (Referenz 6c). */
+/* Venue-Kopf: das Restaurant fuehrt. */
 .kl-venue-header {
-  background: var(--kl-brand-grape);
-  color: var(--kl-content-light);
+  background: var(--kl-dark);
+  color: var(--kl-canvas);
   padding: var(--kl-space-4);
+  border-bottom: 1px solid rgba(230, 224, 214, 0.15);
 }
 
 .kl-venue-header-top {
@@ -128,9 +144,9 @@ button {
   min-width: 2.25rem;
   min-height: 2.25rem;
   border-radius: 999px;
-  background: var(--kl-surface-dark-raised);
-  color: var(--kl-content-light);
-  border: 1px solid var(--kl-border-subtle-inverse);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--kl-canvas);
+  border: 1px solid rgba(230, 224, 214, 0.2);
   padding: 0;
   cursor: pointer;
   transition: transform 0.15s ease, opacity 0.15s ease;
@@ -147,16 +163,20 @@ button {
 
 .kl-venue-header h1 {
   margin: 0;
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .kl-venue-header-context {
   max-width: 40rem;
   margin: var(--kl-space-1) auto 0;
-  color: var(--kl-text-secondary-inverse);
+  color: rgba(250, 247, 242, 0.75);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8125rem;
 }
 
-/* Neutrale Pille: nie Zitrone (§5 "informative Labels"), z.B. "geoeffnet",
-   "beliebt", "vegetarisch". */
+/* Badges */
 .kl-badge {
   display: inline-flex;
   align-items: center;
@@ -164,21 +184,31 @@ button {
   padding: 0.1875rem var(--kl-space-2);
   white-space: nowrap;
   flex: none;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .kl-badge-on-dark {
-  background: var(--kl-surface-dark-raised);
-  color: var(--kl-text-secondary-inverse);
+  background: rgba(242, 236, 228, 0.12);
+  color: var(--kl-canvas);
+  border: 1px solid rgba(230, 224, 214, 0.2);
 }
 
 .kl-badge-on-light {
-  background: var(--kl-surface-recessed);
-  color: var(--kl-text-secondary);
+  background: var(--kl-subtle);
+  color: var(--kl-muted);
 }
 
 /* Menueliste: Abstand und border.subtle statt Karte um jede Zeile (§8) */
 .kl-menu-section-title {
-  margin: var(--kl-space-4) 0 var(--kl-space-1);
+  margin: var(--kl-space-5) 0 var(--kl-space-2);
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.35rem;
+  color: var(--kl-charcoal);
+  border-bottom: 1px solid var(--kl-border);
+  padding-bottom: 0.35rem;
 }
 
 .kl-menu-list {
@@ -189,7 +219,7 @@ button {
 
 .kl-menu-row {
   padding: var(--kl-space-3) 0;
-  border-bottom: 1px solid var(--kl-border-subtle);
+  border-bottom: 1px solid var(--kl-border);
 }
 
 .kl-menu-row-info {
@@ -214,22 +244,26 @@ button {
 }
 
 .kl-menu-item-title {
-  color: var(--kl-text-primary);
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.2;
+  color: var(--kl-charcoal);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .kl-menu-row-info p {
-  margin: 0.125rem 0 0;
-  color: var(--kl-text-secondary);
+  margin: 0.25rem 0 0;
+  color: var(--kl-muted);
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 .kl-menu-row-price {
   flex: none;
-  color: var(--kl-text-primary);
-  font-size: 1rem;
-  font-weight: 600;
+  color: var(--kl-charcoal);
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  font-weight: 500;
   line-height: 1.3;
   white-space: nowrap;
 }
@@ -237,61 +271,63 @@ button {
 .kl-menu-row-trailing {
   display: flex;
   align-items: center;
-  gap: var(--kl-space-1);
+  gap: var(--kl-space-2);
   flex: none;
 }
 
 .kl-inline-add-button {
   position: relative;
-  width: 2.75rem;
-  min-width: 2.75rem;
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
   padding: 0;
   border: 0;
   border-radius: 50%;
+  background: var(--kl-subtle);
+  color: var(--kl-charcoal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.kl-inline-add-button::before {
-  content: "";
-  position: absolute;
-  width: 2.125rem;
-  height: 2.125rem;
-  border: 1px solid var(--kl-border-control);
-  border-radius: 50%;
-  background: var(--kl-surface-recessed);
+.kl-inline-add-button:hover {
+  background: var(--kl-terracotta);
+  color: #ffffff;
 }
 
 .kl-inline-add-button > span {
-  position: relative;
-  z-index: 1;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-family: var(--font-mono), monospace;
+  font-size: 1.125rem;
   line-height: 1;
 }
 
 /* Die Mengensteuerung sitzt bei belegtem Warenkorb als eigene, rechtsbündige
-   Zeile unter der Beschreibung — die Kennzeichnungen belegen keinen eigenen
-   Streifen mehr. */
+   Zeile unter der Beschreibung. */
 .kl-menu-row-stepper {
   display: flex;
   justify-content: flex-end;
   margin-top: var(--kl-space-2);
 }
 
-/* Lebensmittel-Kennzeichnung: keine eigene Zeile mehr, sondern eine ruhige,
-   monochrome Fortsetzung der Beschreibung. Alle Pflichtangaben werden gezeigt
-   und brechen im Textfluss um; der gesamte Symbol-Nachsatz ist das Tap-Ziel
-   und öffnet die Klartextliste. Gruppenfarben erst in den Dialogen. */
 .kl-menu-row-description {
-  line-height: 1.65;
+  line-height: 1.6;
+  color: var(--kl-muted);
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 .kl-declaration-inline {
-  display: inline;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
   margin: 0 0 0 0.5rem;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--kl-text-muted);
+  color: var(--kl-muted);
   cursor: pointer;
 }
 
@@ -361,7 +397,8 @@ button {
   align-items: flex-end;
   justify-content: center;
   padding: var(--kl-space-4);
-  background: rgba(34, 27, 46, 0.5);
+  background: rgba(20, 20, 19, 0.6);
+  backdrop-filter: blur(2px);
 }
 
 .kl-declaration-dialog {
@@ -369,8 +406,9 @@ button {
   max-width: 28rem;
   padding: var(--kl-space-5);
   border-radius: var(--kl-radius-sheet);
-  background: var(--kl-surface-card);
-  box-shadow: 0 12px 36px rgba(34, 27, 46, 0.24);
+  background: var(--kl-surface);
+  border: 1px solid var(--kl-border);
+  box-shadow: 0 12px 36px rgba(20, 20, 19, 0.2);
   text-align: center;
 }
 
@@ -464,68 +502,70 @@ button {
   color: var(--kl-text-muted);
 }
 
-/* Mengensteuerung: umrandet auf heller Flaeche (border-control), traubig
-   im Text, nie Zitrone (§5), Ziele >= 44px (§8). Referenz 6c Screen 2. */
+/* Mengensteuerung: Tactile Hospitality Tech */
 .kl-stepper {
   display: flex;
   align-items: center;
-  border: 1px solid var(--kl-border-control);
-  border-radius: var(--kl-radius-compact);
+  border: 1px solid var(--kl-border);
+  border-radius: 0.5rem;
+  background: var(--kl-subtle);
   flex: none;
   position: relative;
   z-index: 1;
+  overflow: hidden;
 }
 
 .kl-stepper-button,
 .kl-add-button {
-  width: 2.75rem;
-  height: 2.75rem;
-  min-width: 2.75rem; /* 44 */
-  min-height: 2.75rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: var(--kl-text-primary);
-  border-radius: var(--kl-radius-compact);
+  color: var(--kl-charcoal);
   touch-action: manipulation;
+  transition: all 0.15s ease;
 }
 
 .kl-stepper-button {
   border: none;
 }
 
+.kl-stepper-button:hover,
+.kl-stepper-button:active {
+  background: var(--kl-border);
+}
+
 .kl-add-button {
-  border: 1px solid var(--kl-border-control);
+  border: 1px solid var(--kl-border);
   flex: none;
 }
 
 .kl-add-button.kl-inline-add-button {
   border: 0;
   border-radius: 50%;
-  background: transparent;
+  background: var(--kl-subtle);
 }
 
 .kl-stepper-button:active,
 .kl-add-button:active {
-  background: var(--kl-surface-recessed);
-}
-
-.kl-inline-add-button:active {
-  background: transparent;
-}
-
-.kl-inline-add-button:active::before {
-  background: var(--kl-surface-card);
+  background: var(--kl-border);
 }
 
 .kl-stepper-quantity {
   min-width: 1.5rem;
   text-align: center;
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--kl-charcoal);
 }
 
-/* Fixierte Bestellaktion: die gesamte Leiste ist die einzige dauerhafte
-   Zitronenflaeche (§5, §9; Referenz 6c Screen 2: durchgehender Balken). */
+/* Fixierte Bestellaktion: bg-kl-dark text-kl-canvas mit bg-kl-terracotta badge */
 .kl-order-bar {
   position: fixed;
   left: 0;
@@ -545,26 +585,26 @@ button {
   gap: var(--kl-space-4);
   min-height: 3.25rem;
   padding: 0 var(--kl-space-4);
-  border: none;
-  border-radius: var(--kl-radius-control);
-  background: var(--kl-brand-lemon);
-  color: var(--kl-brand-grape); /* Zitrone nur gefuellt mit Traube-Text (§5) */
-  box-shadow: 0 -4px 16px rgba(34, 27, 46, 0.16); /* echte Ebene (§8) */
+  border: 1px solid rgba(230, 224, 214, 0.15);
+  border-radius: 0.75rem;
+  background: var(--kl-dark);
+  color: var(--kl-canvas);
+  box-shadow: 0 4px 20px rgba(20, 20, 19, 0.25);
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
 .kl-order-bar-button:active {
-  background: var(--kl-brand-lemon-pressed);
+  transform: scale(0.99);
 }
 
 .kl-order-bar-button:disabled {
-  background: var(--kl-surface-recessed);
-  color: var(--kl-text-muted);
+  background: var(--kl-subtle);
+  color: var(--kl-muted);
   box-shadow: none;
   cursor: not-allowed;
 }
 
-/* Die Bestellleiste als Link (lokaler Fallback): gleiche Zitronenflaeche,
-   nur ohne Button-Semantik. */
+/* Die Bestellleiste als Link (lokaler Fallback) */
 .kl-order-bar-link {
   text-decoration: none;
 }
@@ -611,21 +651,24 @@ button {
 .kl-sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(34, 27, 46, 0.5);
+  background: rgba(20, 20, 19, 0.6);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  z-index: 10;
+  z-index: 20;
 }
 
 .kl-sheet {
   width: 100%;
   max-width: 40rem;
-  background: var(--kl-surface-card);
+  background: var(--kl-surface);
+  border: 1px solid var(--kl-border);
+  border-bottom: none;
   border-radius: var(--kl-radius-sheet) var(--kl-radius-sheet) 0 0;
   padding: var(--kl-space-5) var(--kl-space-4)
     calc(var(--kl-space-5) + env(safe-area-inset-bottom));
-  box-shadow: 0 -8px 32px rgba(34, 27, 46, 0.24);
+  box-shadow: 0 -8px 32px rgba(20, 20, 19, 0.2);
 }
 
 .kl-configuration-sheet {
@@ -853,10 +896,17 @@ button {
 .kl-secondary-button {
   min-height: 2.75rem;
   width: 100%;
-  border: 1px solid var(--kl-border-control);
+  border: 1px solid var(--kl-border);
   border-radius: var(--kl-radius-control);
-  background: transparent;
-  color: var(--kl-text-primary);
+  background: var(--kl-subtle);
+  color: var(--kl-charcoal);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+
+.kl-secondary-button:hover {
+  background: #e6dfd6;
 }
 
 /* Aktionsblock im Bestell-Sheet: Primaeraktion (Zitrone+Traube-Text, §5,§9)
@@ -1031,18 +1081,27 @@ button {
   width: 100%;
   border: none;
   border-radius: var(--kl-radius-control);
-  background: var(--kl-brand-lemon);
-  color: var(--kl-brand-grape);
+  background: var(--kl-terracotta);
+  color: #ffffff;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(200, 75, 49, 0.2);
+  transition: background 0.15s ease;
+}
+
+.kl-primary-button:hover {
+  background: #b33e26;
 }
 
 .kl-primary-button:active {
-  background: var(--kl-brand-lemon-pressed);
+  background: #9f3620;
 }
 
 .kl-primary-button:disabled {
-  background: var(--kl-surface-recessed);
-  color: var(--kl-text-muted);
+  background: var(--kl-subtle);
+  color: var(--kl-muted);
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* Kleine Vertrauenssignatur: KitchenLink fuehrt im Gast-Web nicht (§2) */
@@ -1052,15 +1111,14 @@ button {
   color: var(--kl-text-muted);
 }
 
-/* Prominente Erfolgsbestaetigung nach einer angenommenen Bestellung. Bewusst
-   Traube-Flaeche (wie der Venue-Kopf), keine Zitrone (die bleibt dem CTA
-   vorbehalten, §5/§9). Ein ruhiger, sichtbarer Abschluss statt kleiner Text. */
+/* Prominente Erfolgsbestaetigung nach einer angenommenen Bestellung. */
 .kl-confirmation {
   display: flex;
   align-items: center;
   gap: var(--kl-space-3);
-  background: var(--kl-brand-grape);
-  color: var(--kl-content-light);
+  background: var(--kl-dark);
+  color: var(--kl-canvas);
+  border: 1px solid rgba(230, 224, 214, 0.2);
   border-radius: var(--kl-radius-card);
   padding: var(--kl-space-4);
   margin: 0 0 var(--kl-space-4);
@@ -1187,10 +1245,10 @@ button {
 .kl-chip {
   min-height: 2.5rem;
   padding: 0 var(--kl-space-3);
-  border: 1px solid var(--kl-border-control);
+  border: 1px solid var(--kl-border);
   border-radius: var(--kl-radius-control);
-  background: var(--kl-surface-control);
-  color: var(--kl-text-primary);
+  background: var(--kl-subtle);
+  color: var(--kl-charcoal);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1198,21 +1256,25 @@ button {
   transition: all 0.15s ease;
 }
 
+.kl-chip:hover {
+  background: var(--kl-border);
+}
+
 .kl-chip:active {
   transform: scale(0.97);
 }
 
 .kl-chip-selected {
-  background: var(--kl-brand-grape);
-  color: var(--kl-content-light);
-  border-color: var(--kl-brand-grape);
-  font-weight: 700;
+  background: var(--kl-terracotta);
+  color: #ffffff;
+  border-color: var(--kl-terracotta);
+  font-weight: 600;
 }
 
 [data-theme="dark"] .kl-chip-selected {
-  background: var(--kl-brand-lemon);
-  color: var(--kl-brand-grape);
-  border-color: var(--kl-brand-lemon);
+  background: var(--kl-terracotta);
+  color: #ffffff;
+  border-color: var(--kl-terracotta);
 }
 
 .kl-reservation-ref-code {
@@ -1629,9 +1691,9 @@ button {
 
 .kl-matrix-table-wrapper {
   overflow-x: auto;
-  border: 1px solid var(--kl-border-subtle);
+  border: 1px solid rgba(230, 224, 214, 0.15);
   border-radius: var(--kl-radius-card);
-  background: var(--kl-surface-card);
+  background: #181817;
 }
 
 .kl-matrix-table {
@@ -1644,24 +1706,26 @@ button {
 .kl-matrix-table th,
 .kl-matrix-table td {
   padding: var(--kl-space-3) var(--kl-space-4);
-  border-bottom: 1px solid var(--kl-border-subtle);
+  border-bottom: 1px solid rgba(230, 224, 214, 0.1);
   vertical-align: top;
 }
 
 .kl-matrix-table th {
+  font-family: var(--font-mono), monospace;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--kl-text-muted);
-  background: var(--kl-surface-control);
+  color: var(--kl-muted);
+  background: rgba(242, 236, 228, 0.05);
 }
 
 .kl-table-action-link {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--kl-text-primary);
+  color: var(--kl-terracotta);
   text-decoration: none;
-  font-size: 0.875rem;
 }
 
 .kl-table-action-link:hover {

@@ -45,8 +45,14 @@ import {
   tableContextLabel,
   type TableContext,
 } from "@/lib/table-context";
+import {
+  buildDemoTableCheck,
+  fetchGuestTableCheck,
+  type GuestTableCheck,
+} from "@/lib/table-check";
 import { getSupabase } from "@/lib/supabase-client";
 import type { GuestAllergen, GuestMenuItem, GuestVenue } from "@/lib/venue-data";
+import { TableCheckSheet } from "./TableCheckSheet";
 import { ThemeToggle } from "./ThemeToggle";
 import { WalletPayButton, WalletPaymentSheet } from "./WalletPaymentSheet";
 
@@ -109,6 +115,10 @@ function useModalDialog<ElementType extends HTMLElement>(onClose: () => void) {
 export function GuestMenuCard({ venue }: GuestMenuCardProps) {
   const [cart, setCart] = useState<Cart>(emptyCart);
   const [isSummaryOpen, setSummaryOpen] = useState(false);
+  const [isCheckOpen, setCheckOpen] = useState(false);
+  const [tableCheck, setTableCheck] = useState<GuestTableCheck>(() =>
+    buildDemoTableCheck(venue),
+  );
   const [submitState, setSubmitState] = useState<SubmitUiState>(
     initialSubmitUiState(),
   );
@@ -147,17 +157,30 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
       if (cancelled) {
         return;
       }
-      setTableContext(
-        table
-          ? { kind: "resolved", token, label: table.label, area: table.area }
-          : { kind: "unknown", token },
-      );
+      if (table) {
+        setTableContext({
+          kind: "resolved",
+          token,
+          label: table.label,
+          area: table.area,
+        });
+        const remoteCheck = await fetchGuestTableCheck(venue.slug, token, supabase);
+        if (!cancelled) {
+          if (remoteCheck && remoteCheck.items.length > 0) {
+            setTableCheck(remoteCheck);
+          } else {
+            setTableCheck(buildDemoTableCheck(venue, table.label, table.area));
+          }
+        }
+      } else {
+        setTableContext({ kind: "unknown", token });
+      }
     };
     void resolve();
     return () => {
       cancelled = true;
     };
-  }, [venue.slug]);
+  }, [venue]);
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -210,14 +233,24 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
       {/* Randloser Venue-Kopf: das Restaurant fuehrt, Traube ist der
           sichere Fallback (§2, §9). Die Kontextzeile traegt den Tisch aus dem
           QR-Code, sonst wie bisher „Speisekarte". */}
-      <header className="kl-venue-header">
+      <header className="kl-venue-header bg-kl-dark text-kl-canvas">
         <div className="kl-venue-header-top">
-          <h1 className="kl-type-display">{venue.name}</h1>
+          <h1 className="kl-type-display font-serif text-2xl md:text-3xl font-medium tracking-tight text-kl-canvas">{venue.name}</h1>
           <div className="kl-venue-header-actions">
             <ThemeToggle />
+            <button
+              type="button"
+              onClick={() => setCheckOpen(true)}
+              className="kl-badge kl-badge-on-dark kl-type-meta kl-tabular font-mono tabular-nums cursor-pointer"
+              aria-label="Tischrechnung ansehen und teilen"
+            >
+              {tableCheck.openCents > 0
+                ? `Rechnung · ${formatEuro(tableCheck.openCents)}`
+                : "Rechnung ✓"}
+            </button>
             <Link
               href={`/${venue.slug}/reserve`}
-              className="kl-badge kl-badge-on-dark kl-type-meta"
+              className="kl-badge kl-badge-on-dark kl-type-meta cursor-pointer"
               style={{ textDecoration: "none" }}
             >
               Reservieren
@@ -227,7 +260,7 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
             </span>
           </div>
         </div>
-        <p className="kl-venue-header-context kl-type-secondary">
+        <p className="kl-venue-header-context kl-type-secondary font-mono text-xs text-kl-canvas/75">
           {tableLabel ?? "Speisekarte"}
         </p>
       </header>
@@ -267,8 +300,8 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
         )}
 
         {sections.map((section) => (
-          <section key={section.title} aria-label={section.title}>
-            <h2 className="kl-type-section kl-menu-section-title">
+          <section key={section.title} aria-label={section.title} className="mt-6">
+            <h2 className="kl-type-section kl-menu-section-title font-serif italic text-xl md:text-2xl text-kl-charcoal border-b border-kl-border pb-1.5 mb-2">
               {section.title}
             </h2>
             <ul className="kl-menu-list">
@@ -321,14 +354,21 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
         ) : (
           <button
             type="button"
-            className="kl-order-bar-button"
+            className="kl-order-bar-button bg-kl-dark text-kl-canvas rounded-xl shadow-md border border-kl-border/20 cursor-pointer"
             disabled={count === 0 || submitState.kind === "submitting"}
             onClick={() => setSummaryOpen(true)}
           >
-            <span className="kl-type-button kl-tabular">
-              {count === 1 ? "1 Artikel" : `${count} Artikel`} · bestellen
+            <div className="flex items-center gap-3">
+              <span className="bg-kl-terracotta text-white font-mono tabular-nums text-xs font-semibold px-2 py-0.5 rounded-full">
+                {count}
+              </span>
+              <span className="kl-type-button">
+                {count === 1 ? "1 Artikel" : `${count} Artikel`} · bestellen
+              </span>
+            </div>
+            <span className="kl-type-button kl-tabular font-mono tabular-nums font-semibold text-kl-canvas">
+              {formatEuro(total)}
             </span>
-            <span className="kl-type-button kl-tabular">{formatEuro(total)}</span>
           </button>
         )}
       </div>
@@ -390,12 +430,70 @@ export function GuestMenuCard({ venue }: GuestMenuCardProps) {
               setSubmitState(acceptedState(result.ack));
               setConfirmedCart(cartAtSubmission);
               setCart(emptyCart);
+
+              // Neue Tischbestellung sofort in der Tischrechnung sichtbar machen
+              if (mode === "dine_in") {
+                const supabase = getSupabase();
+                const refreshed =
+                  supabase && tableToken
+                    ? await fetchGuestTableCheck(venue.slug, tableToken, supabase)
+                    : null;
+                if (refreshed && refreshed.items.length > 0) {
+                  setTableCheck(refreshed);
+                } else {
+                  const itemsByID = new Map(venue.menu.map((m) => [m.id, m]));
+                  const addedItems = cartLines(cartAtSubmission).flatMap((line, idx) => {
+                    const item = itemsByID.get(line.itemID);
+                    if (!item) return [];
+                    const unitPrice = configuredUnitPrice(item, line.optionIDs);
+                    return [
+                      {
+                        orderItemId: `${result.ack.orderId}-item-${idx + 1}`,
+                        orderId: result.ack.orderId,
+                        name: item.name,
+                        quantity: line.quantity,
+                        unitPriceCents: unitPrice,
+                        lineTotalCents: line.quantity * unitPrice,
+                        paid: false,
+                        paymentId: null,
+                        source: "guest_qr" as const,
+                      },
+                    ];
+                  });
+                  setTableCheck((prev) => {
+                    const nextItems = [...prev.items, ...addedItems];
+                    const nextTotal = nextItems.reduce((s, i) => s + i.lineTotalCents, 0);
+                    return {
+                      ...prev,
+                      totalCents: nextTotal,
+                      openCents: Math.max(0, nextTotal - prev.paidCents),
+                      items: nextItems,
+                    };
+                  });
+                }
+              }
             } else {
               setSubmitState(errorState(result.message));
             }
           }}
+          onOpenTableCheck={() => {
+            setSubmitState(initialSubmitUiState());
+            setConfirmedCart(null);
+            setSummaryOpen(false);
+            setCheckOpen(true);
+          }}
         />
       )}
+
+      <TableCheckSheet
+        venueSlug={venue.slug}
+        venueName={venue.name}
+        tableToken={tableToken}
+        check={tableCheck}
+        isOpen={isCheckOpen}
+        onCheckUpdated={(nextCheck) => setTableCheck(nextCheck)}
+        onClose={() => setCheckOpen(false)}
+      />
     </>
   );
 }
@@ -411,35 +509,42 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
   const [selectedDeclaration, setSelectedDeclaration] = useState<GuestAllergen | null>(null);
   const [isDeclarationListOpen, setDeclarationListOpen] = useState(false);
   const [isConfigurationOpen, setConfigurationOpen] = useState(false);
-  // Pflichtkennzeichnungen werden vollständig gezeigt; bei Platzmangel bricht
-  // die Zeile um, statt Angaben hinter einem "+N" zu verbergen. Die Zeile ist
-  // bewusst monochrom und ruhig — Fußnote, nicht Bedienelement; die gesamte
-  // Zeile öffnet als ein Tap-Ziel die Klartextliste.
   const declarations = item.allergens ?? [];
   const hasChoices = (item.variants?.length ?? 0) > 0;
   const usesInlineAdd = quantity === 0;
+  const isDietary =
+    item.tag?.toLowerCase().includes("vegan") ||
+    item.tag?.toLowerCase().includes("vegetar");
 
   return (
     <li className="kl-menu-row">
       <div className="kl-menu-row-info">
         <div className="kl-menu-row-heading">
           <div className="kl-menu-row-name">
-            <span className="kl-menu-item-title">{item.name}</span>
+            <span className="kl-menu-item-title font-sans font-semibold text-kl-charcoal">
+              {item.name}
+            </span>
             {item.tag && (
-              <span className="kl-badge kl-badge-on-light kl-type-meta">
+              <span
+                className={`kl-badge kl-type-meta ${
+                  isDietary
+                    ? "bg-kl-sage/15 text-kl-sage font-medium"
+                    : "kl-badge-on-light"
+                }`}
+              >
                 {item.tag}
               </span>
             )}
           </div>
           <div className="kl-menu-row-trailing">
-            <div className="kl-menu-row-price kl-tabular">
+            <div className="kl-menu-row-price kl-tabular font-mono tabular-nums text-sm font-medium text-kl-charcoal">
               {formatEuro(item.priceCents)}
             </div>
             {usesInlineAdd && (
               <button
                 type="button"
-                className="kl-add-button kl-inline-add-button kl-type-button"
-                onClick={() => hasChoices ? setConfigurationOpen(true) : onAdd([])}
+                className="kl-add-button kl-inline-add-button kl-type-button bg-kl-subtle text-kl-charcoal hover:bg-kl-terracotta hover:text-white transition-colors"
+                onClick={() => (hasChoices ? setConfigurationOpen(true) : onAdd([]))}
                 aria-label={`${item.name}: ${hasChoices ? "Auswahl öffnen" : "hinzufügen"}`}
                 aria-haspopup={hasChoices ? "dialog" : undefined}
                 aria-expanded={hasChoices ? isConfigurationOpen : undefined}
@@ -450,12 +555,12 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
           </div>
         </div>
         {(item.description || declarations.length > 0) && (
-          <p className="kl-type-secondary kl-menu-row-description">
+          <p className="kl-type-secondary kl-menu-row-description text-kl-muted font-sans">
             {item.description}
             {declarations.length > 0 && (
               <button
                 type="button"
-                className="kl-declaration-inline"
+                className="kl-declaration-inline inline-flex flex-wrap items-center gap-1 ml-1.5 align-baseline"
                 onClick={() => setDeclarationListOpen(true)}
                 aria-haspopup="dialog"
                 aria-expanded={isDeclarationListOpen}
@@ -464,8 +569,12 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
                   .join(", ")}. Alle im Klartext anzeigen`}
               >
                 {declarations.map((allergen) => (
-                  <span key={allergen.code} className="kl-declaration-inline-glyph" aria-hidden="true">
-                    <FoodDeclarationIcon declaration={allergen} />
+                  <span
+                    key={allergen.code}
+                    className="bg-kl-subtle text-kl-muted font-mono text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5 hover:bg-kl-border transition-colors"
+                    aria-hidden="true"
+                  >
+                    <span>{allergen.code.toUpperCase()}</span>
                   </span>
                 ))}
               </button>
@@ -484,15 +593,15 @@ function MenuRow({ item, quantity, onAdd, onDecrement }: MenuRowProps) {
                 −
               </button>
               <span
-                className="kl-stepper-quantity kl-type-primary kl-tabular"
+                className="kl-stepper-quantity kl-type-primary kl-tabular font-mono tabular-nums text-kl-charcoal"
                 aria-live="polite"
               >
                 {quantity}
               </span>
               <button
                 type="button"
-                className="kl-stepper-button kl-type-button"
-                onClick={() => hasChoices ? setConfigurationOpen(true) : onAdd([])}
+                className="kl-stepper-button kl-type-button bg-kl-terracotta text-white hover:bg-kl-terracotta/90"
+                onClick={() => (hasChoices ? setConfigurationOpen(true) : onAdd([]))}
                 aria-label={`${item.name} ${hasChoices ? "erneut auswählen" : "erhöhen"}`}
               >
                 +
@@ -952,6 +1061,7 @@ interface OrderSummarySheetProps {
   onIncrementLine: (line: CartLine) => void;
   onClose: () => void;
   onSubmit: (options?: { serviceMode: ServiceMode; customerNote: string }) => void | Promise<void>;
+  onOpenTableCheck?: () => void;
 }
 
 function OrderSummarySheet({
@@ -965,6 +1075,7 @@ function OrderSummarySheet({
   onIncrementLine,
   onClose,
   onSubmit,
+  onOpenTableCheck,
 }: OrderSummarySheetProps) {
   const dialogRef = useModalDialog<HTMLDivElement>(onClose);
   const itemsByID = new Map(venue.menu.map((item) => [item.id, item]));
@@ -1181,6 +1292,16 @@ function OrderSummarySheet({
                     ? "Zur Abholung bestellen"
                     : "Sandbox-Bestellung senden"}
           </button>
+          {isAccepted && orderMode === "dine_in" && onOpenTableCheck && (
+            <button
+              type="button"
+              className="kl-primary-button kl-type-button"
+              onClick={onOpenTableCheck}
+            >
+              <span>Tischrechnung & Teilen öffnen</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          )}
           <button
             type="button"
             className="kl-secondary-button kl-type-button"

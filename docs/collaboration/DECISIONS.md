@@ -337,3 +337,12 @@ append-only; superseded decisions are marked rather than deleted.
 - **User authority:** The user retains final authority over product scope,
   design approval, production activation and other product decisions. Agent
   disagreement is surfaced to the user rather than resolved by hierarchy.
+
+## Design System — "Tactile Hospitality Tech" (approved 23 October 2026)
+
+- **Canonical Brand Identity:** The design direction transitions to "Tactile Hospitality Tech" documented in `docs/DESIGN_SYSTEM.md`.
+- **Core Principles:**
+  1. *Quiet UI in the Dining Room (`guest-web/`):* Natural paper atmosphere (`kl-canvas` #FAF7F2), linen cards/sheets (`kl-surface` #FFFFFF), and stone wash badges (`kl-subtle` #F2ECE4). Quiet inline EU allergens and additives in `bg-kl-subtle text-kl-muted font-mono text-[10px] px-1.5 py-0.5 rounded`. Dietary badges (Vegan/Vegetarian) in `bg-kl-sage/15 text-kl-sage`.
+  2. *High-Contrast Precision in Service (`kitchenlink/` & B2B):* Deep espresso dark modes (`kl-dark` #141413), strict tabular numerals (`font-mono tabular-nums`), and explicit semantic status signals (`kl-emerald` #10B981 for LAN Relay / TSE; `kl-terracotta` #C84B31 for primary brand accents and CTAs; `kl-amber` #F59E0B for offline/warning). Hairlines and dividers in `border-kl-border` (#E6E0D6).
+  3. *Typography Scale:* Editorial/menu headings in `Newsreader` (`font-serif`), UI/dish copy in `Plus Jakarta Sans` (`font-sans`), prices, table numbers, quantities and fiscal data in `JetBrains Mono` (`font-mono tabular-nums`).
+- **All future autonomous tasks** across web and native platforms must strictly adhere to the `kl-*` tokens and design rules defined in `docs/DESIGN_SYSTEM.md`.

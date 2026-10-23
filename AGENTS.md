@@ -9,13 +9,15 @@ Before changing code or product documents, read in this order:
 1. `docs/collaboration/CURRENT.md`
 2. `docs/collaboration/DECISIONS.md`
 3. `docs/PRODUCT_BLUEPRINT.md`
-4. The other agent's latest file in `docs/collaboration/handoffs/`
-5. Task-specific specifications and design reviews
+4. `docs/DESIGN_SYSTEM.md`
+5. The other agent's latest file in `docs/collaboration/handoffs/`
+6. Task-specific specifications and design reviews
 
 ## Source Of Truth
 
 - User-approved decisions in `docs/collaboration/DECISIONS.md` override drafts.
 - `docs/PRODUCT_BLUEPRINT.md` is the canonical product scope.
+- `docs/DESIGN_SYSTEM.md` is the canonical design system ("Tactile Hospitality Tech", `kl-*` tokens, Quiet UI).
 - `docs/collaboration/CURRENT.md` describes the integrated project state.
 - Design explorations are not approved merely because they exist in the repo.
 - The working app remains a sandbox. Demo and simulation paths must continue to
