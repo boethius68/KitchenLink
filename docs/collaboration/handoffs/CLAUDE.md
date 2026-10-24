@@ -1,6 +1,7 @@
 # Claude Code Handoff
 
-**Updated:** 24 October 2026 (Session-Teil 44: Guest Split-Bill, Trinkgeld & Bewirtungsbeleg (§ 4 Abs. 5 Nr. 2 EStG))
+**Updated:** 24 October 2026 (Session-Teil 45: Emotion-First Homepage-Redesign mit animierter Hospitality-Fotografie)
+**Zuvor:** 24 October 2026 (Session-Teil 44: Guest Split-Bill, Trinkgeld & Bewirtungsbeleg (§ 4 Abs. 5 Nr. 2 EStG))
 **Zuvor:** 24 October 2026 (Session-Teil 43: Tactile Hospitality Tech Design System Sync)
 **Zuvor:** 1 August 2026 (Session-Teil 42: Sollbesetzung)
 **Zuvor:** 1 August 2026 (Session-Teil 41: Abwesenheiten)
@@ -3356,5 +3357,43 @@ autoritative Bestellgrenze, Supabase-Anbindung, PWA-Stufe.
   - `npm run lint`: 0 Warnungen
   - `npm test`: 17/17 Suiten (151 Tests) bestanden
   - `npm run build`: Erfolgreicher statischer SSG/ISR-Build mit Turbopack
+
+## Session-Teil 45: Emotion-First Homepage-Redesign mit animierter Hospitality-Fotografie (24. Oktober 2026)
+
+### Anlass & Zielsetzung
+Die Startseite (`guest-web/src/app/page.tsx`) war nach dem vorangegangenen technischen Ausbau zu stark von Netzwerkbegriffen (Bonjour LAN Relay, Sub-50ms Latenz, TSE-Signaturblöcke) dominiert und wirkte wie ein technisches Handbuch statt einer lebendigen Gastronomie-Plattform. Entsprechend des Nutzer-Briefings („Right now its much too techy. It need to transport more life and emotion.“) und unter Einsatz der neu bereitgestellten animierten Markenfotografie (`/Users/test/Downloads/Kitchenlink Animated`) wurde die Startseite grundlegend überarbeitet, um echte Wärme, Gastfreundschaft und Lebensfreude („Tactile Hospitality Tech“) erlebbar zu machen.
+
+### Durchgeführte Arbeiten
+1. **Asset-Pipeline & Bereitstellung (`guest-web/public/media/animated/`):**
+   - Einbindung aller vier bereitgestellten animierten GIFs:
+     - `hospitality-dining-table.gif`: Heller Gastraum am Mittag, Freunde lachen am Tisch, Servicekraft mit iPhone.
+     - `hospitality-kitchen-pass.gif`: Konzentrierter Chef am heißen Küchenpass, KDS-Display, Dampf und Pfannenzischen.
+     - `hospitality-evening-terrace.gif`: Belebte Sommerterrasse unter Lichterketten, fließende Getränke, abendlicher Rhythmus.
+     - `hospitality-closing-bar.gif`: Bartresen am späten Abend, herzliche Gespräche mit Gästen, harmonischer Feierabend.
+   - Erstellung performanter nativer MP4-Video-Begleitdateien (H.264, FastStart Moov-Atom, ~1.5 MB statt 7.5 MB GIF) für 60fps-Hardwarebeschleunigung auf Mobilgeräten bei erhaltener nativer GIF-Fallback-Kompatibilität (`<video><source ...><img ... /></video>`).
+   - Generierung gestochen scharfer Poster-JPEGs zur Vermeidung von Layout-Shifts beim Seitenaufbau.
+2. **Strukturiertes Datenmodell (`guest-web/src/lib/hospitality-moments.ts`):**
+   - Typisiertes Modell `HospitalityMoment` für die 4 Restaurant-Rhythmen mit Zeitstempeln (`12:30`, `19:15`, `20:45`, `23:30`), Akten, emotionalen Headings, authentischen Gastronomen-Zitaten, Status-Badges und kontextuellen Sandbox-Links.
+3. **Interaktive Hero-Komponente (`guest-web/src/components/HeroHospitalityShowcase.tsx`):**
+   - Ersetzt die starre Code-Karten-Grafik im Hero durch ein lebendiges, bewegtes Schaufenster der Gastfreundschaft.
+   - Ermöglicht dem Besucher über dezent gestaltete Zeit-Pills (`[Gastraum 12:30]`, `[Küche 19:15]`, `[Terrasse 20:45]`, `[Bar 23:30]`) das Umschalten zwischen den Tagesphasen.
+   - Schwebende taktile Naturpapier-Vorschaukarte für die Speisekarte des Gasthauses Alte Mühle mit dezenter LMIV-Allergenauszeichnung und Direktlink.
+4. **Redaktionelle Storytelling-Sektion (`guest-web/src/components/HospitalityMomentsShowcase.tsx`):**
+   - Eigenständige 2-spaltige Erlebnis-Sektion: *„Ein Tag im Restaurant – vier Momente voller Leben“*.
+   - Tiefere Einblicke in jeden Moment: Entlastung der Servicekräfte, Ruhe am Pass durch digitale Gangsteuerung, Funksicherheit im Biergarten, centgenauer Kassenabschluss an der Bar.
+   - Vier-Karten-Strip mit gleichzeitig laufenden Vorschau-Animationen für maximale Lebendigkeit auf dem Screen.
+5. **Redesign der Homepage (`guest-web/src/app/page.tsx`):**
+   - Neuer emotionaler Hero-Einstieg: *„Mehr Raum für das, was Gastronomie ausmacht. Gäste glücklich machen. Ohne Kassenfrust.“*
+   - Technologie wird als vertrauensstiftender Ruhepol im Hintergrund gerahmt (*„Technologische Verlässlichkeit, die dir den Rücken freihält“*) statt als primäres Werbeargument.
+   - Harmonische Farb- und Typografieabstimmung nach `docs/DESIGN_SYSTEM.md` (`kl-canvas`, `kl-surface`, `kl-dark`, `kl-terracotta`, `Newsreader`-Serif und `Plus Jakarta Sans`).
+6. **Test-Suite & Verifikation (`guest-web/__tests__/homepage-routing.test.ts`):**
+   - Testabdeckung für die vier Momente und deren Mediendateien (GIF, MP4, Poster) in `public/media/animated/`.
+
+### Verifikation
+- `guest-web`: `npm run typecheck` (0 Fehler)
+- `guest-web`: `npm run lint` (0 Fehler, 0 Warnungen)
+- `guest-web`: `npm test` (17/17 Testsuiten, 157/157 Tests bestanden)
+- `guest-web`: `npm run build` (Erfolgreicher Turbopack-Build, Prerendering aller Routen inkl. `/` als statisches SSG)
+
 
 

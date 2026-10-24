@@ -1,6 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { HeroHospitalityShowcase } from "@/components/HeroHospitalityShowcase";
+import { HospitalityMomentsShowcase } from "@/components/HospitalityMomentsShowcase";
 
 export default function Home() {
   return (
@@ -25,26 +26,32 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Center/Right: Status pill */}
+          {/* Center: Live mesh status pill */}
           <div className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-kl-emerald font-mono text-xs">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-kl-emerald opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-kl-emerald" />
             </span>
-            <span>BONJOUR LAN RELAY • OFFLINE-FIRST</span>
+            <span>AUTONOMES LAN-RELAY • OFFLINE-STABIL</span>
           </div>
 
-          {/* CTA & Controls */}
-          <div className="flex items-center gap-3">
+          {/* Right: CTA & Controls */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <Link
+              href="/alte-muehle/reserve"
+              className="hidden lg:inline-flex text-xs font-mono text-neutral-400 hover:text-kl-canvas transition-colors px-2 py-1"
+            >
+              Reservierung
+            </Link>
             <Link
               href="/vendors"
-              className="hidden lg:inline-flex text-xs font-mono text-neutral-400 hover:text-kl-canvas transition-colors px-2 py-1"
+              className="hidden sm:inline-flex text-xs font-mono text-neutral-400 hover:text-kl-canvas transition-colors px-2 py-1"
             >
               B2B Lieferanten
             </Link>
             <Link
               href="/alte-muehle/menu"
-              className="inline-flex items-center gap-1.5 bg-kl-terracotta hover:bg-kl-terracotta/90 text-white font-sans text-xs sm:text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 bg-kl-terracotta hover:bg-kl-terracotta/90 text-white font-sans text-xs sm:text-sm font-medium px-3.5 sm:px-4 py-2 rounded-lg transition-colors shadow-sm"
             >
               <span>Live-Sandbox</span>
               <span aria-hidden="true">→</span>
@@ -55,11 +62,11 @@ export default function Home() {
       </header>
 
       <main>
-        {/* 2. Hero Section */}
-        <section className="bg-kl-dark text-kl-canvas pt-12 pb-20 md:pt-20 md:pb-28 border-b border-neutral-800 relative overflow-hidden">
+        {/* 2. Hero Section: Hospitality in Motion */}
+        <section className="bg-kl-dark text-kl-canvas pt-10 pb-16 md:pt-16 md:pb-24 border-b border-neutral-800 relative overflow-hidden">
           {/* Subtle atmospheric glow */}
           <div
-            className="absolute -top-24 -right-24 w-96 h-96 bg-kl-terracotta/10 rounded-full blur-3xl pointer-events-none"
+            className="absolute -top-24 -right-24 w-96 h-96 bg-kl-terracotta/15 rounded-full blur-3xl pointer-events-none"
             aria-hidden="true"
           />
           <div
@@ -68,24 +75,26 @@ export default function Home() {
           />
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-              {/* Left Column: Copy & Actions */}
-              <div className="lg:col-span-7">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+              {/* Left Column: Emotion-driven Copy & Actions */}
+              <div className="lg:col-span-6 xl:col-span-7">
                 <div className="inline-flex items-center gap-2 mb-4">
+                  <span className="w-2 h-2 rounded-full bg-kl-terracotta" />
                   <span className="font-mono text-xs uppercase tracking-widest text-kl-terracotta font-semibold">
-                    FÜR DIE DACH-GASTRONOMIE ENTWICKELT
+                    ECHTE GASTFREUNDSCHAFT · LEISE TECHNIK
                   </span>
                 </div>
 
                 <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-kl-canvas leading-[1.12]">
-                  Ruhe im Service,
+                  Mehr Raum für das,
                   <br />
-                  <span className="italic text-kl-border">selbst wenn das WLAN brennt.</span>
+                  <span className="italic text-kl-border">was Gastronomie ausmacht.</span>
                 </h1>
 
-                <p className="text-neutral-400 text-base sm:text-lg lg:text-xl font-sans mt-6 max-w-2xl leading-relaxed">
-                  Smartphone-first Kasse (native SwiftUI), sekundenschnelles QR-Table-Ordering
-                  ohne App-Zwang und unterbrechungsfreier Offline-Betrieb per lokalem LAN-Relay.
+                <p className="text-neutral-300 text-base sm:text-lg lg:text-xl font-sans mt-6 max-w-2xl leading-relaxed">
+                  KitchenLink bringt Herz und Rhythmus zurück in die Gastronomie.
+                  Smartphone-first Kasse, intuitive Speisekarte ohne App-Zwang und ein Team,
+                  das Hand in Hand arbeitet – vom ersten Mittagstisch bis zum letzten Drink an der Bar.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4 mt-8">
@@ -93,220 +102,76 @@ export default function Home() {
                     href="/alte-muehle/menu"
                     className="inline-flex items-center justify-center gap-2 bg-kl-terracotta hover:opacity-95 text-white font-sans font-medium text-base px-6 py-3.5 rounded-xl transition-all shadow-lg shadow-kl-terracotta/20 hover:shadow-kl-terracotta/30"
                   >
-                    <span>Gast-Speisekarte testen (Alte Mühle)</span>
+                    <span>Gast-Speisekarte erleben (Alte Mühle)</span>
                     <span aria-hidden="true">→</span>
                   </Link>
-                  <a
-                    href="https://github.com/boethius68/KitchenLink"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-700 text-kl-canvas font-mono text-sm px-5 py-3.5 rounded-xl transition-all"
+                  <Link
+                    href="/alte-muehle/reserve"
+                    className="inline-flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-700 text-neutral-300 hover:text-white font-mono text-sm px-5 py-3.5 rounded-xl transition-all"
                   >
-                    <span>GitHub & Architektur</span>
+                    <span>Tischreservierung testen</span>
                     <span aria-hidden="true">→</span>
-                  </a>
+                  </Link>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-6 mt-10 pt-6 border-t border-neutral-800/80 text-xs font-mono text-neutral-400">
+                {/* Subtle Trust Indicators */}
+                <div className="flex flex-wrap items-center gap-5 sm:gap-6 mt-10 pt-6 border-t border-neutral-800/80 text-xs font-mono text-neutral-400">
                   <div className="flex items-center gap-2">
                     <span className="text-kl-emerald font-bold">✓</span>
-                    <span>TSE-KassensichV § 146a AO</span>
+                    <span>Quiet UI Speisekarte (14 EU-Allergene dezent)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-kl-emerald font-bold">✓</span>
-                    <span>GoBD & DSFinV-K 2.3</span>
+                    <span>Unterbrechungsfreies Offline-Mesh</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-kl-emerald font-bold">✓</span>
-                    <span>14 EU-Hauptallergene (LMIV)</span>
+                    <span>TSE-KassenSichV § 146a AO & DATEV</span>
                   </div>
                 </div>
               </div>
 
-              {/* Right Column: Hero Bistro Atmosphere + Dual Live UI Artifacts */}
-              <div className="lg:col-span-5 relative min-h-[520px] sm:min-h-[580px] flex items-center justify-center">
-                {/* Atmospheric Background Image: Bistro Table with iPhone POS */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden border border-neutral-800 shadow-2xl">
-                  <Image
-                    src="/images/hero-bistro.png"
-                    alt="Atmosphärischer Restauranttisch mit KitchenLink iPhone-Kasse"
-                    fill
-                    priority
-                    sizes="(max-width: 1024px) 100vw, 42vw"
-                    className="object-cover opacity-60"
-                  />
-                  {/* Warm dark vignette overlay so typography remains crisp */}
-                  <div
-                    className="absolute inset-0 bg-gradient-to-t from-kl-dark/85 via-kl-dark/20 to-transparent pointer-events-none"
-                    aria-hidden="true"
-                  />
-                  <div
-                    className="absolute inset-0 bg-gradient-to-r from-kl-dark/70 via-transparent to-kl-dark/50 pointer-events-none"
-                    aria-hidden="true"
-                  />
-                </div>
-
-                {/* 1. POS Dark Card (Simulated SwiftUI Order Ticket) */}
-                <div className="bg-[#141413]/95 backdrop-blur-md border border-neutral-700/80 rounded-2xl p-5 sm:p-6 shadow-2xl w-full max-w-sm sm:max-w-md transform lg:-rotate-2 transition-transform duration-300 hover:rotate-0 z-10 mb-8 sm:mb-12">
-                  <div className="flex items-center justify-between border-b border-neutral-800 pb-3 mb-3.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-kl-emerald animate-pulse" />
-                      <span className="font-mono text-xs font-bold text-kl-canvas tracking-wider">
-                        TISCH 12 • BON #084
-                      </span>
-                    </div>
-                    <span className="font-mono text-[11px] text-neutral-400">
-                      Service: Anna • 19:42 Uhr
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 font-sans text-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-semibold text-neutral-100">
-                          2× Geschmorte Rote Bete
-                        </div>
-                        <div className="text-xs text-neutral-400 font-mono">
-                          Gang 1 • Vorspeise
-                        </div>
-                      </div>
-                      <div className="font-mono tabular-nums text-neutral-200 font-medium">
-                        29,00 €
-                      </div>
-                    </div>
-
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-semibold text-neutral-100">
-                          1× Dry Aged Entrecôte (300g)
-                        </div>
-                        <div className="text-xs text-neutral-400 font-mono">
-                          Medium-rare • Rosmarinjus • Gang 2
-                        </div>
-                      </div>
-                      <div className="font-mono tabular-nums text-neutral-200 font-medium">
-                        38,50 €
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-b border-dashed border-neutral-700 my-3.5" />
-
-                  <div className="flex items-center justify-between font-mono">
-                    <span className="text-xs text-neutral-400 uppercase tracking-wider">
-                      Gesamtbetrag
-                    </span>
-                    <span className="text-base font-bold tabular-nums text-kl-canvas">
-                      67,50 €
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-neutral-800 text-[11px] font-mono">
-                    <span className="text-kl-emerald bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded">
-                      TSE-Signatur: OK • DSFinV-K
-                    </span>
-                    <span className="text-neutral-300 bg-neutral-850 border border-neutral-700 px-2 py-0.5 rounded">
-                      Sync: 12ms (Local LAN)
-                    </span>
-                  </div>
-                </div>
-
-                {/* 2. Guest Web Paper Card (Simulated Mini Dining Room Preview) */}
-                <div className="absolute -bottom-6 -right-2 sm:right-2 sm:-bottom-8 max-w-xs sm:max-w-sm w-full bg-kl-canvas text-kl-charcoal border border-kl-border rounded-2xl p-4 sm:p-5 shadow-2xl transform lg:rotate-2 hover:rotate-0 transition-transform duration-300 z-20">
-                  <div className="flex items-center justify-between border-b border-kl-border pb-2 mb-2.5">
-                    <span className="font-serif font-medium text-sm text-kl-charcoal">
-                      Gasthaus Alte Mühle
-                    </span>
-                    <span className="font-mono text-[10px] bg-kl-subtle text-kl-muted px-2 py-0.5 rounded-full">
-                      Tisch 12 • QR Live
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="flex items-start gap-3">
-                      <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-kl-border flex-shrink-0 bg-kl-subtle shadow-sm">
-                        <Image
-                          src="/images/dish-rote-bete.jpg"
-                          alt="Geschmorte Rote Bete mit Ziegenfrischkäse und Walnüssen"
-                          fill
-                          sizes="56px"
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-sans font-semibold text-sm text-kl-charcoal leading-snug">
-                            Geschmorte Rote Bete
-                          </span>
-                          <span className="bg-kl-sage/15 text-kl-sage text-[10px] px-1.5 py-0.5 rounded font-medium">
-                            Vegetarisch
-                          </span>
-                        </div>
-
-                        <p className="font-sans text-xs text-kl-muted mt-1 leading-relaxed line-clamp-2">
-                          Ziegenfrischkäse, geröstete Walnüsse, Wildkräuter & alter Balsamico.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 mt-2.5">
-                      <span className="bg-kl-subtle text-kl-muted font-mono text-[10px] px-1.5 py-0.5 rounded">
-                        G · Milch
-                      </span>
-                      <span className="bg-kl-subtle text-kl-muted font-mono text-[10px] px-1.5 py-0.5 rounded">
-                        H · Walnuss
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-kl-border/70">
-                      <span className="font-mono tabular-nums text-sm font-semibold text-kl-charcoal">
-                        14,50 €
-                      </span>
-                      <Link
-                        href="/alte-muehle/menu"
-                        className="inline-flex items-center gap-1 bg-kl-dark text-kl-canvas hover:bg-neutral-800 font-sans text-xs font-medium px-3 py-1.5 rounded-lg transition-colors shadow-sm"
-                      >
-                        <span>Speisekarte öffnen</span>
-                        <span className="font-mono text-[10px] text-kl-terracotta">→</span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+              {/* Right Column: Hero Animated Photography Showcase */}
+              <div className="lg:col-span-6 xl:col-span-5">
+                <HeroHospitalityShowcase />
               </div>
             </div>
           </div>
         </section>
 
-        {/* 3. Core Pillars Bento Grid */}
-        <section className="bg-kl-canvas text-kl-charcoal py-20 lg:py-28 border-b border-kl-border">
+        {/* 3. Editorial Storytelling: 4 Moments of Hospitality Life */}
+        <HospitalityMomentsShowcase />
+
+        {/* 4. Technological Foundation as Quiet Peace of Mind */}
+        <section className="bg-kl-surface text-kl-charcoal py-20 lg:py-28 border-b border-kl-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl">
               <span className="font-mono text-xs uppercase tracking-widest text-kl-terracotta font-semibold">
-                ARCHITEKTUR & BETRIEBSSYSTEM
+                ARCHITEKTUR & BETRIEBSSICHERHEIT
               </span>
               <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-medium tracking-tight text-kl-charcoal mt-2">
-                Technologische Präzision für den echten Gastronomie-Alltag.
+                Technologische Verlässlichkeit, die dir den Rücken freihält.
               </h2>
               <p className="text-kl-muted text-base sm:text-lg max-w-2xl mt-4 font-sans leading-relaxed">
-                Vier Säulen, die KitchenLink vom ersten Gast-Scan bis zum revisionssicheren
-                Tagesabschluss kompromisslos zuverlässig machen.
+                Wir kümmern uns um KassenSichV, unterbrechungsfreie Funknetze und automatische
+                Buchungssätze – damit du dich voll auf deine Gäste, deine Küche und dein Team konzentrieren kannst.
               </p>
             </div>
 
             {/* Asymmetric Bento Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 mt-12">
               {/* Card 1 (7 Cols): Offline-First LAN Resilienz */}
-              <div className="lg:col-span-7 bg-kl-surface border border-kl-border rounded-2xl p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+              <div className="lg:col-span-7 bg-kl-canvas border border-kl-border rounded-2xl p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="font-mono text-xs font-semibold text-kl-emerald bg-emerald-950/10 border border-emerald-800/20 px-2.5 py-1 rounded-full">
                       mDNS Bonjour Mesh
                     </span>
-                    <span className="font-mono text-xs text-kl-muted">Pillar 01</span>
+                    <span className="font-mono text-xs text-kl-muted">Säule 01</span>
                   </div>
 
                   <h3 className="font-serif text-2xl font-medium text-kl-charcoal">
-                    Offline-First LAN-Resilienz
+                    Unerschütterliche LAN-Resilienz
                   </h3>
 
                   <p className="font-sans text-sm text-kl-muted mt-3 leading-relaxed">
@@ -327,17 +192,17 @@ export default function Home() {
               </div>
 
               {/* Card 2 (5 Cols): Dish-First Guest Web & 14 EU-Allergene */}
-              <div className="lg:col-span-5 bg-kl-surface border border-kl-border rounded-2xl p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+              <div className="lg:col-span-5 bg-kl-canvas border border-kl-border rounded-2xl p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="font-mono text-xs font-semibold text-kl-terracotta bg-kl-terracotta/10 border border-kl-terracotta/20 px-2.5 py-1 rounded-full">
                       Quiet UI • LMIV
                     </span>
-                    <span className="font-mono text-xs text-kl-muted">Pillar 02</span>
+                    <span className="font-mono text-xs text-kl-muted">Säule 02</span>
                   </div>
 
                   <h3 className="font-serif text-2xl font-medium text-kl-charcoal">
-                    Dish-First Guest Web & 14 EU-Allergene
+                    Quiet-UI-Speisekarte & 14 EU-Allergene
                   </h3>
 
                   <p className="font-sans text-sm text-kl-muted mt-3 leading-relaxed">
@@ -365,17 +230,17 @@ export default function Home() {
               </div>
 
               {/* Card 3 (5 Cols): Native SwiftUI POS & Schichtbetrieb */}
-              <div className="lg:col-span-5 bg-kl-surface border border-kl-border rounded-2xl p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+              <div className="lg:col-span-5 bg-kl-canvas border border-kl-border rounded-2xl p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="font-mono text-xs font-semibold text-kl-charcoal bg-neutral-200/80 px-2.5 py-1 rounded-full">
                       120Hz Swift & SwiftUI
                     </span>
-                    <span className="font-mono text-xs text-kl-muted">Pillar 03</span>
+                    <span className="font-mono text-xs text-kl-muted">Säule 03</span>
                   </div>
 
                   <h3 className="font-serif text-2xl font-medium text-kl-charcoal">
-                    Native SwiftUI POS & Schichtbetrieb
+                    Native iPhone-Kasse für das Team
                   </h3>
 
                   <p className="font-sans text-sm text-kl-muted mt-3 leading-relaxed">
@@ -389,18 +254,18 @@ export default function Home() {
                 <div className="mt-8 pt-6 border-t border-kl-border/70 flex flex-wrap items-center gap-3 font-mono text-xs text-kl-charcoal">
                   <span className="bg-kl-subtle px-2.5 py-1 rounded-md">Gangfeuerung</span>
                   <span className="bg-kl-subtle px-2.5 py-1 rounded-md">Tap to Pay bereit</span>
-                  <span className="bg-kl-subtle px-2.5 py-1 rounded-md">Sollbesetzungswarnung</span>
+                  <span className="bg-kl-subtle px-2.5 py-1 rounded-md">Schichtplanung</span>
                 </div>
               </div>
 
               {/* Card 4 (7 Cols): DACH-Fiskal & Buchhaltung Ready */}
-              <div className="lg:col-span-7 bg-kl-surface border border-kl-sage/40 rounded-2xl p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-kl-surface to-kl-sage/5">
+              <div className="lg:col-span-7 bg-kl-canvas border border-kl-sage/40 rounded-2xl p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-kl-canvas to-kl-sage/5">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="font-mono text-xs font-semibold text-kl-sage bg-kl-sage/15 border border-kl-sage/30 px-2.5 py-1 rounded-full">
                       KassenSichV • GoBD • DATEV
                     </span>
-                    <span className="font-mono text-xs text-kl-muted">Pillar 04</span>
+                    <span className="font-mono text-xs text-kl-muted">Säule 04</span>
                   </div>
 
                   <h3 className="font-serif text-2xl font-medium text-kl-charcoal">
@@ -438,7 +303,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 4. Interactive Sandbox Callout Banner */}
+        {/* 5. Interactive Sandbox Callout Banner */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="bg-kl-dark text-kl-canvas rounded-3xl p-8 sm:p-12 lg:p-16 border border-neutral-800 shadow-2xl relative overflow-hidden">
             <div
@@ -478,13 +343,20 @@ export default function Home() {
                   <span>Tischreservierung ansehen</span>
                   <span aria-hidden="true">→</span>
                 </Link>
+                <Link
+                  href="/vendors"
+                  className="inline-flex items-center gap-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-700 text-neutral-300 hover:text-white font-mono text-sm px-5 py-3.5 rounded-xl transition-all"
+                >
+                  <span>Lieferanten-Portal</span>
+                  <span aria-hidden="true">→</span>
+                </Link>
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      {/* 5. Clean Footer */}
+      {/* 6. Clean Editorial Footer */}
       <footer className="bg-kl-dark text-neutral-400 border-t border-neutral-800 py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
@@ -498,7 +370,7 @@ export default function Home() {
                 Smartphone-First Restaurant Operating System für den modernen DACH-Gastronomiebetrieb.
               </p>
               <div className="font-mono text-xs text-neutral-400 mt-4">
-                Open Source & Architecture • MIT License
+                Open Source & Architektur • MIT License
               </div>
             </div>
 
